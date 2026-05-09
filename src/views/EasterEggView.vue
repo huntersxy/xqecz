@@ -38,67 +38,67 @@ const showQrModal = ref(false)
 const mysteryMembers = ref([
   {
     id: 1,
-    avatar: '🐱',
-    nickname: '小泉本泉',
-    role: '群主',
-    signature: '小泉动漫，我的二创小窝~',
-    tags: ['创始人', '动漫狂热粉', '画画萌新']
+    avatar: '🐉',
+    nickname: 'SCPLin',
+    role: '成员',
+    signature: '龙王',
+    tags: ['ESFP', '话痨', '轻松活泼']
   },
   {
     id: 2,
-    avatar: '🎨',
-    nickname: '画渣一只',
-    role: '管理员',
-    signature: '每天进步一点点！',
-    tags: ['绘画', '同人', '努力中']
+    avatar: '📖',
+    nickname: '东文闻妙喵',
+    role: '成员',
+    signature: '评论家',
+    tags: ['INTJ', '深度分析', '严谨']
   },
   {
     id: 3,
-    avatar: '📝',
-    nickname: '文案搬运工',
-    role: '管理员',
-    signature: '好文案值得被更多人看到',
-    tags: ['文案', '策划', '脑洞大']
+    avatar: '💭',
+    nickname: '折光记',
+    role: '成员',
+    signature: '沉默终结者',
+    tags: ['ENTJ', '深度话题', '高回复']
   },
   {
     id: 4,
-    avatar: '🎬',
-    nickname: '剪辑手残党',
+    avatar: '🔧',
+    nickname: 'brief',
     role: '成员',
-    signature: 'Pr虐我千百遍',
-    tags: ['视频剪辑', 'AE初学者']
+    signature: '技术专家',
+    tags: ['ISTP', '技术宅', '低调']
   },
   {
     id: 5,
-    avatar: '🎵',
-    nickname: 'BGM收集癖',
+    avatar: '✨',
+    nickname: '未闻的星间',
     role: '成员',
-    signature: '好听的BGM大家一起分享~',
-    tags: ['音乐', '推荐', '收藏癖']
+    signature: '互动达人',
+    tags: ['ENFJ', '善于交流', '社交牛']
   },
   {
     id: 6,
-    avatar: '🌟',
-    nickname: '神秘大佬',
+    avatar: '😂',
+    nickname: '黎旭',
     role: '成员',
-    signature: '路过看看',
-    tags: ['潜水', '观望中']
+    signature: '表情包军火库',
+    tags: ['ISFP', '表情包大师', '活泼']
   },
   {
     id: 7,
-    avatar: '📚',
-    nickname: '资料库',
+    avatar: '🌙',
+    nickname: '饮水思源',
     role: '成员',
-    signature: '有问题找我准没错',
-    tags: ['百科', '考据', '细节控']
+    signature: '夜猫子',
+    tags: ['INFP', '沉思者', '安静']
   },
   {
     id: 8,
-    avatar: '🎮',
-    nickname: '游戏宅',
+    avatar: '☀️',
+    nickname: 'ᴍɪɴɢ.',
     role: '成员',
-    signature: '游戏里也能二创~',
-    tags: ['游戏', '杂谈', '肝帝']
+    signature: '阳角',
+    tags: ['ESTJ', '高冷', '影响力']
   }
 ])
 
