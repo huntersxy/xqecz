@@ -19,7 +19,7 @@ async function loadReports() {
     } else {
       message.value = res.message
     }
-  } catch (error) {
+  } catch {
     message.value = '加载举报列表失败'
   }
 }
@@ -33,7 +33,7 @@ async function handleReport(reportId: number) {
     } else {
       message.value = res.message || '处理失败'
     }
-  } catch (error) {
+  } catch {
     message.value = '处理失败'
   }
 }
@@ -57,7 +57,7 @@ async function deleteComment() {
     } else {
       message.value = deleteRes.message || '删除失败'
     }
-  } catch (error) {
+  } catch {
     message.value = '删除失败'
   }
   showDeleteConfirm.value = false

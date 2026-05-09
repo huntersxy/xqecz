@@ -35,7 +35,7 @@ export const useUserStore = defineStore('user', () => {
         user.value = null
         isLoggedIn.value = false
       }
-    } catch (error) {
+    } catch {
       user.value = null
       isLoggedIn.value = false
     } finally {

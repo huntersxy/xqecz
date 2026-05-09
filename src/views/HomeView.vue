@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { contentApi } from '@/api'
-import type { Content, ListParams } from '@/types'
+import type { Content, ListParams, User } from '@/types'
 
 function getImageUrl(image: string | undefined, filePath: string | undefined, contentType?: string): string {
   if (image) {
@@ -55,22 +55,26 @@ const contentTypeLabels: Record<string, string> = {
   text: '图文',
 }
 
-function normalizeContent(content: any): Content {
+function normalizeContent(content: Content | Record<string, unknown>): Content {
+  const getVal = (key: keyof Content, altKey: string): unknown => {
+    return (content as Record<string, unknown>)[key] ?? (content as Record<string, unknown>)[altKey]
+  }
+
   return {
-    id: content.id || content.ID,
-    title: content.title || content.Title,
-    type: content.type || content.Type,
-    content: content.content || content.Content || '',
-    file_path: content.file_path || content.FilePath || '',
-    file_size: content.file_size || content.FileSize || 0,
-    user_id: content.user_id || content.UserID || 0,
-    user: content.user || content.User || null,
-    tags: content.tags || content.Tags || [],
-    audit_status: content.audit_status || content.AuditStatus || '',
-    created_at: content.created_at || content.CreatedAt || '',
-    updated_at: content.updated_at || content.UpdatedAt || '',
-    image: content.image || '',
-    video: content.video || '',
+    id: Number(getVal('id', 'ID')) || 0,
+    title: String(getVal('title', 'Title')) || '',
+    type: (String(getVal('type', 'Type')) as 'video' | 'image' | 'text') || 'text',
+    content: String(getVal('content', 'Content')) || '',
+    file_path: String(getVal('file_path', 'FilePath')) || '',
+    file_size: Number(getVal('file_size', 'FileSize')) || 0,
+    user_id: Number(getVal('user_id', 'UserID')) || 0,
+    user: (getVal('user', 'User') as User) || { id: 0, username: '', is_admin: false, is_banned: false, created_at: '', updated_at: '' },
+    tags: Array.isArray(getVal('tags', 'Tags')) ? getVal('tags', 'Tags') as string[] : [],
+    audit_status: (String(getVal('audit_status', 'AuditStatus')) as 'pending' | 'approved' | 'rejected') || 'pending',
+    created_at: String(getVal('created_at', 'CreatedAt')) || '',
+    updated_at: String(getVal('updated_at', 'UpdatedAt')) || '',
+    image: String(getVal('image', '')) || '',
+    video: String(getVal('video', '')) || '',
   }
 }
 
@@ -86,7 +90,7 @@ async function loadContents() {
       res = await contentApi.list(params)
     }
     if (res.code === 200) {
-      contents.value = res.data.list.map((item: any) => normalizeContent(item))
+      contents.value = res.data.list.map((item: Record<string, unknown>) => normalizeContent(item))
       total.value = res.data.total
       totalPages.value = res.data.total_page
     }

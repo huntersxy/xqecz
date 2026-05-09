@@ -41,7 +41,7 @@ async function handleSubmit() {
         message.value = res.message || '注册失败'
       }
     }
-  } catch (error) {
+  } catch {
     message.value = '网络错误，请稍后重试'
   } finally {
     isLoading.value = false

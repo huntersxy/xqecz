@@ -41,7 +41,7 @@ async function loadContent() {
     } else {
       message.value = res.message
     }
-  } catch (error) {
+  } catch {
     message.value = '加载内容失败'
   }
 }
@@ -75,7 +75,7 @@ async function submitComment() {
     } else {
       message.value = res.message || '评论失败'
     }
-  } catch (error) {
+  } catch {
     message.value = '评论失败'
   }
 }
@@ -96,7 +96,7 @@ async function deleteComment(commentId: number) {
     } else {
       message.value = res.message || '删除失败'
     }
-  } catch (error) {
+  } catch {
     message.value = '删除失败'
   }
 }
@@ -118,7 +118,7 @@ async function submitReport() {
     } else {
       message.value = res.message || '举报失败'
     }
-  } catch (error) {
+  } catch {
     message.value = '举报失败'
   }
 }

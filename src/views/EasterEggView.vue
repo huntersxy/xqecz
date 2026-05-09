@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { contentApi } from '@/api'
 import type { Content } from '@/types'
 
 function getImageUrl(image: string | undefined, filePath: string | undefined): string {
@@ -33,7 +32,6 @@ const router = useRouter()
 const contents = ref<Content[]>([])
 const total = ref(0)
 const page = ref(1)
-const pageSize = ref(10)
 const totalPages = ref(1)
 const showQrModal = ref(false)
 
