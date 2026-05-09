@@ -86,7 +86,7 @@ onMounted(() => {
             <span class="user-name">{{ userStore.user?.username || userStore.user?.Username }}</span>
             <span v-if="userStore.user?.is_admin" class="admin-badge">管理员</span>
           </div>
-          <button @click="userStore.logout; closeMobileMenu()" class="mac-btn logout-btn">
+          <button @click="userStore.logout(); closeMobileMenu()" class="mac-btn logout-btn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
               <polyline points="16 17 21 12 16 7"/>
