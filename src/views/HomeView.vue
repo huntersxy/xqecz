@@ -60,6 +60,22 @@ function normalizeContent(content: Content | Record<string, unknown>): Content {
     return (content as Record<string, unknown>)[key] ?? (content as Record<string, unknown>)[altKey]
   }
 
+  const rawUser = getVal('user', 'User') as Record<string, unknown> | undefined
+  const normalizeUser = (u: Record<string, unknown> | undefined): User => {
+    if (!u) return { id: 0, username: '', is_admin: false, is_banned: false, created_at: '', updated_at: '' }
+    const getUserVal = (key: string, altKey: string): unknown => {
+      return u[key] ?? u[altKey]
+    }
+    return {
+      id: Number(getUserVal('id', 'ID')) || 0,
+      username: String(getUserVal('username', 'Username')) || '',
+      is_admin: Boolean(getUserVal('is_admin', 'IsAdmin')) || false,
+      is_banned: Boolean(getUserVal('is_banned', 'IsBanned')) || false,
+      created_at: String(getUserVal('created_at', 'CreatedAt')) || '',
+      updated_at: String(getUserVal('updated_at', 'UpdatedAt')) || '',
+    }
+  }
+
   return {
     id: Number(getVal('id', 'ID')) || 0,
     title: String(getVal('title', 'Title')) || '',
@@ -68,7 +84,7 @@ function normalizeContent(content: Content | Record<string, unknown>): Content {
     file_path: String(getVal('file_path', 'FilePath')) || '',
     file_size: Number(getVal('file_size', 'FileSize')) || 0,
     user_id: Number(getVal('user_id', 'UserID')) || 0,
-    user: (getVal('user', 'User') as User) || { id: 0, username: '', is_admin: false, is_banned: false, created_at: '', updated_at: '' },
+    user: normalizeUser(rawUser),
     tags: Array.isArray(getVal('tags', 'Tags')) ? getVal('tags', 'Tags') as string[] : [],
     audit_status: (String(getVal('audit_status', 'AuditStatus')) as 'pending' | 'approved' | 'rejected') || 'pending',
     created_at: String(getVal('created_at', 'CreatedAt')) || '',
@@ -162,7 +178,7 @@ onMounted(() => {
 
 <template>
   <div class="home-container">
-    <div class="mac-window main-window">
+    <div class="main-window">
       <div class="mac-title-bar">
         <div class="mac-dot mac-dot-red"></div>
         <div class="mac-dot mac-dot-yellow"></div>
@@ -185,9 +201,9 @@ onMounted(() => {
               type="text"
               placeholder="搜索内容..."
               @keyup.enter="handleSearch"
-              class="mac-input search-input"
+              class="search-input"
             />
-            <button @click="handleSearch" class="mac-btn search-btn">搜索</button>
+            <button @click="handleSearch" class="search-btn">搜索</button>
           </div>
         </div>
 
@@ -232,7 +248,7 @@ onMounted(() => {
               v-for="content in contents"
               :key="content.id || content.ID"
               @click="goToDetail(content)"
-              class="content-card mac-card"
+              class="content-card"
             >
               <div class="card-media">
                 <template v-if="content.type === 'image'">
@@ -302,7 +318,7 @@ onMounted(() => {
           <button
             @click="goToPage(page - 1)"
             :disabled="page <= 1"
-            class="mac-btn pagination-btn"
+            class="pagination-btn"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M15 19l-7-7 7-7"/>
@@ -313,7 +329,7 @@ onMounted(() => {
           <button
             @click="goToPage(page + 1)"
             :disabled="page >= totalPages"
-            class="mac-btn pagination-btn"
+            class="pagination-btn"
           >
             下一页
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -339,6 +355,13 @@ onMounted(() => {
   max-width: 1200px;
   min-height: 80vh;
   overflow: hidden;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 12px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 .mac-title-bar {
@@ -348,6 +371,24 @@ onMounted(() => {
   padding: 10px 16px;
   background: linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.02) 100%);
   border-radius: 12px 12px 0 0;
+}
+
+.mac-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.mac-dot-red {
+  background: #ff5f57;
+}
+
+.mac-dot-yellow {
+  background: #febc2e;
+}
+
+.mac-dot-green {
+  background: #28c840;
 }
 
 .window-title {
@@ -414,10 +455,34 @@ onMounted(() => {
 .search-input {
   flex: 1;
   font-size: 14px;
+  padding: 10px 16px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  background: white;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .search-btn {
+  padding: 10px 20px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
   white-space: nowrap;
+}
+
+.search-btn:hover {
+  background: #2563eb;
 }
 
 .filter-section {
@@ -464,14 +529,6 @@ onMounted(() => {
   transition: all 0.2s ease;
 }
 
-@supports (backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px)) {
-  .tag-cloud-item {
-    background: rgba(255, 255, 255, 0.8);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-  }
-}
-
 .tag-cloud-item:hover {
   background: rgba(255, 255, 255, 0.95);
   color: #3b82f6;
@@ -500,14 +557,6 @@ onMounted(() => {
   color: #555;
   cursor: pointer;
   transition: all 0.2s ease;
-}
-
-@supports (backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px)) {
-  .type-cloud-item {
-    background: rgba(255, 255, 255, 0.8);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-  }
 }
 
 .type-cloud-item:hover {
@@ -556,6 +605,12 @@ onMounted(() => {
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 12px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 .content-card:hover {
@@ -752,6 +807,20 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: #f8f9fa;
+  border-color: #3b82f6;
+  color: #3b82f6;
 }
 
 .pagination-btn:disabled {

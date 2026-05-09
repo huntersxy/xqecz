@@ -368,6 +368,7 @@ onMounted(() => {
   padding: 20px;
   display: flex;
   justify-content: center;
+  background: white;
 }
 
 .detail-window {
@@ -376,6 +377,7 @@ onMounted(() => {
   min-height: calc(100vh - 40px);
   display: flex;
   flex-direction: column;
+  background: white;
 }
 
 .detail-content {

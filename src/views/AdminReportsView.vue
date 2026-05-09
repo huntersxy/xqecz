@@ -190,6 +190,11 @@ onMounted(() => {
 
 .reports-content {
   padding: 24px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.mac-title-bar {
+  color: #000000;
 }
 
 .message-bar {

@@ -3,7 +3,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { contentApi, adminApi } from '@/api'
-import type { Content, User } from '@/types'
+import type { Content, User, ApiResponse } from '@/types'
 import { marked } from 'marked'
 
 function getImageUrl(image: string | undefined, filePath: string | undefined): string {
@@ -79,6 +79,9 @@ const deleteTargetId = ref(0)
 
 const showContentDetail = ref(false)
 const contentDetail = ref<Content | null>(null)
+
+const uploadProgress = ref(0)
+const isUploading = ref(false)
 
 function getPreviewText(text: string, maxLength: number = 100): string {
   if (!text) return ''
@@ -317,10 +320,15 @@ async function handleUpload() {
       return
     }
 
+    isUploading.value = true
+    uploadProgress.value = 0
+
     const res = await contentApi.upload({
       ...uploadForm.value,
       user_id: userId
-    })
+    }, (percent) => {
+      uploadProgress.value = percent
+    }) as ApiResponse<Content>
 
     if (res.code === 200) {
       message.value = '上传成功'
@@ -338,6 +346,9 @@ async function handleUpload() {
   } catch (error: unknown) {
     const messageText = error instanceof Error ? error.message : '网络错误'
     message.value = `上传失败: ${messageText}`
+  } finally {
+    isUploading.value = false
+    uploadProgress.value = 0
   }
 }
 
@@ -680,7 +691,13 @@ onMounted(() => {
             </div>
           </div>
 
-          <button @click="handleUpload" class="mac-btn primary-btn">上传</button>
+          <button @click="handleUpload" class="mac-btn primary-btn" :disabled="isUploading">上传</button>
+          <div v-if="isUploading" class="upload-progress">
+            <div class="progress-bar">
+              <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
+            </div>
+            <span class="progress-text">{{ uploadProgress }}%</span>
+          </div>
           </div>
 
           <div class="section-header">
@@ -1210,7 +1227,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   padding: 10px 16px;
-  background: linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.02) 100%);
+  background: rgba(255, 255, 255, 0.5);
   border-radius: 12px 12px 0 0;
 }
 
@@ -1223,6 +1240,7 @@ onMounted(() => {
 
 .admin-content {
   padding: 24px;
+  background: rgba(255, 255, 255, 0.75);
 }
 
 .message-bar {
@@ -1312,6 +1330,63 @@ onMounted(() => {
   background: rgba(0, 0, 0, 0.015);
   border-radius: 12px;
   margin-bottom: 24px;
+}
+
+.upload-progress {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  background: rgba(59, 130, 246, 0.15);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.progress-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #3b82f6;
+  min-width: 45px;
+  text-align: right;
+}
+
+.primary-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .form-row {
@@ -1796,14 +1871,6 @@ onMounted(() => {
   overflow: hidden;
 }
 
-@supports (backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px)) {
-  .tag-modal {
-    background: rgba(255, 255, 255, 0.98);
-    -webkit-backdrop-filter: blur(20px);
-    backdrop-filter: blur(20px);
-  }
-}
-
 .tag-modal-header {
   display: flex;
   align-items: center;
@@ -1859,14 +1926,6 @@ onMounted(() => {
   overflow: hidden;
   position: relative;
   z-index: 10000;
-}
-
-@supports (backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px)) {
-  .modal-content {
-    background: rgba(255, 255, 255, 0.95);
-    -webkit-backdrop-filter: blur(20px);
-    backdrop-filter: blur(20px);
-  }
 }
 
 .detail-modal {

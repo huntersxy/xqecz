@@ -19,6 +19,21 @@ async function handleSubmit() {
     return
   }
   
+  if (!isLoginMode.value) {
+    if (username.value.trim().length < 3) {
+      message.value = '用户名长度不能少于3个字符'
+      return
+    }
+    if (username.value.trim().length > 50) {
+      message.value = '用户名长度不能超过50个字符'
+      return
+    }
+    if (password.value.length < 6) {
+      message.value = '密码长度不能少于6个字符'
+      return
+    }
+  }
+  
   isLoading.value = true
   message.value = ''
   
@@ -154,21 +169,13 @@ function toggleMode() {
 .login-window {
   width: 100%;
   max-width: 400px;
-  background: rgba(255, 255, 255, 0.85);
+  background: white;
   border-radius: 16px;
   box-shadow: 
     0 8px 32px rgba(0, 0, 0, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.4);
   overflow: hidden;
-}
-
-@supports (backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px)) {
-  .login-window {
-    background: rgba(255, 255, 255, 0.3);
-    -webkit-backdrop-filter: blur(20px);
-    backdrop-filter: blur(20px);
-  }
 }
 
 .login-content {

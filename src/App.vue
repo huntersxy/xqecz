@@ -6,6 +6,11 @@ import axios from 'axios'
 
 const userStore = useUserStore()
 const isMobileMenuOpen = ref(false)
+const isMobileUA = ref(false)
+
+function isMobileDevice() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(navigator.userAgent)
+}
 
 function toggleMobileMenu() {
   isMobileMenuOpen.value = !isMobileMenuOpen.value
@@ -41,11 +46,15 @@ async function loadRandomBackground() {
 onMounted(() => {
   userStore.checkAuth()
   loadRandomBackground()
+  isMobileUA.value = isMobileDevice()
+  if (isMobileUA.value) {
+    document.body.classList.add('mobile-ua')
+  }
 })
 </script>
 
 <template>
-  <header class="mac-header">
+  <header class="mac-header" :class="{ 'no-blur': isMobileUA }">
     <nav class="mac-nav">
       <div class="nav-left">
         <RouterLink to="/" class="nav-brand">
@@ -194,13 +203,6 @@ onMounted(() => {
   top: 0;
   z-index: 100;
   background: rgba(255, 255, 255, 0.98);
-}
-
-@supports (backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px)) {
-  .mac-header {
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-  }
 }
 
 .mac-nav {
@@ -427,14 +429,6 @@ onMounted(() => {
   margin-bottom: 6px;
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(0, 0, 0, 0.04);
-}
-
-@supports (backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px)) {
-  .mobile-nav-link {
-    background: rgba(255, 255, 255, 0.8);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-  }
 }
 
 .mobile-nav-link:hover {

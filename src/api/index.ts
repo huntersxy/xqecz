@@ -59,7 +59,7 @@ export const authApi = {
 export const contentApi = {
   getTags: () => request<string[]>('/content/tags'),
 
-  upload: (data: UploadContentData) => {
+  upload: (data: UploadContentData, onProgress?: (percent: number) => void) => {
     console.log('Upload data:', data)
     const formData = new FormData()
 
@@ -87,6 +87,22 @@ export const contentApi = {
 
     if (data.file) {
       formData.append('file', data.file)
+    }
+
+    if (onProgress) {
+      return new Promise((resolve, reject) => {
+        instance.post('/content/upload', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total) {
+              const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+              onProgress(percent)
+            }
+          },
+        }).then(response => resolve(response.data)).catch(reject)
+      })
     }
 
     return request<Content>('/content/upload', {

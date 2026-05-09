@@ -441,6 +441,7 @@ onMounted(() => {
   max-height: 90vh;
   display: flex;
   flex-direction: column;
+  background: white;
 }
 
 .mac-title-bar {
@@ -463,6 +464,7 @@ onMounted(() => {
   padding: 24px;
   flex: 1;
   overflow-y: auto;
+  background: white;
 }
 
 .header-section {
@@ -472,6 +474,9 @@ onMounted(() => {
 
 .egg-banner {
   margin-bottom: 20px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.8) 0%, rgba(118, 75, 162, 0.8) 100%);
+  border-radius: 12px;
+  padding: 20px;
 }
 
 .egg-icon {
@@ -504,16 +509,16 @@ onMounted(() => {
 
 .back-btn {
   margin-top: 20px;
-  background: rgba(255,255,255,0.2);
-  border: 1px solid rgba(255,255,255,0.3);
+  background: #0071e3;
+  border: none;
   color: #fff;
   padding: 10px 24px;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
 .back-btn:hover {
-  background: rgba(255,255,255,0.3);
-  transform: scale(1.05);
+  background: #0077ed;
+  transform: scale(1.02);
 }
 
 .back-btn svg {
@@ -633,14 +638,6 @@ onMounted(() => {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
-@supports (backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px)) {
-  .qq-group {
-    background: rgba(255, 255, 255, 0.7);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-  }
-}
-
 .qq-qrcode-wrapper {
   position: relative;
   cursor: pointer;
@@ -687,13 +684,13 @@ onMounted(() => {
 .qrcode-overlay svg {
   width: 24px;
   height: 24px;
-  color: white;
+  color: #333;
   margin-bottom: 4px;
 }
 
 .qrcode-overlay span {
   font-size: 12px;
-  color: white;
+  color: #333;
 }
 
 .qq-info {
@@ -726,7 +723,7 @@ onMounted(() => {
 .qq-avatar svg {
   width: 24px;
   height: 24px;
-  color: white;
+  color: #333;
 }
 
 .qq-title-text {
@@ -818,13 +815,13 @@ onMounted(() => {
 .section-title {
   font-size: 18px;
   font-weight: 600;
-  color: #fff;
+  color: #1a1a1a;
   margin: 0;
 }
 
 .section-count {
   font-size: 13px;
-  color: rgba(255,255,255,0.7);
+  color: #666;
 }
 
 .content-grid {
@@ -883,7 +880,7 @@ onMounted(() => {
 .play-icon {
   width: 20px;
   height: 20px;
-  color: white;
+  color: #333;
   margin-left: 3px;
 }
 
@@ -1056,12 +1053,12 @@ onMounted(() => {
 
 .mystery-role.群主 {
   background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  color: white;
+  color: #fff;
 }
 
 .mystery-role.管理员 {
   background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-  color: white;
+  color: #fff;
 }
 
 .mystery-signature {
@@ -1094,7 +1091,7 @@ onMounted(() => {
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  color: rgba(255,255,255,0.6);
+  color: #666;
 }
 
 .empty-icon {
@@ -1116,13 +1113,13 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255,255,255,0.2);
-  border: 1px solid rgba(255,255,255,0.3);
-  color: #fff;
+  background: white;
+  border: 1px solid rgba(0,0,0,0.1);
+  color: #333;
 }
 
 .pagination-btn:hover:not(:disabled) {
-  background: rgba(255,255,255,0.3);
+  background: #f5f5f5;
 }
 
 .pagination-btn:disabled {
@@ -1137,7 +1134,7 @@ onMounted(() => {
 
 .pagination-info {
   font-size: 14px;
-  color: rgba(255,255,255,0.8);
+  color: #666;
 }
 
 @media screen and (max-width: 768px) {
@@ -1168,6 +1165,10 @@ onMounted(() => {
 
   .egg-icon {
     font-size: 48px;
+  }
+
+  .egg-banner {
+    padding: 16px;
   }
 
   .egg-title {
@@ -1309,12 +1310,6 @@ onMounted(() => {
     max-width: 100%;
     padding: 16px;
     background: rgba(255, 255, 255, 0.9);
-  }
-
-  @supports (backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px)) {
-    .qq-group {
-      background: rgba(255, 255, 255, 0.8);
-    }
   }
 
   .qq-qrcode-wrapper {
