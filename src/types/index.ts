@@ -121,3 +121,27 @@ export interface ListParams {
   order?: string
   keyword?: string
 }
+
+export interface RecommendContent {
+  id: number
+  title: string
+  type: 'video' | 'image' | 'text'
+  file_path: string
+  image: string
+  tags: string[]
+  view_count?: number
+  user: { id: number; username: string }
+  created_at: string
+  ID?: number
+  Title?: string
+  Type?: string
+  FilePath?: string
+  Tags?: string[]
+  User?: { ID?: number; Username?: string }
+  CreatedAt?: string
+}
+
+export interface RecommendResponse {
+  list: RecommendContent[]
+  count: number
+}

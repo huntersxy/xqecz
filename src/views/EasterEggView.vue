@@ -427,11 +427,6 @@ onMounted(() => {
   padding: 20px;
   display: flex;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  position: fixed;
-  top: 0;
-  left: 0;
-  overflow-y: auto;
 }
 
 .egg-window {
@@ -441,7 +436,13 @@ onMounted(() => {
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  background: white;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 12px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 .mac-title-bar {
@@ -451,6 +452,24 @@ onMounted(() => {
   padding: 10px 16px;
   background: linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.02) 100%);
   border-radius: 12px 12px 0 0;
+}
+
+.mac-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.mac-dot-red {
+  background: #ff5f57;
+}
+
+.mac-dot-yellow {
+  background: #febc2e;
+}
+
+.mac-dot-green {
+  background: #28c840;
 }
 
 .window-title {
@@ -464,7 +483,6 @@ onMounted(() => {
   padding: 24px;
   flex: 1;
   overflow-y: auto;
-  background: white;
 }
 
 .header-section {
@@ -509,7 +527,7 @@ onMounted(() => {
 
 .back-btn {
   margin-top: 20px;
-  background: #0071e3;
+  background: #3b82f6;
   border: none;
   color: #fff;
   padding: 10px 24px;
@@ -517,7 +535,7 @@ onMounted(() => {
 }
 
 .back-btn:hover {
-  background: #0077ed;
+  background: #2563eb;
   transform: scale(1.02);
 }
 
@@ -532,9 +550,13 @@ onMounted(() => {
 }
 
 .text-content {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.6);
   border-radius: 12px;
   padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 .text-block {
@@ -603,7 +625,8 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 8px;
   color: #333;
   text-decoration: none;
@@ -611,7 +634,9 @@ onMounted(() => {
 }
 
 .social-link:hover {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.3);
   transform: translateY(-2px);
 }
 
@@ -634,8 +659,10 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.6);
   border-radius: 12px;
   padding: 16px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 .qq-qrcode-wrapper {
@@ -775,7 +802,7 @@ onMounted(() => {
   justify-content: center;
   gap: 6px;
   padding: 10px 16px;
-  background: #0071e3;
+  background: #3b82f6;
   border: none;
   border-radius: 8px;
   color: white;
@@ -786,7 +813,7 @@ onMounted(() => {
 }
 
 .copy-btn:hover {
-  background: #0077ed;
+  background: #2563eb;
 }
 
 .copy-btn:active {
@@ -808,8 +835,9 @@ onMounted(() => {
   align-items: center;
   margin-bottom: 16px;
   padding: 12px 16px;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.6);
   border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.36);
 }
 
 .section-title {
@@ -834,12 +862,17 @@ onMounted(() => {
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  background: rgba(255,255,255,0.95);
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 12px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 .content-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.2);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.12);
 }
 
 .egg-card {
@@ -880,7 +913,7 @@ onMounted(() => {
 .play-icon {
   width: 20px;
   height: 20px;
-  color: #333;
+  color: white;
   margin-left: 3px;
 }
 
@@ -999,9 +1032,13 @@ onMounted(() => {
   display: flex;
   gap: 14px;
   padding: 16px;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.36);
   border-radius: 12px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 .mystery-card:hover {
@@ -1082,8 +1119,8 @@ onMounted(() => {
 
 .mystery-tag {
   padding: 2px 8px;
-  background: rgba(102, 126, 234, 0.1);
-  color: #667eea;
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
   border-radius: 8px;
   font-size: 11px;
 }
@@ -1091,7 +1128,7 @@ onMounted(() => {
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  color: #666;
+  color: #999;
 }
 
 .empty-icon {
@@ -1106,20 +1143,25 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   padding-top: 16px;
-  border-top: 1px solid rgba(255,255,255,0.1);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .pagination-btn {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: white;
-  border: 1px solid rgba(0,0,0,0.1);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   color: #333;
+  padding: 8px 16px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
 }
 
 .pagination-btn:hover:not(:disabled) {
-  background: #f5f5f5;
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .pagination-btn:disabled {
@@ -1149,6 +1191,7 @@ onMounted(() => {
     box-shadow: none;
     min-height: calc(100vh - 60px);
     max-height: none;
+    background: rgba(255, 255, 255, 0.9);
   }
 
   .mac-title-bar {
@@ -1422,7 +1465,7 @@ onMounted(() => {
 }
 
 .qr-modal {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.98);
   border-radius: 16px;
   padding: 24px;
   max-width: 90vw;
@@ -1430,6 +1473,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   animation: scaleIn 0.3s ease;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
 @keyframes scaleIn {
@@ -1454,7 +1498,7 @@ onMounted(() => {
 }
 
 .qr-modal-close:hover {
-  color: #000;
+  color: #3b82f6;
 }
 
 .qr-modal-close svg {

@@ -368,16 +368,54 @@ onMounted(() => {
   padding: 20px;
   display: flex;
   justify-content: center;
-  background: white;
 }
 
 .detail-window {
   width: 100%;
   max-width: 800px;
   min-height: calc(100vh - 40px);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 12px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.mac-title-bar {
   display: flex;
-  flex-direction: column;
-  background: white;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px 16px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.02) 100%);
+  border-radius: 12px 12px 0 0;
+}
+
+.mac-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.mac-dot-red {
+  background: #ff5f57;
+}
+
+.mac-dot-yellow {
+  background: #febc2e;
+}
+
+.mac-dot-green {
+  background: #28c840;
+}
+
+.window-title {
+  margin-left: 16px;
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
 }
 
 .detail-content {
@@ -428,6 +466,7 @@ onMounted(() => {
 
 .back-btn:hover {
   background: rgba(0, 0, 0, 0.1);
+  color: #3b82f6;
 }
 
 .back-icon {
@@ -436,10 +475,13 @@ onMounted(() => {
 }
 
 .content-main {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.6);
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.36);
   margin-bottom: 16px;
 }
 
@@ -588,7 +630,7 @@ onMounted(() => {
 }
 
 .text-content :deep(a) {
-  color: #007aff;
+  color: #3b82f6;
   text-decoration: none;
 }
 
@@ -647,10 +689,13 @@ onMounted(() => {
 }
 
 .comments-section {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.6);
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.36);
 }
 
 .comments-header {
@@ -689,7 +734,7 @@ onMounted(() => {
 }
 
 .cancel-reply-btn:hover {
-  color: #333;
+  color: #3b82f6;
 }
 
 .comment-input {
@@ -701,11 +746,13 @@ onMounted(() => {
   font-size: 14px;
   resize: vertical;
   box-sizing: border-box;
+  background: white;
 }
 
 .comment-input:focus {
   outline: none;
-  border-color: #007aff;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .comment-actions {
@@ -745,15 +792,16 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   padding: 14px;
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(255, 255, 255, 0.6);
   border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.36);
 }
 
 .comment-avatar {
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: rgba(0, 122, 255, 0.1);
+  background: rgba(59, 130, 246, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -763,7 +811,7 @@ onMounted(() => {
 .comment-avatar svg {
   width: 18px;
   height: 18px;
-  color: #007aff;
+  color: #3b82f6;
 }
 
 .comment-content {
@@ -805,8 +853,8 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  background: rgba(0, 0, 0, 0.05);
-  border: none;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   padding: 6px 10px;
   border-radius: 6px;
   font-size: 12px;
@@ -816,7 +864,7 @@ onMounted(() => {
 }
 
 .action-btn:hover {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.95);
   transform: translateY(-1px);
 }
 
@@ -826,12 +874,12 @@ onMounted(() => {
 }
 
 .reply-btn {
-  background: rgba(0, 122, 255, 0.1);
-  color: #007aff;
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
 }
 
 .reply-btn:hover {
-  background: rgba(0, 122, 255, 0.2);
+  background: rgba(59, 130, 246, 0.15);
 }
 
 .delete-btn {
@@ -840,7 +888,7 @@ onMounted(() => {
 }
 
 .delete-btn:hover {
-  background: rgba(220, 38, 38, 0.2);
+  background: rgba(220, 38, 38, 0.15);
 }
 
 .report-btn {
@@ -849,7 +897,7 @@ onMounted(() => {
 }
 
 .report-btn:hover {
-  background: rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.15);
 }
 
 .comment-text {
@@ -862,7 +910,7 @@ onMounted(() => {
 .replies-list {
   margin-top: 10px;
   padding-left: 16px;
-  border-left: 2px solid rgba(0, 0, 0, 0.08);
+  border-left: 2px solid rgba(59, 130, 246, 0.2);
 }
 
 .reply-item {
@@ -879,7 +927,7 @@ onMounted(() => {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: rgba(0, 122, 255, 0.1);
+  background: rgba(59, 130, 246, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -889,7 +937,7 @@ onMounted(() => {
 .reply-avatar svg {
   width: 14px;
   height: 14px;
-  color: #007aff;
+  color: #3b82f6;
 }
 
 .reply-content {
@@ -933,7 +981,7 @@ onMounted(() => {
 }
 
 .reply-to {
-  color: #007aff;
+  color: #3b82f6;
   font-weight: 500;
 }
 
@@ -969,11 +1017,13 @@ onMounted(() => {
 }
 
 .report-modal {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.98);
   border-radius: 12px;
   width: 90%;
   max-width: 400px;
   overflow: hidden;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
 .report-modal-header {
@@ -982,6 +1032,7 @@ onMounted(() => {
   align-items: center;
   padding: 16px 20px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: linear-gradient(180deg, rgba(0,0,0,0.05) 0%, transparent 100%);
 }
 
 .report-modal-header h3 {
@@ -997,6 +1048,10 @@ onMounted(() => {
   cursor: pointer;
   color: #999;
   line-height: 1;
+}
+
+.modal-close:hover {
+  color: #3b82f6;
 }
 
 .report-modal-body {
@@ -1031,11 +1086,13 @@ onMounted(() => {
   border-radius: 6px;
   font-size: 14px;
   box-sizing: border-box;
+  background: white;
 }
 
 .report-input:focus {
   outline: none;
-  border-color: #007aff;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .report-modal-footer {
@@ -1044,6 +1101,7 @@ onMounted(() => {
   gap: 12px;
   padding: 16px 20px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.03);
 }
 
 @media screen and (max-width: 768px) {
@@ -1056,15 +1114,15 @@ onMounted(() => {
     border-radius: 0;
     box-shadow: none;
     min-height: calc(100vh - 60px);
-    background: transparent;
-  }
-
-  .detail-content {
-    padding: 16px;
+    background: rgba(255, 255, 255, 0.9);
   }
 
   .mac-title-bar {
     display: none;
+  }
+
+  .detail-content {
+    padding: 16px;
   }
 
   .content-main {
@@ -1235,6 +1293,7 @@ onMounted(() => {
     width: 95%;
     max-width: none;
     border-radius: 12px;
+    background: rgba(255, 255, 255, 0.98);
   }
 
   .report-modal-body {

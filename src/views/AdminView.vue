@@ -422,6 +422,19 @@ async function regenerateThumbnail(id: number) {
   }
 }
 
+async function regenerateAllThumbnails() {
+  try {
+    const res = await adminApi.regenerateAllThumbnails()
+    if (res.code === 200) {
+      message.value = `已开始处理 ${res.data.count} 条内容的缩略图生成`
+    } else {
+      message.value = res.message || '操作失败'
+    }
+  } catch (error) {
+    message.value = '操作失败'
+  }
+}
+
 async function handleAudit(id: number, status: 'approved' | 'rejected') {
   if (!userStore.user) return
   try {
@@ -763,7 +776,7 @@ onMounted(() => {
 
           <div v-if="myContentsTotalPages > 1" class="pagination-section">
             <button
-              @click="myContentsPage = myContentsPage - 1"
+              @click="myContentsPage = myContentsPage - 1; loadMyContents()"
               :disabled="myContentsPage <= 1"
               class="mac-btn pagination-btn"
             >
@@ -774,7 +787,7 @@ onMounted(() => {
             </button>
             <span class="pagination-info">第 {{ myContentsPage }} / {{ myContentsTotalPages }} 页</span>
             <button
-              @click="myContentsPage = myContentsPage + 1"
+              @click="myContentsPage = myContentsPage + 1; loadMyContents()"
               :disabled="myContentsPage >= myContentsTotalPages"
               class="mac-btn pagination-btn"
             >
@@ -847,7 +860,7 @@ onMounted(() => {
 
           <div v-if="pendingContentsTotalPages > 1" class="pagination-section">
             <button
-              @click="pendingContentsPage = pendingContentsPage - 1"
+              @click="pendingContentsPage = pendingContentsPage - 1; loadPendingContents()"
               :disabled="pendingContentsPage <= 1"
               class="mac-btn pagination-btn"
             >
@@ -858,7 +871,7 @@ onMounted(() => {
             </button>
             <span class="pagination-info">第 {{ pendingContentsPage }} / {{ pendingContentsTotalPages }} 页</span>
             <button
-              @click="pendingContentsPage = pendingContentsPage + 1"
+              @click="pendingContentsPage = pendingContentsPage + 1; loadPendingContents()"
               :disabled="pendingContentsPage >= pendingContentsTotalPages"
               class="mac-btn pagination-btn"
             >
@@ -873,7 +886,18 @@ onMounted(() => {
         <div v-if="activeTab === 'all'" class="tab-content">
           <div class="section-header">
             <h2 class="section-title">所有内容</h2>
-            <span class="section-count">共 {{ allContentsTotal }} 条</span>
+            <div class="section-actions">
+              <span class="section-count">共 {{ allContentsTotal }} 条</span>
+              <button @click="regenerateAllThumbnails" class="mac-btn secondary-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                  <path d="M3 3v5h5"/>
+                  <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                  <path d="M16 21h5v-5"/>
+                </svg>
+                批量生成缩略图
+              </button>
+            </div>
           </div>
 
           <div class="content-list">
@@ -935,7 +959,7 @@ onMounted(() => {
 
           <div v-if="allContentsTotalPages > 1" class="pagination-section">
             <button
-              @click="allContentsPage = allContentsPage - 1"
+              @click="allContentsPage = allContentsPage - 1; loadAllContents()"
               :disabled="allContentsPage <= 1"
               class="mac-btn pagination-btn"
             >
@@ -946,7 +970,7 @@ onMounted(() => {
             </button>
             <span class="pagination-info">第 {{ allContentsPage }} / {{ allContentsTotalPages }} 页</span>
             <button
-              @click="allContentsPage = allContentsPage + 1"
+              @click="allContentsPage = allContentsPage + 1; loadAllContents()"
               :disabled="allContentsPage >= allContentsTotalPages"
               class="mac-btn pagination-btn"
             >
@@ -1020,7 +1044,7 @@ onMounted(() => {
 
           <div v-if="usersTotalPages > 1" class="pagination-section">
             <button
-              @click="usersPage = usersPage - 1"
+              @click="usersPage = usersPage - 1; loadUsers()"
               :disabled="usersPage <= 1"
               class="mac-btn pagination-btn"
             >
@@ -1031,7 +1055,7 @@ onMounted(() => {
             </button>
             <span class="pagination-info">第 {{ usersPage }} / {{ usersTotalPages }} 页</span>
             <button
-              @click="usersPage = usersPage + 1"
+              @click="usersPage = usersPage + 1; loadUsers()"
               :disabled="usersPage >= usersTotalPages"
               class="mac-btn pagination-btn"
             >
@@ -1221,14 +1245,40 @@ onMounted(() => {
   max-width: 1400px;
   min-height: 80vh;
   overflow: hidden;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 12px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 .mac-title-bar {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   padding: 10px 16px;
-  background: rgba(255, 255, 255, 0.5);
+  background: linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.02) 100%);
   border-radius: 12px 12px 0 0;
+}
+
+.mac-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.mac-dot-red {
+  background: #ff5f57;
+}
+
+.mac-dot-yellow {
+  background: #febc2e;
+}
+
+.mac-dot-green {
+  background: #28c840;
 }
 
 .window-title {
@@ -1278,8 +1328,8 @@ onMounted(() => {
 
 .nav-tab {
   padding: 8px 16px;
-  background: transparent;
-  border: none;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 6px;
   font-size: 14px;
   color: #666;
@@ -1288,13 +1338,16 @@ onMounted(() => {
 }
 
 .nav-tab:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.95);
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .nav-tab.active {
   background: rgba(59, 130, 246, 0.1);
   color: #3b82f6;
   font-weight: 500;
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .tab-content {
@@ -1325,11 +1378,42 @@ onMounted(() => {
   color: #888;
 }
 
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.secondary-btn {
+  background: rgba(255, 255, 255, 0.95);
+  color: #666;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.secondary-btn:hover {
+  background: rgba(59, 130, 246, 0.08);
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.secondary-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
 .upload-form {
   padding: 20px;
-  background: rgba(0, 0, 0, 0.015);
+  background: rgba(255, 255, 255, 0.6);
   border-radius: 12px;
   margin-bottom: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.36);
 }
 
 .upload-progress {
@@ -1411,8 +1495,8 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   padding: 10px 16px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 8px;
   font-size: 14px;
   color: #333;
@@ -1421,7 +1505,9 @@ onMounted(() => {
 }
 
 .type-btn:hover {
-  background: #e9ecef;
+  background: rgba(255, 255, 255, 0.95);
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .type-btn.active {
@@ -1450,8 +1536,8 @@ onMounted(() => {
   justify-content: center;
   width: 32px;
   height: 32px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 6px;
   color: #666;
   cursor: pointer;
@@ -1459,13 +1545,14 @@ onMounted(() => {
 }
 
 .md-btn:hover {
-  background: #e9ecef;
-  border-color: #dee2e6;
+  background: rgba(255, 255, 255, 0.95);
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .md-btn:active {
-  background: linear-gradient(180deg, #e9ecef 0%, #dee2e6 100%);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
+  box-shadow: inset 0 1px 2px rgba(59, 130, 246, 0.1);
 }
 
 .md-btn svg {
@@ -1481,11 +1568,12 @@ onMounted(() => {
   font-size: 14px;
   line-height: 1.6;
   box-sizing: border-box;
+  background: white;
 }
 
 .file-input {
   padding: 8px;
-  border: 1px solid #e9ecef;
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 8px;
   background: white;
   cursor: pointer;
@@ -1501,7 +1589,7 @@ onMounted(() => {
   max-width: 200px;
   max-height: 200px;
   border-radius: 8px;
-  border: 1px solid #e9ecef;
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .preview-remove {
@@ -1555,8 +1643,8 @@ onMounted(() => {
   justify-content: center;
   width: 32px;
   height: 32px;
-  background: #f8f9fa;
-  border: 1px dashed #ddd;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px dashed rgba(0, 0, 0, 0.2);
   border-radius: 6px;
   color: #888;
   cursor: pointer;
@@ -1564,9 +1652,9 @@ onMounted(() => {
 }
 
 .quick-add-btn:hover {
-  background: #e9ecef;
-  border-color: #ccc;
-  color: #333;
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
 }
 
 .quick-add-btn svg {
@@ -1584,6 +1672,12 @@ onMounted(() => {
   display: flex;
   gap: 16px;
   padding: 16px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 12px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 .item-media {
@@ -1661,8 +1755,8 @@ onMounted(() => {
 
 .action-btn {
   padding: 6px 12px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 6px;
   font-size: 13px;
   color: #333;
@@ -1671,7 +1765,9 @@ onMounted(() => {
 }
 
 .action-btn:hover {
-  background: #e9ecef;
+  background: rgba(255, 255, 255, 0.95);
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .action-btn.approve-btn {
@@ -1769,6 +1865,12 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 12px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 .user-info {
@@ -1877,6 +1979,7 @@ onMounted(() => {
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: linear-gradient(180deg, rgba(0,0,0,0.05) 0%, transparent 100%);
 }
 
 .tag-modal-header h3 {
@@ -1903,6 +2006,7 @@ onMounted(() => {
 
 .tag-modal-close:hover {
   background: rgba(0, 0, 0, 0.1);
+  color: #3b82f6;
 }
 
 .tag-modal-body {
@@ -1915,6 +2019,7 @@ onMounted(() => {
   gap: 12px;
   padding: 16px 20px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.03);
 }
 
 .modal-content {
@@ -1956,7 +2061,7 @@ onMounted(() => {
 }
 
 .modal-close:hover {
-  color: #666;
+  color: #3b82f6;
 }
 
 .modal-body {

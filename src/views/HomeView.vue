@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { motion, AnimatePresence } from 'motion-v'
 import { contentApi } from '@/api'
-import type { Content, ListParams, User } from '@/types'
+import type { Content, ListParams, User, RecommendContent } from '@/types'
 
-function getImageUrl(image: string | undefined, filePath: string | undefined, contentType?: string): string {
+function getImageUrl(
+  image: string | undefined,
+  filePath: string | undefined,
+  contentType?: string,
+): string {
   if (image) {
     return image.replace(/http:\/\/localhost:8080/, 'https://xqapi.xiey.work')
   }
@@ -35,14 +40,21 @@ function getPreviewText(text: string, maxLength: number = 120): string {
 
 const router = useRouter()
 const contents = ref<Content[]>([])
+const recommendContents = ref<RecommendContent[]>([])
 const allTags = ref<string[]>([])
 const selectedTags = ref<string[]>([])
 const searchKeyword = ref('')
 const selectedTypes = ref<string[]>([])
 const page = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(12)
 const total = ref(0)
 const totalPages = ref(1)
+const recommendPage = ref(1)
+const recommendHint = ref('')
+const recommendPerPage = 16
+const recommendTotal = 100
+const maxRecommendPages = Math.floor(recommendTotal / recommendPerPage)
+const swapSections = ref(false)
 
 const sortedTags = computed(() => {
   return [...allTags.value].sort()
@@ -62,7 +74,15 @@ function normalizeContent(content: Content | Record<string, unknown>): Content {
 
   const rawUser = getVal('user', 'User') as Record<string, unknown> | undefined
   const normalizeUser = (u: Record<string, unknown> | undefined): User => {
-    if (!u) return { id: 0, username: '', is_admin: false, is_banned: false, created_at: '', updated_at: '' }
+    if (!u)
+      return {
+        id: 0,
+        username: '',
+        is_admin: false,
+        is_banned: false,
+        created_at: '',
+        updated_at: '',
+      }
     const getUserVal = (key: string, altKey: string): unknown => {
       return u[key] ?? u[altKey]
     }
@@ -85,8 +105,10 @@ function normalizeContent(content: Content | Record<string, unknown>): Content {
     file_size: Number(getVal('file_size', 'FileSize')) || 0,
     user_id: Number(getVal('user_id', 'UserID')) || 0,
     user: normalizeUser(rawUser),
-    tags: Array.isArray(getVal('tags', 'Tags')) ? getVal('tags', 'Tags') as string[] : [],
-    audit_status: (String(getVal('audit_status', 'AuditStatus')) as 'pending' | 'approved' | 'rejected') || 'pending',
+    tags: Array.isArray(getVal('tags', 'Tags')) ? (getVal('tags', 'Tags') as string[]) : [],
+    audit_status:
+      (String(getVal('audit_status', 'AuditStatus')) as 'pending' | 'approved' | 'rejected') ||
+      'pending',
     created_at: String(getVal('created_at', 'CreatedAt')) || '',
     updated_at: String(getVal('updated_at', 'UpdatedAt')) || '',
     image: String(getVal('image', '')) || '',
@@ -98,9 +120,17 @@ async function loadContents() {
   try {
     let res
     if (searchKeyword.value) {
-      res = await contentApi.search(searchKeyword.value, { page: page.value, page_size: pageSize.value })
+      res = await contentApi.search(searchKeyword.value, {
+        page: page.value,
+        page_size: pageSize.value,
+      })
     } else {
-      const params: ListParams = { page: page.value, page_size: pageSize.value }
+      const params: ListParams = {
+        page: page.value,
+        page_size: pageSize.value,
+        sort_by: 'created_at',
+        order: 'desc',
+      }
       if (selectedTags.value.length > 0) params.tag = selectedTags.value.join(',')
       if (selectedTypes.value.length > 0) params.type = selectedTypes.value.join(',')
       res = await contentApi.list(params)
@@ -109,6 +139,7 @@ async function loadContents() {
       contents.value = res.data.list.map((item: Record<string, unknown>) => normalizeContent(item))
       total.value = res.data.total
       totalPages.value = res.data.total_page
+      swapSections.value = selectedTags.value.length > 0 || selectedTypes.value.length > 0
     }
   } catch (error) {
     console.error('加载内容失败', error)
@@ -129,9 +160,9 @@ async function loadTags() {
 function selectTag(tag: string) {
   const index = selectedTags.value.indexOf(tag)
   if (index > -1) {
-    selectedTags.value.splice(index, 1)
+    selectedTags.value = []
   } else {
-    selectedTags.value.push(tag)
+    selectedTags.value = [tag]
   }
   page.value = 1
   loadContents()
@@ -140,9 +171,9 @@ function selectTag(tag: string) {
 function selectType(type: string) {
   const index = selectedTypes.value.indexOf(type)
   if (index > -1) {
-    selectedTypes.value.splice(index, 1)
+    selectedTypes.value = []
   } else {
-    selectedTypes.value.push(type)
+    selectedTypes.value = [type]
   }
   page.value = 1
   loadContents()
@@ -170,9 +201,53 @@ function goToEasterEgg() {
   router.push('/easter-egg')
 }
 
+function normalizeRecommendContent(content: RecommendContent): RecommendContent {
+  return {
+    id: Number(content.id) || Number(content.ID) || 0,
+    title: content.title || content.Title || '',
+    type: ((content.type || content.Type) as 'video' | 'image' | 'text') || 'image',
+    file_path: content.file_path || content.FilePath || '',
+    image: content.image || '',
+    tags: Array.isArray(content.tags)
+      ? content.tags
+      : Array.isArray(content.Tags)
+        ? content.Tags
+        : [],
+    view_count: content.view_count,
+    user: {
+      id: Number(content.user?.id) || Number(content.User?.ID) || 0,
+      username: content.user?.username || content.User?.Username || '',
+    },
+    created_at: content.created_at || content.CreatedAt || '',
+  }
+}
+
+async function loadRecommendContents() {
+  try {
+    const res = await contentApi.recommend(recommendPerPage, recommendPage.value)
+    if (res.code === 200) {
+      recommendContents.value = res.data.list.map((item: RecommendContent) =>
+        normalizeRecommendContent(item),
+      )
+      recommendHint.value = ''
+    }
+  } catch (error) {
+    console.error('加载推荐内容失败', error)
+  }
+}
+
+function refreshRecommend() {
+  recommendPage.value++
+  if (recommendPage.value > maxRecommendPages) {
+    recommendPage.value = 1
+  }
+  loadRecommendContents()
+}
+
 onMounted(() => {
   loadContents()
   loadTags()
+  loadRecommendContents()
 })
 </script>
 
@@ -189,9 +264,7 @@ onMounted(() => {
       <div class="content-area">
         <div class="header-section">
           <img src="/F775F3831CE0AAF6B17116666DD812F8.png" alt="小泉动漫二创站" class="app-logo" />
-          <a @click="goToEasterEgg" class="app-subtitle egg-link">
-            🎉 发现精彩内容
-          </a>
+          <a @click="goToEasterEgg" class="app-subtitle egg-link"> 🎉 发现精彩内容 </a>
         </div>
 
         <div class="search-section">
@@ -237,103 +310,239 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="content-section">
-          <div class="section-header">
-            <h2 class="section-title">内容列表</h2>
-            <span class="section-count">共 {{ total }} 条</span>
-          </div>
-
-          <div class="content-grid">
-            <div
-              v-for="content in contents"
-              :key="content.id || content.ID"
-              @click="goToDetail(content)"
-              class="content-card"
+        <motion.div
+          class="sections-container"
+          :animate="{
+            height: 'auto',
+            transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] },
+          }"
+          style="overflow: hidden; min-height: 100px"
+        >
+          <motion.div
+            class="sections-wrapper"
+            :animate="{
+              transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] },
+            }"
+          >
+            <motion.div
+              id="recommend-section"
+              class="recommend-section"
+              :initial="{ opacity: 1, y: 0 }"
+              :animate="{
+                opacity: swapSections ? 0 : 1,
+                y: swapSections ? -100 : 0,
+                height: swapSections ? 0 : 'auto',
+                transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] },
+              }"
+              style="overflow: hidden"
             >
-              <div class="card-media">
-                <template v-if="content.type === 'image'">
-                  <img
-                    :src="getImageUrl(content.image, content.file_path, content.type)"
-                    alt="内容图片"
-                    class="card-image"
-                  />
-                </template>
-                <template v-else-if="content.type === 'video'">
-                  <img
-                    :src="getImageUrl(content.image, content.file_path, content.type)"
-                    alt="视频封面"
-                    class="card-image"
-                  />
-                  <div class="play-overlay">
-                    <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M8 5v14l11-7z"/>
+              <div class="section-header">
+                <h2 class="section-title">🔥 推荐内容</h2>
+                <div class="recommend-actions">
+                  <span class="section-count">精选推荐</span>
+                  <button @click="refreshRecommend" class="refresh-btn">
+                    <svg
+                      class="refresh-icon"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <polyline points="23 4 23 10 17 10" />
+                      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
                     </svg>
-                  </div>
-                </template>
-                <template v-else>
-                  <div class="text-preview">
-                    <p class="preview-text">{{ getPreviewText(content.content || '暂无内容') }}</p>
-                  </div>
-                </template>
+                    刷新
+                  </button>
+                </div>
+                <span v-if="recommendHint" class="recommend-hint">{{ recommendHint }}</span>
               </div>
 
-              <div class="card-info">
-                <h3 class="card-title">{{ content.title }}</h3>
-                <div class="card-meta">
-                  <span class="meta-item">
-                    <svg class="meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                      <circle cx="12" cy="7" r="4"/>
-                    </svg>
-                    {{ content.user?.username }}
-                  </span>
-                  <div class="tags-wrapper">
-                    <span v-for="tag in content.tags" :key="tag" class="meta-tag">
-                      {{ tag }}
-                    </span>
-                  </div>
-                </div>
-                <div class="card-type">
-                  <span :class="['type-badge', content.type]">
-                    {{ content.type === 'video' ? '视频' : content.type === 'image' ? '图片' : '文字' }}
-                  </span>
-                  <span v-if="content.audit_status !== 'approved'" :class="['status-badge', content.audit_status]">
-                    {{ content.audit_status === 'pending' ? '审核中' : '已拒绝' }}
-                  </span>
-                </div>
+              <div class="recommend-grid">
+                <AnimatePresence>
+                  <motion.div
+                    v-for="content in recommendContents"
+                    :key="content.id"
+                    @click="
+                      goToDetail({
+                        ...content,
+                        type: content.type,
+                        audit_status: 'approved',
+                      } as unknown as Content)
+                    "
+                    class="recommend-card"
+                    :initial="{ opacity: 0, y: 30, scale: 0.9 }"
+                    :animate="{ opacity: 1, y: 0, scale: 1 }"
+                    :exit="{ opacity: 0, scale: 0 }"
+                    :transition="{
+                      duration: 0.35,
+                      ease: [0.55, 0.055, 0.675, 0.19],
+                    }"
+                  >
+                    <div class="recommend-media">
+                      <img
+                        :src="
+                          content.image.replace(
+                            /http:\/\/localhost:8080/,
+                            'https://xqapi.xiey.work',
+                          )
+                        "
+                        :alt="content.title"
+                        class="recommend-image"
+                      />
+                      <div v-if="content.type === 'video'" class="play-overlay">
+                        <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div class="recommend-info">
+                      <h3 class="recommend-title">{{ content.title }}</h3>
+                      <div class="recommend-meta">
+                        <span class="recommend-author">{{ content.user.username }}</span>
+                        <span class="recommend-tags">
+                          <span
+                            v-for="tag in content.tags.slice(0, 2)"
+                            :key="tag"
+                            class="recommend-tag"
+                            >{{ tag }}</span
+                          >
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
               </div>
-            </div>
-          </div>
+            </motion.div>
 
-          <div v-if="contents.length === 0" class="empty-state">
-            <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
-            <p>暂无内容</p>
-          </div>
-        </div>
+            <motion.div
+              class="content-section"
+              :initial="{ opacity: 1, y: 0 }"
+              :animate="{
+                opacity: 1,
+                y: swapSections ? -20 : 0,
+                transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] },
+              }"
+            >
+              <div class="section-header">
+                <h2 class="section-title">📅 最近上传</h2>
+                <span class="section-count">共 {{ total }} 条</span>
+              </div>
+
+              <div class="content-grid">
+                <AnimatePresence>
+                  <motion.div
+                    v-for="content in contents"
+                    :key="content.id || content.ID"
+                    @click="goToDetail(content)"
+                    class="content-card"
+                    :initial="{ opacity: 0, y: 30, scale: 0.9 }"
+                    :animate="{ opacity: 1, y: 0, scale: 1 }"
+                    :exit="{ opacity: 0, scale: 0 }"
+                    :transition="{
+                      duration: 0.35,
+                      ease: [0.55, 0.055, 0.675, 0.19],
+                    }"
+                  >
+                    <div class="card-media">
+                      <template v-if="content.type === 'image'">
+                        <img
+                          :src="getImageUrl(content.image, content.file_path, content.type)"
+                          alt="内容图片"
+                          class="card-image"
+                        />
+                      </template>
+                      <template v-else-if="content.type === 'video'">
+                        <img
+                          :src="getImageUrl(content.image, content.file_path, content.type)"
+                          alt="视频封面"
+                          class="card-image"
+                        />
+                        <div class="play-overlay">
+                          <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </div>
+                      </template>
+                      <template v-else>
+                        <div class="text-preview">
+                          <p class="preview-text">
+                            {{ getPreviewText(content.content || '暂无内容') }}
+                          </p>
+                        </div>
+                      </template>
+                    </div>
+                    <div class="card-info">
+                      <h3 class="card-title">{{ content.title }}</h3>
+                      <div class="card-meta">
+                        <span class="meta-item">
+                          <svg
+                            class="meta-icon"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                          >
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                          </svg>
+                          {{ content.user?.username }}
+                        </span>
+                        <div class="tags-wrapper">
+                          <span v-for="tag in content.tags" :key="tag" class="meta-tag">{{
+                            tag
+                          }}</span>
+                        </div>
+                      </div>
+                      <div class="card-type">
+                        <span :class="['type-badge', content.type]">
+                          {{
+                            content.type === 'video'
+                              ? '视频'
+                              : content.type === 'image'
+                                ? '图片'
+                                : '文字'
+                          }}
+                        </span>
+                        <span
+                          v-if="content.audit_status !== 'approved'"
+                          :class="['status-badge', content.audit_status]"
+                        >
+                          {{ content.audit_status === 'pending' ? '审核中' : '已拒绝' }}
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+              <div v-if="contents.length === 0" class="empty-state">
+                <svg
+                  class="empty-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                <p>暂无内容</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        </motion.div>
 
         <div v-if="totalPages > 1" class="pagination-section">
-          <button
-            @click="goToPage(page - 1)"
-            :disabled="page <= 1"
-            class="pagination-btn"
-          >
+          <button @click="goToPage(page - 1)" :disabled="page <= 1" class="pagination-btn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M15 19l-7-7 7-7"/>
+              <path d="M15 19l-7-7 7-7" />
             </svg>
             上一页
           </button>
           <span class="pagination-info">第 {{ page }} / {{ totalPages }} 页</span>
-          <button
-            @click="goToPage(page + 1)"
-            :disabled="page >= totalPages"
-            class="pagination-btn"
-          >
+          <button @click="goToPage(page + 1)" :disabled="page >= totalPages" class="pagination-btn">
             下一页
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 5l7 7-7 7"/>
+              <path d="M9 5l7 7-7 7" />
             </svg>
           </button>
         </div>
@@ -353,8 +562,9 @@ onMounted(() => {
 .main-window {
   width: 100%;
   max-width: 1200px;
-  min-height: 80vh;
+  min-height: 100vh;
   overflow: hidden;
+  transition: min-height 0.5s ease;
   background: rgba(255, 255, 255, 0.75);
   border-radius: 12px;
   box-shadow:
@@ -369,7 +579,7 @@ onMounted(() => {
   align-items: center;
   justify-content: flex-start;
   padding: 10px 16px;
-  background: linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.02) 100%);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.02) 100%);
   border-radius: 12px 12px 0 0;
 }
 
@@ -460,7 +670,9 @@ onMounted(() => {
   border-radius: 8px;
   background: white;
   outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .search-input:focus {
@@ -572,6 +784,147 @@ onMounted(() => {
   border-color: rgba(5, 150, 105, 0.3);
 }
 
+.sections-container {
+  position: relative;
+}
+
+.recommend-section {
+  margin-bottom: 24px;
+}
+
+.recommend-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.recommend-card {
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 12px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.recommend-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.recommend-media {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%;
+  background: #f8f9fa;
+  overflow: hidden;
+}
+
+.recommend-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.recommend-info {
+  padding: 12px;
+}
+
+.recommend-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 8px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recommend-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.recommend-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  font-size: 13px;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.refresh-btn:hover {
+  background: #f0f0f0;
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.refresh-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.recommend-hint {
+  position: absolute;
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  color: #ef4444;
+  animation: fadeInOut 2s ease;
+}
+
+@keyframes fadeInOut {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  10%,
+  90% {
+    opacity: 1;
+  }
+}
+
+.recommend-author {
+  font-size: 12px;
+  color: #888;
+}
+
+.recommend-tags {
+  display: flex;
+  gap: 4px;
+}
+
+.recommend-tag {
+  padding: 1px 6px;
+  background: rgba(251, 146, 60, 0.15);
+  border-radius: 4px;
+  font-size: 11px;
+  color: #fb923c;
+}
+
 .content-section {
   margin-bottom: 24px;
 }
@@ -604,7 +957,9 @@ onMounted(() => {
 .content-card {
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
   background: rgba(255, 255, 255, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.36);
   border-radius: 12px;
@@ -906,6 +1261,44 @@ onMounted(() => {
     font-size: 14px;
   }
 
+  .recommend-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .recommend-card {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+  }
+
+  .recommend-info {
+    padding: 10px;
+  }
+
+  .recommend-title {
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  .recommend-author {
+    font-size: 11px;
+  }
+
+  .recommend-tag {
+    padding: 1px 5px;
+    font-size: 10px;
+  }
+
+  .refresh-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+  }
+
+  .refresh-icon {
+    width: 12px;
+    height: 12px;
+  }
+
   .content-grid {
     grid-template-columns: 1fr;
     gap: 12px;
@@ -1002,6 +1395,23 @@ onMounted(() => {
 }
 
 @media screen and (max-width: 480px) {
+  .recommend-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .recommend-card {
+    background: rgba(255, 255, 255, 0.98);
+  }
+
+  .recommend-info {
+    padding: 8px;
+  }
+
+  .recommend-title {
+    font-size: 12px;
+  }
+
   .content-grid {
     grid-template-columns: 1fr;
     gap: 10px;

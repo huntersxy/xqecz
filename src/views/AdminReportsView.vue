@@ -186,15 +186,52 @@ onMounted(() => {
   max-width: 900px;
   min-height: 600px;
   overflow: hidden;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 12px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.mac-title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px 16px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.02) 100%);
+  border-radius: 12px 12px 0 0;
+}
+
+.mac-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.mac-dot-red {
+  background: #ff5f57;
+}
+
+.mac-dot-yellow {
+  background: #febc2e;
+}
+
+.mac-dot-green {
+  background: #28c840;
+}
+
+.window-title {
+  margin-left: 16px;
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
 }
 
 .reports-content {
   padding: 24px;
-  background: rgba(255, 255, 255, 0.8);
-}
-
-.mac-title-bar {
-  color: #000000;
+  background: rgba(255, 255, 255, 0.75);
 }
 
 .message-bar {
@@ -231,11 +268,17 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 10px 16px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
 }
 
 .back-btn:hover {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .back-icon {
@@ -250,10 +293,13 @@ onMounted(() => {
 }
 
 .report-item {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.36);
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
 }
@@ -271,7 +317,7 @@ onMounted(() => {
 
 .report-id {
   font-weight: 600;
-  color: #007aff;
+  color: #3b82f6;
 }
 
 .report-time {
@@ -326,12 +372,13 @@ onMounted(() => {
 }
 
 .delete-btn {
-  background: #fee2e2;
+  background: rgba(220, 38, 38, 0.1);
   color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.3);
 }
 
 .delete-btn:hover {
-  background: #fecaca;
+  background: rgba(220, 38, 38, 0.15);
 }
 
 .empty-state {
@@ -366,11 +413,12 @@ onMounted(() => {
 }
 
 .tag-modal {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.98);
   border-radius: 12px;
   width: 90%;
   max-width: 400px;
   overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
 .tag-modal-header {
@@ -379,6 +427,7 @@ onMounted(() => {
   align-items: center;
   padding: 16px 20px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: linear-gradient(180deg, rgba(0,0,0,0.05) 0%, transparent 100%);
 }
 
 .tag-modal-header h3 {
@@ -394,6 +443,11 @@ onMounted(() => {
   cursor: pointer;
   color: #999;
   line-height: 1;
+  transition: color 0.2s ease;
+}
+
+.tag-modal-close:hover {
+  color: #3b82f6;
 }
 
 .tag-modal-body {
@@ -412,6 +466,7 @@ onMounted(() => {
   gap: 12px;
   padding: 16px 20px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.03);
 }
 
 @media screen and (max-width: 768px) {
@@ -424,7 +479,7 @@ onMounted(() => {
     border-radius: 0;
     box-shadow: none;
     min-height: calc(100vh - 60px);
-    background: transparent;
+    background: rgba(255, 255, 255, 0.9);
   }
 
   .mac-title-bar {
