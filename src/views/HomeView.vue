@@ -150,7 +150,9 @@ async function loadTags() {
   try {
     const res = await contentApi.getTags()
     if (res.code === 200) {
-      allTags.value = res.data
+      const tags = res.data as string[]
+      const shuffled = [...tags].sort(() => Math.random() - 0.5)
+      allTags.value = shuffled.slice(0, 15)
     }
   } catch (error) {
     console.error('加载标签失败', error)
