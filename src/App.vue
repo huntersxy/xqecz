@@ -211,6 +211,19 @@ onMounted(() => {
       </div>
     </div>
   </div>
+
+  <!-- 页脚版权信息 -->
+  <footer class="site-footer">
+    <div class="footer-content">
+      <div class="footer-left">
+        <span class="copyright">© 2024-2025 小泉动漫二创站</span>
+        <span class="license">CC BY-NC 4.0 非商业使用</span>
+      </div>
+      <div class="footer-right">
+        <span class="build-info">构建时间: {{ new Date().toLocaleDateString('zh-CN') }}</span>
+      </div>
+    </div>
+  </footer>
 </template>
 
 <style scoped>
@@ -533,8 +546,58 @@ onMounted(() => {
   height: 18px;
 }
 
+/* 页脚样式 */
+.site-footer {
+  margin-top: 40px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.85);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(10px);
+}
+
+.footer-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.copyright {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.license {
+  font-size: 13px;
+  color: #999;
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 4px;
+}
+
+.footer-right {
+  font-size: 13px;
+  color: #999;
+}
+
+.build-info {
+  font-family: monospace;
+}
+
 main {
   padding: 20px;
+  min-height: calc(100vh - 200px);
 }
 
 @media screen and (max-width: 768px) {
@@ -571,6 +634,35 @@ main {
   main {
     padding: 12px;
     padding-top: 60px;
+    min-height: calc(100vh - 180px);
+  }
+
+  .site-footer {
+    margin-top: 20px;
+    padding: 16px;
+  }
+
+  .footer-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+  }
+
+  .footer-left {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .copyright {
+    font-size: 13px;
+  }
+
+  .license {
+    font-size: 12px;
+  }
+
+  .footer-right {
+    font-size: 12px;
   }
 }
 
