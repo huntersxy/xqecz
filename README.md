@@ -16,6 +16,11 @@
 - 💬 **评论系统** - 互动交流、举报功能
 - 🎁 **彩蛋空间** - 隐藏的惊喜页面
 - ⚙️ **后台管理** - 内容审核、用户管理
+- 📅 **动态年份** - 版权信息自动显示当前年份
+- 🌐 **域名适配** - ICP备案号仅在特定域名显示
+- 🔄 **状态保持** - 从详情页返回首页时保持之前的状态（搜索、筛选、滚动位置）
+- ⚡ **性能优化** - 路由懒加载、图片懒加载、预加载策略
+- 🎯 **异步加载** - 使用 Suspense + defineAsyncComponent 提供更好的加载体验
 
 ## 🛠️ 技术栈
 
@@ -56,14 +61,24 @@ xiaoquanweb/
 │   ├── api/           # API 接口封装
 │   ├── assets/        # 静态资源
 │   ├── components/    # 通用组件
+│   │   ├── admin/     # 后台管理组件
+│   │   ├── AsyncLoadError.vue  # 异步加载错误组件
+│   │   └── ...
 │   ├── router/        # 路由配置
 │   ├── stores/        # 状态管理
+│   │   ├── user.ts    # 用户状态
+│   │   └── home.ts    # 首页状态（搜索、筛选、滚动位置）
 │   ├── types/         # TypeScript 类型
+│   ├── utils/         # 工具函数
+│   │   ├── index.ts   # 通用工具
+│   │   └── asyncComponent.ts  # 异步组件工具
 │   └── views/         # 页面视图
 │       ├── HomeView.vue          # 首页
 │       ├── LoginView.vue         # 登录注册
 │       ├── ContentDetailView.vue # 内容详情
+│       ├── UploadView.vue        # 上传内容
 │       ├── AdminView.vue         # 后台管理
+│       ├── AdminReportsView.vue  # 举报管理
 │       └── EasterEggView.vue     # 彩蛋空间
 ├── public/            # 公共资源
 └── dist/              # 构建输出
@@ -76,7 +91,9 @@ xiaoquanweb/
 | `/` | 首页 - 内容列表 |
 | `/login` | 登录/注册 |
 | `/content/:id` | 内容详情 |
-| `/admin` | 后台管理 |
+| `/upload` | 上传内容（需登录） |
+| `/admin` | 后台管理（需管理员） |
+| `/admin/reports` | 举报管理（需管理员） |
 | `/easter-egg` | 彩蛋空间（隐藏入口） |
 
 ## 🎨 设计亮点
@@ -84,6 +101,9 @@ xiaoquanweb/
 - **毛玻璃效果** - 使用 `backdrop-filter` 实现优雅的模糊背景
 - **响应式布局** - 移动端优先设计，支持各种屏幕尺寸
 - **流畅动画** - 过渡效果、微交互增强用户体验
+- **性能优先** - 路由懒加载、图片懒加载、预加载策略优化首屏加载
+- **Suspense 支持** - 使用 Vue 3 的 Suspense 组件提供优雅的加载状态
+- **状态保持** - 使用 Pinia 存储首页状态，从详情页返回时无缝恢复
 
 ## 📝 License
 
