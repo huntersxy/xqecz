@@ -22,32 +22,24 @@ const instance = axios.create({
   withCredentials: true,
 })
 
-instance.interceptors.request.use((config) => {
-  console.log('[API] 请求URL:', config.url)
-  console.log('[API] 当前页面Cookie:', document.cookie)
-  return config
-})
-
-instance.interceptors.response.use((response) => {
-  console.log('[API] 响应URL:', response.config.url)
-  console.log('[API] 响应状态:', response.status)
-  console.log('[API] Set-Cookie:', response.headers['set-cookie'] || '无')
-  return response
-}, (error) => {
-  console.error('[API] 请求失败:', error.response?.config?.url, error.response?.status)
-  throw error
-})
+instance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      console.warn('[API] 未授权，请重新登录')
+    } else if (error.response?.status >= 500) {
+      console.error('[API] 服务器错误:', error.response?.status)
+    }
+    return Promise.reject(error)
+  }
+)
 
 async function request<T>(url: string, options: AxiosRequestConfig = {}): Promise<ApiResponse<T>> {
-  console.log('Request:', url, options)
-
   try {
     const response = await instance(url, options)
-    console.log('Response status:', response.status)
-    console.log('Response data:', response.data)
     return response.data
   } catch (error) {
-    console.error('Request error:', error)
+    console.error('[API] 请求失败:', error)
     throw error
   }
 }

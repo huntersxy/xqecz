@@ -2,31 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Content } from '@/types'
-
-function getImageUrl(image: string | undefined, filePath: string | undefined): string {
-  if (image) {
-    return image.replace(/http:\/\/localhost:8080/, 'https://xqapi.xiey.work')
-  }
-  if (filePath) {
-    return `https://xqapi.xiey.work/uploads/${filePath}`
-  }
-  return ''
-}
-
-function getPreviewText(text: string, maxLength: number = 120): string {
-  if (!text) return ''
-  const plainText = text
-    .replace(/#{1,6}\s/g, '')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/```[\s\S]*?```/g, '[代码块]')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/[-*+]\s/g, '')
-    .replace(/\n/g, ' ')
-    .trim()
-  return plainText.length > maxLength ? plainText.substring(0, maxLength) + '...' : plainText
-}
+import { getImageUrl, getPreviewText } from '@/utils'
 
 const router = useRouter()
 const contents = ref<Content[]>([])
