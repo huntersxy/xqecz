@@ -5,16 +5,7 @@ import { useUserStore } from '@/stores/user'
 import { contentApi, adminApi } from '@/api'
 import type { Content, User, ApiResponse } from '@/types'
 import { marked } from 'marked'
-
-function getImageUrl(image: string | undefined, filePath: string | undefined): string {
-  if (image) {
-    return image.replace(/http:\/\/localhost:8080/, 'https://xqapi.xiey.work')
-  }
-  if (filePath) {
-    return `https://xqapi.xiey.work/uploads/${filePath}`
-  }
-  return ''
-}
+import { getImageUrl, getPreviewText } from '@/utils'
 
 const userStore = useUserStore()
 
@@ -82,22 +73,6 @@ const contentDetail = ref<Content | null>(null)
 
 const uploadProgress = ref(0)
 const isUploading = ref(false)
-
-function getPreviewText(text: string, maxLength: number = 100): string {
-  if (!text) return ''
-  const plainText = text
-    .replace(/#{1,6}\s/g, '')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/```[\s\S]*?```/g, '[代码块]')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '[图片]')
-    .replace(/[-*+]\s/g, '')
-    .replace(/\n/g, ' ')
-    .trim()
-  return plainText.length > maxLength ? plainText.substring(0, maxLength) + '...' : plainText
-}
 
 function insertMarkdown(prefix: string, suffix: string = '') {
   const editTextarea = document.querySelector('.edit-textarea') as HTMLTextAreaElement

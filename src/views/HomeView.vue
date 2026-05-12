@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'motion-v'
 import { contentApi } from '@/api'
 import type { Content, ListParams, User, RecommendContent } from '@/types'
 
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
 function getImageUrl(
   image: string | undefined,
   filePath: string | undefined,
@@ -182,8 +184,13 @@ function selectType(type: string) {
 }
 
 function handleSearch() {
-  page.value = 1
-  loadContents()
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer)
+  }
+  searchDebounceTimer = setTimeout(() => {
+    page.value = 1
+    loadContents()
+  }, 300)
 }
 
 function goToDetail(content: Content) {
