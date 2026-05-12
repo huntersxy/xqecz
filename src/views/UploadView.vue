@@ -22,6 +22,7 @@ const uploadForm = ref({
 
 const filePreview = ref<string>('')
 const allTags = ref<string[]>([])
+const customTagInput = ref('')
 
 const imageUploadInput = ref<HTMLInputElement | null>(null)
 
@@ -85,6 +86,24 @@ function removeTag(tag: string) {
   const index = uploadForm.value.tags.indexOf(tag)
   if (index > -1) {
     uploadForm.value.tags.splice(index, 1)
+  }
+}
+
+function addCustomTag() {
+  const tag = customTagInput.value.trim()
+  if (!tag) return
+  if (uploadForm.value.tags.includes(tag)) {
+    message.value = '该标签已存在'
+    return
+  }
+  uploadForm.value.tags.push(tag)
+  customTagInput.value = ''
+}
+
+function handleCustomTagKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    addCustomTag()
   }
 }
 
@@ -266,6 +285,16 @@ onMounted(() => {
 
         <div class="form-section">
           <label class="form-label">选择标签</label>
+          <div class="custom-tag-input">
+            <input 
+              v-model="customTagInput" 
+              type="text" 
+              class="tag-input" 
+              placeholder="输入自定义标签后按回车"
+              @keydown="handleCustomTagKeydown"
+            />
+            <button @click="addCustomTag" class="add-tag-btn">添加</button>
+          </div>
           <div class="all-tags-container">
             <div class="all-tags">
               <span v-for="tag in allTags" :key="tag"
@@ -586,6 +615,43 @@ onMounted(() => {
   background: rgba(59, 130, 246, 0.1);
   border-color: rgba(59, 130, 246, 0.3);
   color: #3b82f6;
+}
+
+.custom-tag-input {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.tag-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+}
+
+.tag-input:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.add-tag-btn {
+  padding: 8px 16px;
+  background: rgba(59, 130, 246, 0.95);
+  color: white;
+  border: 1px solid rgba(59, 130, 246, 0.95);
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-tag-btn:hover {
+  background: rgba(37, 99, 235, 0.95);
+  border-color: rgba(37, 99, 235, 0.95);
 }
 
 .no-tags {
