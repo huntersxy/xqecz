@@ -8,6 +8,9 @@ const userStore = useUserStore()
 const isMobileMenuOpen = ref(false)
 const isMobileUA = ref(false)
 
+// 构建日期（构建时注入）
+const buildDate = import.meta.env.VITE_BUILD_DATE || new Date().toISOString().split('T')[0]
+
 function isMobileDevice() {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(navigator.userAgent)
 }
@@ -220,7 +223,7 @@ onMounted(() => {
         <span class="license">CC BY-NC 4.0 非商业使用</span>
       </div>
       <div class="footer-right">
-        <span class="build-info">构建时间: {{ new Date().toLocaleDateString('zh-CN') }}</span>
+        <span class="build-info">构建时间: {{ buildDate }}</span>
       </div>
     </div>
   </footer>
