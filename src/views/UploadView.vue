@@ -556,8 +556,8 @@ onMounted(() => {
   background: rgba(0, 0, 0, 0.02);
   border-radius: 8px;
   padding: 12px;
-  max-height: 200px;
-  overflow-y: auto;
+  max-height: none;
+  overflow-y: visible;
 }
 
 .all-tags {
