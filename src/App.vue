@@ -44,7 +44,9 @@ async function loadRandomBackground() {
 }
 
 onMounted(() => {
-  userStore.checkAuth()
+  if (!userStore.isLoggedIn) {
+    userStore.checkAuth()
+  }
   loadRandomBackground()
   isMobileUA.value = isMobileDevice()
   if (isMobileUA.value) {
