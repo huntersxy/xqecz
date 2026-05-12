@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { RouterLink } from 'vue-router'
 import { contentApi, commentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
+import LazyImage from '@/components/LazyImage.vue'
 import type { Content, Comment } from '@/types'
 import { renderMarkdown } from '@/utils'
 
@@ -211,7 +212,7 @@ onMounted(() => {
             <div class="content-body">
               <div v-if="(content.type || content.Type) === 'text'" class="text-content" v-html="renderedContent"></div>
               <div v-else-if="(content.type || content.Type) === 'image'" class="image-content">
-                <img :src="getImageUrl(content.image, content.file_path || content.FilePath)" alt="内容图片" class="content-image" />
+                <LazyImage :src="getImageUrl(content.image, content.file_path || content.FilePath)" alt="内容图片" class="content-image" />
               </div>
               <div v-else-if="(content.type || content.Type) === 'video'" class="video-content">
                 <video controls class="content-video">

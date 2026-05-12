@@ -4,6 +4,7 @@ import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { motion, AnimatePresence } from 'motion-v'
 import { contentApi } from '@/api'
 import { useHomeStore } from '@/stores/home'
+import LazyImage from '@/components/LazyImage.vue'
 import type { Content, ListParams, User, RecommendContent } from '@/types'
 
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -439,7 +440,7 @@ onMounted(() => {
                     }"
                   >
                     <div class="recommend-media">
-                      <img
+                      <LazyImage
                         :src="
                           content.image.replace(
                             /http:\/\/localhost:8080/,
@@ -505,14 +506,14 @@ onMounted(() => {
                   >
                     <div class="card-media">
                       <template v-if="content.type === 'image'">
-                        <img
+                        <LazyImage
                           :src="getImageUrl(content.image, content.file_path, content.type)"
                           alt="内容图片"
                           class="card-image"
                         />
                       </template>
                       <template v-else-if="content.type === 'video'">
-                        <img
+                        <LazyImage
                           :src="getImageUrl(content.image, content.file_path, content.type)"
                           alt="视频封面"
                           class="card-image"

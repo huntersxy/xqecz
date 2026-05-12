@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { getImageUrl, getPreviewText } from '@/utils';
+import LazyImage from '@/components/LazyImage.vue';
 import type { Content } from '@/types';
 
 interface Props {
@@ -46,14 +47,14 @@ const handleReject = () => emit('audit', contentId, 'rejected');
   <div class="content-item mac-card">
     <div class="item-media">
       <template v-if="contentType === 'image'">
-        <img
+        <LazyImage
           :src="getImageUrl(content.image, content.file_path || content.FilePath)"
           alt="内容图片"
           class="item-image"
         />
       </template>
       <template v-else-if="contentType === 'video'">
-        <img
+        <LazyImage
           :src="getImageUrl(content.image, content.thumb_path || content.file_path || content.FilePath)"
           alt="视频封面"
           class="item-image"

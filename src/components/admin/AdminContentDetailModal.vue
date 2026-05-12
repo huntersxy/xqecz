@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { getImageUrl, renderMarkdown } from '@/utils';
+import LazyImage from '@/components/LazyImage.vue';
 import type { Content } from '@/types';
 
 interface Props {
@@ -52,7 +53,7 @@ const renderedContent = computed(() => {
             <span v-for="tag in tags" :key="tag" class="detail-tag">{{ tag }}</span>
           </div>
           <div v-if="contentType === 'image'" class="detail-media">
-            <img :src="getImageUrl(content.image, content.file_path || content.FilePath)" alt="内容图片" class="detail-image" />
+            <LazyImage :src="getImageUrl(content.image, content.file_path || content.FilePath)" alt="内容图片" class="detail-image" />
           </div>
           <div v-else-if="contentType === 'video'" class="detail-media">
             <video :src="getImageUrl(undefined, content.file_path || content.FilePath)" controls class="detail-video">
