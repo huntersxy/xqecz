@@ -33,6 +33,12 @@ const router = createRouter({
       component: () => import('../views/ContentDetailView.vue'),
     },
     {
+      path: '/upload',
+      name: 'upload',
+      component: () => import('../views/UploadView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/admin',
       name: 'admin',
       component: () => import('../views/AdminView.vue'),
