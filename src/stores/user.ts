@@ -36,8 +36,7 @@ export const useUserStore = defineStore('user', () => {
         isLoggedIn.value = false
       }
     } catch {
-      user.value = null
-      isLoggedIn.value = false
+      // API调用失败时保持当前状态不变，避免已登录用户被意外登出
     } finally {
       isLoading.value = false
     }
