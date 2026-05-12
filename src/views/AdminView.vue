@@ -4,9 +4,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { contentApi, adminApi } from '@/api'
 import type { Content, User } from '@/types'
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
-import { getImageUrl, getPreviewText } from '@/utils'
+import { getImageUrl, getPreviewText, renderMarkdown } from '@/utils'
 
 import AdminContentCard from '@/components/admin/AdminContentCard.vue'
 import AdminUserCard from '@/components/admin/AdminUserCard.vue'
@@ -93,7 +91,7 @@ const renderedDetailContent = computed(() => {
   const text = contentDetail.value.content || contentDetail.value.Content || ''
   let processedText = text.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '[禁止的脚本]')
   processedText = processedText.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '[禁止的iframe]')
-  return DOMPurify.sanitize(marked(processedText) as string)
+  return renderMarkdown(processedText)
 })
 
 function insertMarkdown(prefix: string, suffix: string = '') {

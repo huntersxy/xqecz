@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import DOMPurify from 'dompurify';
-import { marked } from 'marked';
-import { getImageUrl } from '@/utils';
+import { getImageUrl, renderMarkdown } from '@/utils';
 import type { Content } from '@/types';
 
 interface Props {
@@ -28,7 +26,7 @@ const contentText = props.content?.content || props.content?.Content || '';
 const authorName = props.content?.user?.username || props.content?.User?.Username || '';
 
 const renderedContent = computed(() => {
-  return DOMPurify.sanitize(marked(contentText) as string);
+  return renderMarkdown(contentText);
 });
 </script>
 
