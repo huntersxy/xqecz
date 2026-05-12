@@ -1,54 +1,160 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-
 interface Props {
-  visible: boolean
+  visible: boolean;
+  target: string;
+  newTag: string;
 }
 
-const props = defineProps<Props>()
+const props = defineProps<Props>();
 
 const emit = defineEmits<{
-  close: []
-  add: [tagName: string]
-}>()
+  close: [];
+  add: [];
+  'update:newTag': [value: string];
+}>();
 
-const tagName = ref('')
-
-const handleAdd = () => {
-  if (tagName.value.trim()) {
-    emit('add', tagName.value.trim())
-    tagName.value = ''
-  }
-}
-
-const handleKeydown = (e: KeyboardEvent) => {
-  if (e.key === 'Enter') {
-    handleAdd()
-  }
+function handleInput(event: Event) {
+  const target = event.target as HTMLInputElement;
+  emit('update:newTag', target.value);
 }
 </script>
 
 <template>
-  <div v-if="visible" class="tag-modal-overlay" @click.self="$emit('close')">
-    <div class="tag-modal">
-      <div class="tag-modal-header">
-        <h3>添加标签</h3>
-        <button class="tag-modal-close" @click="$emit('close')">×</button>
+  <div v-if="visible" class="modal-overlay" @click.self="$emit('close')">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>快速添加标签</h2>
+        <span class="modal-close" @click="$emit('close')">×</span>
       </div>
-      <div class="tag-modal-body">
-        <input
-          v-model="tagName"
-          type="text"
-          class="mac-input"
-          placeholder="请输入标签名称"
-          @keyup.enter="handleAdd"
-          autofocus
-        />
+      <div class="modal-body">
+        <div class="form-row">
+          <label class="form-label">标签名称</label>
+          <input 
+            type="text" 
+            :value="newTag" 
+            @input="handleInput" 
+            class="mac-input" 
+            @keyup.enter="$emit('add')"
+            placeholder="输入标签名称" 
+          />
+        </div>
       </div>
-      <div class="tag-modal-footer">
+      <div class="modal-footer">
         <button @click="$emit('close')" class="mac-btn">取消</button>
-        <button @click="handleAdd" class="mac-btn primary-btn">确定</button>
+        <button @click="$emit('add')" class="mac-btn primary-btn">添加</button>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  width: 90%;
+  max-width: 600px;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 12px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  position: relative;
+  z-index: 10000;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.05) 0%, transparent 100%);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.modal-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.modal-close {
+  font-size: 24px;
+  color: #999;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: #3b82f6;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.form-row {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.mac-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  box-sizing: border-box;
+}
+
+.mac-input:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  background: rgba(0, 0, 0, 0.03);
+}
+
+@media screen and (max-width: 768px) {
+  .modal-content {
+    width: 95%;
+    max-width: none;
+    margin: 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.98);
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
+
+  .modal-footer {
+    padding: 14px 16px;
+    flex-wrap: wrap;
+  }
+}
+</style>

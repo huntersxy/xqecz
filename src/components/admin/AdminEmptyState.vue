@@ -1,13 +1,13 @@
 <script setup lang="ts">
 interface Props {
-  text?: string
-  type?: 'content' | 'pending' | 'user'
+  text?: string;
+  type?: 'content' | 'pending' | 'user';
 }
 
 const props = withDefaults(defineProps<Props>(), {
   text: '暂无内容',
   type: 'content',
-})
+});
 </script>
 
 <template>
@@ -25,3 +25,28 @@ const props = withDefaults(defineProps<Props>(), {
     <p>{{ text }}</p>
   </div>
 </template>
+
+<style scoped>
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+}
+
+.empty-icon {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+}
+
+@media screen and (max-width: 768px) {
+  .empty-state {
+    padding: 30px 16px;
+  }
+
+  .empty-icon {
+    width: 48px;
+    height: 48px;
+  }
+}
+</style>

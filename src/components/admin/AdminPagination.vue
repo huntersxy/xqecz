@@ -1,22 +1,22 @@
 <script setup lang="ts">
 interface Props {
-  currentPage: number
-  totalPages: number
+  currentPage: number;
+  totalPages: number;
 }
 
-const props = defineProps<Props>()
+const props = defineProps<Props>();
 
 const emit = defineEmits<{
-  change: [page: number]
-}>()
+  change: [page: number];
+}>();
 
 const handlePrev = () => {
-  if (props.currentPage > 1) emit('change', props.currentPage - 1)
-}
+  if (props.currentPage > 1) emit('change', props.currentPage - 1);
+};
 
 const handleNext = () => {
-  if (props.currentPage < props.totalPages) emit('change', props.currentPage + 1)
-}
+  if (props.currentPage < props.totalPages) emit('change', props.currentPage + 1);
+};
 </script>
 
 <template>
@@ -36,3 +36,51 @@ const handleNext = () => {
     </button>
   </div>
 </template>
+
+<style scoped>
+.pagination-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.pagination-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.pagination-info {
+  font-size: 14px;
+  color: #666;
+}
+
+@media screen and (max-width: 768px) {
+  .pagination-section {
+    gap: 10px;
+  }
+
+  .pagination-btn {
+    min-width: 80px;
+    padding: 10px;
+    font-size: 14px;
+  }
+
+  .pagination-info {
+    font-size: 13px;
+  }
+}
+</style>
