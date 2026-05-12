@@ -12,6 +12,8 @@ const isMobileUA = ref(false)
 const buildDate = import.meta.env.VITE_BUILD_DATE || new Date().toISOString().split('T')[0]
 // 当前年份
 const currentYear = new Date().getFullYear()
+// 是否显示ICP备案号（仅在xiey.work域名下显示）
+const showICP = window.location.hostname.endsWith('xiey.work')
 
 function isMobileDevice() {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(navigator.userAgent)
@@ -223,6 +225,7 @@ onMounted(() => {
       <div class="footer-left">
         <span class="copyright">© {{ currentYear }} 小泉动漫二创站</span>
         <span class="license">CC BY-NC 4.0 非商业使用</span>
+        <span v-if="showICP" class="icp">桂ICP备2024031550号</span>
       </div>
       <div class="footer-right">
         <span class="build-info">构建时间: {{ buildDate }}</span>
@@ -589,6 +592,11 @@ onMounted(() => {
   padding: 4px 10px;
   background: rgba(0, 0, 0, 0.03);
   border-radius: 4px;
+}
+
+.icp {
+  font-size: 13px;
+  color: #999;
 }
 
 .footer-right {
