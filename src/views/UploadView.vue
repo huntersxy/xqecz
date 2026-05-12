@@ -1,21 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { contentApi } from '@/api'
-import type { Content } from '@/types'
-import AdminUploadForm from '@/components/admin/AdminUploadForm.vue'
-import AdminContentCard from '@/components/admin/AdminContentCard.vue'
-import AdminContentDetailModal from '@/components/admin/AdminContentDetailModal.vue'
-import AdminEditModal from '@/components/admin/AdminEditModal.vue'
-import AdminDeleteConfirm from '@/components/admin/AdminDeleteConfirm.vue'
-import AdminQuickAddTag from '@/components/admin/AdminQuickAddTag.vue'
-import AdminEmptyState from '@/components/admin/AdminEmptyState.vue'
-import AdminPagination from '@/components/admin/AdminPagination.vue'
 
+const router = useRouter()
 const userStore = useUserStore()
 
 const message = ref('')
-const showUploadModal = ref(false)
+const uploadProgress = ref(0)
+const isUploading = ref(false)
 
 const uploadForm = ref({
   title: '',
@@ -25,58 +19,19 @@ const uploadForm = ref({
   file: undefined as File | undefined,
   filePath: ''
 })
+
 const filePreview = ref<string>('')
-const uploadProgress = ref(0)
-const isUploading = ref(false)
-
-const editForm = ref({
-  id: 0,
-  title: '',
-  content: '',
-  type: 'text' as 'video' | 'image' | 'text',
-  filePath: '',
-  tags: [] as string[],
-  file: undefined as File | undefined
-})
-const isEditModal = ref(false)
-
-const myContents = ref<Content[]>([])
-const myContentsPage = ref(1)
-const myContentsTotal = ref(0)
-const myContentsTotalPages = ref(1)
-
-const showQuickAddTag = ref(false)
-const quickAddTagName = ref('')
-const tagTargetForm = ref<'upload' | 'edit'>('upload')
-
-const showDeleteConfirm = ref(false)
-const deleteTargetId = ref(0)
-
-const showContentDetail = ref(false)
-const contentDetail = ref<Content | null>(null)
-
-const allTags = computed(() => {
-  const tagsSet = new Set<string>()
-  myContents.value.forEach(content => {
-    const tags = content.tags || content.Tags || []
-    tags.forEach(tag => tagsSet.add(String(tag)))
-  })
-  return Array.from(tagsSet)
-})
+const allTags = ref<string[]>([])
 
 const imageUploadInput = ref<HTMLInputElement | null>(null)
-const editImageUploadInput = ref<HTMLInputElement | null>(null)
 
 function insertMarkdown(prefix: string, suffix: string = '') {
-  const editTextarea = document.querySelector('.edit-textarea') as HTMLTextAreaElement
-  const uploadTextarea = document.querySelector('.upload-textarea') as HTMLTextAreaElement
-  const textarea = editTextarea && editTextarea.offsetParent !== null ? editTextarea : uploadTextarea
+  const textarea = document.querySelector('.upload-textarea') as HTMLTextAreaElement
   if (!textarea) return
   const start = textarea.selectionStart
   const end = textarea.selectionEnd
-  const currentForm = isEditModal.value ? editForm.value : uploadForm.value
-  const text = currentForm.content || ''
-  currentForm.content = text.substring(0, start) + prefix + text.substring(start, end) + suffix + text.substring(end)
+  const text = uploadForm.value.content || ''
+  uploadForm.value.content = text.substring(0, start) + prefix + text.substring(start, end) + suffix + text.substring(end)
   textarea.focus()
   const newPos = start + prefix.length + (end - start) + suffix.length
   setTimeout(() => {
@@ -86,46 +41,6 @@ function insertMarkdown(prefix: string, suffix: string = '') {
 
 function triggerImageUpload() {
   imageUploadInput.value?.click()
-}
-
-function triggerEditImageUpload() {
-  editImageUploadInput.value?.click()
-}
-
-async function handleEditImageUpload(event: Event) {
-  const target = event.target as HTMLInputElement
-  if (!target.files || target.files.length === 0) return
-  const file = target.files[0]
-  const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-  if (!validTypes.includes(file.type)) {
-    message.value = '只支持 jpg、jpeg、png、gif、webp 格式的图片'
-    return
-  }
-  if (file.size > 10 * 1024 * 1024) {
-    message.value = '图片大小不能超过10MB'
-    return
-  }
-  try {
-    message.value = '图片上传中...'
-    const res = await contentApi.uploadImage(file)
-    if (res.code === 200) {
-      const textarea = document.querySelector('.edit-textarea') as HTMLTextAreaElement
-      if (textarea) {
-        const start = textarea.selectionStart
-        const end = textarea.selectionEnd
-        editForm.value.content = editForm.value.content.substring(0, start) + `![${file.name}](${res.data.image_url})` + editForm.value.content.substring(end)
-      } else {
-        editForm.value.content += `![${file.name}](${res.data.image_url})`
-      }
-      message.value = '图片上传成功'
-    } else {
-      message.value = res.message || '上传失败'
-    }
-  } catch (error) {
-    message.value = '上传失败，请稍后重试'
-  } finally {
-    target.value = ''
-  }
 }
 
 async function handleImageUpload(event: Event) {
@@ -157,45 +72,6 @@ async function handleImageUpload(event: Event) {
   }
 }
 
-function openContentDetail(content: Content) {
-  contentDetail.value = content
-  showContentDetail.value = true
-}
-
-function addTag(target: 'upload' | 'edit' = 'upload') {
-  tagTargetForm.value = target
-  showQuickAddTag.value = true
-}
-
-function handleQuickAddTag() {
-  if (!quickAddTagName.value.trim()) {
-    message.value = '请输入标签名称'
-    return
-  }
-  const targetForm = tagTargetForm.value === 'upload' ? uploadForm.value : editForm.value
-  if (targetForm.tags.includes(quickAddTagName.value.trim())) {
-    message.value = '标签已存在'
-    return
-  }
-  targetForm.tags.push(quickAddTagName.value.trim())
-  quickAddTagName.value = ''
-  showQuickAddTag.value = false
-}
-
-function removeTag(tag: string) {
-  const index = uploadForm.value.tags.indexOf(tag)
-  if (index > -1) {
-    uploadForm.value.tags.splice(index, 1)
-  }
-}
-
-function removeEditTag(tag: string) {
-  const index = editForm.value.tags.indexOf(tag)
-  if (index > -1) {
-    editForm.value.tags.splice(index, 1)
-  }
-}
-
 function toggleTag(tag: string) {
   const index = uploadForm.value.tags.indexOf(tag)
   if (index > -1) {
@@ -205,25 +81,41 @@ function toggleTag(tag: string) {
   }
 }
 
-function toggleEditTag(tag: string) {
-  const index = editForm.value.tags.indexOf(tag)
+function removeTag(tag: string) {
+  const index = uploadForm.value.tags.indexOf(tag)
   if (index > -1) {
-    editForm.value.tags.splice(index, 1)
-  } else {
-    editForm.value.tags.push(tag)
+    uploadForm.value.tags.splice(index, 1)
   }
 }
 
-async function loadMyContents() {
+function handleFileChange(event: Event) {
+  const target = event.target as HTMLInputElement
+  if (target.files && target.files.length > 0) {
+    uploadForm.value.file = target.files[0]
+    const file = target.files[0]
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      filePreview.value = e.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  }
+}
+
+function clearFilePreview() {
+  filePreview.value = ''
+  uploadForm.value.file = undefined
+  const fileInput = document.querySelector('.upload-file-input') as HTMLInputElement
+  if (fileInput) fileInput.value = ''
+}
+
+async function loadAllTags() {
   try {
-    const res = await contentApi.myList({ page: myContentsPage.value, page_size: 10 })
+    const res = await contentApi.getTags()
     if (res.code === 200) {
-      myContents.value = res.data.list
-      myContentsTotal.value = res.data.total
-      myContentsTotalPages.value = res.data.total_page
+      allTags.value = res.data as string[]
     }
   } catch (error) {
-    console.error('加载我的内容失败', error)
+    console.error('加载标签失败', error)
   }
 }
 
@@ -244,11 +136,10 @@ async function handleUpload() {
       uploadProgress.value = percent
     })
     if (res.code === 200) {
-      message.value = '上传成功'
-      uploadForm.value = { title: '', type: 'text', content: '', tags: [], file: undefined, filePath: '' }
-      filePreview.value = ''
-      showUploadModal.value = false
-      loadMyContents()
+      message.value = '上传成功！'
+      setTimeout(() => {
+        router.push('/')
+      }, 1500)
     } else {
       message.value = res.message || '上传失败'
     }
@@ -260,89 +151,8 @@ async function handleUpload() {
   }
 }
 
-function openEditModal(content: Content) {
-  editForm.value = {
-    id: content.id || content.ID,
-    title: content.title || content.Title,
-    content: content.content || content.Content,
-    type: (content.type || content.Type) as 'video' | 'image' | 'text',
-    filePath: content.file_path || content.FilePath || '',
-    tags: (content.tags || content.Tags || []).map(t => String(t)),
-    file: undefined
-  }
-  isEditModal.value = true
-}
-
-async function handleUpdate() {
-  try {
-    const res = await contentApi.update(editForm.value.id, {
-      title: editForm.value.title,
-      content: editForm.value.content,
-      tags: editForm.value.tags,
-      file: editForm.value.file
-    })
-    if (res.code === 200) {
-      message.value = '更新成功'
-      isEditModal.value = false
-      loadMyContents()
-    } else {
-      message.value = res.message
-    }
-  } catch (error) {
-    message.value = '更新失败'
-  }
-}
-
-function confirmDelete(id: number) {
-  deleteTargetId.value = id
-  showDeleteConfirm.value = true
-}
-
-async function handleDelete() {
-  const id = deleteTargetId.value
-  try {
-    const res = await contentApi.delete(id)
-    if (res.code === 200) {
-      message.value = '删除成功'
-      loadMyContents()
-    }
-  } catch (error) {
-    message.value = '删除失败'
-  }
-  showDeleteConfirm.value = false
-}
-
-function handleFileChange(event: Event) {
-  const target = event.target as HTMLInputElement
-  if (target.files && target.files.length > 0) {
-    uploadForm.value.file = target.files[0]
-    const file = target.files[0]
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      filePreview.value = e.target?.result as string
-    }
-    reader.readAsDataURL(file)
-  }
-}
-
-function handleEditFileChange(event: Event) {
-  const target = event.target as HTMLInputElement
-  if (target.files && target.files.length > 0) {
-    editForm.value.file = target.files[0]
-  }
-}
-
-function clearFilePreview() {
-  filePreview.value = ''
-  uploadForm.value.file = undefined
-  const fileInput = document.querySelector('.upload-file-input') as HTMLInputElement
-  if (fileInput) fileInput.value = ''
-}
-
 onMounted(() => {
-  if (userStore.isLoggedIn) {
-    loadMyContents()
-  }
+  loadAllTags()
 })
 </script>
 
@@ -353,7 +163,7 @@ onMounted(() => {
         <div class="mac-dot mac-dot-red"></div>
         <div class="mac-dot mac-dot-yellow"></div>
         <div class="mac-dot mac-dot-green"></div>
-        <div class="window-title">小泉动漫 - 内容上传</div>
+        <div class="window-title">小泉动漫 - 发布内容</div>
       </div>
 
       <div class="upload-content">
@@ -362,42 +172,123 @@ onMounted(() => {
           <span class="message-close" @click="message = ''">×</span>
         </div>
 
-        <div class="section-header">
-          <h2 class="section-title">上传新内容</h2>
-          <button @click="showUploadModal = true" class="mac-btn primary-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            新建上传
+        <div class="form-section">
+          <label class="form-label">标题</label>
+          <input v-model="uploadForm.title" type="text" class="mac-input" placeholder="输入标题" />
+        </div>
+
+        <div class="form-section">
+          <label class="form-label">类型</label>
+          <div class="radio-group">
+            <label class="radio-item">
+              <input type="radio" value="text" v-model="uploadForm.type" />
+              <span>图文</span>
+            </label>
+            <label class="radio-item">
+              <input type="radio" value="image" v-model="uploadForm.type" />
+              <span>图片</span>
+            </label>
+            <label class="radio-item">
+              <input type="radio" value="video" v-model="uploadForm.type" />
+              <span>视频</span>
+            </label>
+          </div>
+        </div>
+
+        <div v-if="uploadForm.type === 'text'" class="form-section">
+          <label class="form-label">内容</label>
+          <div class="md-toolbar">
+            <button type="button" @click="insertMarkdown('## ')" class="md-btn" title="标题">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 12h16M4 6h16M4 18h10" />
+              </svg>
+            </button>
+            <button type="button" @click="insertMarkdown('**', '**')" class="md-btn" title="粗体">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
+                <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
+              </svg>
+            </button>
+            <button type="button" @click="insertMarkdown('*', '*')" class="md-btn" title="斜体">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="4" x2="10" y2="4" />
+                <line x1="14" y1="20" x2="5" y2="20" />
+                <line x1="15" y1="4" x2="9" y2="20" />
+              </svg>
+            </button>
+            <button type="button" @click="insertMarkdown('- ')" class="md-btn" title="列表">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="8" y1="6" x2="21" y2="6" />
+                <line x1="8" y1="12" x2="21" y2="12" />
+                <line x1="8" y1="18" x2="21" y2="18" />
+                <line x1="3" y1="6" x2="3.01" y2="6" />
+                <line x1="3" y1="12" x2="3.01" y2="12" />
+                <line x1="3" y1="18" x2="3.01" y2="18" />
+              </svg>
+            </button>
+            <button type="button" @click="insertMarkdown('`', '`')" class="md-btn" title="代码">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="16 18 22 12 16 6" />
+                <polyline points="8 6 2 12 8 18" />
+              </svg>
+            </button>
+            <button type="button" @click="triggerImageUpload" class="md-btn" title="上传图片">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+            </button>
+          </div>
+          <textarea v-model="uploadForm.content" class="mac-input textarea upload-textarea" placeholder="支持Markdown格式"></textarea>
+        </div>
+
+        <div v-else class="form-section">
+          <label class="form-label">文件</label>
+          <input type="file" @change="handleFileChange" class="file-input" :accept="uploadForm.type === 'image' ? 'image/*' : 'video/*'" />
+          <div v-if="filePreview" class="file-preview">
+            <img v-if="uploadForm.type === 'image'" :src="filePreview" class="preview-image" />
+            <video v-else-if="uploadForm.type === 'video'" :src="filePreview" class="preview-video" controls />
+            <button type="button" @click="clearFilePreview" class="clear-preview-btn">×</button>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <label class="form-label">已选标签</label>
+          <div v-if="uploadForm.tags.length > 0" class="selected-tags">
+            <span v-for="tag in uploadForm.tags" :key="tag" class="selected-tag">
+              {{ tag }}
+              <span @click="removeTag(tag)" class="tag-remove">×</span>
+            </span>
+          </div>
+          <div v-else class="empty-tags">点击下方标签进行选择</div>
+        </div>
+
+        <div class="form-section">
+          <label class="form-label">选择标签</label>
+          <div class="all-tags-container">
+            <div class="all-tags">
+              <span v-for="tag in allTags" :key="tag"
+                :class="['tag-btn', { selected: uploadForm.tags.includes(tag) }]"
+                @click="toggleTag(tag)">{{ tag }}</span>
+            </div>
+            <div v-if="allTags.length === 0" class="no-tags">暂无可用标签</div>
+          </div>
+        </div>
+
+        <div v-if="isUploading" class="form-section">
+          <div class="progress-bar-container">
+            <div class="progress-bar" :style="{ width: `${uploadProgress}%` }"></div>
+            <span class="progress-text">{{ uploadProgress }}%</span>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button @click="router.push('/')" class="mac-btn cancel-btn">取消</button>
+          <button @click="handleUpload" class="mac-btn primary-btn" :disabled="isUploading">
+            {{ isUploading ? '上传中...' : '发布内容' }}
           </button>
         </div>
-
-        <div class="section-header">
-          <h2 class="section-title">我的内容</h2>
-          <span class="section-count">共 {{ myContentsTotal }} 条</span>
-        </div>
-
-        <div class="content-list">
-          <AdminContentCard
-            v-for="content in myContents"
-            :key="content.id || content.ID"
-            :content="content"
-            :show-actions="true"
-            @view="openContentDetail"
-            @edit="openEditModal"
-            @delete="confirmDelete"
-          />
-        </div>
-
-        <AdminEmptyState v-if="myContents.length === 0" text="暂无内容" />
-
-        <AdminPagination
-          v-if="myContentsTotalPages > 1"
-          :current-page="myContentsPage"
-          :total-pages="myContentsTotalPages"
-          @change="(page: number) => { myContentsPage = page; loadMyContents() }"
-        />
       </div>
     </div>
 
@@ -408,77 +299,12 @@ onMounted(() => {
       style="display: none"
       @change="handleImageUpload"
     />
-
-    <input
-      ref="editImageUploadInput"
-      type="file"
-      accept="image/jpeg,image/png,image/gif,image/webp"
-      style="display: none"
-      @change="handleEditImageUpload"
-    />
-
-    <AdminUploadForm
-      :visible="showUploadModal"
-      :upload-form="uploadForm"
-      :all-tags="allTags"
-      :file-preview="filePreview"
-      :upload-progress="uploadProgress"
-      :is-uploading="isUploading"
-      @close="showUploadModal = false; filePreview = ''"
-      @submit="handleUpload"
-      @insert-markdown="insertMarkdown"
-      @trigger-image-upload="triggerImageUpload"
-      @handle-image-upload="handleImageUpload"
-      @handle-file-change="handleFileChange"
-      @add-tag="addTag"
-      @remove-tag="removeTag"
-      @toggle-tag="toggleTag"
-      @clear-preview="clearFilePreview"
-    />
-
-    <AdminEditModal
-      :visible="isEditModal"
-      :edit-form="editForm"
-      :all-tags="allTags"
-      @close="isEditModal = false"
-      @save="handleUpdate"
-      @insert-markdown="insertMarkdown"
-      @trigger-image-upload="triggerEditImageUpload"
-      @handle-image-upload="handleEditImageUpload"
-      @handle-file-change="handleEditFileChange"
-      @add-tag="addTag"
-      @remove-tag="removeEditTag"
-      @toggle-tag="toggleEditTag"
-    />
-
-    <AdminContentDetailModal
-      v-if="contentDetail"
-      :content="contentDetail"
-      :visible="showContentDetail"
-      @close="showContentDetail = false"
-    />
-
-    <Teleport to="body">
-      <AdminQuickAddTag
-        :visible="showQuickAddTag"
-        :target="tagTargetForm"
-        v-model:new-tag="quickAddTagName"
-        @close="showQuickAddTag = false"
-        @add="handleQuickAddTag"
-      />
-
-      <AdminDeleteConfirm
-        :visible="showDeleteConfirm"
-        @close="showDeleteConfirm = false"
-        @confirm="handleDelete"
-      />
-    </Teleport>
   </div>
 </template>
 
 <style scoped>
 .upload-container {
-  min-height: 100vh;
+  min-height: calc(100vh - 100px);
   padding: 20px;
   display: flex;
   justify-content: center;
@@ -486,8 +312,7 @@ onMounted(() => {
 
 .upload-window {
   width: 100%;
-  max-width: 1000px;
-  min-height: 80vh;
+  max-width: 800px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.75);
   border-radius: 12px;
@@ -534,7 +359,6 @@ onMounted(() => {
 
 .upload-content {
   padding: 24px;
-  background: rgba(255, 255, 255, 0.75);
 }
 
 .message-bar {
@@ -562,37 +386,263 @@ onMounted(() => {
   font-weight: bold;
 }
 
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
+.form-section {
+  margin-bottom: 20px;
 }
 
-.section-title {
-  font-size: 18px;
+.form-label {
+  display: block;
+  font-size: 14px;
   font-weight: 600;
   color: #1a1a1a;
-  margin: 0;
+  margin-bottom: 8px;
 }
 
-.section-count {
-  font-size: 13px;
-  color: #888;
+.mac-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  box-sizing: border-box;
 }
 
-.mac-btn {
-  padding: 8px 16px;
+.mac-input:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.textarea {
+  min-height: 200px;
+  resize: vertical;
+  font-family: monospace;
+  line-height: 1.6;
+}
+
+.radio-group {
+  display: flex;
+  gap: 16px;
+}
+
+.radio-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+}
+
+.radio-item input {
+  cursor: pointer;
+}
+
+.md-toolbar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding: 6px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 6px;
+}
+
+.md-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 6px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.md-btn:hover {
+  background: rgba(59, 130, 246, 0.08);
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.md-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.file-input {
+  padding: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  width: 100%;
+}
+
+.file-preview {
+  position: relative;
+  margin-top: 12px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.preview-image {
+  width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+}
+
+.preview-video {
+  width: 100%;
+  max-height: 300px;
+}
+
+.clear-preview-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.selected-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.selected-tag {
+  padding: 4px 10px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 20px;
+  font-size: 13px;
+  color: #3b82f6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tag-remove {
+  cursor: pointer;
+  font-weight: bold;
+  opacity: 0.6;
+}
+
+.tag-remove:hover {
+  opacity: 1;
+}
+
+.empty-tags {
+  color: #999;
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.all-tags-container {
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.all-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-btn {
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 20px;
+  font-size: 13px;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tag-btn:hover {
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
+}
+
+.tag-btn.selected {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
+}
+
+.no-tags {
+  color: #999;
+  font-size: 13px;
+  text-align: center;
+  padding: 16px;
+}
+
+.progress-bar-container {
+  position: relative;
+  width: 100%;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  border-radius: 10px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.mac-btn {
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
   font-size: 14px;
   color: #333;
   cursor: pointer;
   transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .mac-btn:hover {
@@ -601,9 +651,9 @@ onMounted(() => {
   border-color: rgba(59, 130, 246, 0.3);
 }
 
-.mac-btn svg {
-  width: 16px;
-  height: 16px;
+.mac-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .primary-btn {
@@ -612,16 +662,14 @@ onMounted(() => {
   border-color: rgba(59, 130, 246, 0.95);
 }
 
-.primary-btn:hover {
+.primary-btn:hover:not(:disabled) {
   background: rgba(37, 99, 235, 0.95);
   color: white;
   border-color: rgba(37, 99, 235, 0.95);
 }
 
-.content-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.cancel-btn {
+  background: rgba(255, 255, 255, 0.95);
 }
 
 @media screen and (max-width: 768px) {
@@ -635,6 +683,14 @@ onMounted(() => {
 
   .upload-content {
     padding: 16px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .mac-btn {
+    width: 100%;
   }
 }
 </style>
