@@ -6,6 +6,7 @@ import { contentApi, commentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import type { Content, Comment } from '@/types'
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 
 const route = useRoute()
 const router = useRouter()
@@ -22,7 +23,7 @@ const message = ref('')
 const renderedContent = computed(() => {
   if (!content.value) return ''
   const text = content.value.content || content.value.Content || ''
-  return marked(text)
+  return DOMPurify.sanitize(marked(text) as string)
 })
 
 function getImageUrl(image?: string, filePath?: string) {
