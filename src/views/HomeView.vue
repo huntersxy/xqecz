@@ -141,7 +141,7 @@ async function loadContents() {
       contents.value = res.data.list.map((item: Record<string, unknown>) => normalizeContent(item))
       total.value = res.data.total
       totalPages.value = res.data.total_page
-      swapSections.value = selectedTags.value.length > 0 || selectedTypes.value.length > 0
+      swapSections.value = selectedTags.value.length > 0 || selectedTypes.value.length > 0 || !!searchKeyword.value.trim()
     }
   } catch (error) {
     console.error('加载内容失败', error)
