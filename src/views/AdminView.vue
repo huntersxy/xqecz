@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { contentApi, adminApi } from '@/api'
 import type { Content, User } from '@/types'
@@ -18,6 +19,7 @@ import AdminQuickAddTag from '@/components/admin/AdminQuickAddTag.vue'
 import AdminUploadForm from '@/components/admin/AdminUploadForm.vue'
 
 const userStore = useUserStore()
+const router = useRouter()
 
 const activeTab = ref('my')
 const message = ref('')
@@ -545,7 +547,7 @@ onMounted(() => {
           />
           <div class="section-header">
             <h2 class="section-title">上传内容</h2>
-            <button @click="showUploadModal = true" class="mac-btn primary-btn">
+            <button @click="router.push('/upload')" class="mac-btn primary-btn">
               新建上传
             </button>
           </div>
