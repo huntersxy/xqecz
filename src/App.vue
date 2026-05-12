@@ -8,6 +8,13 @@ const userStore = useUserStore()
 const isMobileMenuOpen = ref(false)
 const isMobileUA = ref(false)
 
+// 构建日期（构建时注入）
+const buildDate = import.meta.env.VITE_BUILD_DATE || new Date().toISOString().split('T')[0]
+// 当前年份
+const currentYear = new Date().getFullYear()
+// 是否显示ICP备案号（仅在xiey.work域名下显示）
+const showICP = window.location.hostname.endsWith('xiey.work')
+
 function isMobileDevice() {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(navigator.userAgent)
 }
@@ -139,7 +146,15 @@ onMounted(() => {
   </header>
 
   <main>
-    <RouterView />
+    <Suspense>
+      <RouterView />
+      <template #fallback>
+        <div class="loading-fallback">
+          <div class="loading-spinner"></div>
+          <p>加载中...</p>
+        </div>
+      </template>
+    </Suspense>
   </main>
 
   <div v-if="isMobileMenuOpen" class="mobile-menu-overlay" @click="closeMobileMenu">
@@ -211,6 +226,20 @@ onMounted(() => {
       </div>
     </div>
   </div>
+
+  <!-- 页脚版权信息 -->
+  <footer class="site-footer">
+    <div class="footer-content">
+      <div class="footer-left">
+        <span class="copyright">© {{ currentYear }} 小泉动漫二创站</span>
+        <span class="license">CC BY-NC 4.0 非商业使用</span>
+        <span v-if="showICP" class="icp">桂ICP备2024031550号</span>
+      </div>
+      <div class="footer-right">
+        <span class="build-info">构建时间: {{ buildDate }}</span>
+      </div>
+    </div>
+  </footer>
 </template>
 
 <style scoped>
@@ -533,8 +562,92 @@ onMounted(() => {
   height: 18px;
 }
 
+/* 页脚样式 */
+.site-footer {
+  margin-top: 40px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.85);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(10px);
+}
+
+.footer-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.copyright {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.license {
+  font-size: 13px;
+  color: #999;
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 4px;
+}
+
+.icp {
+  font-size: 13px;
+  color: #999;
+}
+
+.footer-right {
+  font-size: 13px;
+  color: #999;
+}
+
+.build-info {
+  font-family: monospace;
+}
+
 main {
   padding: 20px;
+  min-height: calc(100vh - 200px);
+}
+
+.loading-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(0, 122, 255, 0.2);
+  border-top-color: #007aff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-fallback p {
+  margin-top: 16px;
+  color: #666;
+  font-size: 14px;
 }
 
 @media screen and (max-width: 768px) {
@@ -571,6 +684,35 @@ main {
   main {
     padding: 12px;
     padding-top: 60px;
+    min-height: calc(100vh - 180px);
+  }
+
+  .site-footer {
+    margin-top: 20px;
+    padding: 16px;
+  }
+
+  .footer-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+  }
+
+  .footer-left {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .copyright {
+    font-size: 13px;
+  }
+
+  .license {
+    font-size: 12px;
+  }
+
+  .footer-right {
+    font-size: 12px;
   }
 }
 

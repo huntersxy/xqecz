@@ -50,6 +50,7 @@ const handleReject = () => emit('audit', contentId, 'rejected');
           :src="getImageUrl(content.image, content.file_path || content.FilePath)"
           alt="内容图片"
           class="item-image"
+          loading="lazy"
         />
       </template>
       <template v-else-if="contentType === 'video'">
@@ -57,6 +58,7 @@ const handleReject = () => emit('audit', contentId, 'rejected');
           :src="getImageUrl(content.image, content.thumb_path || content.file_path || content.FilePath)"
           alt="视频封面"
           class="item-image"
+          loading="lazy"
         />
       </template>
       <template v-else>

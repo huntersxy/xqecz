@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, computed, nextTick } from 'vue'
+import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { motion, AnimatePresence } from 'motion-v'
 import { contentApi } from '@/api'
+import { useHomeStore } from '@/stores/home'
 import type { Content, ListParams, User, RecommendContent } from '@/types'
 
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -41,17 +42,22 @@ function getPreviewText(text: string, maxLength: number = 120): string {
 }
 
 const router = useRouter()
+const homeStore = useHomeStore()
+
 const contents = ref<Content[]>([])
 const recommendContents = ref<RecommendContent[]>([])
 const allTags = ref<string[]>([])
-const selectedTags = ref<string[]>([])
-const searchKeyword = ref('')
-const selectedTypes = ref<string[]>([])
-const page = ref(1)
+
+// 从 store 初始化状态
+const selectedTags = ref<string[]>(homeStore.selectedTags)
+const searchKeyword = ref(homeStore.searchKeyword)
+const selectedTypes = ref<string[]>(homeStore.selectedTypes)
+const page = ref(homeStore.page)
+const recommendPage = ref(homeStore.recommendPage)
+
 const pageSize = ref(12)
 const total = ref(0)
 const totalPages = ref(1)
-const recommendPage = ref(1)
 const recommendHint = ref('')
 const recommendPerPage = 16
 const recommendTotal = 100
@@ -141,7 +147,7 @@ async function loadContents() {
       contents.value = res.data.list.map((item: Record<string, unknown>) => normalizeContent(item))
       total.value = res.data.total
       totalPages.value = res.data.total_page
-      swapSections.value = selectedTags.value.length > 0 || selectedTypes.value.length > 0
+      swapSections.value = selectedTags.value.length > 0 || selectedTypes.value.length > 0 || !!searchKeyword.value.trim()
     }
   } catch (error) {
     console.error('加载内容失败', error)
@@ -195,9 +201,39 @@ function handleSearch() {
 
 function goToDetail(content: Content) {
   if (content.id) {
+    // 保存当前滚动位置
+    homeStore.saveState({
+      searchKeyword: searchKeyword.value,
+      selectedTags: selectedTags.value,
+      selectedTypes: selectedTypes.value,
+      page: page.value,
+      recommendPage: recommendPage.value,
+      scrollPosition: window.scrollY
+    })
     router.push(`/content/${content.id}`)
   }
 }
+
+// 路由离开前保存状态
+onBeforeRouteLeave((to, from, next) => {
+  // 只有在跳转到详情页时才保存状态
+  if (to.path.startsWith('/content/')) {
+    homeStore.saveState({
+      searchKeyword: searchKeyword.value,
+      selectedTags: selectedTags.value,
+      selectedTypes: selectedTypes.value,
+      page: page.value,
+      recommendPage: recommendPage.value,
+      scrollPosition: window.scrollY
+    })
+  } else if (to.path === '/') {
+    // 如果是返回首页，不保存状态，让首页恢复时使用已有状态
+  } else {
+    // 跳转到其他页面（非详情页、非首页）时清除状态
+    homeStore.clearState()
+  }
+  next()
+})
 
 function goToPage(p: number) {
   if (p >= 1 && p <= totalPages.value) {
@@ -254,6 +290,21 @@ function refreshRecommend() {
 }
 
 onMounted(() => {
+  // 检测是否是页面刷新（通过 performance.getEntriesByType）
+  const navigationEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[]
+  const isReload = navigationEntries.length > 0 && navigationEntries[0].type === 'reload'
+  
+  // 如果是页面刷新，清除状态
+  if (isReload) {
+    homeStore.clearState()
+  }
+  
+  // 如果有保存的状态，恢复滚动位置
+  if (homeStore.hasLoaded) {
+    nextTick(() => {
+      homeStore.restoreScroll()
+    })
+  }
   loadContents()
   loadTags()
   loadRecommendContents()
@@ -397,6 +448,7 @@ onMounted(() => {
                         "
                         :alt="content.title"
                         class="recommend-image"
+                        loading="lazy"
                       />
                       <div v-if="content.type === 'video'" class="play-overlay">
                         <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -458,6 +510,7 @@ onMounted(() => {
                           :src="getImageUrl(content.image, content.file_path, content.type)"
                           alt="内容图片"
                           class="card-image"
+                          loading="lazy"
                         />
                       </template>
                       <template v-else-if="content.type === 'video'">
@@ -465,6 +518,7 @@ onMounted(() => {
                           :src="getImageUrl(content.image, content.file_path, content.type)"
                           alt="视频封面"
                           class="card-image"
+                          loading="lazy"
                         />
                         <div class="play-overlay">
                           <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor">

@@ -75,7 +75,6 @@ recommend: (count: number, page?: number) => {
 },
 
   upload: (data: UploadContentData, onProgress?: (percent: number) => void): Promise<ApiResponse<Content>> => {
-    console.log('Upload data:', data)
     const formData = new FormData()
 
     if (data.title) {
