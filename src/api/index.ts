@@ -74,7 +74,7 @@ recommend: (count: number, page?: number) => {
   })
 },
 
-  upload: (data: UploadContentData, onProgress?: (percent: number) => void) => {
+  upload: (data: UploadContentData, onProgress?: (percent: number) => void): Promise<ApiResponse<Content>> => {
     console.log('Upload data:', data)
     const formData = new FormData()
 
@@ -105,7 +105,7 @@ recommend: (count: number, page?: number) => {
     }
 
     if (onProgress) {
-      return new Promise((resolve, reject) => {
+      return new Promise<ApiResponse<Content>>((resolve, reject) => {
         instance.post('/content/upload', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',

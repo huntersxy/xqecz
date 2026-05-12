@@ -1,0 +1,52 @@
+<script setup lang="ts">
+interface Props {
+  text?: string;
+  type?: 'content' | 'pending' | 'user';
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  text: '暂无内容',
+  type: 'content',
+});
+</script>
+
+<template>
+  <div class="empty-state">
+    <svg v-if="type === 'content' || type === 'pending'" class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="12" cy="12" r="10"/>
+      <polyline points="12 6 12 12 16 14"/>
+    </svg>
+    <svg v-else-if="type === 'user'" class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+    <p>{{ text }}</p>
+  </div>
+</template>
+
+<style scoped>
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+}
+
+.empty-icon {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+}
+
+@media screen and (max-width: 768px) {
+  .empty-state {
+    padding: 30px 16px;
+  }
+
+  .empty-icon {
+    width: 48px;
+    height: 48px;
+  }
+}
+</style>

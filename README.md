@@ -5,7 +5,7 @@
 ![Vue](https://img.shields.io/badge/Vue-3.4-blue)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)
 ![Vite](https://img.shields.io/badge/Vite-5.0-purple)
-![License](https://img.shields.io/badge/License-MIT-green)
+![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-red)
 
 ## ✨ 特性
 
@@ -87,7 +87,14 @@ xiaoquanweb/
 
 ## 📝 License
 
-MIT License - 详见 [LICENSE](LICENSE) 文件
+**禁止商用** - 本项目采用 **CC BY-NC 4.0（知识共享署名-非商业性使用）** 许可证
+
+- ✅ 允许个人学习、教育使用
+- ✅ 允许创作衍生作品
+- ❌ 禁止任何商业用途
+- ❌ 禁止付费服务集成
+
+详见 [LICENSE](LICENSE) 文件
 
 ---
 
