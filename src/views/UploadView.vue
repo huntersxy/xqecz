@@ -33,7 +33,7 @@ const editForm = ref({
   id: 0,
   title: '',
   content: '',
-  type: 'video' | 'image' | 'text' as const,
+  type: 'text' as 'video' | 'image' | 'text',
   filePath: '',
   tags: [] as string[],
   file: undefined as File | undefined
