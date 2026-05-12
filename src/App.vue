@@ -146,7 +146,15 @@ onMounted(() => {
   </header>
 
   <main>
-    <RouterView />
+    <Suspense>
+      <RouterView />
+      <template #fallback>
+        <div class="loading-fallback">
+          <div class="loading-spinner"></div>
+          <p>加载中...</p>
+        </div>
+      </template>
+    </Suspense>
   </main>
 
   <div v-if="isMobileMenuOpen" class="mobile-menu-overlay" @click="closeMobileMenu">
@@ -611,6 +619,35 @@ onMounted(() => {
 main {
   padding: 20px;
   min-height: calc(100vh - 200px);
+}
+
+.loading-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(0, 122, 255, 0.2);
+  border-top-color: #007aff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-fallback p {
+  margin-top: 16px;
+  color: #666;
+  font-size: 14px;
 }
 
 @media screen and (max-width: 768px) {

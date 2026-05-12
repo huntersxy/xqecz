@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { createAsyncComponent } from '@/utils/asyncComponent'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -8,14 +9,14 @@ declare module 'vue-router' {
   }
 }
 
-// 路由懒加载
-const HomeView = () => import('../views/HomeView.vue')
-const EasterEggView = () => import('../views/EasterEggView.vue')
-const LoginView = () => import('../views/LoginView.vue')
-const ContentDetailView = () => import('../views/ContentDetailView.vue')
-const UploadView = () => import('../views/UploadView.vue')
-const AdminView = () => import('../views/AdminView.vue')
-const AdminReportsView = () => import('../views/AdminReportsView.vue')
+// 路由懒加载 - 使用 createAsyncComponent 提供更好的加载体验
+const HomeView = createAsyncComponent(() => import('../views/HomeView.vue'))
+const EasterEggView = createAsyncComponent(() => import('../views/EasterEggView.vue'))
+const LoginView = createAsyncComponent(() => import('../views/LoginView.vue'))
+const ContentDetailView = createAsyncComponent(() => import('../views/ContentDetailView.vue'))
+const UploadView = createAsyncComponent(() => import('../views/UploadView.vue'))
+const AdminView = createAsyncComponent(() => import('../views/AdminView.vue'))
+const AdminReportsView = createAsyncComponent(() => import('../views/AdminReportsView.vue'))
 
 const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
