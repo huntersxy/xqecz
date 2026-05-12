@@ -4,7 +4,6 @@ import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { motion, AnimatePresence } from 'motion-v'
 import { contentApi } from '@/api'
 import { useHomeStore } from '@/stores/home'
-import LazyImage from '@/components/LazyImage.vue'
 import type { Content, ListParams, User, RecommendContent } from '@/types'
 
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -440,7 +439,7 @@ onMounted(() => {
                     }"
                   >
                     <div class="recommend-media">
-                      <LazyImage
+                      <img
                         :src="
                           content.image.replace(
                             /http:\/\/localhost:8080/,
@@ -449,6 +448,7 @@ onMounted(() => {
                         "
                         :alt="content.title"
                         class="recommend-image"
+                        loading="lazy"
                       />
                       <div v-if="content.type === 'video'" class="play-overlay">
                         <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -506,17 +506,19 @@ onMounted(() => {
                   >
                     <div class="card-media">
                       <template v-if="content.type === 'image'">
-                        <LazyImage
+                        <img
                           :src="getImageUrl(content.image, content.file_path, content.type)"
                           alt="内容图片"
                           class="card-image"
+                          loading="lazy"
                         />
                       </template>
                       <template v-else-if="content.type === 'video'">
-                        <LazyImage
+                        <img
                           :src="getImageUrl(content.image, content.file_path, content.type)"
                           alt="视频封面"
                           class="card-image"
+                          loading="lazy"
                         />
                         <div class="play-overlay">
                           <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor">
