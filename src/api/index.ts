@@ -11,7 +11,8 @@ import type {
   PaginatedResponse,
   Comment,
   CommentReport,
-  CommentCount
+  CommentCount,
+  RecommendResponse
 } from '@/types'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -21,16 +22,24 @@ const instance = axios.create({
   withCredentials: true,
 })
 
-async function request<T>(url: string, options: AxiosRequestConfig = {}): Promise<ApiResponse<T>> {
-  console.log('Request:', url, options)
+instance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      console.warn('[API] 未授权，请重新登录')
+    } else if (error.response?.status >= 500) {
+      console.error('[API] 服务器错误:', error.response?.status)
+    }
+    return Promise.reject(error)
+  }
+)
 
+async function request<T>(url: string, options: AxiosRequestConfig = {}): Promise<ApiResponse<T>> {
   try {
     const response = await instance(url, options)
-    console.log('Response status:', response.status)
-    console.log('Response data:', response.data)
     return response.data
   } catch (error) {
-    console.error('Request error:', error)
+    console.error('[API] 请求失败:', error)
     throw error
   }
 }
@@ -58,6 +67,12 @@ export const authApi = {
 
 export const contentApi = {
   getTags: () => request<string[]>('/content/tags'),
+
+recommend: (count: number, page?: number) => {
+  return request<RecommendResponse>('/content/recommend', {
+    params: { count, page: page || 1 },
+  })
+},
 
   upload: (data: UploadContentData, onProgress?: (percent: number) => void) => {
     console.log('Upload data:', data)
@@ -242,6 +257,11 @@ export const adminApi = {
 
   regenerateThumbnail: (id: number) =>
     request<{ id: number; thumb_path: string }>(`/admin/content/${id}/regenerate-thumbnail`, {
+      method: 'POST',
+    }),
+
+  regenerateAllThumbnails: () =>
+    request<{ count: number }>('/admin/content/regenerate-all-thumbnails', {
       method: 'POST',
     }),
 

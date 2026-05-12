@@ -32,12 +32,10 @@ export const useUserStore = defineStore('user', () => {
         user.value = res.data
         isLoggedIn.value = true
       } else {
-        user.value = null
-        isLoggedIn.value = false
+        // 如果API返回失败，保持当前状态不变（可能是Cookie跨域问题）
       }
     } catch {
-      user.value = null
-      isLoggedIn.value = false
+      // API调用失败时保持当前状态不变，避免已登录用户被意外登出（可能是Cookie跨域问题）
     } finally {
       isLoading.value = false
     }

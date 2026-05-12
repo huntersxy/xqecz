@@ -168,35 +168,36 @@ function toggleMode() {
 
 .login-window {
   width: 100%;
-  max-width: 400px;
-  background: white;
-  border-radius: 16px;
+  max-width: 420px;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 12px;
   box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.1),
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.04),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.4);
   overflow: hidden;
 }
 
 .login-content {
-  padding: 40px 32px;
+  padding: 32px;
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 28px;
 }
 
 .logo {
   width: 64px;
   height: 64px;
   margin: 0 auto 16px;
-  background: linear-gradient(135deg, #007aff, #0056b3);
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
   border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 32px rgba(0, 122, 255, 0.3);
+  box-shadow: 0 8px 32px rgba(59, 130, 246, 0.3);
 }
 
 .logo svg {
@@ -206,7 +207,7 @@ function toggleMode() {
 }
 
 .app-name {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   color: #1a1a1a;
   margin: 0 0 8px 0;
@@ -219,11 +220,11 @@ function toggleMode() {
 }
 
 .login-form {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .form-label {
@@ -246,15 +247,16 @@ function toggleMode() {
   padding: 12px 16px;
   font-size: 14px;
   border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 10px;
-  background: white;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
   transition: all 0.2s ease;
 }
 
 .mac-input:focus {
   outline: none;
-  border-color: #007aff;
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background: white;
 }
 
 .mac-input::placeholder {
@@ -263,22 +265,22 @@ function toggleMode() {
 
 .message-box {
   padding: 12px 16px;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 13px;
   margin-bottom: 16px;
   text-align: center;
 }
 
 .message-box.error {
-  background: #fef2f2;
+  background: rgba(254, 226, 226, 0.9);
   color: #dc2626;
-  border: 1px solid #fecaca;
+  border: 1px solid rgba(254, 202, 202, 0.5);
 }
 
 .message-box.success {
-  background: #ecfdf5;
+  background: rgba(236, 253, 245, 0.9);
   color: #059669;
-  border: 1px solid #a7f3d0;
+  border: 1px solid rgba(167, 243, 208, 0.5);
 }
 
 .submit-btn {
@@ -314,20 +316,24 @@ function toggleMode() {
   text-align: center;
   font-size: 13px;
   color: #666;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .toggle-btn {
   background: none;
   border: none;
-  color: #007aff;
+  color: #3b82f6;
   font-weight: 600;
   cursor: pointer;
   margin-left: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
 }
 
 .toggle-btn:hover {
-  text-decoration: underline;
+  background: rgba(59, 130, 246, 0.1);
+  text-decoration: none;
 }
 
 .back-home {
@@ -339,8 +345,8 @@ function toggleMode() {
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: rgba(0, 0, 0, 0.05);
-  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 8px;
   font-size: 13px;
   color: #666;
@@ -349,7 +355,11 @@ function toggleMode() {
 }
 
 .back-btn:hover {
-  background: rgba(0, 0, 0, 0.1);
+  background: white;
+  border-color: #3b82f6;
+  color: #3b82f6;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
 }
 
 .back-btn svg {

@@ -44,7 +44,9 @@ async function loadRandomBackground() {
 }
 
 onMounted(() => {
-  userStore.checkAuth()
+  if (!userStore.isLoggedIn) {
+    userStore.checkAuth()
+  }
   loadRandomBackground()
   isMobileUA.value = isMobileDevice()
   if (isMobileUA.value) {
@@ -183,7 +185,7 @@ onMounted(() => {
               <span v-if="userStore.user?.is_admin" class="mobile-admin-badge">管理员</span>
             </div>
           </div>
-          <button @click="userStore.logout; closeMobileMenu()" class="mobile-logout-btn">
+          <button @click="userStore.logout(); closeMobileMenu()" class="mobile-logout-btn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
               <polyline points="16 17 21 12 16 7"/>
