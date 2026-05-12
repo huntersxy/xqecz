@@ -28,7 +28,7 @@ jobs:
       - name: Deploy to FTP
         uses: SamKirkland/FTP-Deploy-Action@4.3.4
         with:
-          server: 8.134.190.23
+          server: ${{ secrets.FTP_SERVER }}
           port: 21
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
