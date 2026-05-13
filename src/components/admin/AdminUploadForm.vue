@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 interface UploadForm {
   title: string;
@@ -31,6 +31,8 @@ const mergedTags = computed(() => {
   const tagSet = new Set([...props.allTags, ...props.uploadForm.tags]);
   return Array.from(tagSet);
 });
+
+const agreeUpload = ref(false)
 
 const emit = defineEmits<{
   close: [];
@@ -119,6 +121,15 @@ const emit = defineEmits<{
             <button type="button" @click="$emit('clearPreview')" class="clear-preview-btn">×</button>
           </div>
         </div>
+        <div v-if="uploadForm.type === 'video'" class="terms-section">
+          <label class="terms-label">
+            <input type="checkbox" v-model="agreeUpload" />
+            <span>自2026年5月14日起，本平台建议使用「链接」类型来代替视频类型，您可以在链接类型中填入您的B站视频链接。若您同意，但您继续上传大于15MB的视频，则视为委托站长通过二创站官方B站账号代为上传，原视频将替换为该B站链接。该官方账号不会产生任何收益，亦不会用于上传其他内容。勾选即表示您已阅读并同意上述条款。</span>
+          </label>
+        </div>
+        <div class="terms-section">
+          <div class="terms-text">上传至本站的内容如未另行标注版权信息，默认采用<a href="https://creativecommons.org/licenses/by/4.0/deed.zh-hans" target="_blank" rel="noopener">知识共享署名 4.0 国际许可协议（CC BY 4.0）</a>进行授权。建议您在作品中添加水印或署名以保障自身权益。</div>
+        </div>
         <div v-if="uploadForm.type === 'link'" class="form-row">
           <label class="form-label">链接地址</label>
           <input v-model="uploadForm.url" type="url" class="mac-input" placeholder="https://..." />
@@ -148,7 +159,7 @@ const emit = defineEmits<{
       </div>
       <div class="modal-footer">
         <button @click="$emit('close')" class="mac-btn" :disabled="isUploading">取消</button>
-        <button @click="$emit('submit')" class="mac-btn primary-btn" :disabled="isUploading">
+        <button @click="$emit('submit')" class="mac-btn primary-btn" :disabled="isUploading || (uploadForm.type === 'video' && uploadForm.file && uploadForm.file.size > 15 * 1024 * 1024 && !agreeUpload)">
           {{ isUploading ? '上传中...' : '提交' }}
         </button>
       </div>
@@ -460,7 +471,52 @@ const emit = defineEmits<{
     padding: 16px;
   }
 
-  .modal-footer {
+.terms-section {
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 10px 16px 0;
+}
+
+.terms-section + .terms-section {
+  border-top: none;
+  padding-top: 4px;
+  padding-bottom: 0;
+}
+
+.terms-label {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+  color: #666;
+  line-height: 1.5;
+  cursor: pointer;
+  align-items: flex-start;
+}
+
+.terms-label input[type="checkbox"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.terms-label:hover {
+  color: #333;
+}
+
+.terms-text {
+  font-size: 13px;
+  color: #888;
+  line-height: 1.6;
+}
+
+.terms-text a {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.terms-text a:hover {
+  text-decoration: underline;
+}
+
+.modal-footer {
     padding: 14px 16px;
     flex-wrap: wrap;
   }
