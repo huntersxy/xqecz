@@ -12,7 +12,11 @@ import type {
   Comment,
   CommentReport,
   CommentCount,
-  RecommendResponse
+  RecommendResponse,
+  Poll,
+  PollDetail,
+  CreatePollData,
+  VoteData,
 } from '@/types'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -31,15 +35,18 @@ instance.interceptors.response.use(
       console.error('[API] 服务器错误:', error.response?.status)
     }
     return Promise.reject(error)
-  }
+  },
 )
 
 async function request<T>(url: string, options: AxiosRequestConfig = {}): Promise<ApiResponse<T>> {
   try {
     const response = await instance(url, options)
     return response.data
-  } catch (error) {
+  } catch (error: any) {
     console.error('[API] 请求失败:', error)
+    if (error.response) {
+      console.error('[API] 响应数据:', error.response.data)
+    }
     throw error
   }
 }
@@ -49,8 +56,7 @@ export const authApi = {
 
   register: (username: string, password: string) =>
     request<RegisterResponse>('/auth/register', {
-      method:
- 'POST',
+      method: 'POST',
       data: { username, password },
     }),
 
@@ -68,13 +74,16 @@ export const authApi = {
 export const contentApi = {
   getTags: () => request<string[]>('/content/tags'),
 
-recommend: (count: number, page?: number) => {
-  return request<RecommendResponse>('/content/recommend', {
-    params: { count, page: page || 1 },
-  })
-},
+  recommend: (count: number, page?: number) => {
+    return request<RecommendResponse>('/content/recommend', {
+      params: { count, page: page || 1 },
+    })
+  },
 
-  upload: (data: UploadContentData, onProgress?: (percent: number) => void): Promise<ApiResponse<Content>> => {
+  upload: (
+    data: UploadContentData,
+    onProgress?: (percent: number) => void,
+  ): Promise<ApiResponse<Content>> => {
     const formData = new FormData()
 
     if (data.title) {
@@ -94,7 +103,7 @@ recommend: (count: number, page?: number) => {
     }
 
     if (data.tags && data.tags.length > 0) {
-      data.tags.forEach(tag => {
+      data.tags.forEach((tag) => {
         formData.append('tags', tag)
       })
     }
@@ -105,17 +114,20 @@ recommend: (count: number, page?: number) => {
 
     if (onProgress) {
       return new Promise<ApiResponse<Content>>((resolve, reject) => {
-        instance.post('/content/upload', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-          onUploadProgress: (progressEvent) => {
-            if (progressEvent.total) {
-              const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total)
-              onProgress(percent)
-            }
-          },
-        }).then(response => resolve(response.data)).catch(reject)
+        instance
+          .post('/content/upload', formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+            onUploadProgress: (progressEvent) => {
+              if (progressEvent.total) {
+                const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+                onProgress(percent)
+              }
+            },
+          })
+          .then((response) => resolve(response.data))
+          .catch(reject)
       })
     }
 
@@ -145,12 +157,15 @@ recommend: (count: number, page?: number) => {
     })
   },
 
-  update: (id: number, data: { title?: string; content?: string; tags?: string[]; file?: File }) => {
+  update: (
+    id: number,
+    data: { title?: string; content?: string; tags?: string[]; file?: File },
+  ) => {
     const formData = new FormData()
     if (data.title) formData.append('title', data.title)
     if (data.content) formData.append('content', data.content)
     if (data.tags && data.tags.length > 0) {
-      data.tags.forEach(tag => {
+      data.tags.forEach((tag) => {
         formData.append('tags', tag)
       })
     }
@@ -167,7 +182,13 @@ recommend: (count: number, page?: number) => {
   uploadImage: (file: File) => {
     const formData = new FormData()
     formData.append('file', file)
-    return request<{ id: number; filename: string; file_size: number; image_url: string; upload_time: string }>('/content/upload-image', {
+    return request<{
+      id: number
+      filename: string
+      file_size: number
+      image_url: string
+      upload_time: string
+    }>('/content/upload-image', {
       method: 'POST',
       data: formData,
     })
@@ -215,6 +236,29 @@ export const commentApi = {
   },
 
   getReports: () => request<CommentReport[]>('/admin/comments/reports'),
+}
+
+export const pollApi = {
+  create: (data: CreatePollData) =>
+    request<Poll>('/poll/create', {
+      method: 'POST',
+      data,
+    }),
+
+  list: () => request<{ list: Poll[] }>('/poll/list'),
+
+  detail: (id: number) => request<PollDetail>(`/poll/${id}`),
+
+  vote: (id: number, data: VoteData) =>
+    request(`/poll/${id}/vote`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      data,
+    }),
+
+  delete: (id: number) => request(`/poll/${id}`, { method: 'DELETE' }),
 }
 
 export const adminApi = {

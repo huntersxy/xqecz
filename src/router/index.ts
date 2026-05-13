@@ -83,7 +83,7 @@ if (typeof window !== 'undefined') {
   // 使用 requestIdleCallback 或 setTimeout 在浏览器空闲时预加载
   const preloadComponent = () => {
     // 预加载详情页（用户最可能访问的页面）
-    ContentDetailView()
+    import('../views/ContentDetailView.vue')
   }
 
   // 页面加载完成后 3 秒，如果浏览器空闲则预加载

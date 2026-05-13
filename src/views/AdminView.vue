@@ -2,8 +2,8 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { contentApi, adminApi } from '@/api'
-import type { Content, User } from '@/types'
+import { contentApi, adminApi, pollApi } from '@/api'
+import type { Content, User, Poll, CreatePollData } from '@/types'
 import { getImageUrl, getPreviewText, renderMarkdown } from '@/utils'
 
 import AdminContentCard from '@/components/admin/AdminContentCard.vue'
@@ -75,6 +75,19 @@ const deleteTargetId = ref(0)
 
 const showContentDetail = ref(false)
 const contentDetail = ref<Content | null>(null)
+
+// 投票管理相关
+const polls = ref<Poll[]>([])
+const pollsPage = ref(1)
+const pollsTotal = ref(0)
+const pollsTotalPages = ref(1)
+
+const showCreatePollModal = ref(false)
+const createPollForm = ref<CreatePollData>({
+  title: '',
+  description: '',
+  options: ['', '']
+})
 
 const allTags = computed(() => {
   const tagsSet = new Set<string>()
@@ -296,6 +309,80 @@ async function loadUsers() {
   }
 }
 
+async function loadPolls() {
+  try {
+    const res = await pollApi.list()
+    if (res.code === 200) {
+      polls.value = res.data.list
+      pollsTotal.value = res.data.list.length
+      pollsTotalPages.value = 1 // 假设目前只有一页
+    }
+  } catch (error) {
+    console.error('加载投票列表失败', error)
+  }
+}
+
+async function handleCreatePoll() {
+  if (!createPollForm.value.title.trim()) {
+    message.value = '请输入投票标题'
+    return
+  }
+  const validOptions = createPollForm.value.options.filter(opt => opt.trim())
+  if (validOptions.length < 2) {
+    message.value = '至少需要2个有效选项'
+    return
+  }
+  try {
+    const data: CreatePollData = {
+      title: createPollForm.value.title.trim(),
+      description: createPollForm.value.description.trim(),
+      options: validOptions.map(opt => opt.trim())
+    }
+    const res = await pollApi.create(data)
+    if (res.code === 200) {
+      message.value = '投票创建成功'
+      showCreatePollModal.value = false
+      createPollForm.value = {
+        title: '',
+        description: '',
+        options: ['', '']
+      }
+      loadPolls()
+    } else {
+      message.value = res.message || '创建失败'
+    }
+  } catch (error) {
+    message.value = '创建失败'
+    console.error('创建投票失败', error)
+  }
+}
+
+async function handleDeletePoll(id: number) {
+  if (!confirm('确定删除该投票？')) return
+  try {
+    const res = await pollApi.delete(id)
+    if (res.code === 200) {
+      message.value = '删除成功'
+      loadPolls()
+    } else {
+      message.value = res.message || '删除失败'
+    }
+  } catch (error) {
+    message.value = '删除失败'
+    console.error('删除投票失败', error)
+  }
+}
+
+function addPollOption() {
+  createPollForm.value.options.push('')
+}
+
+function removePollOption(index: number) {
+  if (createPollForm.value.options.length > 2) {
+    createPollForm.value.options.splice(index, 1)
+  }
+}
+
 async function handleUpload() {
   if (!userStore.user) {
     message.value = '请先登录'
@@ -498,6 +585,7 @@ function onTabChange(tab: string) {
   if (tab === 'pending') loadPendingContents()
   if (tab === 'all') loadAllContents()
   if (tab === 'users') loadUsers()
+  if (tab === 'polls') loadPolls()
 }
 
 onMounted(() => {
@@ -525,7 +613,7 @@ onMounted(() => {
 
         <div class="nav-tabs">
           <button
-            v-for="tab in [{key:'my',label:'我的内容'},{key:'pending',label:'审核内容'},{key:'all',label:'所有内容'},{key:'users',label:'用户管理'}]"
+            v-for="tab in [{key:'my',label:'我的内容'},{key:'pending',label:'审核内容'},{key:'all',label:'所有内容'},{key:'users',label:'用户管理'},{key:'polls',label:'投票管理'}]"
             :key="tab.key"
             v-show="tab.key === 'my' || userStore.user?.is_admin"
             @click="onTabChange(tab.key)"
@@ -675,6 +763,59 @@ onMounted(() => {
             @change="(page: number) => { usersPage = page; loadUsers() }"
           />
         </div>
+
+        <div v-if="activeTab === 'polls'" class="tab-content">
+          <div class="section-header">
+            <h2 class="section-title">投票管理</h2>
+            <div class="section-actions">
+              <span class="section-count">共 {{ pollsTotal }} 条</span>
+              <button @click="showCreatePollModal = true" class="mac-btn primary-btn">
+                创建投票
+              </button>
+            </div>
+          </div>
+
+          <div class="poll-list">
+            <div
+              v-for="poll in polls"
+              :key="poll.id"
+              class="poll-item"
+            >
+              <div class="poll-item-header">
+                <div class="poll-item-title">{{ poll.title }}</div>
+                <div class="poll-item-meta">
+                  <span>{{ poll.vote_count }} 票</span>
+                  <span>{{ new Date(poll.created_at).toLocaleString() }}</span>
+                </div>
+              </div>
+              <div v-if="poll.description" class="poll-item-description">
+                {{ poll.description }}
+              </div>
+              <div class="poll-item-options">
+                <span v-for="(option, index) in poll.options" :key="index" class="poll-option-tag">
+                  {{ option }}
+                </span>
+              </div>
+              <div class="poll-item-actions">
+                <button
+                  @click="handleDeletePoll(poll.id)"
+                  class="mac-btn danger-btn"
+                >
+                  删除
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <AdminEmptyState v-if="polls.length === 0" text="暂无投票" />
+
+          <AdminPagination
+            v-if="pollsTotalPages > 1"
+            :current-page="pollsPage"
+            :total-pages="pollsTotalPages"
+            @change="(page: number) => { pollsPage = page; loadPolls() }"
+          />
+        </div>
       </div>
     </div>
 
@@ -741,6 +882,71 @@ onMounted(() => {
         @close="showDeleteConfirm = false"
         @confirm="handleDelete"
       />
+
+      <!-- 创建投票模态框 -->
+      <div
+        v-if="showCreatePollModal"
+        class="modal-overlay"
+        @click.self="showCreatePollModal = false"
+      >
+        <div class="modal-content poll-modal">
+          <div class="modal-header">
+            <h3>创建投票</h3>
+            <button @click="showCreatePollModal = false" class="modal-close">×</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label>投票标题</label>
+              <input
+                v-model="createPollForm.title"
+                type="text"
+                placeholder="请输入投票标题"
+                class="form-input"
+              />
+            </div>
+            <div class="form-group">
+              <label>投票描述</label>
+              <textarea
+                v-model="createPollForm.description"
+                placeholder="请输入投票描述（可选）"
+                class="form-textarea"
+                rows="3"
+              />
+            </div>
+            <div class="form-group">
+              <label>投票选项</label>
+              <div class="options-list">
+                <div
+                  v-for="(option, index) in createPollForm.options"
+                  :key="index"
+                  class="option-item"
+                >
+                  <input
+                    v-model="createPollForm.options[index]"
+                    type="text"
+                    placeholder="请输入选项内容"
+                    class="form-input"
+                  />
+                  <button
+                    v-if="createPollForm.options.length > 2"
+                    @click="removePollOption(index)"
+                    class="option-remove"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+              <button @click="addPollOption" class="add-option-btn mac-btn secondary-btn">
+                + 添加选项
+              </button>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button @click="showCreatePollModal = false" class="mac-btn">取消</button>
+            <button @click="handleCreatePoll" class="mac-btn primary-btn">创建</button>
+          </div>
+        </div>
+      </div>
     </Teleport>
   </div>
 </template>
@@ -973,5 +1179,222 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.poll-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.poll-item {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.poll-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.poll-item-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  flex: 1;
+}
+
+.poll-item-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  color: #888;
+  white-space: nowrap;
+}
+
+.poll-item-description {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.poll-item-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.poll-option-tag {
+  padding: 4px 10px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 12px;
+  font-size: 12px;
+  color: #3b82f6;
+  white-space: nowrap;
+}
+
+.poll-item-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* 投票创建模态框样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.poll-modal .modal-content {
+  max-width: 600px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.modal-close:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #333;
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  padding: 16px 20px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  background: white;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.option-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.option-item .form-input {
+  flex: 1;
+}
+
+.option-remove {
+  padding: 4px 8px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 4px;
+  font-size: 14px;
+  color: #ef4444;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.option-remove:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+}
+
+.add-option-btn {
+  margin-top: 8px;
 }
 </style>
