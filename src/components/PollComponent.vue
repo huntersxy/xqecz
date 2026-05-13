@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { pollApi } from '@/api'
-import type { PollDetail, VoteData } from '@/types'
+import type { PollDetail } from '@/types'
 
 const pollDetail = ref<PollDetail | null>(null)
 const loading = ref(false)
@@ -97,17 +97,8 @@ onMounted(() => {
     </div>
 
     <div v-else-if="pollDetail" class="poll-card">
-      <div class="poll-header">
-        <h2 class="poll-title">📊 {{ pollDetail.poll.title }}</h2>
-        <p v-if="pollDetail.poll.description" class="poll-description">
-          {{ pollDetail.poll.description }}
-        </p>
-        <div class="poll-meta">
-          <span>投票人数: {{ pollDetail.total_votes }}</span>
-          <span v-if="pollDetail.poll.user" class="poll-author">
-            发起者: {{ pollDetail.poll.user.username }}
-          </span>
-        </div>
+      <div v-if="pollDetail.poll.title" class="poll-header">
+        <h2 class="poll-title">{{ pollDetail.poll.title }}</h2>
       </div>
 
       <!-- 双选项 PK 模式 -->
@@ -182,13 +173,6 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-if="voted" class="voted-message">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="20 6 9 17 4 12" />
-        </svg>
-        <span>您已投票</span>
-      </div>
-
       <div v-if="errorMessage" class="error-message">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10" />
@@ -217,22 +201,21 @@ onMounted(() => {
 
 <style scoped>
 .poll-component {
-  max-width: 600px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 .loading-state,
 .empty-state {
   text-align: center;
-  padding: 40px 20px;
+  padding: 24px 16px;
   color: #999;
 }
 
 .loading-icon,
 .empty-icon {
-  width: 48px;
-  height: 48px;
-  margin-bottom: 16px;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 12px;
   animation: spin 1s linear infinite;
 }
 
@@ -246,75 +229,54 @@ onMounted(() => {
 }
 
 .poll-card {
+  width: 100%;
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.36);
-  border-radius: 12px;
-  padding: 24px;
+  border-radius: 10px;
+  padding: 12px;
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.08),
     0 1px 4px rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
 }
 
 .poll-header {
-  margin-bottom: 24px;
+  margin-bottom: 10px;
 }
 
 .poll-title {
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 600;
   color: #1a1a1a;
-  margin: 0 0 8px 0;
-}
-
-.poll-description {
-  font-size: 14px;
-  color: #666;
-  margin: 0 0 12px 0;
-  line-height: 1.5;
-}
-
-.poll-meta {
-  display: flex;
-  gap: 16px;
-  font-size: 13px;
-  color: #888;
-  flex-wrap: wrap;
-}
-
-.poll-author {
-  color: #007aff;
+  margin: 0;
 }
 
 /* ========== 双选项 PK 模式 ========== */
 .pk-container {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 6px;
+  margin-bottom: 10px;
 }
 
 .pk-option {
   flex: 1;
-  display: flex;
-  flex-direction: column;
 }
 
 .pk-button {
   width: 100%;
-  padding: 20px 16px;
+  padding: 8px 10px;
   background: white;
-  border: 3px solid;
-  border-radius: 12px;
-  font-size: 16px;
+  border: 2px solid;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   text-align: center;
-  min-height: 100px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 2px;
 }
 
 .pk-left .pk-button {
@@ -358,39 +320,39 @@ onMounted(() => {
 }
 
 .pk-text {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 500;
   word-break: break-word;
 }
 
 .pk-stats {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .pk-count {
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .pk-percentage {
-  font-size: 13px;
-  opacity: 0.8;
+  font-size: 11px;
+  opacity: 0.7;
 }
 
 .pk-vs {
-  font-size: 18px;
+  font-size: 12px;
   font-weight: 700;
   color: #888;
-  padding: 0 8px;
+  padding: 0 4px;
 }
 
 .pk-progress-container {
   position: relative;
-  height: 24px;
-  border-radius: 12px;
+  height: 16px;
+  border-radius: 8px;
   overflow: hidden;
   background: #f0f0f0;
   display: flex;
@@ -496,24 +458,6 @@ onMounted(() => {
   background: color-mix(in srgb, var(--option-color) 10%, white);
   transition: width 0.5s ease;
   z-index: 0;
-}
-
-.voted-message {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 20px;
-  padding: 12px;
-  background: rgba(52, 211, 153, 0.1);
-  border-radius: 8px;
-  font-size: 14px;
-  color: #059669;
-}
-
-.voted-message svg {
-  width: 16px;
-  height: 16px;
 }
 
 .error-message {

@@ -346,6 +346,11 @@ onMounted(() => {
           </div>
         </div>
 
+        <!-- 最新投票 -->
+        <div class="poll-section">
+          <PollComponent />
+        </div>
+
         <div class="filter-section">
           <div class="filter-group">
             <label class="filter-label">类型</label>
@@ -374,14 +379,6 @@ onMounted(() => {
               </button>
             </div>
           </div>
-        </div>
-
-        <!-- 最新投票 -->
-        <div class="poll-section">
-          <div class="section-header">
-            <h2 class="section-title">📊 最新投票</h2>
-          </div>
-          <PollComponent />
         </div>
 
         <motion.div
