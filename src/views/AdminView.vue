@@ -15,6 +15,7 @@ import AdminEditModal from '@/components/admin/AdminEditModal.vue'
 import AdminDeleteConfirm from '@/components/admin/AdminDeleteConfirm.vue'
 import AdminQuickAddTag from '@/components/admin/AdminQuickAddTag.vue'
 import AdminUploadForm from '@/components/admin/AdminUploadForm.vue'
+import AdminChangeAuthorModal from '@/components/admin/AdminChangeAuthorModal.vue'
 
 const userStore = useUserStore()
 const router = useRouter()
@@ -75,6 +76,10 @@ const deleteTargetId = ref(0)
 
 const showContentDetail = ref(false)
 const contentDetail = ref<Content | null>(null)
+
+const showChangeAuthorModal = ref(false)
+const changeAuthorContentId = ref(0)
+const changeAuthorCurrentName = ref('')
 
 // 投票管理相关
 const polls = ref<Poll[]>([])
@@ -203,6 +208,18 @@ async function handleImageUpload(event: Event) {
 function openContentDetail(content: Content) {
   contentDetail.value = content
   showContentDetail.value = true
+}
+
+function openChangeAuthorModal(content: Content) {
+  changeAuthorContentId.value = content.id || content.ID || 0
+  changeAuthorCurrentName.value = content.user?.username || content.User?.Username || ''
+  showChangeAuthorModal.value = true
+}
+
+function handleChangeAuthorSuccess() {
+  if (activeTab.value === 'my') loadMyContents()
+  if (activeTab.value === 'all') loadAllContents()
+  if (activeTab.value === 'pending') loadPendingContents()
 }
 
 function addTag(target: 'upload' | 'edit' = 'upload') {
@@ -720,10 +737,12 @@ onMounted(() => {
               :show-actions="true"
               :show-author="true"
               :show-regenerate-thumbnail="true"
+              :show-change-author="true"
               @view="openContentDetail"
               @edit="openEditModal"
               @delete="confirmDelete"
               @regenerate-thumbnail="regenerateThumbnail"
+              @change-author="openChangeAuthorModal"
             />
           </div>
 
@@ -866,6 +885,14 @@ onMounted(() => {
       :content="contentDetail"
       :visible="showContentDetail"
       @close="showContentDetail = false"
+    />
+
+    <AdminChangeAuthorModal
+      :visible="showChangeAuthorModal"
+      :content-id="changeAuthorContentId"
+      :current-author-name="changeAuthorCurrentName"
+      @close="showChangeAuthorModal = false"
+      @success="handleChangeAuthorSuccess"
     />
 
     <Teleport to="body">
