@@ -9,17 +9,15 @@ import { getPreviewText, renderMarkdown } from '@/utils'
 function getImageUrl(
   image: string | undefined,
   filePath: string | undefined,
-  contentType?: string,
 ): string {
+  if (filePath) {
+    const thumbPath = filePath.includes('_thumb.') ? filePath : filePath.replace(/\.[^.]+$/, '_thumb.webp')
+    return `https://xqapi.xiey.work/thumbnails/${thumbPath}`
+  }
   if (image) {
     return image.replace(/http:\/\/localhost:8080/, 'https://xqapi.xiey.work')
   }
-  if (!filePath) return ''
-  if (contentType === 'video') {
-    return `https://xqapi.xiey.work/uploads/${filePath}`
-  }
-  const thumbPath = filePath.includes('_thumb.') ? filePath : filePath.replace(/\.[^.]+$/, '_thumb.webp')
-  return `https://xqapi.xiey.work/thumbnails/${thumbPath}`
+  return ''
 }
 
 import AdminContentCard from '@/components/admin/AdminContentCard.vue'
@@ -42,8 +40,9 @@ const showUploadModal = ref(false)
 
 const uploadForm = ref({
   title: '',
-  type: 'text' as 'video' | 'image' | 'text',
+    type: 'text' as 'video' | 'image' | 'text' | 'link',
   content: '',
+  url: '',
   tags: [] as string[],
   file: undefined as File | undefined,
   filePath: ''
@@ -56,7 +55,8 @@ const editForm = ref({
   id: 0,
   title: '',
   content: '',
-  type: 'text' as 'video' | 'image' | 'text',
+  url: '',
+    type: 'text' as 'video' | 'image' | 'text' | 'link',
   filePath: '',
   tags: [] as string[],
   file: undefined as File | undefined
@@ -472,7 +472,7 @@ async function handleUpload() {
     })
     if (res.code === 200) {
       message.value = '上传成功'
-      uploadForm.value = { title: '', type: 'text', content: '', tags: [], file: undefined, filePath: '' }
+      uploadForm.value = { title: '', type: 'text', content: '', url: '', tags: [], file: undefined, filePath: '' }
       filePreview.value = ''
       showUploadModal.value = false
       loadMyContents()
@@ -492,7 +492,8 @@ function openEditModal(content: Content) {
     id: content.id || content.ID,
     title: content.title || content.Title,
     content: content.content || content.Content,
-    type: (content.type || content.Type) as 'video' | 'image' | 'text',
+    url: content.url || '',
+    type: (content.type || content.Type) as 'video' | 'image' | 'text' | 'link',
     filePath: content.file_path || content.FilePath || '',
     tags: (content.tags || content.Tags || []).map(t => String(t)),
     file: undefined
@@ -505,6 +506,7 @@ async function handleUpdate() {
     const res = await contentApi.update(editForm.value.id, {
       title: editForm.value.title,
       content: editForm.value.content,
+      url: editForm.value.url,
       tags: editForm.value.tags,
       file: editForm.value.file
     })
@@ -912,9 +914,9 @@ onMounted(() => {
               class="claim-item"
             >
               <div class="claim-media">
-                <template v-if="(claim.content.type || claim.content.Type) !== 'text'">
+                <template v-if="(claim.content.type || claim.content.Type) !== 'text' && (claim.content.type || claim.content.Type) !== 'link'">
                   <img
-                    :src="getImageUrl(claim.content.image, claim.content.thumb_path || claim.content.file_path || claim.content.FilePath, claim.content.type || claim.content.Type)"
+                    :src="getImageUrl(claim.content.image, claim.content.thumb_path || claim.content.file_path || claim.content.FilePath)"
                     :alt="(claim.content.type || claim.content.Type) === 'video' ? '视频封面' : '内容图片'"
                     class="claim-thumb"
                     loading="lazy"

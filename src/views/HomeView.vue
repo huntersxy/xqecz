@@ -9,20 +9,13 @@ import PollComponent from '@/components/PollComponent.vue'
 
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
-function getImageUrl(
-  image: string | undefined,
-  filePath: string | undefined,
-  contentType?: string,
-): string {
+function getImageUrl(image?: string, filePath?: string): string {
+  if (filePath) {
+    const thumbPath = filePath.includes('_thumb.') ? filePath : filePath.replace(/\.[^.]+$/, '_thumb.webp')
+    return `https://xqapi.xiey.work/thumbnails/${thumbPath}`
+  }
   if (image) {
     return image.replace(/http:\/\/localhost:8080/, 'https://xqapi.xiey.work')
-  }
-  if (filePath) {
-    if (contentType === 'video') {
-      const thumbPath = filePath.replace(/\.[^.]+$/, '_thumb.webp')
-      return `https://xqapi.xiey.work/thumbnails/${thumbPath}`
-    }
-    return `https://xqapi.xiey.work/uploads/${filePath}`
   }
   return ''
 }
@@ -69,11 +62,12 @@ const sortedTags = computed(() => {
   return [...allTags.value].sort()
 })
 
-const contentTypes = ['video', 'image', 'text']
+const contentTypes = ['video', 'image', 'text', 'link']
 const contentTypeLabels: Record<string, string> = {
   video: '视频',
   image: '图片',
   text: '图文',
+  link: '链接',
 }
 
 function normalizeContent(content: Content | Record<string, unknown>): Content {
@@ -108,8 +102,9 @@ function normalizeContent(content: Content | Record<string, unknown>): Content {
   return {
     id: Number(getVal('id', 'ID')) || 0,
     title: String(getVal('title', 'Title')) || '',
-    type: (String(getVal('type', 'Type')) as 'video' | 'image' | 'text') || 'text',
+    type: (String(getVal('type', 'Type')) as 'video' | 'image' | 'text' | 'link') || 'text',
     content: String(getVal('content', 'Content')) || '',
+    url: getVal('url', 'Url') || '',
     file_path: String(getVal('file_path', 'FilePath')) || '',
     file_size: Number(getVal('file_size', 'FileSize')) || 0,
     user_id: Number(getVal('user_id', 'UserID')) || 0,
@@ -204,6 +199,11 @@ function handleSearch() {
 }
 
 function goToDetail(content: Content) {
+  const linkUrl = content.type === 'link' && (content.url || content.content)
+  if (linkUrl) {
+    window.open(linkUrl, '_blank')
+    return
+  }
   if (content.id) {
     // 保存当前滚动位置
     homeStore.saveState({
@@ -254,8 +254,9 @@ function normalizeRecommendContent(content: RecommendContent): RecommendContent 
   return {
     id: Number(content.id) || Number(content.ID) || 0,
     title: content.title || content.Title || '',
-    type: ((content.type || content.Type) as 'video' | 'image' | 'text') || 'image',
+    type: ((content.type || content.Type) as 'video' | 'image' | 'text' | 'link') || 'image',
     file_path: content.file_path || content.FilePath || '',
+    url: content.url || content.Url || '',
     image: content.image || '',
     tags: Array.isArray(content.tags)
       ? content.tags
@@ -518,7 +519,7 @@ onMounted(() => {
                     <div class="card-media">
                       <template v-if="content.type === 'image'">
                         <img
-                          :src="getImageUrl(content.image, content.file_path, content.type)"
+                          :src="getImageUrl(content.image, content.file_path)"
                           alt="内容图片"
                           class="card-image"
                           loading="lazy"
@@ -526,7 +527,7 @@ onMounted(() => {
                       </template>
                       <template v-else-if="content.type === 'video'">
                         <img
-                          :src="getImageUrl(content.image, content.file_path, content.type)"
+                          :src="getImageUrl(content.image, content.file_path)"
                           alt="视频封面"
                           class="card-image"
                           loading="lazy"
@@ -534,6 +535,20 @@ onMounted(() => {
                         <div class="play-overlay">
                           <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </div>
+                      </template>
+                      <template v-else-if="content.type === 'link'">
+                        <img
+                          :src="getImageUrl(content.image, content.file_path)"
+                          alt="链接"
+                          class="card-image"
+                          loading="lazy"
+                        />
+                        <div class="link-overlay">
+                          <svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
                           </svg>
                         </div>
                       </template>
@@ -574,7 +589,9 @@ onMounted(() => {
                               ? '视频'
                               : content.type === 'image'
                                 ? '图片'
-                                : '文字'
+                                : content.type === 'link'
+                                  ? '链接'
+                                  : '文字'
                           }}
                         </span>
                         <span
@@ -1098,6 +1115,25 @@ onMounted(() => {
   margin-left: 3px;
 }
 
+.link-overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  background: rgba(139, 92, 246, 0.85);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.link-icon {
+  width: 16px;
+  height: 16px;
+  color: white;
+}
+
 .text-preview {
   position: absolute;
   top: 0;
@@ -1193,6 +1229,11 @@ onMounted(() => {
 .type-badge.image {
   background: #ecfdf5;
   color: #059669;
+}
+
+.type-badge.link {
+  background: #f5f3ff;
+  color: #7c3aed;
 }
 
 .type-badge.text {

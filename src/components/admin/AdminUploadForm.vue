@@ -4,7 +4,8 @@ import { computed } from 'vue';
 interface UploadForm {
   title: string;
   content: string;
-  type: 'video' | 'image' | 'text';
+  url: string;
+  type: 'video' | 'image' | 'text' | 'link';
   filePath: string;
   tags: string[];
   file?: File;
@@ -72,6 +73,10 @@ const emit = defineEmits<{
               <input type="radio" value="video" v-model="uploadForm.type" />
               <span>视频</span>
             </label>
+            <label class="radio-item">
+              <input type="radio" value="link" v-model="uploadForm.type" />
+              <span>链接</span>
+            </label>
           </div>
         </div>
         <div v-if="uploadForm.type === 'text'" class="form-row">
@@ -113,6 +118,10 @@ const emit = defineEmits<{
             <video v-else-if="uploadForm.type === 'video'" :src="filePreview" class="preview-video" controls />
             <button type="button" @click="$emit('clearPreview')" class="clear-preview-btn">×</button>
           </div>
+        </div>
+        <div v-if="uploadForm.type === 'link'" class="form-row">
+          <label class="form-label">链接地址</label>
+          <input v-model="uploadForm.url" type="url" class="mac-input" placeholder="https://..." />
         </div>
         <div class="form-row">
           <label class="form-label">标签</label>

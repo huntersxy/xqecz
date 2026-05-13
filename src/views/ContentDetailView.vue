@@ -197,7 +197,7 @@ onMounted(() => {
               <h1 class="content-title">{{ content.title || content.Title }}</h1>
               <div class="content-badges">
                 <span :class="['type-badge', (content.type || content.Type)]">
-                  {{ (content.type || content.Type) === 'video' ? '视频' : (content.type || content.Type) === 'image' ? '图片' : '文字' }}
+                  {{ (content.type || content.Type) === 'video' ? '视频' : (content.type || content.Type) === 'image' ? '图片' : (content.type || content.Type) === 'link' ? '链接' : '文字' }}
                 </span>
                 <span :class="['status-badge', (content.audit_status || content.AuditStatus)]">
                   {{ (content.audit_status || content.AuditStatus) === 'approved' ? '已通过' : (content.audit_status || content.AuditStatus) === 'pending' ? '审核中' : '已拒绝' }}
@@ -256,6 +256,7 @@ onMounted(() => {
                   您的浏览器不支持视频播放。
                 </video>
               </div>
+              <div v-else-if="(content.type || content.Type) === 'link'" class="text-content" v-html="renderedContent"></div>
             </div>
           </div>
 
@@ -573,8 +574,13 @@ onMounted(() => {
 }
 
 .type-badge.video {
-  background: #fff0e6;
-  color: #d97706;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.type-badge.link {
+  background: rgba(139, 92, 246, 0.1);
+  color: #7c3aed;
 }
 
 .type-badge.image {
@@ -732,8 +738,7 @@ onMounted(() => {
 }
 
 .content-image {
-  max-width: 100%;
-  max-height: 500px;
+  width: 100%;
   border-radius: 10px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
@@ -1358,8 +1363,8 @@ onMounted(() => {
   }
 
   .content-image {
-    max-height: 400px;
-    width: 100%;
+    width: 90%;
+    max-height: none;
   }
 
   .content-video {
@@ -1511,7 +1516,8 @@ onMounted(() => {
   }
 
   .content-image {
-    max-height: 300px;
+    width: 90%;
+    max-height: none;
   }
 
   .content-video {

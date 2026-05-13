@@ -13,8 +13,9 @@ const isUploading = ref(false)
 
 const uploadForm = ref({
   title: '',
-  type: 'image' as 'video' | 'image' | 'text',
+  type: 'image' as 'video' | 'image' | 'text' | 'link',
   content: '',
+  url: '',
   tags: [] as string[],
   file: undefined as File | undefined,
   filePath: '',
@@ -38,8 +39,9 @@ watch(
 function resetForm() {
   uploadForm.value = {
     title: '',
-    type: 'image' as 'video' | 'image' | 'text',
+    type: 'image' as 'video' | 'image' | 'text' | 'link',
     content: '',
+    url: '',
     tags: [],
     file: undefined,
     filePath: '',
@@ -285,6 +287,10 @@ onMounted(() => {
               <input type="radio" value="video" v-model="uploadForm.type" />
               <span>视频</span>
             </label>
+            <label class="radio-item">
+              <input type="radio" value="link" v-model="uploadForm.type" />
+              <span>链接</span>
+            </label>
           </div>
         </div>
 
@@ -340,7 +346,7 @@ onMounted(() => {
           ></textarea>
         </div>
 
-        <div v-else class="form-section">
+        <div v-else-if="uploadForm.type !== 'link'" class="form-section">
           <label class="form-label">文件</label>
           <div
             class="file-upload-area"
@@ -395,6 +401,11 @@ onMounted(() => {
             class="hidden-file-input"
             :accept="uploadForm.type === 'image' ? 'image/*' : 'video/*'"
           />
+        </div>
+
+        <div v-if="uploadForm.type === 'link'" class="form-section">
+          <label class="form-label">链接地址</label>
+          <input v-model="uploadForm.url" type="url" class="mac-input" placeholder="https://..." />
         </div>
 
         <div class="form-section">

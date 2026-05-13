@@ -102,6 +102,10 @@ export const contentApi = {
       formData.append('content', data.content)
     }
 
+    if (data.url) {
+      formData.append('url', data.url)
+    }
+
     if (data.tags && data.tags.length > 0) {
       data.tags.forEach((tag) => {
         formData.append('tags', tag)
@@ -159,11 +163,12 @@ export const contentApi = {
 
   update: (
     id: number,
-    data: { title?: string; content?: string; tags?: string[]; file?: File },
+    data: { title?: string; content?: string; url?: string; tags?: string[]; file?: File },
   ) => {
     const formData = new FormData()
     if (data.title) formData.append('title', data.title)
     if (data.content) formData.append('content', data.content)
+    if (data.url) formData.append('url', data.url)
     if (data.tags && data.tags.length > 0) {
       data.tags.forEach((tag) => {
         formData.append('tags', tag)

@@ -103,6 +103,11 @@ async function loadContents() {
 }
 
 function goToDetail(content: Content) {
+  const linkUrl = (content.type || content.Type) === 'link' && (content.url || content.Url || content.content || content.Content)
+  if (linkUrl) {
+    window.open(linkUrl, '_blank')
+    return
+  }
   const id = content.id || content.ID
   if (id) {
     router.push(`/content/${id}`)
@@ -287,9 +292,9 @@ onMounted(() => {
               class="content-card mac-card egg-card"
             >
               <div class="card-media">
-                <template v-if="(content.type || content.Type) !== 'text'">
+                <template v-if="(content.type || content.Type) !== 'text' && (content.type || content.Type) !== 'link'">
                   <img
-                    :src="getImageUrl(content.image, content.thumb_path || content.file_path || content.FilePath, content.type || content.Type)"
+                    :src="getImageUrl(content.image, content.thumb_path || content.file_path || content.FilePath)"
                     :alt="(content.type || content.Type) === 'video' ? '视频封面' : '内容图片'"
                     class="card-image"
                   />
@@ -324,7 +329,7 @@ onMounted(() => {
                 </div>
                 <div class="card-type">
                   <span :class="['type-badge', (content.type || content.Type)]">
-                    {{ (content.type || content.Type) === 'video' ? '视频' : (content.type || content.Type) === 'image' ? '图片' : '文字' }}
+                    {{ (content.type || content.Type) === 'video' ? '视频' : (content.type || content.Type) === 'image' ? '图片' : (content.type || content.Type) === 'link' ? '链接' : '文字' }}
                   </span>
                 </div>
               </div>
@@ -972,9 +977,24 @@ onMounted(() => {
   font-weight: 500;
 }
 
+.type-badge.link {
+  background: rgba(139, 92, 246, 0.1);
+  color: #7c3aed;
+}
+
+.type-badge.text {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.type-badge.image {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
 .type-badge.video {
-  background: #fff0e6;
-  color: #d97706;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
 }
 
 .type-badge.image {

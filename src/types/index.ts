@@ -38,8 +38,9 @@ export interface RegisterResponse {
 export interface Content {
   id: number
   title: string
-  type: 'video' | 'image' | 'text'
+  type: 'video' | 'image' | 'text' | 'link'
   content: string
+  url?: string
   file_path: string
   file_size: number
   thumb_path?: string
@@ -55,6 +56,7 @@ export interface Content {
   Title?: string
   Type?: string
   Content?: string
+  Url?: string
   FilePath?: string
   FileSize?: number
   UserID?: number
@@ -73,8 +75,9 @@ export interface AuditRequest {
 
 export interface UploadContentData {
   title: string
-  type: 'video' | 'image' | 'text'
+  type: 'video' | 'image' | 'text' | 'link'
   content?: string
+  url?: string
   user_id: number
   tags?: string[]
   file?: File
@@ -125,8 +128,9 @@ export interface ListParams {
 export interface RecommendContent {
   id: number
   title: string
-  type: 'video' | 'image' | 'text'
+  type: 'video' | 'image' | 'text' | 'link'
   file_path: string
+  url?: string
   image: string
   tags: string[]
   view_count?: number
@@ -135,6 +139,7 @@ export interface RecommendContent {
   ID?: number
   Title?: string
   Type?: string
+  Url?: string
   FilePath?: string
   Tags?: string[]
   User?: { ID?: number; Username?: string }
