@@ -217,22 +217,21 @@ onMounted(() => {
 
 <style scoped>
 .poll-component {
-  max-width: 600px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 .loading-state,
 .empty-state {
   text-align: center;
-  padding: 40px 20px;
+  padding: 24px 16px;
   color: #999;
 }
 
 .loading-icon,
 .empty-icon {
-  width: 48px;
-  height: 48px;
-  margin-bottom: 16px;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 12px;
   animation: spin 1s linear infinite;
 }
 
@@ -246,37 +245,39 @@ onMounted(() => {
 }
 
 .poll-card {
+  width: 100%;
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.36);
   border-radius: 12px;
-  padding: 24px;
+  padding: 16px;
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.08),
     0 1px 4px rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
 }
 
 .poll-header {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .poll-title {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 600;
   color: #1a1a1a;
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
 }
 
 .poll-description {
-  font-size: 14px;
+  font-size: 13px;
   color: #666;
-  margin: 0 0 12px 0;
-  line-height: 1.5;
+  margin: 0 0 8px 0;
+  line-height: 1.4;
 }
 
 .poll-meta {
   display: flex;
-  gap: 16px;
-  font-size: 13px;
+  gap: 12px;
+  font-size: 12px;
   color: #888;
   flex-wrap: wrap;
 }
@@ -289,8 +290,8 @@ onMounted(() => {
 .pk-container {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .pk-option {
@@ -301,20 +302,20 @@ onMounted(() => {
 
 .pk-button {
   width: 100%;
-  padding: 20px 16px;
+  padding: 12px 12px;
   background: white;
-  border: 3px solid;
-  border-radius: 12px;
-  font-size: 16px;
+  border: 2px solid;
+  border-radius: 8px;
+  font-size: 14px;
   cursor: pointer;
   transition: all 0.3s ease;
   text-align: center;
-  min-height: 100px;
+  min-height: 70px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 4px;
 }
 
 .pk-left .pk-button {
@@ -358,39 +359,39 @@ onMounted(() => {
 }
 
 .pk-text {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
   word-break: break-word;
 }
 
 .pk-stats {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
 }
 
 .pk-count {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 700;
 }
 
 .pk-percentage {
-  font-size: 13px;
-  opacity: 0.8;
+  font-size: 12px;
+  opacity: 0.7;
 }
 
 .pk-vs {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
   color: #888;
-  padding: 0 8px;
+  padding: 0 6px;
 }
 
 .pk-progress-container {
   position: relative;
-  height: 24px;
-  border-radius: 12px;
+  height: 16px;
+  border-radius: 8px;
   overflow: hidden;
   background: #f0f0f0;
   display: flex;
