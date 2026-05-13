@@ -49,14 +49,14 @@ const handleChangeAuthor = () => emit('changeAuthor', props.content);
 <template>
   <div class="content-item mac-card">
     <div class="item-media">
-      <template v-if="contentType !== 'text'">
-        <img
-          :src="getImageUrl(content.image, content.thumb_path || content.file_path || content.FilePath, contentType)"
-          :alt="contentType === 'video' ? '视频封面' : '内容图片'"
-          class="item-image"
-          loading="lazy"
-        />
-      </template>
+        <template v-if="contentType !== 'text' && contentType !== 'link'">
+          <img
+            :src="getImageUrl(content.image, content.thumb_path || content.file_path || content.FilePath)"
+            :alt="contentType === 'video' ? '视频封面' : '内容图片'"
+            class="item-image"
+            loading="lazy"
+          />
+        </template>
       <template v-else>
         <div class="item-text-preview">{{ getPreviewText(contentText) }}</div>
       </template>
@@ -68,7 +68,7 @@ const handleChangeAuthor = () => emit('changeAuthor', props.content);
       </div>
       <div class="item-meta">
         <span :class="['type-badge', contentType]">
-          {{ contentType === 'video' ? '视频' : contentType === 'image' ? '图片' : '文字' }}
+          {{ contentType === 'video' ? '视频' : contentType === 'image' ? '图片' : contentType === 'link' ? '链接' : '文字' }}
         </span>
         <span v-if="auditStatus" :class="['status-badge', auditStatus]">
           {{ auditStatus === 'approved' ? '已通过' : auditStatus === 'pending' ? '审核中' : '已拒绝' }}
@@ -195,6 +195,11 @@ const handleChangeAuthor = () => emit('changeAuthor', props.content);
 .type-badge.video {
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
+}
+
+.type-badge.link {
+  background: rgba(139, 92, 246, 0.1);
+  color: #7c3aed;
 }
 
 .status-badge {
