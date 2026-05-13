@@ -49,18 +49,10 @@ const handleChangeAuthor = () => emit('changeAuthor', props.content);
 <template>
   <div class="content-item mac-card">
     <div class="item-media">
-      <template v-if="contentType === 'image'">
+      <template v-if="contentType !== 'text'">
         <img
-          :src="getImageUrl(content.image, content.file_path || content.FilePath)"
-          alt="内容图片"
-          class="item-image"
-          loading="lazy"
-        />
-      </template>
-      <template v-else-if="contentType === 'video'">
-        <img
-          :src="getImageUrl(content.image, content.thumb_path || content.file_path || content.FilePath)"
-          alt="视频封面"
+          :src="getImageUrl(content.image, content.thumb_path || content.file_path || content.FilePath, contentType)"
+          :alt="contentType === 'video' ? '视频封面' : '内容图片'"
           class="item-image"
           loading="lazy"
         />
@@ -109,23 +101,21 @@ const handleChangeAuthor = () => emit('changeAuthor', props.content);
 <style scoped>
 .content-item {
   display: flex;
-  gap: 16px;
-  padding: 16px;
+  flex-direction: column;
   background: rgba(255, 255, 255, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.36);
   border-radius: 12px;
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.08),
     0 1px 4px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
 }
 
 .item-media {
-  width: 150px;
-  height: 100px;
-  flex-shrink: 0;
+  width: 100%;
+  height: 160px;
   overflow: hidden;
   background: #f8f9fa;
-  border-radius: 8px;
 }
 
 .item-image {
@@ -151,13 +141,17 @@ const handleChangeAuthor = () => emit('changeAuthor', props.content);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  padding: 12px;
 }
 
 .item-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #1a1a1a;
   margin: 0 0 8px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .item-tags {
@@ -282,19 +276,16 @@ const handleChangeAuthor = () => emit('changeAuthor', props.content);
 }
 
 @media screen and (max-width: 768px) {
-  .content-item {
-    flex-direction: column;
-    gap: 12px;
-    padding: 14px;
-  }
-
   .item-media {
-    width: 100%;
     height: 150px;
   }
 
+  .item-info {
+    padding: 10px;
+  }
+
   .item-title {
-    font-size: 15px;
+    font-size: 14px;
   }
 
   .item-tag {

@@ -287,20 +287,13 @@ onMounted(() => {
               class="content-card mac-card egg-card"
             >
               <div class="card-media">
-                <template v-if="(content.type || content.Type) === 'image'">
+                <template v-if="(content.type || content.Type) !== 'text'">
                   <img
-                    :src="getImageUrl(content.image, content.file_path || content.FilePath)"
-                    alt="内容图片"
+                    :src="getImageUrl(content.image, content.thumb_path || content.file_path || content.FilePath, content.type || content.Type)"
+                    :alt="(content.type || content.Type) === 'video' ? '视频封面' : '内容图片'"
                     class="card-image"
                   />
-                </template>
-                <template v-else-if="(content.type || content.Type) === 'video'">
-                  <img
-                    :src="getImageUrl(content.image, content.thumb_path || content.file_path || content.FilePath)"
-                    alt="视频封面"
-                    class="card-image"
-                  />
-                  <div class="play-overlay">
+                  <div v-if="(content.type || content.Type) === 'video'" class="play-overlay">
                     <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M8 5v14l11-7z"/>
                     </svg>

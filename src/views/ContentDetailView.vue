@@ -19,6 +19,10 @@ const reportTarget = ref<Comment | null>(null)
 const reportReason = ref('')
 const message = ref('')
 
+const showClaimModal = ref(false)
+const claimReason = ref('')
+const isSubmittingClaim = ref(false)
+
 const renderedContent = computed(() => {
   if (!content.value) return ''
   const text = content.value.content || content.value.Content || ''
@@ -127,6 +131,33 @@ function goBack() {
   router.back()
 }
 
+async function submitClaim() {
+  if (!claimReason.value.trim()) {
+    message.value = '请输入认领理由'
+    return
+  }
+  if (!content.value) return
+
+  try {
+    isSubmittingClaim.value = true
+    const res = await contentApi.submitClaim(
+      content.value.id || content.value.ID || 0,
+      claimReason.value.trim()
+    )
+    if (res.code === 200) {
+      message.value = '认领申请已提交，请等待管理员审核'
+      showClaimModal.value = false
+      claimReason.value = ''
+    } else {
+      message.value = res.message || '认领申请提交失败'
+    }
+  } catch {
+    message.value = '认领申请提交失败'
+  } finally {
+    isSubmittingClaim.value = false
+  }
+}
+
 onMounted(() => {
   userStore.checkAuth()
   loadContent()
@@ -181,6 +212,12 @@ onMounted(() => {
                   <circle cx="12" cy="7" r="4"/>
                 </svg>
                 <span>{{ content.user?.username || content.User?.Username }}</span>
+                <button
+                  @click="userStore.isLoggedIn ? showClaimModal = true : router.push('/login')"
+                  class="claim-link"
+                >
+                  认领内容
+                </button>
               </div>
               <div v-if="(content.tags || content.Tags || []).length > 0" class="meta-tags">
                 <svg class="meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -355,6 +392,31 @@ onMounted(() => {
           <div class="report-modal-footer">
             <button @click="reportTarget = null" class="mac-btn">取消</button>
             <button @click="submitReport" class="mac-btn primary-btn">确认举报</button>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="showClaimModal" class="claim-modal-overlay" @click.self="showClaimModal = false">
+        <div class="claim-modal">
+          <div class="claim-modal-header">
+            <h3>认领此内容</h3>
+            <button @click="showClaimModal = false" class="modal-close">×</button>
+          </div>
+          <div class="claim-modal-body">
+            <p class="claim-desc">请提供认领理由，管理员将在审核后决定是否将此内容转移给您。</p>
+            <label class="claim-label">认领理由 <span class="required">*</span></label>
+            <textarea
+              v-model="claimReason"
+              class="claim-textarea"
+              placeholder="请详细说明您认为此内容应归属于您的原因..."
+              :disabled="isSubmittingClaim"
+            ></textarea>
+          </div>
+          <div class="claim-modal-footer">
+            <button @click="showClaimModal = false" class="mac-btn" :disabled="isSubmittingClaim">取消</button>
+            <button @click="submitClaim" class="mac-btn primary-btn" :disabled="isSubmittingClaim">
+              {{ isSubmittingClaim ? '提交中...' : '提交申请' }}
+            </button>
           </div>
         </div>
       </div>
@@ -596,6 +658,26 @@ onMounted(() => {
 .timeline-icon {
   width: 14px;
   height: 14px;
+}
+
+.claim-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: 12px;
+  color: #aaa;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-style: dotted;
+  margin-left: 6px;
+  transition: color 0.2s;
+}
+
+.claim-link:hover {
+  color: #3b82f6;
 }
 
 .content-body {
@@ -1104,6 +1186,101 @@ onMounted(() => {
   background: rgba(0, 0, 0, 0.03);
 }
 
+.claim-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+}
+
+.claim-modal {
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 450px;
+  overflow: hidden;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.claim-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.05) 0%, transparent 100%);
+}
+
+.claim-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.claim-modal-body {
+  padding: 20px;
+}
+
+.claim-desc {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  color: #666;
+  line-height: 1.6;
+}
+
+.claim-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.claim-label .required {
+  color: #ef4444;
+}
+
+.claim-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  box-sizing: border-box;
+  background: white;
+}
+
+.claim-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.claim-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.claim-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.03);
+}
+
 @media screen and (max-width: 768px) {
   .detail-container {
     padding: 0;
@@ -1302,6 +1479,22 @@ onMounted(() => {
 
   .report-input {
     padding: 12px 14px;
+    font-size: 15px;
+  }
+
+  .claim-modal {
+    width: 95%;
+    max-width: none;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.98);
+  }
+
+  .claim-modal-body {
+    padding: 16px;
+  }
+
+  .claim-textarea {
+    min-height: 140px;
     font-size: 15px;
   }
 }
