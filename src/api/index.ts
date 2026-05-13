@@ -255,7 +255,9 @@ export const pollApi = {
       headers: {
         'Content-Type': 'application/json',
       },
-      data,
+      data: {
+        OptionIndex: data.option_index,
+      },
     }),
 
   delete: (id: number) => request(`/poll/${id}`, { method: 'DELETE' }),

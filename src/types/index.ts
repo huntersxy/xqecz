@@ -173,5 +173,6 @@ export interface CreatePollData {
 }
 
 export interface VoteData {
-  option_index: number
+  option_index?: number
+  OptionIndex?: number
 }
