@@ -52,10 +52,10 @@ const renderedContent = computed(() => {
             <span v-for="tag in tags" :key="tag" class="detail-tag">{{ tag }}</span>
           </div>
           <div v-if="contentType === 'image'" class="detail-media">
-            <img :src="getImageUrl(content.image, content.file_path || content.FilePath)" alt="内容图片" class="detail-image" />
+            <img :src="getImageUrl(content.image, content.file_path || content.FilePath, contentType)" alt="内容图片" class="detail-image" />
           </div>
           <div v-else-if="contentType === 'video'" class="detail-media">
-            <video :src="getImageUrl(undefined, content.file_path || content.FilePath)" controls class="detail-video">
+            <video :src="getImageUrl(undefined, content.file_path || content.FilePath, contentType)" controls class="detail-video">
               您的浏览器不支持视频播放
             </video>
           </div>

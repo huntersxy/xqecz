@@ -3,8 +3,24 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { contentApi, adminApi, pollApi } from '@/api'
-import type { Content, User, Poll, CreatePollData } from '@/types'
-import { getImageUrl, getPreviewText, renderMarkdown } from '@/utils'
+import type { Content, User, Poll, CreatePollData, Claim } from '@/types'
+import { getPreviewText, renderMarkdown } from '@/utils'
+
+function getImageUrl(
+  image: string | undefined,
+  filePath: string | undefined,
+  contentType?: string,
+): string {
+  if (image) {
+    return image.replace(/http:\/\/localhost:8080/, 'https://xqapi.xiey.work')
+  }
+  if (!filePath) return ''
+  if (contentType === 'video') {
+    return `https://xqapi.xiey.work/uploads/${filePath}`
+  }
+  const thumbPath = filePath.includes('_thumb.') ? filePath : filePath.replace(/\.[^.]+$/, '_thumb.webp')
+  return `https://xqapi.xiey.work/thumbnails/${thumbPath}`
+}
 
 import AdminContentCard from '@/components/admin/AdminContentCard.vue'
 import AdminUserCard from '@/components/admin/AdminUserCard.vue'
@@ -86,6 +102,13 @@ const polls = ref<Poll[]>([])
 const pollsPage = ref(1)
 const pollsTotal = ref(0)
 const pollsTotalPages = ref(1)
+
+// 认领管理相关
+const claims = ref<Claim[]>([])
+const claimsPage = ref(1)
+const claimsTotal = ref(0)
+const claimsTotalPages = ref(1)
+const claimsStatusFilter = ref('')
 
 const showCreatePollModal = ref(false)
 const createPollForm = ref<CreatePollData>({
@@ -276,7 +299,7 @@ function toggleEditTag(tag: string) {
 
 async function loadMyContents() {
   try {
-    const res = await contentApi.myList({ page: myContentsPage.value, page_size: 10 })
+    const res = await contentApi.myList({ page: myContentsPage.value, page_size: 12 })
     if (res.code === 200) {
       myContents.value = res.data.list
       myContentsTotal.value = res.data.total
@@ -289,7 +312,7 @@ async function loadMyContents() {
 
 async function loadPendingContents() {
   try {
-    const res = await adminApi.pending({ page: pendingContentsPage.value, page_size: 10 })
+    const res = await adminApi.pending({ page: pendingContentsPage.value, page_size: 12 })
     if (res.code === 200) {
       pendingContents.value = res.data.list
       pendingContentsTotal.value = res.data.total
@@ -302,7 +325,7 @@ async function loadPendingContents() {
 
 async function loadAllContents() {
   try {
-    const res = await adminApi.getAllContent({ page: allContentsPage.value, page_size: 10 })
+    const res = await adminApi.getAllContent({ page: allContentsPage.value, page_size: 12 })
     if (res.code === 200) {
       allContents.value = res.data.list
       allContentsTotal.value = res.data.total
@@ -315,7 +338,7 @@ async function loadAllContents() {
 
 async function loadUsers() {
   try {
-    const res = await adminApi.getUsers({ page: usersPage.value, page_size: 10 })
+    const res = await adminApi.getUsers({ page: usersPage.value, page_size: 24 })
     if (res.code === 200) {
       users.value = res.data.list
       usersTotal.value = res.data.total
@@ -336,6 +359,37 @@ async function loadPolls() {
     }
   } catch (error) {
     console.error('加载投票列表失败', error)
+  }
+}
+
+async function loadClaims() {
+  try {
+    const params: { page: number; page_size: number; status?: string } = { page: claimsPage.value, page_size: 12 }
+    if (claimsStatusFilter.value) params.status = claimsStatusFilter.value
+    const res = await adminApi.getClaims(params)
+    if (res.code === 200) {
+      claims.value = res.data.list
+      claimsTotal.value = res.data.total
+      claimsTotalPages.value = Math.ceil(res.data.total / res.data.page_size)
+    }
+  } catch (error) {
+    console.error('加载认领列表失败', error)
+  }
+}
+
+async function handleClaim(claimId: number, action: 'approve' | 'reject') {
+  const reason = action === 'reject' ? prompt('请输入拒绝原因（可选）：') : ''
+  if (action === 'reject' && reason === null) return
+  try {
+    const res = await adminApi.handleClaim(claimId, action, reason || undefined)
+    if (res.code === 200) {
+      message.value = action === 'approve' ? '认领已通过' : '认领已拒绝'
+      loadClaims()
+    } else {
+      message.value = res.message || '操作失败'
+    }
+  } catch (error) {
+    message.value = '操作失败'
   }
 }
 
@@ -603,6 +657,7 @@ function onTabChange(tab: string) {
   if (tab === 'all') loadAllContents()
   if (tab === 'users') loadUsers()
   if (tab === 'polls') loadPolls()
+  if (tab === 'claims') loadClaims()
 }
 
 onMounted(() => {
@@ -630,7 +685,7 @@ onMounted(() => {
 
         <div class="nav-tabs">
           <button
-            v-for="tab in [{key:'my',label:'我的内容'},{key:'pending',label:'审核内容'},{key:'all',label:'所有内容'},{key:'users',label:'用户管理'},{key:'polls',label:'投票管理'}]"
+            v-for="tab in [{key:'my',label:'我的内容'},{key:'pending',label:'审核内容'},{key:'all',label:'所有内容'},{key:'users',label:'用户管理'},{key:'polls',label:'投票管理'},{key:'claims',label:'认领管理'}]"
             :key="tab.key"
             v-show="tab.key === 'my' || userStore.user?.is_admin"
             @click="onTabChange(tab.key)"
@@ -833,6 +888,82 @@ onMounted(() => {
             :current-page="pollsPage"
             :total-pages="pollsTotalPages"
             @change="(page: number) => { pollsPage = page; loadPolls() }"
+          />
+        </div>
+
+        <div v-if="activeTab === 'claims'" class="tab-content">
+          <div class="section-header">
+            <h2 class="section-title">认领管理</h2>
+            <div class="section-actions">
+              <span class="section-count">共 {{ claimsTotal }} 条</span>
+              <select v-model="claimsStatusFilter" @change="claimsPage = 1; loadClaims()" class="form-input filter-select">
+                <option value="">全部状态</option>
+                <option value="pending">待处理</option>
+                <option value="approved">已通过</option>
+                <option value="rejected">已拒绝</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="claim-list">
+            <div
+              v-for="claim in claims"
+              :key="claim.id"
+              class="claim-item"
+            >
+              <div class="claim-media">
+                <template v-if="(claim.content.type || claim.content.Type) !== 'text'">
+                  <img
+                    :src="getImageUrl(claim.content.image, claim.content.thumb_path || claim.content.file_path || claim.content.FilePath, claim.content.type || claim.content.Type)"
+                    :alt="(claim.content.type || claim.content.Type) === 'video' ? '视频封面' : '内容图片'"
+                    class="claim-thumb"
+                    loading="lazy"
+                  />
+                </template>
+                <template v-else>
+                  <div class="claim-text-preview">{{ getPreviewText(claim.content.content || claim.content.Content) }}</div>
+                </template>
+              </div>
+              <div class="claim-body">
+                <div class="claim-item-header">
+                  <span class="claim-content-title">{{ claim.content?.title || claim.content?.Title || '未知内容' }}</span>
+                  <span :class="['claim-status', claim.status]">
+                    {{ claim.status === 'pending' ? '待处理' : claim.status === 'approved' ? '已通过' : '已拒绝' }}
+                  </span>
+                </div>
+                <div class="claim-item-body">
+                  <div class="claim-info">
+                    <span class="claim-label">认领者：</span>
+                    <span class="claim-value">{{ claim.user?.username || '未知用户' }}</span>
+                  </div>
+                  <div class="claim-info">
+                    <span class="claim-label">认领理由：</span>
+                    <span class="claim-value">{{ claim.reason }}</span>
+                  </div>
+                  <div v-if="claim.remark" class="claim-info">
+                    <span class="claim-label">备注：</span>
+                    <span class="claim-value">{{ claim.remark }}</span>
+                  </div>
+                  <div class="claim-info">
+                    <span class="claim-label">提交时间：</span>
+                    <span class="claim-value">{{ new Date(claim.created_at).toLocaleString() }}</span>
+                  </div>
+                </div>
+                <div v-if="claim.status === 'pending'" class="claim-item-actions">
+                  <button @click="handleClaim(claim.id, 'approve')" class="mac-btn primary-btn">通过</button>
+                  <button @click="handleClaim(claim.id, 'reject')" class="mac-btn danger-btn">拒绝</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <AdminEmptyState v-if="claims.length === 0" text="暂无认领申请" />
+
+          <AdminPagination
+            v-if="claimsTotalPages > 1"
+            :current-page="claimsPage"
+            :total-pages="claimsTotalPages"
+            @change="(page: number) => { claimsPage = page; loadClaims() }"
           />
         </div>
       </div>
@@ -1197,15 +1328,15 @@ onMounted(() => {
 }
 
 .content-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
 }
 
 .user-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
 }
 
 .poll-list {
@@ -1423,5 +1554,189 @@ onMounted(() => {
 
 .add-option-btn {
   margin-top: 8px;
+}
+
+/* 认领管理样式 */
+.claim-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.claim-item {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 12px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.claim-media {
+  width: 200px;
+  height: 140px;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.claim-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.claim-text-preview {
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  font-size: 12px;
+  color: #666;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+}
+
+.claim-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.claim-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.claim-content-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.claim-status {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.claim-status.pending {
+  background: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.claim-status.approved {
+  background: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.claim-status.rejected {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.claim-item-body {
+  margin-bottom: 12px;
+}
+
+.claim-info {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 4px;
+  line-height: 1.5;
+}
+
+.claim-label {
+  color: #888;
+  font-weight: 500;
+}
+
+.claim-value {
+  color: #333;
+}
+
+.claim-item-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.filter-select {
+  width: auto;
+  min-width: 120px;
+}
+
+@media screen and (max-width: 768px) {
+  .admin-container {
+    padding: 0;
+  }
+
+  .admin-window {
+    border-radius: 0;
+    box-shadow: none;
+    min-height: 100vh;
+  }
+
+  .mac-title-bar {
+    display: none;
+  }
+
+  .admin-content {
+    padding: 12px;
+  }
+
+  .nav-tabs {
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+  }
+
+  .nav-tab {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  .section-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .section-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .secondary-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .mac-btn {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  .claim-item {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .claim-media {
+    width: 100%;
+    height: 200px;
+  }
 }
 </style>

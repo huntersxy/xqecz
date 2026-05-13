@@ -175,3 +175,16 @@ export interface CreatePollData {
 export interface VoteData {
   option_index: number
 }
+
+export interface Claim {
+  id: number
+  content_id: number
+  user_id: number
+  user: { id: number; username: string }
+  content: Content
+  reason: string
+  status: 'pending' | 'approved' | 'rejected'
+  remark: string
+  created_at: string
+  updated_at: string
+}

@@ -64,9 +64,10 @@ const handleDelete = () => emit('delete', userId);
 <style scoped>
 .user-item {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  padding: 16px;
+  gap: 12px;
+  padding: 20px;
   background: rgba(255, 255, 255, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.36);
   border-radius: 12px;
@@ -77,13 +78,14 @@ const handleDelete = () => emit('delete', userId);
 
 .user-info {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .user-avatar {
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: 50%;
   display: flex;
@@ -93,13 +95,14 @@ const handleDelete = () => emit('delete', userId);
 }
 
 .user-avatar svg {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
 }
 
 .user-details {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 4px;
 }
 
@@ -133,6 +136,8 @@ const handleDelete = () => emit('delete', userId);
 .user-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .action-btn {
@@ -181,39 +186,7 @@ const handleDelete = () => emit('delete', userId);
 
 @media screen and (max-width: 768px) {
   .user-item {
-    flex-direction: column;
-    gap: 12px;
-    padding: 14px;
-  }
-
-  .user-info {
-    width: 100%;
-  }
-
-  .user-avatar {
-    width: 56px;
-    height: 56px;
-  }
-
-  .user-avatar svg {
-    width: 28px;
-    height: 28px;
-  }
-
-  .user-name {
-    font-size: 16px;
-  }
-
-  .user-actions {
-    width: 100%;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .user-actions .action-btn {
-    flex: 1;
-    min-width: calc(50% - 3px);
-    text-align: center;
+    padding: 16px;
   }
 }
 </style>

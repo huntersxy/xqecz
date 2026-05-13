@@ -193,6 +193,15 @@ export const contentApi = {
       data: formData,
     })
   },
+
+  submitClaim: (contentId: number, reason: string) =>
+    request(`/content/${contentId}/claim`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      data: { reason },
+    }),
 }
 
 export const commentApi = {
@@ -324,5 +333,24 @@ export const adminApi = {
         'Content-Type': 'application/json',
       },
       data: { user_id: userId },
+    }),
+
+  getClaims: (params: { page?: number; page_size?: number; status?: string }) =>
+    request<{
+      list: any[];
+      total: number;
+      page: number;
+      page_size: number;
+    }>('/admin/claims', {
+      params,
+    }),
+
+  handleClaim: (claimId: number, action: 'approve' | 'reject', remark?: string) =>
+    request(`/admin/claims/${claimId}/handle`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      data: { action, remark },
     }),
 };

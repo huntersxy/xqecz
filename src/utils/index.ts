@@ -1,13 +1,16 @@
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
-const API_BASE_URL = 'https://xqapi.xiey.work'
-
-export function getImageUrl(image?: string, filePath?: string): string {
-  const url = image || filePath || ''
-  if (!url) return ''
-  if (url.startsWith('http')) return url
-  return `${API_BASE_URL}/uploads/${url}`
+export function getImageUrl(image?: string, filePath?: string, contentType?: string): string {
+  if (image) {
+    return image.replace(/http:\/\/localhost:8080/, 'https://xqapi.xiey.work')
+  }
+  if (!filePath) return ''
+  if (contentType === 'video') {
+    return `https://xqapi.xiey.work/uploads/${filePath}`
+  }
+  const thumbPath = filePath.includes('_thumb.') ? filePath : filePath.replace(/\.[^.]+$/, '_thumb.webp')
+  return `https://xqapi.xiey.work/thumbnails/${thumbPath}`
 }
 
 export function getPreviewText(content: string, maxLength: number = 100): string {
