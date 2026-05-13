@@ -256,6 +256,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
+  margin-bottom: 10px;
 }
 
 .pk-option {
