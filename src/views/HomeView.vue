@@ -348,9 +348,6 @@ onMounted(() => {
 
         <!-- 最新投票 -->
         <div class="poll-section">
-          <div class="section-header">
-            <h2 class="section-title">📊 最新投票</h2>
-          </div>
           <PollComponent />
         </div>
 
