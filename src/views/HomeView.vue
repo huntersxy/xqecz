@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion-v'
 import { contentApi } from '@/api'
 import { useHomeStore } from '@/stores/home'
 import type { Content, ListParams, User, RecommendContent } from '@/types'
+import PollComponent from '@/components/PollComponent.vue'
 
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -147,7 +148,10 @@ async function loadContents() {
       contents.value = res.data.list.map((item: Record<string, unknown>) => normalizeContent(item))
       total.value = res.data.total
       totalPages.value = res.data.total_page
-      swapSections.value = selectedTags.value.length > 0 || selectedTypes.value.length > 0 || !!searchKeyword.value.trim()
+      swapSections.value =
+        selectedTags.value.length > 0 ||
+        selectedTypes.value.length > 0 ||
+        !!searchKeyword.value.trim()
     }
   } catch (error) {
     console.error('加载内容失败', error)
@@ -208,7 +212,7 @@ function goToDetail(content: Content) {
       selectedTypes: selectedTypes.value,
       page: page.value,
       recommendPage: recommendPage.value,
-      scrollPosition: window.scrollY
+      scrollPosition: window.scrollY,
     })
     router.push(`/content/${content.id}`)
   }
@@ -224,7 +228,7 @@ onBeforeRouteLeave((to, from, next) => {
       selectedTypes: selectedTypes.value,
       page: page.value,
       recommendPage: recommendPage.value,
-      scrollPosition: window.scrollY
+      scrollPosition: window.scrollY,
     })
   } else if (to.path === '/') {
     // 如果是返回首页，不保存状态，让首页恢复时使用已有状态
@@ -291,14 +295,16 @@ function refreshRecommend() {
 
 onMounted(() => {
   // 检测是否是页面刷新（通过 performance.getEntriesByType）
-  const navigationEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[]
+  const navigationEntries = performance.getEntriesByType(
+    'navigation',
+  ) as PerformanceNavigationTiming[]
   const isReload = navigationEntries.length > 0 && navigationEntries[0].type === 'reload'
-  
+
   // 如果是页面刷新，清除状态
   if (isReload) {
     homeStore.clearState()
   }
-  
+
   // 如果有保存的状态，恢复滚动位置
   if (homeStore.hasLoaded) {
     nextTick(() => {
@@ -368,6 +374,14 @@ onMounted(() => {
               </button>
             </div>
           </div>
+        </div>
+
+        <!-- 最新投票 -->
+        <div class="poll-section">
+          <div class="section-header">
+            <h2 class="section-title">📊 最新投票</h2>
+          </div>
+          <PollComponent />
         </div>
 
         <motion.div
@@ -849,6 +863,10 @@ onMounted(() => {
 
 .sections-container {
   position: relative;
+}
+
+.poll-section {
+  margin-bottom: 24px;
 }
 
 .recommend-section {

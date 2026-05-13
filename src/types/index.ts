@@ -145,3 +145,33 @@ export interface RecommendResponse {
   list: RecommendContent[]
   count: number
 }
+
+// 投票相关类型
+export interface Poll {
+  id: number
+  title: string
+  description: string
+  options: string[]
+  vote_count: number
+  user_id: number
+  user: { id: number; username: string }
+  created_at: string
+  updated_at: string
+}
+
+export interface PollDetail {
+  poll: Poll
+  vote_counts: Record<string, number>
+  total_votes: number
+  my_vote: number | null
+}
+
+export interface CreatePollData {
+  title: string
+  description?: string
+  options: string[]
+}
+
+export interface VoteData {
+  option_index: number
+}
