@@ -62,15 +62,21 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach(async (to, from, next) => {
+router.beforeEach((to, from, next) => {
   const userStore = useUserStore()
 
-  if (!userStore.isLoggedIn) {
-    await userStore.checkAuth()
-  }
-
+  // 不阻塞路由，直接跳转
+  // 认证检查在后台异步进行
   if (to.meta.requiresAuth && !userStore.isLoggedIn) {
-    next({ name: 'login', query: { redirect: to.fullPath } })
+    // 先触发检查，但不等待结果
+    userStore.checkAuth().then(() => {
+      // 检查完成后，如果仍然未登录且在需要认证的页面，重定向
+      if (!userStore.isLoggedIn) {
+        next({ name: 'login', query: { redirect: to.fullPath } })
+      } else {
+        next()
+      }
+    })
   } else if (to.meta.requiresAdmin && !userStore.user?.is_admin && !userStore.user?.IsAdmin) {
     next({ name: 'home' })
   } else {
@@ -80,13 +86,10 @@ router.beforeEach(async (to, from, next) => {
 
 // 预加载策略：首页加载完成后，空闲时预加载详情页组件
 if (typeof window !== 'undefined') {
-  // 使用 requestIdleCallback 或 setTimeout 在浏览器空闲时预加载
   const preloadComponent = () => {
-    // 预加载详情页（用户最可能访问的页面）
     import('../views/ContentDetailView.vue')
   }
 
-  // 页面加载完成后 3 秒，如果浏览器空闲则预加载
   if ('requestIdleCallback' in window) {
     window.requestIdleCallback(() => {
       setTimeout(preloadComponent, 3000)

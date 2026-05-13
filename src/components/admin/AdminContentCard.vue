@@ -8,6 +8,7 @@ interface Props {
   showAuditActions?: boolean;
   showAuthor?: boolean;
   showRegenerateThumbnail?: boolean;
+  showChangeAuthor?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -15,6 +16,7 @@ const props = withDefaults(defineProps<Props>(), {
   showAuditActions: false,
   showAuthor: false,
   showRegenerateThumbnail: false,
+  showChangeAuthor: false,
 });
 
 const emit = defineEmits<{
@@ -23,6 +25,7 @@ const emit = defineEmits<{
   delete: [id: number];
   regenerateThumbnail: [id: number];
   audit: [id: number, status: 'approved' | 'rejected'];
+  changeAuthor: [content: Content];
 }>();
 
 const contentType = props.content.type || props.content.Type || 'text';
@@ -40,6 +43,7 @@ const handleDelete = () => emit('delete', contentId);
 const handleRegenerateThumbnail = () => emit('regenerateThumbnail', contentId);
 const handleApprove = () => emit('audit', contentId, 'approved');
 const handleReject = () => emit('audit', contentId, 'rejected');
+const handleChangeAuthor = () => emit('changeAuthor', props.content);
 </script>
 
 <template>
@@ -90,10 +94,10 @@ const handleReject = () => emit('audit', contentId, 'rejected');
           >
             更新封面
           </button>
+          <button v-if="showChangeAuthor" @click="handleChangeAuthor" class="action-btn">修改作者</button>
           <button @click="handleDelete" class="action-btn delete-btn">删除</button>
         </template>
         <template v-if="showAuditActions">
-          <button @click="handleView" class="action-btn">预览</button>
           <button @click="handleApprove" class="action-btn approve-btn">通过</button>
           <button @click="handleReject" class="action-btn reject-btn">拒绝</button>
         </template>

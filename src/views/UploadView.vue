@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { contentApi } from '@/api'
@@ -13,18 +13,40 @@ const isUploading = ref(false)
 
 const uploadForm = ref({
   title: '',
-  type: 'text' as 'video' | 'image' | 'text',
+  type: 'image' as 'video' | 'image' | 'text',
   content: '',
   tags: [] as string[],
   file: undefined as File | undefined,
-  filePath: ''
+  filePath: '',
 })
 
 const filePreview = ref<string>('')
 const allTags = ref<string[]>([])
 const customTagInput = ref('')
+const isDragging = ref(false)
 
 const imageUploadInput = ref<HTMLInputElement | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
+watch(
+  () => uploadForm.value.type,
+  () => {
+    clearFilePreview()
+  }
+)
+
+function resetForm() {
+  uploadForm.value = {
+    title: '',
+    type: 'image' as 'video' | 'image' | 'text',
+    content: '',
+    tags: [],
+    file: undefined,
+    filePath: '',
+  }
+  filePreview.value = ''
+  if (fileInputRef.value) fileInputRef.value.value = ''
+}
 
 function insertMarkdown(prefix: string, suffix: string = '') {
   const textarea = document.querySelector('.upload-textarea') as HTMLTextAreaElement
@@ -32,7 +54,8 @@ function insertMarkdown(prefix: string, suffix: string = '') {
   const start = textarea.selectionStart
   const end = textarea.selectionEnd
   const text = uploadForm.value.content || ''
-  uploadForm.value.content = text.substring(0, start) + prefix + text.substring(start, end) + suffix + text.substring(end)
+  uploadForm.value.content =
+    text.substring(0, start) + prefix + text.substring(start, end) + suffix + text.substring(end)
   textarea.focus()
   const newPos = start + prefix.length + (end - start) + suffix.length
   setTimeout(() => {
@@ -66,6 +89,7 @@ async function handleImageUpload(event: Event) {
     } else {
       message.value = res.message || '上传失败'
     }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     message.value = '上传失败，请稍后重试'
   } finally {
@@ -107,24 +131,71 @@ function handleCustomTagKeydown(event: KeyboardEvent) {
   }
 }
 
+function handleDragOver(event: DragEvent) {
+  event.preventDefault()
+  isDragging.value = true
+}
+
+function handleDragLeave(event: DragEvent) {
+  event.preventDefault()
+  isDragging.value = false
+}
+
+function handleDrop(event: DragEvent) {
+  event.preventDefault()
+  isDragging.value = false
+  const files = event.dataTransfer?.files
+  if (files && files.length > 0) {
+    processFile(files[0])
+  }
+}
+
+function processFile(file: File) {
+  const isImage = uploadForm.value.type === 'image'
+  const isVideo = uploadForm.value.type === 'video'
+
+  if (isImage) {
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    if (!validTypes.includes(file.type)) {
+      message.value = '只支持 jpg、jpeg、png、gif、webp 格式的图片'
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      message.value = '图片大小不能超过10MB'
+      return
+    }
+  }
+
+  if (isVideo) {
+    if (!file.type.startsWith('video/')) {
+      message.value = '请上传视频文件'
+      return
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      message.value = '视频大小不能超过100MB'
+      return
+    }
+  }
+
+  uploadForm.value.file = file
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    filePreview.value = e.target?.result as string
+  }
+  reader.readAsDataURL(file)
+}
+
 function handleFileChange(event: Event) {
   const target = event.target as HTMLInputElement
   if (target.files && target.files.length > 0) {
-    uploadForm.value.file = target.files[0]
-    const file = target.files[0]
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      filePreview.value = e.target?.result as string
-    }
-    reader.readAsDataURL(file)
+    processFile(target.files[0])
   }
 }
 
 function clearFilePreview() {
   filePreview.value = ''
   uploadForm.value.file = undefined
-  const fileInput = document.querySelector('.upload-file-input') as HTMLInputElement
-  if (fileInput) fileInput.value = ''
+  if (fileInputRef.value) fileInputRef.value.value = ''
 }
 
 async function loadAllTags() {
@@ -156,12 +227,11 @@ async function handleUpload() {
     })
     if (res.code === 200) {
       message.value = '上传成功！'
-      setTimeout(() => {
-        router.push('/')
-      }, 1500)
+      resetForm()
     } else {
       message.value = res.message || '上传失败'
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     message.value = `上传失败: ${error.message}`
   } finally {
@@ -186,7 +256,11 @@ onMounted(() => {
       </div>
 
       <div class="upload-content">
-        <div v-if="message" class="message-bar" :class="{ success: message.includes('成功'), error: message.includes('失败') }">
+        <div
+          v-if="message"
+          class="message-bar"
+          :class="{ success: message.includes('成功'), error: message.includes('失败') }"
+        >
           {{ message }}
           <span class="message-close" @click="message = ''">×</span>
         </div>
@@ -259,17 +333,68 @@ onMounted(() => {
               </svg>
             </button>
           </div>
-          <textarea v-model="uploadForm.content" class="mac-input textarea upload-textarea" placeholder="支持Markdown格式"></textarea>
+          <textarea
+            v-model="uploadForm.content"
+            class="mac-input textarea upload-textarea"
+            placeholder="支持Markdown格式"
+          ></textarea>
         </div>
 
         <div v-else class="form-section">
           <label class="form-label">文件</label>
-          <input type="file" @change="handleFileChange" class="file-input" :accept="uploadForm.type === 'image' ? 'image/*' : 'video/*'" />
-          <div v-if="filePreview" class="file-preview">
-            <img v-if="uploadForm.type === 'image'" :src="filePreview" class="preview-image" />
-            <video v-else-if="uploadForm.type === 'video'" :src="filePreview" class="preview-video" controls />
-            <button type="button" @click="clearFilePreview" class="clear-preview-btn">×</button>
+          <div
+            class="file-upload-area"
+            :class="{ dragging: isDragging, 'has-file': filePreview }"
+            @dragover="handleDragOver"
+            @dragleave="handleDragLeave"
+            @drop="handleDrop"
+            @click="fileInputRef?.click()"
+          >
+            <div v-if="!filePreview" class="upload-placeholder">
+              <div class="upload-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+              </div>
+              <p class="upload-text">
+                拖拽{{ uploadForm.type === 'image' ? '图片' : '视频' }}到此处，或<span
+                  class="upload-link"
+                  >点击上传</span
+                >
+              </p>
+              <p class="upload-hint">
+                {{ uploadForm.type === 'image' ? '支持 JPG、PNG、GIF、WebP，最大 10MB' : '支持常见视频格式，最大 100MB' }}
+              </p>
+            </div>
+            <div v-else class="file-preview-wrapper">
+              <img v-if="uploadForm.type === 'image'" :src="filePreview" class="preview-image" />
+              <video
+                v-else-if="uploadForm.type === 'video'"
+                :src="filePreview"
+                class="preview-video"
+                controls
+              />
+              <button type="button" @click.stop="clearFilePreview" class="clear-preview-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+              <div v-if="uploadForm.file" class="file-info">
+                <span class="file-name">{{ uploadForm.file.name }}</span>
+                <span class="file-size">{{ (uploadForm.file.size / 1024 / 1024).toFixed(2) }} MB</span>
+              </div>
+            </div>
           </div>
+          <input
+            ref="fileInputRef"
+            type="file"
+            @change="handleFileChange"
+            class="hidden-file-input"
+            :accept="uploadForm.type === 'image' ? 'image/*' : 'video/*'"
+          />
         </div>
 
         <div class="form-section">
@@ -286,10 +411,10 @@ onMounted(() => {
         <div class="form-section">
           <label class="form-label">选择标签</label>
           <div class="custom-tag-input">
-            <input 
-              v-model="customTagInput" 
-              type="text" 
-              class="tag-input" 
+            <input
+              v-model="customTagInput"
+              type="text"
+              class="tag-input"
               placeholder="输入自定义标签后按回车"
               @keydown="handleCustomTagKeydown"
             />
@@ -297,9 +422,13 @@ onMounted(() => {
           </div>
           <div class="all-tags-container">
             <div class="all-tags">
-              <span v-for="tag in allTags" :key="tag"
+              <span
+                v-for="tag in allTags"
+                :key="tag"
                 :class="['tag-btn', { selected: uploadForm.tags.includes(tag) }]"
-                @click="toggleTag(tag)">{{ tag }}</span>
+                @click="toggleTag(tag)"
+                >{{ tag }}</span
+              >
             </div>
             <div v-if="allTags.length === 0" class="no-tags">暂无可用标签</div>
           </div>
@@ -357,7 +486,7 @@ onMounted(() => {
   align-items: center;
   justify-content: flex-start;
   padding: 10px 16px;
-  background: linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.02) 100%);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.02) 100%);
   border-radius: 12px 12px 0 0;
 }
 
@@ -502,48 +631,145 @@ onMounted(() => {
   height: 16px;
 }
 
-.file-input {
-  padding: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  background: white;
+.file-upload-area {
+  border: 2px dashed rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  padding: 32px 24px;
+  background: rgba(0, 0, 0, 0.02);
   cursor: pointer;
-  width: 100%;
+  transition: all 0.3s ease;
+  text-align: center;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
-.file-preview {
+.file-upload-area:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.file-upload-area.dragging {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.08);
+  transform: scale(1.01);
+}
+
+.file-upload-area.has-file {
+  border-style: solid;
+  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.02);
+}
+
+.upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.upload-icon {
+  width: 48px;
+  height: 48px;
+  color: #9ca3af;
+}
+
+.upload-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.upload-text {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+}
+
+.upload-link {
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+.upload-hint {
+  font-size: 12px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.file-preview-wrapper {
   position: relative;
-  margin-top: 12px;
-  border-radius: 8px;
-  overflow: hidden;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
 .preview-image {
-  width: 100%;
-  max-height: 300px;
+  max-width: 100%;
+  max-height: 240px;
+  border-radius: 8px;
   object-fit: contain;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .preview-video {
-  width: 100%;
-  max-height: 300px;
+  max-width: 100%;
+  max-height: 240px;
+  border-radius: 8px;
 }
 
 .clear-preview-btn {
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border: none;
   background: rgba(0, 0, 0, 0.6);
   color: white;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.clear-preview-btn:hover {
+  background: rgba(239, 68, 68, 0.9);
+  transform: scale(1.1);
+}
+
+.clear-preview-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: rgba(59, 130, 246, 0.08);
+  border-radius: 8px;
+}
+
+.file-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+}
+
+.file-size {
+  font-size: 12px;
+  color: #666;
+}
+
+.hidden-file-input {
+  display: none;
 }
 
 .selected-tags {
@@ -749,6 +975,11 @@ onMounted(() => {
 
   .upload-content {
     padding: 16px;
+  }
+
+  .file-upload-area {
+    padding: 24px 16px;
+    min-height: 150px;
   }
 
   .form-actions {

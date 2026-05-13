@@ -2,7 +2,6 @@
 import { RouterLink, RouterView } from 'vue-router'
 import { useUserStore } from './stores/user'
 import { onMounted, ref } from 'vue'
-import axios from 'axios'
 
 const userStore = useUserStore()
 const isMobileMenuOpen = ref(false)
@@ -27,34 +26,10 @@ function closeMobileMenu() {
   isMobileMenuOpen.value = false
 }
 
-async function loadRandomBackground() {
-  try {
-    const response = await axios.get('https://rimg.xiey.work/', {
-      params: { t: Date.now() }
-    })
-    if (response.data && response.data.images && response.data.images.length > 0) {
-      const randomIndex = Math.floor(Math.random() * response.data.images.length)
-      const randomImage = response.data.images[randomIndex]
-      const imageUrl = `https://rimg.xiey.work${randomImage}?t=${Date.now()}`
-      const img = new Image()
-      img.onload = () => {
-        document.body.style.backgroundImage = `linear-gradient(135deg, rgba(245, 247, 250, 0.25) 0%, rgba(228, 232, 236, 0.25) 100%), url('${imageUrl}'), #f5f7fa`
-      }
-      img.onerror = () => {
-        console.error('Failed to load random background, using default')
-      }
-      img.src = imageUrl
-    }
-  } catch (error) {
-    console.error('Failed to load random background:', error)
-  }
-}
-
 onMounted(() => {
   if (!userStore.isLoggedIn) {
     userStore.checkAuth()
   }
-  loadRandomBackground()
   isMobileUA.value = isMobileDevice()
   if (isMobileUA.value) {
     document.body.classList.add('mobile-ua')
@@ -199,7 +174,7 @@ onMounted(() => {
         </RouterLink>
         <RouterLink v-if="!userStore.isLoggedIn" to="/login" class="mobile-nav-link" @click="closeMobileMenu">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M11 16l-4-4m0 0L7 10m4 6l4-4m-4 6l4-4"/>
+            <path d="M11 16l-4-4m0 0L7 10m4 6l4-4"/>
           </svg>
           <span>登录</span>
         </RouterLink>

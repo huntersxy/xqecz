@@ -16,7 +16,6 @@ import type {
   Poll,
   PollDetail,
   CreatePollData,
-  VoteData,
 } from '@/types'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -42,6 +41,7 @@ async function request<T>(url: string, options: AxiosRequestConfig = {}): Promis
   try {
     const response = await instance(url, options)
     return response.data
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error('[API] 请求失败:', error)
     if (error.response) {
@@ -311,4 +311,18 @@ export const adminApi = {
     }),
 
   deleteUser: (id: number) => request(`/admin/users/${id}`, { method: 'DELETE' }),
-}
+
+  updateContentAuthor: (contentId: number, userId: number) =>
+    request<{
+      content_id: number;
+      old_user_id: number;
+      new_user_id: number;
+      new_username: string;
+    }>(`/admin/content/${contentId}/author`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      data: { user_id: userId },
+    }),
+};
