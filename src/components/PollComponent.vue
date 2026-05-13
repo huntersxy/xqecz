@@ -49,8 +49,7 @@ async function handleVote(optionIndex: number) {
   try {
     voting.value = true
     errorMessage.value = ''
-    const voteData: VoteData = { option_index: optionIndex }
-    const res = await pollApi.vote(pollDetail.value.poll.id, voteData)
+    const res = await pollApi.vote(pollDetail.value.poll.id, optionIndex)
     if (res.code === 200) {
       pollDetail.value.my_vote = optionIndex
       pollDetail.value.vote_counts[optionIndex] =

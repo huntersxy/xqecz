@@ -249,14 +249,14 @@ export const pollApi = {
 
   detail: (id: number) => request<PollDetail>(`/poll/${id}`),
 
-  vote: (id: number, data: VoteData) =>
+  vote: (id: number, optionIndex: number) =>
     request(`/poll/${id}/vote`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       data: {
-        OptionIndex: data.option_index,
+        option_index: optionIndex,
       },
     }),
 
