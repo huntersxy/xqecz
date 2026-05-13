@@ -104,7 +104,7 @@ function normalizeContent(content: Content | Record<string, unknown>): Content {
     title: String(getVal('title', 'Title')) || '',
     type: (String(getVal('type', 'Type')) as 'video' | 'image' | 'text' | 'link') || 'text',
     content: String(getVal('content', 'Content')) || '',
-    url: getVal('url', 'Url') || '',
+    url: String(getVal('url', 'Url') || ''),
     file_path: String(getVal('file_path', 'FilePath')) || '',
     file_size: Number(getVal('file_size', 'FileSize')) || 0,
     user_id: Number(getVal('user_id', 'UserID')) || 0,
