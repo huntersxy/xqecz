@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRouter, onBeforeRouteLeave } from 'vue-router'
-import { motion, AnimatePresence } from 'motion-v'
+import { motion } from 'motion-v'
 import { contentApi } from '@/api'
 import { useHomeStore } from '@/stores/home'
 import type { Content, ListParams, User, RecommendContent } from '@/types'
@@ -48,6 +48,12 @@ const searchKeyword = ref(homeStore.searchKeyword)
 const selectedTypes = ref<string[]>(homeStore.selectedTypes)
 const page = ref(homeStore.page)
 const recommendPage = ref(homeStore.recommendPage)
+
+// 加载状态
+const isLoading = ref(false)
+const isRecommendLoading = ref(false)
+const contentKey = ref(0)
+const recommendKey = ref(0)
 
 const pageSize = ref(12)
 const total = ref(0)
@@ -121,6 +127,10 @@ function normalizeContent(content: Content | Record<string, unknown>): Content {
 }
 
 async function loadContents() {
+  if (isLoading.value) return
+  
+  isLoading.value = true
+  
   try {
     let res
     if (searchKeyword.value) {
@@ -147,9 +157,12 @@ async function loadContents() {
         selectedTags.value.length > 0 ||
         selectedTypes.value.length > 0 ||
         !!searchKeyword.value.trim()
+      contentKey.value++
     }
   } catch (error) {
     console.error('加载内容失败', error)
+  } finally {
+    isLoading.value = false
   }
 }
 
@@ -174,7 +187,9 @@ function selectTag(tag: string) {
     selectedTags.value = [tag]
   }
   page.value = 1
-  loadContents()
+  loadContents().then(() => {
+    document.getElementById('content-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
 }
 
 function selectType(type: string) {
@@ -185,7 +200,9 @@ function selectType(type: string) {
     selectedTypes.value = [type]
   }
   page.value = 1
-  loadContents()
+  loadContents().then(() => {
+    document.getElementById('content-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
 }
 
 function handleSearch() {
@@ -194,7 +211,9 @@ function handleSearch() {
   }
   searchDebounceTimer = setTimeout(() => {
     page.value = 1
-    loadContents()
+    loadContents().then(() => {
+      document.getElementById('content-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   }, 300)
 }
 
@@ -205,7 +224,6 @@ function goToDetail(content: Content) {
     return
   }
   if (content.id) {
-    // 保存当前滚动位置
     homeStore.saveState({
       searchKeyword: searchKeyword.value,
       selectedTags: selectedTags.value,
@@ -218,9 +236,7 @@ function goToDetail(content: Content) {
   }
 }
 
-// 路由离开前保存状态
 onBeforeRouteLeave((to, from, next) => {
-  // 只有在跳转到详情页时才保存状态
   if (to.path.startsWith('/content/')) {
     homeStore.saveState({
       searchKeyword: searchKeyword.value,
@@ -233,16 +249,17 @@ onBeforeRouteLeave((to, from, next) => {
   } else if (to.path === '/') {
     // 如果是返回首页，不保存状态，让首页恢复时使用已有状态
   } else {
-    // 跳转到其他页面（非详情页、非首页）时清除状态
     homeStore.clearState()
   }
   next()
 })
 
 function goToPage(p: number) {
-  if (p >= 1 && p <= totalPages.value) {
+  if (p >= 1 && p <= totalPages.value && !isLoading.value) {
     page.value = p
-    loadContents()
+    loadContents().then(() => {
+      document.getElementById('content-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   }
 }
 
@@ -273,6 +290,10 @@ function normalizeRecommendContent(content: RecommendContent): RecommendContent 
 }
 
 async function loadRecommendContents() {
+  if (isRecommendLoading.value) return
+  
+  isRecommendLoading.value = true
+  
   try {
     const res = await contentApi.recommend(recommendPerPage, recommendPage.value)
     if (res.code === 200) {
@@ -280,33 +301,37 @@ async function loadRecommendContents() {
         normalizeRecommendContent(item),
       )
       recommendHint.value = ''
+      recommendKey.value++
     }
   } catch (error) {
     console.error('加载推荐内容失败', error)
+  } finally {
+    isRecommendLoading.value = false
   }
 }
 
 function refreshRecommend() {
+  if (isRecommendLoading.value) return
+  
   recommendPage.value++
   if (recommendPage.value > maxRecommendPages) {
     recommendPage.value = 1
   }
-  loadRecommendContents()
+  loadRecommendContents().then(() => {
+    document.getElementById('recommend-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
 }
 
 onMounted(() => {
-  // 检测是否是页面刷新（通过 performance.getEntriesByType）
   const navigationEntries = performance.getEntriesByType(
     'navigation',
   ) as PerformanceNavigationTiming[]
   const isReload = navigationEntries.length > 0 && navigationEntries[0].type === 'reload'
 
-  // 如果是页面刷新，清除状态
   if (isReload) {
     homeStore.clearState()
   }
 
-  // 如果有保存的状态，恢复滚动位置
   if (homeStore.hasLoaded) {
     nextTick(() => {
       homeStore.restoreScroll()
@@ -386,14 +411,14 @@ onMounted(() => {
           class="sections-container"
           :animate="{
             height: 'auto',
-            transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] },
+            transition: { duration: 0.3, ease: 'easeOut' },
           }"
           style="overflow: hidden; min-height: 100px"
         >
           <motion.div
             class="sections-wrapper"
             :animate="{
-              transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] },
+              transition: { duration: 0.3, ease: 'easeOut' },
             }"
           >
             <motion.div
@@ -404,7 +429,7 @@ onMounted(() => {
                 opacity: swapSections ? 0 : 1,
                 y: swapSections ? -100 : 0,
                 height: swapSections ? 0 : 'auto',
-                transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] },
+                transition: { duration: 0.3, ease: 'easeOut' },
               }"
               style="overflow: hidden"
             >
@@ -412,9 +437,10 @@ onMounted(() => {
                 <h2 class="section-title">🔥 推荐内容</h2>
                 <div class="recommend-actions">
                   <span class="section-count">精选推荐</span>
-                  <button @click="refreshRecommend" class="refresh-btn">
+                  <button @click="refreshRecommend" class="refresh-btn" :disabled="isRecommendLoading">
                     <svg
                       class="refresh-icon"
+                      :class="{ 'rotating': isRecommendLoading }"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -423,15 +449,15 @@ onMounted(() => {
                       <polyline points="23 4 23 10 17 10" />
                       <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
                     </svg>
-                    刷新
+                    {{ isRecommendLoading ? '加载中...' : '刷新' }}
                   </button>
                 </div>
                 <span v-if="recommendHint" class="recommend-hint">{{ recommendHint }}</span>
               </div>
 
-              <div class="recommend-grid">
-                <AnimatePresence>
-                  <motion.div
+              <div class="recommend-grid-wrapper">
+                <div class="recommend-grid" :class="{ 'grid-loading': isRecommendLoading }">
+                  <div
                     v-for="content in recommendContents"
                     :key="content.id"
                     @click="
@@ -442,13 +468,6 @@ onMounted(() => {
                       } as unknown as Content)
                     "
                     class="recommend-card"
-                    :initial="{ opacity: 0, y: 30, scale: 0.9 }"
-                    :animate="{ opacity: 1, y: 0, scale: 1 }"
-                    :exit="{ opacity: 0, scale: 0 }"
-                    :transition="{
-                      duration: 0.35,
-                      ease: [0.55, 0.055, 0.675, 0.19],
-                    }"
                   >
                     <div class="recommend-media">
                       <img
@@ -482,39 +501,31 @@ onMounted(() => {
                         </span>
                       </div>
                     </div>
-                  </motion.div>
-                </AnimatePresence>
+                  </div>
+                </div>
+                <div v-if="isRecommendLoading" class="loading-overlay">
+                  <div class="loading-spinner"></div>
+                  <p>加载中...</p>
+                </div>
               </div>
             </motion.div>
 
-            <motion.div
+            <div
+              id="content-section"
               class="content-section"
-              :initial="{ opacity: 1, y: 0 }"
-              :animate="{
-                opacity: 1,
-                y: swapSections ? -20 : 0,
-                transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] },
-              }"
             >
               <div class="section-header">
                 <h2 class="section-title">📅 最近上传</h2>
                 <span class="section-count">共 {{ total }} 条</span>
               </div>
 
-              <div class="content-grid">
-                <AnimatePresence>
-                  <motion.div
+              <div class="content-grid-wrapper">
+                <div class="content-grid" :class="{ 'grid-loading': isLoading }">
+                  <div
                     v-for="content in contents"
                     :key="content.id || content.ID"
                     @click="goToDetail(content)"
                     class="content-card"
-                    :initial="{ opacity: 0, y: 30, scale: 0.9 }"
-                    :animate="{ opacity: 1, y: 0, scale: 1 }"
-                    :exit="{ opacity: 0, scale: 0 }"
-                    :transition="{
-                      duration: 0.35,
-                      ease: [0.55, 0.055, 0.675, 0.19],
-                    }"
                   >
                     <div class="card-media">
                       <template v-if="content.type === 'image'">
@@ -599,13 +610,19 @@ onMounted(() => {
                           :class="['status-badge', content.audit_status]"
                         >
                           {{ content.audit_status === 'pending' ? '审核中' : '已拒绝' }}
-                        </span>
+</span>
                       </div>
                     </div>
-                  </motion.div>
-                </AnimatePresence>
+                  </div>
+                </div>
+                
+                <div v-if="isLoading" class="loading-overlay">
+                  <div class="loading-spinner"></div>
+                  <p>加载中...</p>
+                </div>
               </div>
-              <div v-if="contents.length === 0" class="empty-state">
+              
+              <div v-if="!isLoading && contents.length === 0" class="empty-state">
                 <svg
                   class="empty-icon"
                   viewBox="0 0 24 24"
@@ -618,22 +635,34 @@ onMounted(() => {
                 </svg>
                 <p>暂无内容</p>
               </div>
-            </motion.div>
+            </div>
           </motion.div>
         </motion.div>
 
         <div v-if="totalPages > 1" class="pagination-section">
-          <button @click="goToPage(page - 1)" :disabled="page <= 1" class="pagination-btn">
+          <button @click="goToPage(1)" :disabled="page <= 1 || isLoading" class="pagination-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 19l-7-7 7-7" />
+            </svg>
+            首页
+          </button>
+          <button @click="goToPage(page - 1)" :disabled="page <= 1 || isLoading" class="pagination-btn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M15 19l-7-7 7-7" />
             </svg>
             上一页
           </button>
           <span class="pagination-info">第 {{ page }} / {{ totalPages }} 页</span>
-          <button @click="goToPage(page + 1)" :disabled="page >= totalPages" class="pagination-btn">
+          <button @click="goToPage(page + 1)" :disabled="page >= totalPages || isLoading" class="pagination-btn">
             下一页
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+          <button @click="goToPage(totalPages)" :disabled="page >= totalPages || isLoading" class="pagination-btn">
+            尾页
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 5l7 7-7 7" />
             </svg>
           </button>
         </div>
@@ -885,6 +914,7 @@ onMounted(() => {
 
 .recommend-section {
   margin-bottom: 24px;
+  scroll-margin-top: 120px;
 }
 
 .recommend-grid {
@@ -1022,6 +1052,7 @@ onMounted(() => {
 
 .content-section {
   margin-bottom: 24px;
+  scroll-margin-top: 120px;
 }
 
 .section-header {
@@ -1310,6 +1341,64 @@ onMounted(() => {
 .pagination-info {
   font-size: 14px;
   color: #666;
+}
+
+.loading-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+}
+
+.recommend-grid-wrapper,
+.content-grid-wrapper {
+  position: relative;
+}
+
+.grid-loading {
+  opacity: 0.3;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.5);
+  z-index: 10;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 16px;
+  border: 3px solid rgba(59, 130, 246, 0.2);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.refresh-icon.rotating {
+  animation: spin 1s linear infinite;
 }
 
 @media screen and (max-width: 768px) {
