@@ -1,4 +1,5 @@
 import { fileURLToPath, URL } from 'node:url'
+import type { IncomingMessage, ClientRequest } from 'node:http'
 
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -21,7 +22,7 @@ export default defineConfig(async ({ mode }) => {
         svgo: { plugins: [{ name: 'removeViewBox', active: false }] },
       }),
       (await import('vite-plugin-compression2')).default({
-        algorithm: 'gzip',
+        algorithms: ['gzip'],
         threshold: 1024,
         deleteOriginalAssets: false,
       }),
@@ -29,34 +30,34 @@ export default defineConfig(async ({ mode }) => {
   }
 
   return {
-      plugins,
-      define: {
-        'import.meta.env.VITE_BUILD_DATE': JSON.stringify(buildDate),
+    plugins,
+    define: {
+      'import.meta.env.VITE_BUILD_DATE': JSON.stringify(buildDate),
+    },
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
       },
-      resolve: {
-        alias: {
-          '@': fileURLToPath(new URL('./src', import.meta.url)),
-        },
-      },
-      server: {
-        proxy: {
-          '/api': {
-            target: 'http://localhost:8080',
-            changeOrigin: true,
-            secure: false,
-            configure: (proxy, _options) => {
-              proxy.on('error', (err, _req, _res) => {
-                console.log('proxy error', err)
-              })
-              proxy.on('proxyReq', (proxyReq, req, _res) => {
-                console.log('Sending Request to the Target:', req.method, req.url)
-              })
-              proxy.on('proxyRes', (proxyRes, req, _res) => {
-                console.log('Received Response from the Target:', proxyRes.statusCode, req.url)
-              })
-            },
+    },
+    server: {
+      proxy: {
+        '/api': {
+          target: 'http://localhost:8080',
+          changeOrigin: true,
+          secure: false,
+          configure(proxy: any) {
+            proxy.on('error', (err: Error, _req: IncomingMessage, _res: any) => {
+              console.log('proxy error', err)
+            })
+            proxy.on('proxyReq', (_proxyReq: ClientRequest, req: IncomingMessage) => {
+              console.log('Sending Request to the Target:', req.method, req.url)
+            })
+            proxy.on('proxyRes', (proxyRes: IncomingMessage, req: IncomingMessage) => {
+              console.log('Received Response from the Target:', proxyRes.statusCode, req.url)
+            })
           },
         },
       },
-    }
-  })
+    },
+  }
+})
