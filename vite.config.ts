@@ -42,18 +42,12 @@ export default defineConfig(async ({ mode }) => {
     server: {
       proxy: {
         '/api': {
-          target: 'http://localhost:8080',
+          target: 'https://xqapi.xiey.work',
           changeOrigin: true,
-          secure: false,
+          secure: true,
           configure(proxy: any) {
             proxy.on('error', (err: Error, _req: IncomingMessage, _res: any) => {
               console.log('proxy error', err)
-            })
-            proxy.on('proxyReq', (_proxyReq: ClientRequest, req: IncomingMessage) => {
-              console.log('Sending Request to the Target:', req.method, req.url)
-            })
-            proxy.on('proxyRes', (proxyRes: IncomingMessage, req: IncomingMessage) => {
-              console.log('Received Response from the Target:', proxyRes.statusCode, req.url)
             })
           },
         },
