@@ -2,6 +2,7 @@
 import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { motion } from 'motion-v'
+import logoImg from '@/assets/logo.webp'
 import { contentApi } from '@/api'
 import { useHomeStore } from '@/stores/home'
 import type { Content, ListParams, User, RecommendContent } from '@/types'
@@ -349,7 +350,7 @@ onMounted(() => {
 
       <div class="content-area">
         <div class="header-section">
-          <img src="/F775F3831CE0AAF6B17116666DD812F8.png" alt="小泉动漫二创站" class="app-logo" />
+          <img :src="logoImg" alt="小泉动漫二创站" class="app-logo" />
           <a @click="goToEasterEgg" class="app-subtitle egg-link"> 🎉 发现精彩内容 </a>
         </div>
 

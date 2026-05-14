@@ -23,7 +23,7 @@ body {
 
 #app {
   min-height: 100vh;
-  background: url('/bg.webp');
+  background: url('./bg.webp');
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;
