@@ -2,6 +2,7 @@
 import { RouterLink, RouterView } from 'vue-router'
 import { useUserStore } from './stores/user'
 import { onMounted, ref } from 'vue'
+import logoImg from '@/assets/logo.webp'
 
 const userStore = useUserStore()
 const isMobileMenuOpen = ref(false)
@@ -42,7 +43,7 @@ onMounted(() => {
     <nav class="mac-nav">
       <div class="nav-left">
         <RouterLink to="/" class="nav-brand">
-          <img src="/F775F3831CE0AAF6B17116666DD812F8.png" alt="小泉动漫二创站" class="brand-logo" />
+          <img :src="logoImg" alt="小泉动漫二创站" class="brand-logo" />
         </RouterLink>
       </div>
 

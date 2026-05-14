@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Content } from '@/types'
 import { getImageUrl, getPreviewText } from '@/utils'
+import qrcodeImg from '@/assets/qrcode.webp'
 
 const router = useRouter()
 const contents = ref<Content[]>([])
@@ -209,7 +210,7 @@ onMounted(() => {
               <p class="text-paragraph">小泉动漫二创的QQ交流群：小泉动漫同人二创群🎊📢！</p>
               <div class="qq-group">
                 <div class="qq-qrcode-wrapper" @click="openQrModal">
-                  <img src="/qrcode_1778246119604.jpg" alt="QQ群二维码" class="qq-qrcode" />
+                  <img :src="qrcodeImg" alt="QQ群二维码" class="qq-qrcode" />
                   <div class="qrcode-overlay">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <circle cx="11" cy="11" r="8"/>
@@ -381,7 +382,7 @@ onMounted(() => {
             </svg>
           </button>
           <div class="qr-modal-content">
-            <img src="/qrcode_1778246119604.jpg" alt="QQ群二维码" class="qr-modal-image" />
+            <img :src="qrcodeImg" alt="QQ群二维码" class="qr-modal-image" />
             <div class="qr-modal-info">
               <p class="qr-title">小泉动漫同人二创群</p>
               <p class="qr-number">QQ群号：1098940107</p>
