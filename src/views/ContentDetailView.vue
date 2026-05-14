@@ -1395,6 +1395,11 @@ onMounted(() => {
   .comment-actions {
     flex-direction: column;
     gap: 10px;
+    align-items: stretch;
+  }
+
+  .comment-actions .mac-btn {
+    width: 100%;
   }
 
   .hint {
@@ -1402,67 +1407,105 @@ onMounted(() => {
   }
 
   .comment-item {
-    flex-direction: column;
+    flex-direction: row;
     gap: 10px;
-    padding: 14px;
+    padding: 12px;
   }
 
   .comment-avatar {
-    width: 44px;
-    height: 44px;
-  }
-
-  .comment-avatar svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  .comment-header {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .comment-author {
-    font-size: 15px;
-  }
-
-  .comment-text {
-    font-size: 15px;
-    line-height: 1.6;
-  }
-
-  .action-btn {
-    padding: 8px 12px;
-    font-size: 13px;
-  }
-
-  .replies-list {
-    padding-left: 12px;
-  }
-
-  .reply-item {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .reply-avatar {
     width: 36px;
     height: 36px;
   }
 
-  .reply-text {
+  .comment-avatar svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .comment-header {
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: flex-start;
+  }
+
+  .comment-author {
     font-size: 14px;
+  }
+
+  .comment-id {
+    display: none;
+  }
+
+  .comment-time {
+    font-size: 11px;
+  }
+
+  .comment-actions {
+    margin-left: 0;
+    width: 100%;
+    margin-top: 4px;
+  }
+
+  .comment-text {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .action-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+    flex: 1;
+  }
+
+  .replies-list {
+    padding-left: 10px;
+    margin-top: 8px;
+  }
+
+  .reply-item {
+    flex-direction: row;
+    gap: 8px;
+    padding: 8px 0;
+  }
+
+  .reply-avatar {
+    width: 28px;
+    height: 28px;
+  }
+
+  .reply-avatar svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .reply-header {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .reply-actions {
+    width: 100%;
+    margin-top: 4px;
+  }
+
+  .reply-text {
+    font-size: 13px;
   }
 
   .login-prompt {
     flex-direction: column;
     gap: 10px;
     padding: 14px;
+    text-align: center;
   }
 
   .login-prompt p {
     margin: 0;
     font-size: 14px;
+  }
+
+  .login-prompt .mac-btn {
+    width: 100%;
   }
 
   .back-btn {
@@ -1531,6 +1574,79 @@ onMounted(() => {
 
   .content-video {
     max-height: 220px;
+  }
+
+  .comments-section {
+    padding: 12px;
+  }
+
+  .comment-item {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .comment-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .comment-avatar svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .comment-author {
+    font-size: 13px;
+  }
+
+  .comment-time {
+    font-size: 10px;
+  }
+
+  .comment-text {
+    font-size: 13px;
+  }
+
+  .action-btn {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  .replies-list {
+    padding-left: 8px;
+    margin-top: 6px;
+  }
+
+  .reply-item {
+    gap: 6px;
+    padding: 6px 0;
+  }
+
+  .reply-avatar {
+    width: 24px;
+    height: 24px;
+  }
+
+  .reply-avatar svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .reply-text {
+    font-size: 12px;
+  }
+
+  .reply-author {
+    font-size: 11px;
+  }
+
+  .reply-time {
+    font-size: 10px;
+  }
+
+  .reply-actions .action-btn {
+    padding: 3px 6px;
+    font-size: 10px;
   }
 }
 </style>
