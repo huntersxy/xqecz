@@ -121,7 +121,7 @@ onMounted(() => {
                 </p>
                 <p class="report-reporter">
                   <span class="label">举报人：</span>
-                  {{ report.User?.Username || report.User?.username }}
+                  {{ report.User?.username }}
                 </p>
               </div>
             </div>

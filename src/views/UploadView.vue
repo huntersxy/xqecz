@@ -220,8 +220,8 @@ async function handleUpload() {
     return
   }
   try {
-    const userId = userStore.user.id || userStore.user.ID
-    if (!uploadForm.value.title) {
+    const userId = userStore.user.id
+    if (!uploadForm.value.title && uploadForm.value.type !== 'link') {
       message.value = '请填写标题'
       return
     }

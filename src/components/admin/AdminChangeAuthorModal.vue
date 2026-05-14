@@ -30,7 +30,7 @@ const filteredUsers = computed(() => {
   }
   const keyword = searchKeyword.value.toLowerCase();
   return users.value.filter(user => {
-    const username = (user.username || user.Username || '').toLowerCase();
+    const username = (user.username || '').toLowerCase();
     return username.includes(keyword);
   });
 });
@@ -137,13 +137,13 @@ watch(
             <div class="user-select">
               <div
                 v-for="user in filteredUsers"
-                :key="user.id || user.ID"
-                :class="['user-option', { selected: selectedUserId === (user.id || user.ID) }]"
-                @click="selectedUserId = user.id || user.ID"
+                :key="user.id"
+                :class="['user-option', { selected: selectedUserId === user.id }]"
+                @click="selectedUserId = user.id"
               >
                 <div class="user-info">
-                  <span class="username">{{ user.username || user.Username }}</span>
-                  <span class="user-role" v-if="user.is_admin || user.IsAdmin">管理员</span>
+                  <span class="username">{{ user.username }}</span>
+                  <span class="user-role" v-if="user.is_admin">管理员</span>
                 </div>
               </div>
               <div v-if="filteredUsers.length === 0" class="no-results">

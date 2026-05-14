@@ -292,17 +292,19 @@ export const adminApi = {
   updateUserRole: (id: number, isAdmin: boolean) =>
     request<User>(`/admin/users/${id}/role`, {
       method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
       body: { is_admin: isAdmin },
     }),
 
   updateUserBan: (id: number, isBanned: boolean) =>
     request<User>(`/admin/users/${id}/ban`, {
       method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
       body: { is_banned: isBanned },
     }),
 
   regenerateThumbnail: (id: number) =>
-    request<{ id: number; thumb_path: string }>(`/admin/content/${id}/regenerate-thumbnail`, {
+    request<{ id: number; thumb: string }>(`/admin/content/${id}/regenerate-thumbnail`, {
       method: 'POST',
     }),
 

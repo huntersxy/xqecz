@@ -6,16 +6,13 @@ import { contentApi, adminApi, pollApi } from '@/api'
 import type { Content, User, Poll, CreatePollData, Claim } from '@/types'
 import { getPreviewText, renderMarkdown } from '@/utils'
 
-function getImageUrl(
-  image: string | undefined,
-  filePath: string | undefined,
-): string {
-  if (filePath) {
-    const thumbPath = filePath.includes('_thumb.') ? filePath : filePath.replace(/\.[^.]+$/, '_thumb.webp')
-    return `https://xqapi.xiey.work/thumbnails/${thumbPath}`
-  }
+function getImageUrl(image?: string): string {
   if (image) {
-    return image.replace(/http:\/\/localhost:8080/, 'https://xqapi.xiey.work')
+    let url = image.replace(/http:\/\/localhost:8080/, 'https://xqapi.xiey.work')
+    if (url.startsWith('/')) {
+      url = `https://xqapi.xiey.work${url}`
+    }
+    return url
   }
   return ''
 }
@@ -45,7 +42,6 @@ const uploadForm = ref({
   url: '',
   tags: [] as string[],
   file: undefined as File | undefined,
-  filePath: ''
 })
 const filePreview = ref<string>('')
 const uploadProgress = ref(0)
@@ -57,7 +53,6 @@ const editForm = ref({
   content: '',
   url: '',
     type: 'text' as 'video' | 'image' | 'text' | 'link',
-  filePath: '',
   tags: [] as string[],
   file: undefined as File | undefined
 })
@@ -121,7 +116,7 @@ const allTags = computed(() => {
   const tagsSet = new Set<string>()
   const all = [...myContents.value, ...pendingContents.value, ...allContents.value]
   all.forEach(content => {
-    const tags = content.tags || content.Tags || []
+    const tags = content.tags || []
     tags.forEach(tag => tagsSet.add(String(tag)))
   })
   return Array.from(tagsSet)
@@ -129,7 +124,7 @@ const allTags = computed(() => {
 
 const renderedDetailContent = computed(() => {
   if (!contentDetail.value) return ''
-  const text = contentDetail.value.content || contentDetail.value.Content || ''
+  const text = contentDetail.value.text || ''
   let processedText = text.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '[禁止的脚本]')
   processedText = processedText.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '[禁止的iframe]')
   return renderMarkdown(processedText)
@@ -229,13 +224,18 @@ async function handleImageUpload(event: Event) {
 }
 
 function openContentDetail(content: Content) {
+  const linkUrl = content.type === 'link' && content.url
+  if (linkUrl) {
+    window.open(linkUrl, '_blank')
+    return
+  }
   contentDetail.value = content
   showContentDetail.value = true
 }
 
 function openChangeAuthorModal(content: Content) {
-  changeAuthorContentId.value = content.id || content.ID || 0
-  changeAuthorCurrentName.value = content.user?.username || content.User?.Username || ''
+  changeAuthorContentId.value = content.id || 0
+  changeAuthorCurrentName.value = content.user?.username || ''
   showChangeAuthorModal.value = true
 }
 
@@ -460,8 +460,8 @@ async function handleUpload() {
     return
   }
   try {
-    const userId = userStore.user.id || userStore.user.ID
-    if (!uploadForm.value.title) {
+    const userId = userStore.user.id
+    if (!uploadForm.value.title && uploadForm.value.type !== 'link') {
       message.value = '请填写标题'
       return
     }
@@ -472,7 +472,7 @@ async function handleUpload() {
     })
     if (res.code === 200) {
       message.value = '上传成功'
-      uploadForm.value = { title: '', type: 'text', content: '', url: '', tags: [], file: undefined, filePath: '' }
+      uploadForm.value = { title: '', type: 'text', content: '', url: '', tags: [], file: undefined }
       filePreview.value = ''
       showUploadModal.value = false
       loadMyContents()
@@ -489,13 +489,12 @@ async function handleUpload() {
 
 function openEditModal(content: Content) {
   editForm.value = {
-    id: content.id || content.ID,
-    title: content.title || content.Title,
-    content: content.content || content.Content,
+    id: content.id,
+    title: content.title,
+    content: content.text,
     url: content.url || '',
-    type: (content.type || content.Type) as 'video' | 'image' | 'text' | 'link',
-    filePath: content.file_path || content.FilePath || '',
-    tags: (content.tags || content.Tags || []).map(t => String(t)),
+    type: content.type as 'video' | 'image' | 'text' | 'link',
+    tags: content.tags || [],
     file: undefined
   }
   isEditModal.value = true
@@ -575,7 +574,7 @@ async function regenerateAllThumbnails() {
 async function handleAudit(id: number, status: 'approved' | 'rejected') {
   if (!userStore.user) return
   try {
-    const adminId = userStore.user.id || userStore.user.ID
+    const adminId = userStore.user.id
     const res = await adminApi.audit(id, { admin_id: adminId, status, remark: '' })
     if (res.code === 200) {
       message.value = '审核成功'
@@ -720,7 +719,7 @@ onMounted(() => {
           <div class="content-list">
             <AdminContentCard
               v-for="content in myContents"
-              :key="content.id || content.ID"
+              :key="content.id"
               :content="content"
               :show-actions="true"
               :show-regenerate-thumbnail="true"
@@ -750,7 +749,7 @@ onMounted(() => {
           <div class="content-list">
             <AdminContentCard
               v-for="content in pendingContents"
-              :key="content.id || content.ID"
+              :key="content.id"
               :content="content"
               :show-audit-actions="true"
               :show-author="true"
@@ -789,7 +788,7 @@ onMounted(() => {
           <div class="content-list">
             <AdminContentCard
               v-for="content in allContents"
-              :key="content.id || content.ID"
+              :key="content.id"
               :content="content"
               :show-actions="true"
               :show-author="true"
@@ -822,7 +821,7 @@ onMounted(() => {
           <div class="user-list">
             <AdminUserCard
               v-for="user in users"
-              :key="user.id || user.ID"
+              :key="user.id"
               :user="user"
               @update-role="handleUpdateUserRole"
               @update-ban="handleUpdateUserBan"
@@ -914,21 +913,21 @@ onMounted(() => {
               class="claim-item"
             >
               <div class="claim-media">
-                <template v-if="(claim.content.type || claim.content.Type) !== 'text' && (claim.content.type || claim.content.Type) !== 'link'">
+                <template v-if="claim.content.type !== 'text' && claim.content.type !== 'link'">
                   <img
-                    :src="getImageUrl(claim.content.image, claim.content.thumb_path || claim.content.file_path || claim.content.FilePath)"
-                    :alt="(claim.content.type || claim.content.Type) === 'video' ? '视频封面' : '内容图片'"
+                    :src="getImageUrl(claim.content.thumb)"
+                    :alt="claim.content.type === 'video' ? '视频封面' : '内容图片'"
                     class="claim-thumb"
                     loading="lazy"
                   />
                 </template>
                 <template v-else>
-                  <div class="claim-text-preview">{{ getPreviewText(claim.content.content || claim.content.Content) }}</div>
+                  <div class="claim-text-preview">{{ getPreviewText(claim.content.text) }}</div>
                 </template>
               </div>
               <div class="claim-body">
                 <div class="claim-item-header">
-                  <span class="claim-content-title">{{ claim.content?.title || claim.content?.Title || '未知内容' }}</span>
+                  <span class="claim-content-title">{{ claim.content?.title || '未知内容' }}</span>
                   <span :class="['claim-status', claim.status]">
                     {{ claim.status === 'pending' ? '待处理' : claim.status === 'approved' ? '已通过' : '已拒绝' }}
                   </span>

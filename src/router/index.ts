@@ -77,7 +77,7 @@ router.beforeEach((to, from, next) => {
         next()
       }
     })
-  } else if (to.meta.requiresAdmin && !userStore.user?.is_admin && !userStore.user?.IsAdmin) {
+  } else if (to.meta.requiresAdmin && !userStore.user?.is_admin) {
     next({ name: 'home' })
   } else {
     next()

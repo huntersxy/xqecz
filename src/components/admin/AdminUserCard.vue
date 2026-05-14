@@ -16,11 +16,11 @@ const emit = defineEmits<{
   delete: [id: number];
 }>();
 
-const userId = props.user.id || props.user.ID || 0;
-const isAdmin = props.user.is_admin || props.user.IsAdmin || false;
-const isBanned = props.user.is_banned || props.user.IsBanned || false;
-const username = props.user.username || props.user.Username || '';
-const isCurrentUser = userId === (userStore.user?.id || userStore.user?.ID);
+const userId = props.user.id || 0;
+const isAdmin = props.user.is_admin || false;
+const isBanned = props.user.is_banned || false;
+const username = props.user.username || '';
+const isCurrentUser = userId === userStore.user?.id;
 
 const handleUpdateRole = () => emit('updateRole', userId, !isAdmin);
 const handleUpdateBan = () => emit('updateBan', userId, !isBanned);

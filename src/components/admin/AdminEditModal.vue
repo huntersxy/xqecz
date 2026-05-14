@@ -7,7 +7,6 @@ interface EditForm {
   content: string;
   url: string;
   type: 'video' | 'image' | 'text' | 'link';
-  filePath: string;
   tags: string[];
   file?: File;
 }
@@ -86,9 +85,6 @@ const emit = defineEmits<{
         <div v-else class="form-row">
           <label class="form-label">文件</label>
           <input type="file" @change="$emit('handleFileChange', $event)" class="file-input" />
-          <div v-if="editForm.filePath" class="current-file">
-            当前: {{ editForm.filePath }}
-          </div>
         </div>
         <div v-if="editForm.type === 'link'" class="form-row">
           <label class="form-label">链接地址</label>
