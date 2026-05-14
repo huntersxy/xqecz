@@ -20,6 +20,13 @@ function getImageUrl(image?: string): string {
   return ''
 }
 
+function onImageLoad(e: Event) {
+  const img = e.target as HTMLImageElement
+  if (img.naturalHeight > img.naturalWidth * 1.2) {
+    img.style.objectPosition = '50% 8%'
+  }
+}
+
 function formatTime(ts: number): string {
   if (!ts) return ''
   return new Date(ts * 1000).toLocaleDateString('zh-CN')
@@ -462,6 +469,7 @@ onMounted(() => {
                         :alt="content.title"
                         class="recommend-image"
                         loading="lazy"
+                        @load="onImageLoad"
                       />
                       <div v-if="content.type === 'video'" class="play-overlay">
                         <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -516,6 +524,7 @@ onMounted(() => {
                           alt="内容图片"
                           class="card-image"
                           loading="lazy"
+                          @load="onImageLoad"
                         />
                       </template>
                       <template v-else-if="content.type === 'video'">
@@ -524,6 +533,7 @@ onMounted(() => {
                           alt="视频封面"
                           class="card-image"
                           loading="lazy"
+                          @load="onImageLoad"
                         />
                         <div class="play-overlay">
                           <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -537,6 +547,7 @@ onMounted(() => {
                           alt="链接"
                           class="card-image"
                           loading="lazy"
+                          @load="onImageLoad"
                         />
                         <div class="link-overlay">
                           <svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -928,7 +939,7 @@ onMounted(() => {
 .recommend-media {
   position: relative;
   width: 100%;
-  padding-top: 56.25%;
+  padding-top: 75%;
   background: #f8f9fa;
   overflow: hidden;
 }
@@ -1085,8 +1096,7 @@ onMounted(() => {
 .card-media {
   position: relative;
   width: 100%;
-  padding-top: 62.5%;
-  background: #f8f9fa;
+  padding-top: 75%;  background: #f8f9fa;
   overflow: hidden;
 }
 
@@ -1501,7 +1511,7 @@ onMounted(() => {
   }
 
   .card-media {
-    padding-top: 56.25%;
+    padding-top: 75%;
   }
 
   .play-overlay {

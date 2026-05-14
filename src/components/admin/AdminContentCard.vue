@@ -35,6 +35,13 @@ const contentText = props.content.text || '';
 const authorName = props.content.user?.username || '';
 const viewCount = props.content.view_count || 0;
 
+function onImageLoad(e: Event) {
+  const img = e.target as HTMLImageElement
+  if (img.naturalHeight > img.naturalWidth * 1.2) {
+    img.style.objectPosition = '50% 8%'
+  }
+}
+
 const contentId = props.content.id || 0;
 
 const handleView = () => emit('view', props.content);
@@ -55,6 +62,7 @@ const handleChangeAuthor = () => emit('changeAuthor', props.content);
             :alt="contentType === 'video' ? '视频封面' : '内容图片'"
             class="item-image"
             loading="lazy"
+            @load="onImageLoad"
           />
         </template>
       <template v-else>
@@ -110,13 +118,17 @@ const handleChangeAuthor = () => emit('changeAuthor', props.content);
 }
 
 .item-media {
+  position: relative;
   width: 100%;
-  height: 160px;
+  padding-top: 75%;
   overflow: hidden;
   background: #f8f9fa;
 }
 
 .item-image {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -258,10 +270,6 @@ const handleChangeAuthor = () => emit('changeAuthor', props.content);
 }
 
 @media screen and (max-width: 768px) {
-  .item-media {
-    height: 150px;
-  }
-
   .item-info {
     padding: 10px;
   }
