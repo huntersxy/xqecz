@@ -23,6 +23,8 @@ const showClaimModal = ref(false)
 const claimReason = ref('')
 const isSubmittingClaim = ref(false)
 
+const menuTarget = ref<number | null>(null)
+
 const renderedContent = computed(() => {
   if (!content.value) return ''
   const text = content.value.text || ''
@@ -43,6 +45,18 @@ function getImageUrl(image?: string): string {
 function formatTime(ts: number): string {
   if (!ts) return ''
   return new Date(ts * 1000).toLocaleString('zh-CN')
+}
+
+function toggleMenu(id: number) {
+  if (menuTarget.value === id) {
+    menuTarget.value = null
+  } else {
+    menuTarget.value = id
+  }
+}
+
+function closeMenu() {
+  menuTarget.value = null
 }
 
 async function loadContent() {
@@ -117,6 +131,7 @@ async function deleteComment(commentId: number) {
 function openReport(comment: Comment) {
   reportTarget.value = comment
   reportReason.value = ''
+  menuTarget.value = null
 }
 
 async function submitReport() {
@@ -307,32 +322,45 @@ onMounted(() => {
                 <div class="comment-content">
                   <div class="comment-header">
                     <span class="comment-author">{{ comment.user?.username }}</span>
-                    <span class="comment-id">#{{ comment.id }}</span>
                     <span class="comment-time">{{ formatTime(comment.created_at) }}</span>
-                    <div class="comment-actions">
-                      <button v-if="userStore.isLoggedIn" @click="replyTarget = comment" class="action-btn reply-btn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                        </svg>
-                        回复
-                      </button>
-                      <button v-if="userStore.isLoggedIn && (userStore.user?.is_admin || comment.user_id === userStore.user?.id)" @click="deleteComment(comment.id)" class="action-btn delete-btn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M3 6h18"/>
-                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-                        </svg>
-                        删除
-                      </button>
-                      <button v-if="userStore.isLoggedIn" @click="openReport(comment)" class="action-btn report-btn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                        </svg>
-                        举报
-                      </button>
-                    </div>
+                    <button
+                      v-if="userStore.isLoggedIn && (userStore.user?.is_admin || comment.user_id === userStore.user?.id)"
+                      class="more-btn"
+                      @click.stop="toggleMenu(comment.id)"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="1"/>
+                        <circle cx="19" cy="12" r="1"/>
+                        <circle cx="5" cy="12" r="1"/>
+                      </svg>
+                    </button>
                   </div>
                   <p class="comment-text">{{ comment.text }}</p>
+                  <div class="comment-footer">
+                    <button v-if="userStore.isLoggedIn" @click="replyTarget = comment" class="reply-btn">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                      </svg>
+                      回复
+                    </button>
+                  </div>
+
+                  <div v-if="menuTarget === comment.id" class="comment-menu">
+                    <button @click="deleteComment(comment.id); closeMenu()" class="menu-item delete-item">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 6h18"/>
+                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                      </svg>
+                      删除
+                    </button>
+                    <button @click="openReport(comment)" class="menu-item report-item">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                      </svg>
+                      举报
+                    </button>
+                  </div>
 
                   <div v-if="comment.replies && comment.replies.length > 0" class="replies-list">
                     <div v-for="reply in comment.replies" :key="reply.id" class="reply-item">
@@ -346,19 +374,38 @@ onMounted(() => {
                         <div class="reply-header">
                           <span class="reply-author">{{ reply.user?.username }}</span>
                           <span class="reply-time">{{ formatTime(reply.created_at) }}</span>
-                          <div class="reply-actions">
-                            <button v-if="userStore.isLoggedIn" @click="replyTarget = reply" class="action-btn reply-btn">
-                              回复
-                            </button>
-                            <button v-if="userStore.isLoggedIn && (userStore.user?.is_admin || reply.user_id === userStore.user?.id)" @click="deleteComment(reply.id)" class="action-btn delete-btn">
-                              删除
-                            </button>
-                            <button v-if="userStore.isLoggedIn" @click="openReport(reply)" class="action-btn report-btn">
-                              举报
-                            </button>
-                          </div>
+                          <button
+                            v-if="userStore.isLoggedIn && (userStore.user?.is_admin || reply.user_id === userStore.user?.id)"
+                            class="more-btn"
+                            @click.stop="toggleMenu(-reply.id)"
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <circle cx="12" cy="12" r="1"/>
+                              <circle cx="19" cy="12" r="1"/>
+                              <circle cx="5" cy="12" r="1"/>
+                            </svg>
+                          </button>
                         </div>
                         <p class="reply-text"><span class="reply-to">{{ reply.parent?.user?.username }}:</span> {{ reply.text }}</p>
+                        <button v-if="userStore.isLoggedIn" @click="replyTarget = reply" class="reply-btn">
+                          回复
+                        </button>
+                      </div>
+                      <div v-if="menuTarget === -reply.id" class="comment-menu reply-menu">
+                        <button @click="deleteComment(reply.id); closeMenu()" class="menu-item delete-item">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18"/>
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                          </svg>
+                          删除
+                        </button>
+                        <button @click="openReport(reply)" class="menu-item report-item">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                          </svg>
+                          举报
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -430,6 +477,8 @@ onMounted(() => {
           </div>
         </div>
       </div>
+
+      <div v-if="menuTarget" class="menu-overlay" @click="closeMenu"></div>
     </Teleport>
   </div>
 </template>
@@ -912,6 +961,7 @@ onMounted(() => {
 
 .comment-content {
   flex: 1;
+  position: relative;
 }
 
 .comment-header {
@@ -927,73 +977,33 @@ onMounted(() => {
   font-size: 14px;
 }
 
-.comment-id {
-  font-size: 12px;
-  color: #666;
-  margin: 0 8px;
-}
-
 .comment-time {
   font-size: 12px;
   color: #999;
 }
 
-.comment-actions {
+.more-btn {
   margin-left: auto;
-  display: flex;
-  gap: 6px;
-}
-
-.action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 12px;
+  background: none;
+  border: none;
+  padding: 4px;
   cursor: pointer;
-  color: #666;
-  transition: all 0.2s ease;
+  color: #999;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 
-.action-btn:hover {
-  background: rgba(255, 255, 255, 0.95);
-  transform: translateY(-1px);
+.comment-item:hover .more-btn {
+  opacity: 1;
 }
 
-.action-btn svg {
-  width: 14px;
-  height: 14px;
+.more-btn:hover {
+  color: #333;
 }
 
-.reply-btn {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-}
-
-.reply-btn:hover {
-  background: rgba(59, 130, 246, 0.15);
-}
-
-.delete-btn {
-  background: rgba(220, 38, 38, 0.1);
-  color: #dc2626;
-}
-
-.delete-btn:hover {
-  background: rgba(220, 38, 38, 0.15);
-}
-
-.report-btn {
-  background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
-}
-
-.report-btn:hover {
-  background: rgba(245, 158, 11, 0.15);
+.more-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 .comment-text {
@@ -1001,6 +1011,93 @@ onMounted(() => {
   font-size: 14px;
   color: #333;
   line-height: 1.6;
+}
+
+.comment-footer {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.reply-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: #999;
+  font-size: 12px;
+  transition: color 0.2s;
+}
+
+.reply-btn:hover {
+  color: #3b82f6;
+}
+
+.reply-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.comment-menu {
+  position: absolute;
+  right: 0;
+  top: 0;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  padding: 4px;
+  min-width: 120px;
+  z-index: 100;
+}
+
+.reply-menu {
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: #333;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.menu-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.menu-item svg {
+  width: 14px;
+  height: 14px;
+}
+
+.delete-item {
+  color: #dc2626;
+}
+
+.report-item {
+  color: #f59e0b;
+}
+
+.menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 90;
 }
 
 .replies-list {
@@ -1038,6 +1135,7 @@ onMounted(() => {
 
 .reply-content {
   flex: 1;
+  position: relative;
 }
 
 .reply-header {
@@ -1058,15 +1156,12 @@ onMounted(() => {
   color: #999;
 }
 
-.reply-actions {
-  margin-left: auto;
-  display: flex;
-  gap: 4px;
+.reply-content .more-btn {
+  opacity: 0;
 }
 
-.reply-actions .action-btn {
-  padding: 2px 6px;
-  font-size: 11px;
+.reply-content:hover .more-btn {
+  opacity: 1;
 }
 
 .reply-text {
@@ -1432,18 +1527,8 @@ onMounted(() => {
     font-size: 14px;
   }
 
-  .comment-id {
-    display: none;
-  }
-
   .comment-time {
     font-size: 11px;
-  }
-
-  .comment-actions {
-    margin-left: 0;
-    width: 100%;
-    margin-top: 4px;
   }
 
   .comment-text {
@@ -1451,10 +1536,12 @@ onMounted(() => {
     line-height: 1.6;
   }
 
-  .action-btn {
-    padding: 6px 10px;
+  .comment-footer {
+    margin-top: 6px;
+  }
+
+  .reply-btn {
     font-size: 12px;
-    flex: 1;
   }
 
   .replies-list {
@@ -1481,11 +1568,6 @@ onMounted(() => {
   .reply-header {
     flex-wrap: wrap;
     gap: 4px;
-  }
-
-  .reply-actions {
-    width: 100%;
-    margin-top: 4px;
   }
 
   .reply-text {
@@ -1607,11 +1689,6 @@ onMounted(() => {
     font-size: 13px;
   }
 
-  .action-btn {
-    padding: 5px 8px;
-    font-size: 11px;
-  }
-
   .replies-list {
     padding-left: 8px;
     margin-top: 6px;
@@ -1641,11 +1718,6 @@ onMounted(() => {
   }
 
   .reply-time {
-    font-size: 10px;
-  }
-
-  .reply-actions .action-btn {
-    padding: 3px 6px;
     font-size: 10px;
   }
 }
