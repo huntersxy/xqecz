@@ -17,14 +17,8 @@ export interface User {
   username: string
   is_admin: boolean
   is_banned: boolean
-  ID?: number
-  Username?: string
-  IsAdmin?: boolean
-  IsBanned?: boolean
-  created_at: string
-  updated_at: string
-  CreatedAt?: string
-  UpdatedAt?: string
+  created_at: number
+  updated_at: number
 }
 
 export interface LoginResponse {
@@ -39,32 +33,18 @@ export interface Content {
   id: number
   title: string
   type: 'video' | 'image' | 'text' | 'link'
-  content: string
+  text?: string
   url?: string
-  file_path: string
-  file_size: number
-  thumb_path?: string
-  user_id: number
+  thumb?: string
+  video?: string
+  img?: string
+  file_size?: number
   user: User
   tags: string[]
-  audit_status: 'pending' | 'approved' | 'rejected'
-  created_at: string
-  updated_at: string
-  image?: string
-  video?: string
-  ID?: number
-  Title?: string
-  Type?: string
-  Content?: string
-  Url?: string
-  FilePath?: string
-  FileSize?: number
-  UserID?: number
-  User?: User
-  Tags?: string[]
-  AuditStatus?: string
-  CreatedAt?: string
-  UpdatedAt?: string
+  view_count: number
+  audit_status?: 'pending' | 'approved' | 'rejected'
+  created_at: number
+  updated_at?: number
 }
 
 export interface AuditRequest {
@@ -90,11 +70,10 @@ export interface Comment {
   text: string
   parent_id: number | null
   is_banned: boolean
-  created_at: string
-  updated_at?: string
-  User?: User
-  user?: User
-  Parent?: Pick<Comment, 'id' | 'user_id' | 'text'> & { User?: User }
+  created_at: number
+  updated_at?: number
+  user?: { id: number; username: string; is_admin?: boolean }
+  parent?: Pick<Comment, 'id' | 'user_id' | 'text'> & { user?: { id: number; username: string } }
   replies?: Comment[]
 }
 
@@ -129,21 +108,12 @@ export interface RecommendContent {
   id: number
   title: string
   type: 'video' | 'image' | 'text' | 'link'
-  file_path: string
   url?: string
-  image: string
+  thumb?: string
   tags: string[]
   view_count?: number
   user: { id: number; username: string }
-  created_at: string
-  ID?: number
-  Title?: string
-  Type?: string
-  Url?: string
-  FilePath?: string
-  Tags?: string[]
-  User?: { ID?: number; Username?: string }
-  CreatedAt?: string
+  created_at: number
 }
 
 export interface RecommendResponse {

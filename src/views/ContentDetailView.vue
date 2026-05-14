@@ -25,15 +25,24 @@ const isSubmittingClaim = ref(false)
 
 const renderedContent = computed(() => {
   if (!content.value) return ''
-  const text = content.value.content || content.value.Content || ''
+  const text = content.value.text || ''
   return renderMarkdown(text)
 })
 
-function getImageUrl(image?: string, filePath?: string) {
-  const url = image || filePath || ''
-  if
- (url.startsWith('http')) return url
-  return `https://xqapi.xiey.work/uploads/${url}`
+function getImageUrl(image?: string): string {
+  if (image) {
+    let url = image.replace(/http:\/\/localhost:8080/, 'https://xqapi.xiey.work')
+    if (url.startsWith('/')) {
+      url = `https://xqapi.xiey.work${url}`
+    }
+    return url
+  }
+  return ''
+}
+
+function formatTime(ts: number): string {
+  if (!ts) return ''
+  return new Date(ts * 1000).toLocaleString('zh-CN')
 }
 
 async function loadContent() {
@@ -141,7 +150,7 @@ async function submitClaim() {
   try {
     isSubmittingClaim.value = true
     const res = await contentApi.submitClaim(
-      content.value.id || content.value.ID || 0,
+      content.value.id || 0,
       claimReason.value.trim()
     )
     if (res.code === 200) {
@@ -194,13 +203,13 @@ onMounted(() => {
 
           <div class="content-main">
             <div class="content-header">
-              <h1 class="content-title">{{ content.title || content.Title }}</h1>
+              <h1 class="content-title">{{ content.title }}</h1>
               <div class="content-badges">
-                <span :class="['type-badge', (content.type || content.Type)]">
-                  {{ (content.type || content.Type) === 'video' ? '视频' : (content.type || content.Type) === 'image' ? '图片' : (content.type || content.Type) === 'link' ? '链接' : '文字' }}
+                <span :class="['type-badge', content.type]">
+                  {{ content.type === 'video' ? '视频' : content.type === 'image' ? '图片' : content.type === 'link' ? '链接' : '文字' }}
                 </span>
-                <span :class="['status-badge', (content.audit_status || content.AuditStatus)]">
-                  {{ (content.audit_status || content.AuditStatus) === 'approved' ? '已通过' : (content.audit_status || content.AuditStatus) === 'pending' ? '审核中' : '已拒绝' }}
+                <span :class="['status-badge', content.audit_status]">
+                  {{ content.audit_status === 'approved' ? '已通过' : content.audit_status === 'pending' ? '审核中' : '已拒绝' }}
                 </span>
               </div>
             </div>
@@ -211,7 +220,7 @@ onMounted(() => {
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                   <circle cx="12" cy="7" r="4"/>
                 </svg>
-                <span>{{ content.user?.username || content.User?.Username }}</span>
+                <span>{{ content.user?.username }}</span>
                 <button
                   @click="userStore.isLoggedIn ? showClaimModal = true : router.push('/login')"
                   class="claim-link"
@@ -219,11 +228,11 @@ onMounted(() => {
                   认领内容
                 </button>
               </div>
-              <div v-if="(content.tags || content.Tags || []).length > 0" class="meta-tags">
+              <div v-if="(content.tags || []).length > 0" class="meta-tags">
                 <svg class="meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                 </svg>
-                <span v-for="tag in (content.tags || content.Tags || [])" :key="tag" class="meta-tag">{{ tag }}</span>
+                <span v-for="tag in (content.tags || [])" :key="tag" class="meta-tag">{{ tag }}</span>
               </div>
             </div>
 
@@ -233,30 +242,30 @@ onMounted(() => {
                   <circle cx="12" cy="12" r="10"/>
                   <polyline points="12 6 12 12 16 14"/>
                 </svg>
-                {{ content.created_at || content.CreatedAt }}
+                {{ formatTime(content.created_at) }}
               </span>
-              <span v-if="(content.updated_at || content.UpdatedAt) !== (content.created_at || content.CreatedAt)" class="timeline-item">
+              <span v-if="content.updated_at !== content.created_at" class="timeline-item">
                 <svg class="timeline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="23 4 23 10 17 10"/>
                   <polyline points="18 21 23 21 23 15"/>
                   <path d="M20.49 9h-5.99M14.51 21h-5.99M9 9H3m3 12H3"/>
                 </svg>
-                {{ content.updated_at || content.UpdatedAt }}
+                {{ formatTime(content.updated_at) }}
               </span>
             </div>
 
             <div class="content-body">
-              <div v-if="(content.type || content.Type) === 'text'" class="text-content" v-html="renderedContent"></div>
-              <div v-else-if="(content.type || content.Type) === 'image'" class="image-content">
-                <img :src="getImageUrl(content.image, content.file_path || content.FilePath)" alt="内容图片" class="content-image" />
+              <div v-if="content.type === 'text'" class="text-content" v-html="renderedContent"></div>
+              <div v-else-if="content.type === 'image'" class="image-content">
+                <img :src="getImageUrl(content.img)" alt="内容图片" class="content-image" />
               </div>
-              <div v-else-if="(content.type || content.Type) === 'video'" class="video-content">
+              <div v-else-if="content.type === 'video'" class="video-content">
                 <video controls class="content-video">
-                  <source :src="getImageUrl(content.video, content.file_path || content.FilePath)" />
+                  <source :src="getImageUrl(content.video)" />
                   您的浏览器不支持视频播放。
                 </video>
               </div>
-              <div v-else-if="(content.type || content.Type) === 'link'" class="text-content" v-html="renderedContent"></div>
+              <div v-else-if="content.type === 'link'" class="text-content" v-html="renderedContent"></div>
             </div>
           </div>
 
@@ -267,7 +276,7 @@ onMounted(() => {
 
             <div v-if="userStore.isLoggedIn" class="comment-input-area">
               <div v-if="replyTarget" class="reply-indicator">
-                <span>回复 {{ replyTarget.User?.Username || replyTarget.User?.username }}:</span>
+                <span>回复 {{ replyTarget.user?.username }}:</span>
                 <button @click="cancelReply" class="cancel-reply-btn">取消</button>
               </div>
               <textarea
@@ -297,9 +306,9 @@ onMounted(() => {
                 </div>
                 <div class="comment-content">
                   <div class="comment-header">
-                    <span class="comment-author">{{ comment.user?.username || comment.User?.Username || comment.User?.username }}</span>
+                    <span class="comment-author">{{ comment.user?.username }}</span>
                     <span class="comment-id">#{{ comment.id }}</span>
-                    <span class="comment-time">{{ comment.created_at }}</span>
+                    <span class="comment-time">{{ formatTime(comment.created_at) }}</span>
                     <div class="comment-actions">
                       <button v-if="userStore.isLoggedIn" @click="replyTarget = comment" class="action-btn reply-btn">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -307,7 +316,7 @@ onMounted(() => {
                         </svg>
                         回复
                       </button>
-                      <button v-if="userStore.isLoggedIn && (userStore.user?.is_admin || userStore.user?.IsAdmin || comment.user_id === userStore.user?.id || comment.user_id === userStore.user?.ID)" @click="deleteComment(comment.id)" class="action-btn delete-btn">
+                      <button v-if="userStore.isLoggedIn && (userStore.user?.is_admin || comment.user_id === userStore.user?.id)" @click="deleteComment(comment.id)" class="action-btn delete-btn">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                           <path d="M3 6h18"/>
                           <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
@@ -335,13 +344,13 @@ onMounted(() => {
                       </div>
                       <div class="reply-content">
                         <div class="reply-header">
-                          <span class="reply-author">{{ reply.User?.Username || reply.User?.username }}</span>
-                          <span class="reply-time">{{ reply.created_at }}</span>
+                          <span class="reply-author">{{ reply.user?.username }}</span>
+                          <span class="reply-time">{{ formatTime(reply.created_at) }}</span>
                           <div class="reply-actions">
                             <button v-if="userStore.isLoggedIn" @click="replyTarget = reply" class="action-btn reply-btn">
                               回复
                             </button>
-                            <button v-if="userStore.isLoggedIn && (userStore.user?.is_admin || userStore.user?.IsAdmin || reply.user_id === userStore.user?.id || reply.user_id === userStore.user?.ID)" @click="deleteComment(reply.id)" class="action-btn delete-btn">
+                            <button v-if="userStore.isLoggedIn && (userStore.user?.is_admin || reply.user_id === userStore.user?.id)" @click="deleteComment(reply.id)" class="action-btn delete-btn">
                               删除
                             </button>
                             <button v-if="userStore.isLoggedIn" @click="openReport(reply)" class="action-btn report-btn">
@@ -349,7 +358,7 @@ onMounted(() => {
                             </button>
                           </div>
                         </div>
-                        <p class="reply-text"><span class="reply-to">{{ reply.Parent?.User?.Username || reply.Parent?.User?.username }}:</span> {{ reply.text }}</p>
+                        <p class="reply-text"><span class="reply-to">{{ reply.parent?.user?.username }}:</span> {{ reply.text }}</p>
                       </div>
                     </div>
                   </div>

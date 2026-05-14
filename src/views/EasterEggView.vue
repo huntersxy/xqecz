@@ -103,12 +103,12 @@ async function loadContents() {
 }
 
 function goToDetail(content: Content) {
-  const linkUrl = (content.type || content.Type) === 'link' && (content.url || content.Url || content.content || content.Content)
+  const linkUrl = content.type === 'link' && content.url
   if (linkUrl) {
     window.open(linkUrl, '_blank')
     return
   }
-  const id = content.id || content.ID
+  const id = content.id
   if (id) {
     router.push(`/content/${id}`)
   }
@@ -287,18 +287,18 @@ onMounted(() => {
           <div class="content-grid">
             <div
               v-for="content in contents"
-              :key="content.id || content.ID"
+              :key="content.id"
               @click="goToDetail(content)"
               class="content-card mac-card egg-card"
             >
               <div class="card-media">
-                <template v-if="(content.type || content.Type) !== 'text' && (content.type || content.Type) !== 'link'">
+                <template v-if="content.type !== 'text' && content.type !== 'link'">
                   <img
-                    :src="getImageUrl(content.image, content.thumb_path || content.file_path || content.FilePath)"
-                    :alt="(content.type || content.Type) === 'video' ? '视频封面' : '内容图片'"
+                    :src="getImageUrl(content.thumb)"
+                    :alt="content.type === 'video' ? '视频封面' : '内容图片'"
                     class="card-image"
                   />
-                  <div v-if="(content.type || content.Type) === 'video'" class="play-overlay">
+                  <div v-if="content.type === 'video'" class="play-overlay">
                     <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M8 5v14l11-7z"/>
                     </svg>
@@ -306,30 +306,30 @@ onMounted(() => {
                 </template>
                 <template v-else>
                   <div class="text-preview">
-                    <p class="preview-text">{{ getPreviewText(content.content || content.Content || '暂无内容') }}</p>
+                    <p class="preview-text">{{ getPreviewText(content.text || '暂无内容') }}</p>
                   </div>
                 </template>
               </div>
 
               <div class="card-info">
-                <h3 class="card-title">{{ content.title || content.Title }}</h3>
+                <h3 class="card-title">{{ content.title }}</h3>
                 <div class="card-meta">
                   <span class="meta-item">
                     <svg class="meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                       <circle cx="12" cy="7" r="4"/>
                     </svg>
-                    {{ content.user?.username || content.User?.Username }}
+                    {{ content.user?.username }}
                   </span>
                   <div class="tags-wrapper">
-                    <span v-for="tag in (content.tags || content.Tags || [])" :key="tag" class="meta-tag">
+                    <span v-for="tag in (content.tags || [])" :key="tag" class="meta-tag">
                       {{ tag }}
                     </span>
                   </div>
                 </div>
                 <div class="card-type">
-                  <span :class="['type-badge', (content.type || content.Type)]">
-                    {{ (content.type || content.Type) === 'video' ? '视频' : (content.type || content.Type) === 'image' ? '图片' : (content.type || content.Type) === 'link' ? '链接' : '文字' }}
+                  <span :class="['type-badge', content.type]">
+                    {{ content.type === 'video' ? '视频' : content.type === 'image' ? '图片' : content.type === 'link' ? '链接' : '文字' }}
                   </span>
                 </div>
               </div>

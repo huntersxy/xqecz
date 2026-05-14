@@ -9,15 +9,20 @@ import PollComponent from '@/components/PollComponent.vue'
 
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
-function getImageUrl(image?: string, filePath?: string): string {
-  if (filePath) {
-    const thumbPath = filePath.includes('_thumb.') ? filePath : filePath.replace(/\.[^.]+$/, '_thumb.webp')
-    return `https://xqapi.xiey.work/thumbnails/${thumbPath}`
-  }
+function getImageUrl(image?: string): string {
   if (image) {
-    return image.replace(/http:\/\/localhost:8080/, 'https://xqapi.xiey.work')
+    let url = image.replace(/http:\/\/localhost:8080/, 'https://xqapi.xiey.work')
+    if (url.startsWith('/')) {
+      url = `https://xqapi.xiey.work${url}`
+    }
+    return url
   }
   return ''
+}
+
+function formatTime(ts: number): string {
+  if (!ts) return ''
+  return new Date(ts * 1000).toLocaleDateString('zh-CN')
 }
 
 function getPreviewText(text: string, maxLength: number = 120): string {
@@ -77,52 +82,39 @@ const contentTypeLabels: Record<string, string> = {
 }
 
 function normalizeContent(content: Content | Record<string, unknown>): Content {
-  const getVal = (key: keyof Content, altKey: string): unknown => {
-    return (content as Record<string, unknown>)[key] ?? (content as Record<string, unknown>)[altKey]
-  }
-
-  const rawUser = getVal('user', 'User') as Record<string, unknown> | undefined
-  const normalizeUser = (u: Record<string, unknown> | undefined): User => {
-    if (!u)
-      return {
-        id: 0,
-        username: '',
-        is_admin: false,
-        is_banned: false,
-        created_at: '',
-        updated_at: '',
-      }
-    const getUserVal = (key: string, altKey: string): unknown => {
-      return u[key] ?? u[altKey]
-    }
-    return {
-      id: Number(getUserVal('id', 'ID')) || 0,
-      username: String(getUserVal('username', 'Username')) || '',
-      is_admin: Boolean(getUserVal('is_admin', 'IsAdmin')) || false,
-      is_banned: Boolean(getUserVal('is_banned', 'IsBanned')) || false,
-      created_at: String(getUserVal('created_at', 'CreatedAt')) || '',
-      updated_at: String(getUserVal('updated_at', 'UpdatedAt')) || '',
-    }
-  }
+  const rawUser = (content as Record<string, unknown>).user as Record<string, unknown> | undefined
 
   return {
-    id: Number(getVal('id', 'ID')) || 0,
-    title: String(getVal('title', 'Title')) || '',
-    type: (String(getVal('type', 'Type')) as 'video' | 'image' | 'text' | 'link') || 'text',
-    content: String(getVal('content', 'Content')) || '',
-    url: String(getVal('url', 'Url') || ''),
-    file_path: String(getVal('file_path', 'FilePath')) || '',
-    file_size: Number(getVal('file_size', 'FileSize')) || 0,
-    user_id: Number(getVal('user_id', 'UserID')) || 0,
-    user: normalizeUser(rawUser),
-    tags: Array.isArray(getVal('tags', 'Tags')) ? (getVal('tags', 'Tags') as string[]) : [],
-    audit_status:
-      (String(getVal('audit_status', 'AuditStatus')) as 'pending' | 'approved' | 'rejected') ||
-      'pending',
-    created_at: String(getVal('created_at', 'CreatedAt')) || '',
-    updated_at: String(getVal('updated_at', 'UpdatedAt')) || '',
-    image: String(getVal('image', '')) || '',
-    video: String(getVal('video', '')) || '',
+    id: Number(content.id) || 0,
+    title: String(content.title || ''),
+    type: (String(content.type) as 'video' | 'image' | 'text' | 'link') || 'text',
+    text: String(content.text || ''),
+    url: String(content.url || ''),
+    thumb: String(content.thumb || ''),
+    video: String(content.video || ''),
+    img: String((content as Record<string, unknown>).img || ''),
+    file_size: Number(content.file_size) || 0,
+    user: rawUser
+      ? {
+          id: Number(rawUser.id) || 0,
+          username: String(rawUser.username || ''),
+          is_admin: Boolean(rawUser.is_admin),
+          is_banned: Boolean(rawUser.is_banned),
+          created_at: Number(rawUser.created_at) || 0,
+          updated_at: Number(rawUser.updated_at) || 0,
+        }
+      : {
+          id: 0,
+          username: '',
+          is_admin: false,
+          is_banned: false,
+          created_at: 0,
+          updated_at: 0,
+        },
+    tags: Array.isArray(content.tags) ? (content.tags as string[]) : [],
+    created_at: Number(content.created_at) || 0,
+    updated_at: Number(content.updated_at) || 0,
+    view_count: Number(content.view_count) || 0,
   }
 }
 
@@ -218,7 +210,7 @@ function handleSearch() {
 }
 
 function goToDetail(content: Content) {
-  const linkUrl = content.type === 'link' && (content.url || content.content)
+  const linkUrl = content.type === 'link' && content.url
   if (linkUrl) {
     window.open(linkUrl, '_blank')
     return
@@ -269,23 +261,18 @@ function goToEasterEgg() {
 
 function normalizeRecommendContent(content: RecommendContent): RecommendContent {
   return {
-    id: Number(content.id) || Number(content.ID) || 0,
-    title: content.title || content.Title || '',
-    type: ((content.type || content.Type) as 'video' | 'image' | 'text' | 'link') || 'image',
-    file_path: content.file_path || content.FilePath || '',
-    url: content.url || content.Url || '',
-    image: content.image || '',
-    tags: Array.isArray(content.tags)
-      ? content.tags
-      : Array.isArray(content.Tags)
-        ? content.Tags
-        : [],
-    view_count: content.view_count,
+    id: Number(content.id) || 0,
+    title: content.title || '',
+    type: (content.type as 'video' | 'image' | 'text' | 'link') || 'image',
+    url: content.url || '',
+    thumb: content.thumb || '',
+    tags: Array.isArray(content.tags) ? content.tags : [],
+    view_count: content.view_count || 0,
     user: {
-      id: Number(content.user?.id) || Number(content.User?.ID) || 0,
-      username: content.user?.username || content.User?.Username || '',
+      id: Number(content.user?.id) || 0,
+      username: content.user?.username || '',
     },
-    created_at: content.created_at || content.CreatedAt || '',
+    created_at: content.created_at || 0,
   }
 }
 
@@ -471,12 +458,7 @@ onMounted(() => {
                   >
                     <div class="recommend-media">
                       <img
-                        :src="
-                          content.image.replace(
-                            /http:\/\/localhost:8080/,
-                            'https://xqapi.xiey.work',
-                          )
-                        "
+                        :src="getImageUrl(content.thumb)"
                         :alt="content.title"
                         class="recommend-image"
                         loading="lazy"
@@ -523,14 +505,14 @@ onMounted(() => {
                 <div class="content-grid" :class="{ 'grid-loading': isLoading }">
                   <div
                     v-for="content in contents"
-                    :key="content.id || content.ID"
+                    :key="content.id"
                     @click="goToDetail(content)"
                     class="content-card"
                   >
                     <div class="card-media">
                       <template v-if="content.type === 'image'">
                         <img
-                          :src="getImageUrl(content.image, content.file_path)"
+                          :src="getImageUrl(content.thumb)"
                           alt="内容图片"
                           class="card-image"
                           loading="lazy"
@@ -538,7 +520,7 @@ onMounted(() => {
                       </template>
                       <template v-else-if="content.type === 'video'">
                         <img
-                          :src="getImageUrl(content.image, content.file_path)"
+                          :src="getImageUrl(content.thumb)"
                           alt="视频封面"
                           class="card-image"
                           loading="lazy"
@@ -551,7 +533,7 @@ onMounted(() => {
                       </template>
                       <template v-else-if="content.type === 'link'">
                         <img
-                          :src="getImageUrl(content.image, content.file_path)"
+                          :src="getImageUrl(content.thumb)"
                           alt="链接"
                           class="card-image"
                           loading="lazy"
@@ -566,7 +548,7 @@ onMounted(() => {
                       <template v-else>
                         <div class="text-preview">
                           <p class="preview-text">
-                            {{ getPreviewText(content.content || '暂无内容') }}
+                            {{ getPreviewText(content.text || '暂无内容') }}
                           </p>
                         </div>
                       </template>
@@ -605,12 +587,13 @@ onMounted(() => {
                                   : '文字'
                           }}
                         </span>
-                        <span
-                          v-if="content.audit_status !== 'approved'"
-                          :class="['status-badge', content.audit_status]"
-                        >
-                          {{ content.audit_status === 'pending' ? '审核中' : '已拒绝' }}
-</span>
+                        <span class="view-count">
+                          <svg class="view-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                          </svg>
+                          {{ content.view_count }}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1241,11 +1224,25 @@ onMounted(() => {
 
 .card-type {
   display: flex;
+  align-items: center;
   gap: 8px;
 }
 
-.type-badge,
-.status-badge {
+.view-count {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: #999;
+}
+
+.view-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+.type-badge {
   padding: 2px 8px;
   border-radius: 12px;
   font-size: 11px;
@@ -1270,21 +1267,6 @@ onMounted(() => {
 .type-badge.text {
   background: #f0f9ff;
   color: #0284c7;
-}
-
-.status-badge.approved {
-  background: #ecfdf5;
-  color: #059669;
-}
-
-.status-badge.pending {
-  background: #fef3c7;
-  color: #d97706;
-}
-
-.status-badge.rejected {
-  background: #fef2f2;
-  color: #dc2626;
 }
 
 .empty-state {
@@ -1560,8 +1542,7 @@ onMounted(() => {
     font-size: 10px;
   }
 
-  .type-badge,
-  .status-badge {
+  .type-badge {
     padding: 2px 6px;
     font-size: 10px;
   }

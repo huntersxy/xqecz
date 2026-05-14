@@ -28,14 +28,14 @@ const emit = defineEmits<{
   changeAuthor: [content: Content];
 }>();
 
-const contentType = props.content.type || props.content.Type || 'text';
-const auditStatus = props.content.audit_status || props.content.AuditStatus || 'pending';
-const tags = props.content.tags || props.content.Tags || [];
-const title = props.content.title || props.content.Title || '';
-const contentText = props.content.content || props.content.Content || '';
-const authorName = props.content.user?.username || props.content.User?.Username || '';
+const contentType = props.content.type || 'text';
+const tags = props.content.tags || [];
+const title = props.content.title || '';
+const contentText = props.content.text || '';
+const authorName = props.content.user?.username || '';
+const viewCount = props.content.view_count || 0;
 
-const contentId = props.content.id || props.content.ID || 0;
+const contentId = props.content.id || 0;
 
 const handleView = () => emit('view', props.content);
 const handleEdit = () => emit('edit', props.content);
@@ -49,9 +49,9 @@ const handleChangeAuthor = () => emit('changeAuthor', props.content);
 <template>
   <div class="content-item mac-card">
     <div class="item-media">
-        <template v-if="contentType !== 'text' && contentType !== 'link'">
+        <template v-if="contentType !== 'text'">
           <img
-            :src="getImageUrl(content.image, content.thumb_path || content.file_path || content.FilePath)"
+            :src="getImageUrl(content.thumb)"
             :alt="contentType === 'video' ? '视频封面' : '内容图片'"
             class="item-image"
             loading="lazy"
@@ -70,9 +70,7 @@ const handleChangeAuthor = () => emit('changeAuthor', props.content);
         <span :class="['type-badge', contentType]">
           {{ contentType === 'video' ? '视频' : contentType === 'image' ? '图片' : contentType === 'link' ? '链接' : '文字' }}
         </span>
-        <span v-if="auditStatus" :class="['status-badge', auditStatus]">
-          {{ auditStatus === 'approved' ? '已通过' : auditStatus === 'pending' ? '审核中' : '已拒绝' }}
-        </span>
+        <span class="meta-item">{{ viewCount }} 次浏览</span>
         <span v-if="showAuthor" class="meta-item">{{ authorName }}</span>
       </div>
       <div v-if="showActions || showAuditActions" class="item-actions">
@@ -200,27 +198,6 @@ const handleChangeAuthor = () => emit('changeAuthor', props.content);
 .type-badge.link {
   background: rgba(139, 92, 246, 0.1);
   color: #7c3aed;
-}
-
-.status-badge {
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.status-badge.approved {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-}
-
-.status-badge.pending {
-  background: rgba(251, 191, 36, 0.1);
-  color: #fbbf24;
-}
-
-.status-badge.rejected {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
 }
 
 .meta-item {

@@ -6,7 +6,6 @@ interface UploadForm {
   content: string;
   url: string;
   type: 'video' | 'image' | 'text' | 'link';
-  filePath: string;
   tags: string[];
   file?: File;
 }

@@ -1,13 +1,13 @@
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
-export function getImageUrl(image?: string, filePath?: string): string {
-  if (filePath) {
-    const thumbPath = filePath.includes('_thumb.') ? filePath : filePath.replace(/\.[^.]+$/, '_thumb.webp')
-    return `https://xqapi.xiey.work/thumbnails/${thumbPath}`
-  }
+export function getImageUrl(image?: string, _filePath?: string): string {
   if (image) {
-    return image.replace(/http:\/\/localhost:8080/, 'https://xqapi.xiey.work')
+    let url = image.replace(/http:\/\/localhost:8080/, 'https://xqapi.xiey.work')
+    if (url.startsWith('/')) {
+      url = `https://xqapi.xiey.work${url}`
+    }
+    return url
   }
   return ''
 }

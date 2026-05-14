@@ -68,7 +68,7 @@ onMounted(() => {
           </svg>
           <span>后台管理</span>
         </RouterLink>
-        <RouterLink v-if="userStore.user?.is_admin || userStore.user?.IsAdmin" to="/admin/reports" class="nav-link" @click="closeMobileMenu">
+        <RouterLink v-if="userStore.user?.is_admin" to="/admin/reports" class="nav-link" @click="closeMobileMenu">
           <svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
           </svg>
@@ -83,7 +83,7 @@ onMounted(() => {
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
               <circle cx="12" cy="7" r="4"/>
             </svg>
-            <span class="user-name">{{ userStore.user?.username || userStore.user?.Username }}</span>
+            <span class="user-name">{{ userStore.user?.username }}</span>
             <span v-if="userStore.user?.is_admin" class="admin-badge">管理员</span>
           </div>
           <button @click="userStore.logout(); closeMobileMenu()" class="mac-btn logout-btn">
@@ -185,7 +185,7 @@ onMounted(() => {
               <circle cx="12" cy="7" r="4"/>
             </svg>
             <div class="mobile-user-details">
-              <span class="mobile-user-name">{{ userStore.user?.username || userStore.user?.Username }}</span>
+              <span class="mobile-user-name">{{ userStore.user?.username }}</span>
               <span v-if="userStore.user?.is_admin" class="mobile-admin-badge">管理员</span>
             </div>
           </div>
