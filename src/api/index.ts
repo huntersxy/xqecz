@@ -1,4 +1,4 @@
-import axios, { type AxiosRequestConfig } from 'axios'
+import { ofetch } from 'ofetch'
 import type {
   ApiResponse,
   User,
@@ -20,35 +20,26 @@ import type {
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
-const instance = axios.create({
+const api = ofetch.create({
   baseURL: BASE_URL,
-  withCredentials: true,
+  credentials: 'include',
+  onRequestError({ error }) {
+    console.error('[API] 请求失败:', error)
+  },
+  onResponseError({ response }) {
+    if (response.status === 401) {
+      console.warn('[API] 未授权，请重新登录')
+    } else if (response.status >= 500) {
+      console.error('[API] 服务器错误:', response.status)
+    }
+  },
 })
 
-instance.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      console.warn('[API] 未授权，请重新登录')
-    } else if (error.response?.status >= 500) {
-      console.error('[API] 服务器错误:', error.response?.status)
-    }
-    return Promise.reject(error)
-  },
-)
-
-async function request<T>(url: string, options: AxiosRequestConfig = {}): Promise<ApiResponse<T>> {
-  try {
-    const response = await instance(url, options)
-    return response.data
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    console.error('[API] 请求失败:', error)
-    if (error.response) {
-      console.error('[API] 响应数据:', error.response.data)
-    }
-    throw error
-  }
+async function request<T>(
+  url: string,
+  options: Parameters<typeof api>[1] = {},
+): Promise<ApiResponse<T>> {
+  return api(url, options) as Promise<ApiResponse<T>>
 }
 
 export const authApi = {
@@ -57,13 +48,13 @@ export const authApi = {
   register: (username: string, password: string) =>
     request<RegisterResponse>('/auth/register', {
       method: 'POST',
-      data: { username, password },
+      body: { username, password },
     }),
 
   login: (username: string, password: string) =>
     request<LoginResponse>('/auth/login', {
       method: 'POST',
-      data: { username, password },
+      body: { username, password },
     }),
 
   logout: () => request('/auth/logout', { method: 'POST' }),
@@ -76,7 +67,7 @@ export const contentApi = {
 
   recommend: (count: number, page?: number) => {
     return request<RecommendResponse>('/content/recommend', {
-      params: { count, page: page || 1 },
+      query: { count, page: page || 1 },
     })
   },
 
@@ -116,40 +107,42 @@ export const contentApi = {
       formData.append('file', data.file)
     }
 
-    if (onProgress) {
-      return new Promise<ApiResponse<Content>>((resolve, reject) => {
-        instance
-          .post('/content/upload', formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-            onUploadProgress: (progressEvent) => {
-              if (progressEvent.total) {
-                const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total)
-                onProgress(percent)
-              }
-            },
-          })
-          .then((response) => resolve(response.data))
-          .catch(reject)
-      })
-    }
+    return new Promise<ApiResponse<Content>>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', `${BASE_URL}/content/upload`)
+      xhr.withCredentials = true
 
-    return request<Content>('/content/upload', {
-      method: 'POST',
-      data: formData,
+      if (onProgress) {
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            const percent = Math.round((event.loaded * 100) / event.total)
+            onProgress(percent)
+          }
+        })
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(JSON.parse(xhr.responseText))
+        } else {
+          reject(new Error(`Upload failed: ${xhr.status}`))
+        }
+      }
+
+      xhr.onerror = () => reject(new Error('Network error'))
+      xhr.send(formData)
     })
   },
 
   list: (params?: ListParams) => {
     return request<PaginatedResponse<Content>>('/content/list', {
-      params,
+      query: params,
     })
   },
 
   myList: (params?: ListParams) => {
     return request<PaginatedResponse<Content>>('/content/my', {
-      params,
+      query: params,
     })
   },
 
@@ -157,7 +150,7 @@ export const contentApi = {
 
   search: (keyword: string, params?: Omit<ListParams, 'keyword'>) => {
     return request<PaginatedResponse<Content>>('/content/search', {
-      params: { keyword, ...params },
+      query: { keyword, ...params },
     })
   },
 
@@ -178,7 +171,7 @@ export const contentApi = {
 
     return request<Content>(`/content/${id}`, {
       method: 'PUT',
-      data: formData,
+      body: formData,
     })
   },
 
@@ -195,17 +188,14 @@ export const contentApi = {
       upload_time: string
     }>('/content/upload-image', {
       method: 'POST',
-      data: formData,
+      body: formData,
     })
   },
 
   submitClaim: (contentId: number, reason: string) =>
     request(`/content/${contentId}/claim`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      data: { reason },
+      body: { reason },
     }),
 }
 
@@ -219,7 +209,7 @@ export const commentApi = {
     }
     return request<Comment>('/comment/add', {
       method: 'POST',
-      data: formData,
+      body: formData,
     })
   },
 
@@ -239,7 +229,7 @@ export const commentApi = {
     }
     return request<CommentReport>('/comment/report', {
       method: 'POST',
-      data: formData,
+      body: formData,
     })
   },
 
@@ -256,7 +246,7 @@ export const pollApi = {
   create: (data: CreatePollData) =>
     request<Poll>('/poll/create', {
       method: 'POST',
-      data,
+      body: data,
     }),
 
   list: () => request<{ list: Poll[] }>('/poll/list'),
@@ -266,10 +256,7 @@ export const pollApi = {
   vote: (id: number, optionIndex: number) =>
     request(`/poll/${id}/vote`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      data: {
+      body: {
         option_index: optionIndex,
       },
     }),
@@ -281,37 +268,37 @@ export const adminApi = {
   audit: (id: number, data: AuditRequest) =>
     request<Content>(`/admin/audit/${id}`, {
       method: 'POST',
-      data,
+      body: data,
     }),
 
   pending: (params?: Pick<ListParams, 'page' | 'page_size'>) => {
     return request<PaginatedResponse<Content>>('/admin/pending', {
-      params,
+      query: params,
     })
   },
 
   getAllContent: (params?: ListParams) => {
     return request<PaginatedResponse<Content>>('/admin/content/all', {
-      params,
+      query: params,
     })
   },
 
   getUsers: (params?: Pick<ListParams, 'page' | 'page_size' | 'keyword'>) => {
     return request<PaginatedResponse<User>>('/admin/users', {
-      params,
+      query: params,
     })
   },
 
   updateUserRole: (id: number, isAdmin: boolean) =>
     request<User>(`/admin/users/${id}/role`, {
       method: 'PUT',
-      data: { is_admin: isAdmin },
+      body: { is_admin: isAdmin },
     }),
 
   updateUserBan: (id: number, isBanned: boolean) =>
     request<User>(`/admin/users/${id}/ban`, {
       method: 'PUT',
-      data: { is_banned: isBanned },
+      body: { is_banned: isBanned },
     }),
 
   regenerateThumbnail: (id: number) =>
@@ -328,34 +315,28 @@ export const adminApi = {
 
   updateContentAuthor: (contentId: number, userId: number) =>
     request<{
-      content_id: number;
-      old_user_id: number;
-      new_user_id: number;
-      new_username: string;
+      content_id: number
+      old_user_id: number
+      new_user_id: number
+      new_username: string
     }>(`/admin/content/${contentId}/author`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      data: { user_id: userId },
+      body: { user_id: userId },
     }),
 
   getClaims: (params: { page?: number; page_size?: number; status?: string }) =>
     request<{
-      list: any[];
-      total: number;
-      page: number;
-      page_size: number;
+      list: any[]
+      total: number
+      page: number
+      page_size: number
     }>('/admin/claims', {
-      params,
+      query: params,
     }),
 
   handleClaim: (claimId: number, action: 'approve' | 'reject', remark?: string) =>
     request(`/admin/claims/${claimId}/handle`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      data: { action, remark },
+      body: { action, remark },
     }),
-};
+}
