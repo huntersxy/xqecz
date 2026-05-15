@@ -336,8 +336,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen p-5 flex justify-center">
-    <div class="w-full max-w-[1200px] min-h-screen overflow-hidden bg-white/75 rounded-xl shadow-lg shadow-black/5 border border-white/40 transition-all duration-500">
+  <div class="min-h-screen p-2 sm:p-5 flex justify-center">
+    <div class="w-full max-w-[1200px] min-h-screen overflow-hidden bg-white/75 rounded-xl sm:rounded-xl shadow-lg shadow-black/5 border border-white/40 transition-all duration-500">
       <div class="flex items-center px-4 py-2.5 bg-gradient-to-b from-black/8 to-black/2 md:hidden">
         <div class="w-3 h-3 rounded-full bg-[#ff5f57] mr-2"></div>
         <div class="w-3 h-3 rounded-full bg-[#febc2e] mr-2"></div>
@@ -345,38 +345,38 @@ onMounted(() => {
         <div class="text-sm text-gray-500 font-medium">小泉动漫二创站</div>
       </div>
 
-      <div class="p-6">
-        <div class="text-center mb-8">
-          <img :src="logoImg" alt="小泉动漫二创站" class="max-w-full h-auto max-h-[120px] mx-auto mb-2" />
-          <a @click="goToEasterEgg" class="block w-fit mx-auto px-4 py-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white no-underline cursor-pointer transition-all duration-300 text-base font-medium text-center hover:scale-105 hover:shadow-lg hover:shadow-indigo-500/40">🎉 发现精彩内容</a>
+      <div class="p-3 sm:p-6">
+        <div class="text-center mb-5 sm:mb-8">
+          <img :src="logoImg" alt="小泉动漫二创站" class="max-w-full h-auto max-h-[80px] sm:max-h-[120px] mx-auto mb-2" />
+          <a @click="goToEasterEgg" class="block w-fit mx-auto px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white no-underline cursor-pointer transition-all duration-300 text-sm sm:text-base font-medium text-center hover:scale-105 hover:shadow-lg hover:shadow-indigo-500/40">🎉 发现精彩内容</a>
         </div>
 
-        <div class="mb-6">
-          <div class="flex gap-3 max-w-[600px] mx-auto">
+        <div class="mb-4 sm:mb-6">
+          <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 max-w-[600px] mx-auto">
             <input
               v-model="searchKeyword"
               type="text"
               placeholder="搜索内容..."
               @keyup.enter="handleSearch"
-              class="flex-1 text-sm px-4 py-2.5 border border-black/10 rounded-lg bg-white outline-none transition-all focus:border-blue-500 focus:ring-3 focus:ring-blue-500/10"
+              class="flex-1 text-sm px-4 py-3 sm:py-2.5 min-h-[44px] sm:min-h-[auto] border border-black/10 rounded-lg bg-white outline-none transition-all focus:border-blue-500 focus:ring-3 focus:ring-blue-500/10"
             />
-            <button @click="handleSearch" class="px-5 py-2.5 bg-blue-500 text-white border-none rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-blue-600 whitespace-nowrap">搜索</button>
+            <button @click="handleSearch" class="px-5 py-3 sm:py-2.5 min-h-[44px] sm:min-h-[auto] bg-blue-500 text-white border-none rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-blue-600 whitespace-nowrap">搜索</button>
           </div>
         </div>
 
-        <div class="mb-6">
+        <div class="mb-4 sm:mb-6">
           <PollComponent />
         </div>
 
-        <div class="flex flex-wrap gap-5 mb-6 p-4 bg-black/3 rounded-xl md:flex-col">
+        <div class="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-5 mb-4 sm:mb-6 p-3 sm:p-4 bg-black/3 rounded-xl">
           <div class="flex flex-col gap-1.5">
-            <span class="text-xs text-gray-600 font-medium">类型</span>
-            <div class="flex flex-wrap gap-2">
+            <span class="text-xs sm:text-sm text-gray-600 font-medium">类型</span>
+            <div class="flex flex-wrap gap-1.5 sm:gap-2">
               <button
                 v-for="type in contentTypes"
                 :key="type"
                 @click="selectType(type)"
-                class="px-3 py-1 bg-white/95 border border-black/10 rounded-full text-sm text-gray-700 cursor-pointer transition-all hover:text-emerald-600 hover:border-emerald-600/30"
+                class="px-2 py-1 sm:px-3 sm:py-1 bg-white/95 border border-black/10 rounded-full text-xs sm:text-sm text-gray-700 cursor-pointer transition-all hover:text-emerald-600 hover:border-emerald-600/30"
                 :class="{ 'bg-emerald-100/50 text-emerald-600 font-medium border-emerald-600/30': selectedTypes.includes(type) }"
               >
                 {{ contentTypeLabels[type] }}
@@ -385,13 +385,13 @@ onMounted(() => {
           </div>
 
           <div class="flex flex-col gap-1.5">
-            <span class="text-xs text-gray-600 font-medium">标签云</span>
-            <div class="flex flex-wrap gap-2">
+            <span class="text-xs sm:text-sm text-gray-600 font-medium">标签云</span>
+            <div class="flex flex-wrap gap-1.5 sm:gap-2">
               <button
                 v-for="tag in sortedTags"
                 :key="tag"
                 @click="selectTag(tag)"
-                class="px-3 py-1 bg-white/95 border border-black/10 rounded-full text-sm text-gray-700 cursor-pointer transition-all hover:text-blue-500 hover:border-blue-500/30"
+                class="px-2 py-1 sm:px-3 sm:py-1 bg-white/95 border border-black/10 rounded-full text-xs sm:text-sm text-gray-700 cursor-pointer transition-all hover:text-blue-500 hover:border-blue-500/30"
                 :class="{ 'bg-blue-100/50 text-blue-500 font-medium border-blue-500/30': selectedTags.includes(tag) }"
               >
                 {{ tag }}
@@ -410,7 +410,7 @@ onMounted(() => {
           >
             <motion.div
               id="recommend-section"
-              class="mb-6"
+              class="mb-4 sm:mb-6"
               :style="{ scrollMarginTop: '120px' }"
               :initial="{ opacity: 1, y: 0 }"
               :animate="{
@@ -421,23 +421,23 @@ onMounted(() => {
               }"
               style="overflow: hidden"
             >
-              <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-semibold text-gray-900 m-0">🔥 推荐内容</h2>
-                <div class="flex items-center gap-3">
-                  <span class="text-sm text-gray-500">精选推荐</span>
-                  <button @click="refreshRecommend" class="flex items-center gap-1 px-3 py-1.5 bg-white/90 border border-black/10 rounded-md text-sm text-gray-600 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500" :disabled="isRecommendLoading">
-                    <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': isRecommendLoading }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3 sm:mb-4">
+                <h2 class="text-base sm:text-lg font-semibold text-gray-900 m-0">🔥 推荐内容</h2>
+                <div class="flex items-center gap-2 sm:gap-3">
+                  <span class="text-xs sm:text-sm text-gray-500">精选推荐</span>
+                  <button @click="refreshRecommend" class="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 bg-white/90 border border-black/10 rounded-md text-xs sm:text-sm text-gray-600 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500" :disabled="isRecommendLoading">
+                    <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" :class="{ 'animate-spin': isRecommendLoading }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <polyline points="23 4 23 10 17 10" />
                       <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
                     </svg>
                     {{ isRecommendLoading ? '加载中...' : '刷新' }}
                   </button>
                 </div>
-                <span v-if="recommendHint" class="absolute right-6 top-1/2 -translate-y-1/2 text-sm text-red-500 animate-pulse">{{ recommendHint }}</span>
+                <span v-if="recommendHint" class="text-xs sm:text-sm text-red-500 animate-pulse">{{ recommendHint }}</span>
               </div>
 
               <div class="relative">
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" :class="{ 'opacity-30 pointer-events-none transition-opacity': isRecommendLoading }">
+                <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4" :class="{ 'opacity-30 pointer-events-none transition-opacity': isRecommendLoading }">
                   <div
                     v-for="content in recommendContents"
                     :key="content.id"
@@ -458,8 +458,8 @@ onMounted(() => {
                         </svg>
                       </div>
                     </div>
-                    <div class="p-3">
-                      <h3 class="text-sm font-semibold text-gray-900 mb-2 overflow-hidden text-ellipsis whitespace-nowrap">{{ content.title }}</h3>
+                    <div class="p-2 sm:p-3">
+                      <h3 class="text-xs sm:text-sm font-semibold text-gray-900 mb-1 sm:mb-2 overflow-hidden text-ellipsis whitespace-nowrap">{{ content.title }}</h3>
                       <div class="flex items-center gap-2 flex-wrap">
                         <span class="text-xs text-gray-500">{{ content.user.username }}</span>
                         <div class="flex gap-1">
@@ -476,14 +476,14 @@ onMounted(() => {
               </div>
             </motion.div>
 
-            <div id="content-section" class="mb-6" style="scroll-margin-top: 120px">
-              <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-semibold text-gray-900 m-0">📅 最近上传</h2>
-                <span class="text-sm text-gray-500">共 {{ total }} 条</span>
+            <div id="content-section" class="mb-4 sm:mb-6" style="scroll-margin-top: 120px">
+              <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3 sm:mb-4">
+                <h2 class="text-base sm:text-lg font-semibold text-gray-900 m-0">📅 最近上传</h2>
+                <span class="text-xs sm:text-sm text-gray-500">共 {{ total }} 条</span>
               </div>
 
               <div class="relative">
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5" :class="{ 'opacity-30 pointer-events-none transition-opacity': isLoading }">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5" :class="{ 'opacity-30 pointer-events-none transition-opacity': isLoading }">
                   <div
                     v-for="content in contents"
                     :key="content.id"
@@ -521,9 +521,9 @@ onMounted(() => {
                         </div>
                       </template>
                     </div>
-                    <div class="p-4">
-                      <h3 class="text-base font-semibold text-gray-900 mb-2.5 overflow-hidden text-ellipsis whitespace-nowrap">{{ content.title }}</h3>
-                      <div class="flex items-center gap-2 mb-2.5 flex-wrap">
+                    <div class="p-3 sm:p-4">
+                      <h3 class="text-sm sm:text-base font-semibold text-gray-900 mb-2 sm:mb-2.5 overflow-hidden text-ellipsis whitespace-nowrap">{{ content.title }}</h3>
+                      <div class="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-2.5 flex-wrap">
                         <span class="flex items-center gap-1 text-xs text-gray-500">
                           <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -568,29 +568,29 @@ onMounted(() => {
           </motion.div>
         </motion.div>
 
-        <div v-if="totalPages > 1" class="flex justify-center items-center gap-4 pt-4 border-t border-black/6">
-          <button @click="goToPage(1)" :disabled="page <= 1 || isLoading" class="flex items-center gap-1.5 px-4 py-2 bg-white border border-black/10 rounded-lg text-sm text-gray-700 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-black/10 disabled:hover:text-gray-700">
-            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div v-if="totalPages > 1" class="flex flex-wrap justify-center items-center gap-2 sm:gap-4 pt-4 border-t border-black/6 px-2">
+          <button @click="goToPage(1)" :disabled="page <= 1 || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 bg-white border border-black/10 rounded-lg text-xs sm:text-sm text-gray-700 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-black/10 disabled:hover:text-gray-700">
+            <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M19 19l-7-7 7-7" />
             </svg>
-            首页
+            <span class="hidden sm:inline">首页</span>
           </button>
-          <button @click="goToPage(page - 1)" :disabled="page <= 1 || isLoading" class="flex items-center gap-1.5 px-4 py-2 bg-white border border-black/10 rounded-lg text-sm text-gray-700 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-black/10 disabled:hover:text-gray-700">
-            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <button @click="goToPage(page - 1)" :disabled="page <= 1 || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 bg-white border border-black/10 rounded-lg text-xs sm:text-sm text-gray-700 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-black/10 disabled:hover:text-gray-700">
+            <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M15 19l-7-7 7-7" />
             </svg>
-            上一页
+            <span class="hidden sm:inline">上一页</span>
           </button>
-          <span class="text-sm text-gray-600">第 {{ page }} / {{ totalPages }} 页</span>
-          <button @click="goToPage(page + 1)" :disabled="page >= totalPages || isLoading" class="flex items-center gap-1.5 px-4 py-2 bg-white border border-black/10 rounded-lg text-sm text-gray-700 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-black/10 disabled:hover:text-gray-700">
-            下一页
-            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <span class="px-2 py-2 text-xs sm:text-sm text-gray-600">第 {{ page }} / {{ totalPages }} 页</span>
+          <button @click="goToPage(page + 1)" :disabled="page >= totalPages || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 bg-white border border-black/10 rounded-lg text-xs sm:text-sm text-gray-700 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-black/10 disabled:hover:text-gray-700">
+            <span class="hidden sm:inline">下一页</span>
+            <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M9 5l7 7-7 7" />
             </svg>
           </button>
-          <button @click="goToPage(totalPages)" :disabled="page >= totalPages || isLoading" class="flex items-center gap-1.5 px-4 py-2 bg-white border border-black/10 rounded-lg text-sm text-gray-700 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-black/10 disabled:hover:text-gray-700">
-            尾页
-            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <button @click="goToPage(totalPages)" :disabled="page >= totalPages || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 bg-white border border-black/10 rounded-lg text-xs sm:text-sm text-gray-700 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-black/10 disabled:hover:text-gray-700">
+            <span class="hidden sm:inline">尾页</span>
+            <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M5 5l7 7-7 7" />
             </svg>
           </button>
