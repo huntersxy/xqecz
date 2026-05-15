@@ -338,13 +338,13 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen p-2 sm:p-5 flex justify-center">
-    <div class="w-full max-w-[1200px] min-h-screen overflow-hidden bg-white/75 rounded-xl sm:rounded-xl shadow-lg shadow-black/5 border border-white/40 transition-all duration-500">
+    <div class="w-full max-w-[1200px] min-h-screen overflow-hidden theme-card rounded-xl sm:rounded-xl shadow-lg shadow-black/5 border transition-all duration-500">
       <div class="flex items-center justify-between px-4 py-2.5 bg-gradient-to-b from-black/8 to-black/2">
         <div class="flex items-center">
           <div class="w-3 h-3 rounded-full bg-[#ff5f57] mr-2"></div>
           <div class="w-3 h-3 rounded-full bg-[#febc2e] mr-2"></div>
           <div class="w-3 h-3 rounded-full bg-[#28c840] mr-4"></div>
-          <div class="text-sm text-gray-500 font-medium">小泉动漫二创站</div>
+          <div class="text-sm theme-text-secondary font-medium">小泉动漫二创站</div>
         </div>
         <ThemeSelector />
       </div>
@@ -362,7 +362,7 @@ onMounted(() => {
               type="text"
               placeholder="搜索内容..."
               @keyup.enter="handleSearch"
-              class="flex-1 text-sm px-4 py-3 sm:py-2.5 min-h-[44px] sm:min-h-[auto] border border-black/10 rounded-lg bg-white outline-none transition-all focus:border-blue-500 focus:ring-3 focus:ring-blue-500/10"
+              class="flex-1 text-sm px-4 py-3 sm:py-2.5 min-h-[44px] sm:min-h-[auto] border theme-border rounded-lg theme-surface outline-none transition-all focus:border-blue-500 focus:ring-3 focus:ring-blue-500/10"
             />
             <button @click="handleSearch" class="px-5 py-3 sm:py-2.5 min-h-[44px] sm:min-h-[auto] bg-blue-500 text-white border-none rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-blue-600 whitespace-nowrap">搜索</button>
           </div>
@@ -372,15 +372,15 @@ onMounted(() => {
           <PollComponent />
         </div>
 
-        <div class="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-5 mb-4 sm:mb-6 p-3 sm:p-4 bg-black/3 rounded-xl">
+        <div class="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-5 mb-4 sm:mb-6 p-3 sm:p-4 theme-surface rounded-xl">
           <div class="flex flex-col gap-1.5">
-            <span class="text-xs sm:text-sm text-gray-600 font-medium">类型</span>
+            <span class="text-xs sm:text-sm theme-text-secondary font-medium">类型</span>
             <div class="flex flex-wrap gap-1.5 sm:gap-2">
               <button
                 v-for="type in contentTypes"
                 :key="type"
                 @click="selectType(type)"
-                class="px-2 py-1 sm:px-3 sm:py-1 bg-white/95 border border-black/10 rounded-full text-xs sm:text-sm text-gray-700 cursor-pointer transition-all hover:text-emerald-600 hover:border-emerald-600/30"
+                class="px-2 py-1 sm:px-3 sm:py-1 theme-surface border theme-border rounded-full text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:text-emerald-600 hover:border-emerald-600/30"
                 :class="{ 'bg-emerald-100/50 text-emerald-600 font-medium border-emerald-600/30': selectedTypes.includes(type) }"
               >
                 {{ contentTypeLabels[type] }}
@@ -389,13 +389,13 @@ onMounted(() => {
           </div>
 
           <div class="flex flex-col gap-1.5">
-            <span class="text-xs sm:text-sm text-gray-600 font-medium">标签云</span>
+            <span class="text-xs sm:text-sm theme-text-secondary font-medium">标签云</span>
             <div class="flex flex-wrap gap-1.5 sm:gap-2">
               <button
                 v-for="tag in sortedTags"
                 :key="tag"
                 @click="selectTag(tag)"
-                class="px-2 py-1 sm:px-3 sm:py-1 bg-white/95 border border-black/10 rounded-full text-xs sm:text-sm text-gray-700 cursor-pointer transition-all hover:text-blue-500 hover:border-blue-500/30"
+                class="px-2 py-1 sm:px-3 sm:py-1 theme-surface border theme-border rounded-full text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:text-blue-500 hover:border-blue-500/30"
                 :class="{ 'bg-blue-100/50 text-blue-500 font-medium border-blue-500/30': selectedTags.includes(tag) }"
               >
                 {{ tag }}
@@ -426,10 +426,10 @@ onMounted(() => {
               style="overflow: hidden"
             >
               <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3 sm:mb-4">
-                <h2 class="text-base sm:text-lg font-semibold text-gray-900 m-0">🔥 推荐内容</h2>
+                <h2 class="text-base sm:text-lg font-semibold theme-text m-0">🔥 推荐内容</h2>
                 <div class="flex items-center gap-2 sm:gap-3">
-                  <span class="text-xs sm:text-sm text-gray-500">精选推荐</span>
-                  <button @click="refreshRecommend" class="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 bg-white/90 border border-black/10 rounded-md text-xs sm:text-sm text-gray-600 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500" :disabled="isRecommendLoading">
+                  <span class="text-xs sm:text-sm theme-text-secondary">精选推荐</span>
+                  <button @click="refreshRecommend" class="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 theme-surface border theme-border rounded-md text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500" :disabled="isRecommendLoading">
                     <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" :class="{ 'animate-spin': isRecommendLoading }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <polyline points="23 4 23 10 17 10" />
                       <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
@@ -446,7 +446,7 @@ onMounted(() => {
                     v-for="content in recommendContents"
                     :key="content.id"
                     @click="goToDetail({ ...content, type: content.type, audit_status: 'approved' } as unknown as Content)"
-                    class="overflow-hidden cursor-pointer bg-white/80 border border-white/40 rounded-xl shadow-md transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
+                    class="overflow-hidden cursor-pointer theme-card rounded-xl shadow-md transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
                   >
                     <div class="relative w-full pt-[75%] bg-gray-100 overflow-hidden">
                       <img
@@ -463,9 +463,9 @@ onMounted(() => {
                       </div>
                     </div>
                     <div class="p-2 sm:p-3">
-                      <h3 class="text-xs sm:text-sm font-semibold text-gray-900 mb-1 sm:mb-2 overflow-hidden text-ellipsis whitespace-nowrap">{{ content.title }}</h3>
+                      <h3 class="text-xs sm:text-sm font-semibold theme-text mb-1 sm:mb-2 overflow-hidden text-ellipsis whitespace-nowrap">{{ content.title }}</h3>
                       <div class="flex items-center gap-2 flex-wrap">
-                        <span class="text-xs text-gray-500">{{ content.user.username }}</span>
+                        <span class="text-xs theme-text-secondary">{{ content.user.username }}</span>
                         <div class="flex gap-1">
                           <span v-for="tag in content.tags.slice(0, 2)" :key="tag" class="px-1.5 py-0.5 bg-orange-100/50 rounded text-xs text-orange-500">{{ tag }}</span>
                         </div>
@@ -475,15 +475,15 @@ onMounted(() => {
                 </div>
                 <div v-if="isRecommendLoading" class="absolute inset-0 flex flex-col items-center justify-center bg-white/50 z-10">
                   <div class="w-10 h-10 border-3 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
-                  <p class="text-sm text-gray-500">加载中...</p>
+                  <p class="text-sm theme-text-secondary">加载中...</p>
                 </div>
               </div>
             </motion.div>
 
             <div id="content-section" class="mb-4 sm:mb-6" style="scroll-margin-top: 120px">
               <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3 sm:mb-4">
-                <h2 class="text-base sm:text-lg font-semibold text-gray-900 m-0">📅 最近上传</h2>
-                <span class="text-xs sm:text-sm text-gray-500">共 {{ total }} 条</span>
+                <h2 class="text-base sm:text-lg font-semibold theme-text m-0">📅 最近上传</h2>
+                <span class="text-xs sm:text-sm theme-text-secondary">共 {{ total }} 条</span>
               </div>
 
               <div class="relative">
@@ -492,7 +492,7 @@ onMounted(() => {
                     v-for="content in contents"
                     :key="content.id"
                     @click="goToDetail(content)"
-                    class="overflow-hidden cursor-pointer bg-white/60 border border-white/40 rounded-xl shadow-md transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
+                    class="overflow-hidden cursor-pointer theme-card rounded-xl shadow-md transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
                   >
                     <div class="relative w-full pt-[75%] bg-gray-100 overflow-hidden">
                       <template v-if="content.type === 'image' || content.type === 'video' || content.type === 'link'">
@@ -526,9 +526,9 @@ onMounted(() => {
                       </template>
                     </div>
                     <div class="p-3 sm:p-4">
-                      <h3 class="text-sm sm:text-base font-semibold text-gray-900 mb-2 sm:mb-2.5 overflow-hidden text-ellipsis whitespace-nowrap">{{ content.title }}</h3>
+                      <h3 class="text-sm sm:text-base font-semibold theme-text mb-2 sm:mb-2.5 overflow-hidden text-ellipsis whitespace-nowrap">{{ content.title }}</h3>
                       <div class="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-2.5 flex-wrap">
-                        <span class="flex items-center gap-1 text-xs text-gray-500">
+                        <span class="flex items-center gap-1 text-xs theme-text-secondary">
                           <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                             <circle cx="12" cy="7" r="4" />
@@ -536,14 +536,14 @@ onMounted(() => {
                           {{ content.user?.username }}
                         </span>
                         <div class="flex gap-1 flex-wrap">
-                          <span v-for="tag in content.tags" :key="tag" class="px-1.5 py-0.5 bg-black/6 rounded text-xs text-gray-600">{{ tag }}</span>
+                          <span v-for="tag in content.tags" :key="tag" class="px-1.5 py-0.5 theme-surface rounded text-xs theme-text-secondary">{{ tag }}</span>
                         </div>
                       </div>
                       <div class="flex items-center gap-2">
                         <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', content.type === 'video' ? 'bg-orange-100 text-orange-600' : content.type === 'image' ? 'bg-emerald-100 text-emerald-600' : content.type === 'link' ? 'bg-violet-100 text-violet-600' : 'bg-sky-100 text-sky-600']">
                           {{ content.type === 'video' ? '视频' : content.type === 'image' ? '图片' : content.type === 'link' ? '链接' : '文字' }}
                         </span>
-                        <span class="flex items-center gap-1 text-xs text-gray-400">
+                        <span class="flex items-center gap-1 text-xs theme-text-secondary">
                           <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                             <circle cx="12" cy="12" r="3"/>
@@ -557,11 +557,11 @@ onMounted(() => {
                 
                 <div v-if="isLoading" class="absolute inset-0 flex flex-col items-center justify-center bg-white/50 z-10">
                   <div class="w-10 h-10 border-3 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
-                  <p class="text-sm text-gray-500">加载中...</p>
+                  <p class="text-sm theme-text-secondary">加载中...</p>
                 </div>
               </div>
               
-              <div v-if="!isLoading && contents.length === 0" class="text-center py-16 text-gray-400">
+              <div v-if="!isLoading && contents.length === 0" class="text-center py-16 theme-text-secondary">
                 <svg class="w-16 h-16 mx-auto mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                   <circle cx="12" cy="12" r="10" />
                   <polyline points="12 6 12 12 16 14" />
@@ -572,27 +572,27 @@ onMounted(() => {
           </motion.div>
         </motion.div>
 
-        <div v-if="totalPages > 1" class="flex flex-wrap justify-center items-center gap-2 sm:gap-4 pt-4 border-t border-black/6 px-2">
-          <button @click="goToPage(1)" :disabled="page <= 1 || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 bg-white border border-black/10 rounded-lg text-xs sm:text-sm text-gray-700 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-black/10 disabled:hover:text-gray-700">
+        <div v-if="totalPages > 1" class="flex flex-wrap justify-center items-center gap-2 sm:gap-4 pt-4 border-t theme-border px-2">
+          <button @click="goToPage(1)" :disabled="page <= 1 || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 theme-surface border theme-border rounded-lg text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
             <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M19 19l-7-7 7-7" />
             </svg>
             <span class="hidden sm:inline">首页</span>
           </button>
-          <button @click="goToPage(page - 1)" :disabled="page <= 1 || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 bg-white border border-black/10 rounded-lg text-xs sm:text-sm text-gray-700 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-black/10 disabled:hover:text-gray-700">
+          <button @click="goToPage(page - 1)" :disabled="page <= 1 || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 theme-surface border theme-border rounded-lg text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
             <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M15 19l-7-7 7-7" />
             </svg>
             <span class="hidden sm:inline">上一页</span>
           </button>
-          <span class="px-2 py-2 text-xs sm:text-sm text-gray-600">第 {{ page }} / {{ totalPages }} 页</span>
-          <button @click="goToPage(page + 1)" :disabled="page >= totalPages || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 bg-white border border-black/10 rounded-lg text-xs sm:text-sm text-gray-700 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-black/10 disabled:hover:text-gray-700">
+          <span class="px-2 py-2 text-xs sm:text-sm theme-text-secondary">第 {{ page }} / {{ totalPages }} 页</span>
+          <button @click="goToPage(page + 1)" :disabled="page >= totalPages || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 theme-surface border theme-border rounded-lg text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
             <span class="hidden sm:inline">下一页</span>
             <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M9 5l7 7-7 7" />
             </svg>
           </button>
-          <button @click="goToPage(totalPages)" :disabled="page >= totalPages || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 bg-white border border-black/10 rounded-lg text-xs sm:text-sm text-gray-700 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-black/10 disabled:hover:text-gray-700">
+          <button @click="goToPage(totalPages)" :disabled="page >= totalPages || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 theme-surface border theme-border rounded-lg text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
             <span class="hidden sm:inline">尾页</span>
             <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M5 5l7 7-7 7" />

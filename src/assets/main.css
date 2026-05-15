@@ -10,6 +10,8 @@
   --theme-secondary: #6366f1;
   --theme-accent: #ec4899;
   --theme-text: #1f2937;
+  --theme-text-secondary: #6b7280;
+  --theme-surface: rgba(255, 255, 255, 0.92);
   --theme-card-bg: rgba(255, 255, 255, 0.75);
   --theme-card-border: rgba(255, 255, 255, 0.4);
   --theme-success: #22c55e;
@@ -81,6 +83,18 @@
   
   .theme-danger {
     color: var(--theme-danger);
+  }
+  
+  .theme-surface {
+    background-color: var(--theme-surface);
+  }
+  
+  .theme-text-secondary {
+    color: var(--theme-text-secondary);
+  }
+  
+  .theme-border {
+    border-color: var(--theme-card-border);
   }
 }
 

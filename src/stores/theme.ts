@@ -11,6 +11,8 @@ export interface ThemeConfig {
   secondary: string
   accent: string
   text: string
+  textSecondary: string
+  surface: string
   cardBg: string
   cardBorder: string
   success: string
@@ -30,6 +32,8 @@ export const useThemeStore = defineStore('theme', () => {
       secondary: '#6366f1',
       accent: '#ec4899',
       text: '#1f2937',
+      textSecondary: '#6b7280',
+      surface: 'rgba(255, 255, 255, 0.92)',
       cardBg: 'rgba(255, 255, 255, 0.75)',
       cardBorder: 'rgba(255, 255, 255, 0.4)',
       success: '#22c55e',
@@ -44,6 +48,8 @@ export const useThemeStore = defineStore('theme', () => {
       secondary: '#818cf8',
       accent: '#f472b6',
       text: '#f3f4f6',
+      textSecondary: '#9ca3af',
+      surface: 'rgba(40, 40, 70, 0.9)',
       cardBg: 'rgba(30, 30, 50, 0.85)',
       cardBorder: 'rgba(255, 255, 255, 0.1)',
       success: '#4ade80',
@@ -58,6 +64,8 @@ export const useThemeStore = defineStore('theme', () => {
       secondary: '#4f46e5',
       accent: '#db2777',
       text: '#111827',
+      textSecondary: '#6b7280',
+      surface: 'rgba(255, 255, 255, 0.95)',
       cardBg: 'rgba(255, 255, 255, 0.9)',
       cardBorder: 'rgba(0, 0, 0, 0.08)',
       success: '#16a34a',
@@ -72,6 +80,8 @@ export const useThemeStore = defineStore('theme', () => {
       secondary: '#f472b6',
       accent: '#fbbf24',
       text: '#ffffff',
+      textSecondary: '#e5e7eb',
+      surface: 'rgba(40, 40, 70, 0.8)',
       cardBg: 'rgba(30, 30, 50, 0.75)',
       cardBorder: 'rgba(255, 255, 255, 0.15)',
       success: '#4ade80',
