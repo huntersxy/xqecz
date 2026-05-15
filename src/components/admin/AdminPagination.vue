@@ -20,67 +20,27 @@ const handleNext = () => {
 </script>
 
 <template>
-  <div class="pagination-section">
-    <button @click="handlePrev" :disabled="currentPage <= 1" class="mac-btn pagination-btn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  <div class="flex justify-center items-center gap-4 pt-4 border-t border-gray-200/50">
+    <button
+      @click="handlePrev"
+      :disabled="currentPage <= 1"
+      class="flex items-center gap-1.5 px-3 py-2 text-[14px] text-gray-700 bg-white/95 border border-gray-200 rounded-md hover:text-blue-600 hover:border-blue-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-gray-700 disabled:hover:border-gray-200 transition-colors"
+    >
+      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M15 19l-7-7 7-7"/>
       </svg>
       上一页
     </button>
-    <span class="pagination-info">第 {{ currentPage }} / {{ totalPages }} 页</span>
-    <button @click="handleNext" :disabled="currentPage >= totalPages" class="mac-btn pagination-btn">
+    <span class="text-[14px] text-gray-600">第 {{ currentPage }} / {{ totalPages }} 页</span>
+    <button
+      @click="handleNext"
+      :disabled="currentPage >= totalPages"
+      class="flex items-center gap-1.5 px-3 py-2 text-[14px] text-gray-700 bg-white/95 border border-gray-200 rounded-md hover:text-blue-600 hover:border-blue-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-gray-700 disabled:hover:border-gray-200 transition-colors"
+    >
       下一页
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M9 5l7 7-7 7"/>
       </svg>
     </button>
   </div>
 </template>
-
-<style scoped>
-.pagination-section {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.pagination-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.pagination-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.pagination-btn svg {
-  width: 14px;
-  height: 14px;
-}
-
-.pagination-info {
-  font-size: 14px;
-  color: #666;
-}
-
-@media screen and (max-width: 768px) {
-  .pagination-section {
-    gap: 10px;
-  }
-
-  .pagination-btn {
-    min-width: 80px;
-    padding: 10px;
-    font-size: 14px;
-  }
-
-  .pagination-info {
-    font-size: 13px;
-  }
-}
-</style>
