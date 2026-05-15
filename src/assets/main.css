@@ -2,6 +2,19 @@
 
 @theme {
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  
+  --theme-name: 'default';
+  --theme-bg-image: url('./bg.webp');
+  --theme-bg-color: #000000;
+  --theme-primary: #3b82f6;
+  --theme-secondary: #6366f1;
+  --theme-accent: #ec4899;
+  --theme-text: #1f2937;
+  --theme-card-bg: rgba(255, 255, 255, 0.75);
+  --theme-card-border: rgba(255, 255, 255, 0.4);
+  --theme-success: #22c55e;
+  --theme-warning: #f59e0b;
+  --theme-danger: #ef4444;
 }
 
 @layer base {
@@ -26,16 +39,48 @@
     font-family: var(--font-sans);
     min-height: 100vh;
     -webkit-tap-highlight-color: transparent;
+    color: var(--theme-text);
   }
 
   #app {
     min-height: 100vh;
-    background: url('./bg.webp');
+    background: var(--theme-bg-image);
     background-size: cover;
     background-position: center center;
     background-repeat: no-repeat;
     background-attachment: fixed;
-    background-color: #000;
+    background-color: var(--theme-bg-color);
+  }
+}
+
+@layer utilities {
+  .theme-card {
+    background-color: var(--theme-card-bg);
+    border-color: var(--theme-card-border);
+  }
+  
+  .theme-text {
+    color: var(--theme-text);
+  }
+  
+  .theme-primary {
+    color: var(--theme-primary);
+  }
+  
+  .theme-bg-primary {
+    background-color: var(--theme-primary);
+  }
+  
+  .theme-success {
+    color: var(--theme-success);
+  }
+  
+  .theme-warning {
+    color: var(--theme-warning);
+  }
+  
+  .theme-danger {
+    color: var(--theme-danger);
   }
 }
 

@@ -7,6 +7,7 @@ import { contentApi } from '@/api'
 import { useHomeStore } from '@/stores/home'
 import type { Content, ListParams, User, RecommendContent } from '@/types'
 import PollComponent from '@/components/PollComponent.vue'
+import ThemeSelector from '@/components/ThemeSelector.vue'
 
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -338,11 +339,14 @@ onMounted(() => {
 <template>
   <div class="min-h-screen p-2 sm:p-5 flex justify-center">
     <div class="w-full max-w-[1200px] min-h-screen overflow-hidden bg-white/75 rounded-xl sm:rounded-xl shadow-lg shadow-black/5 border border-white/40 transition-all duration-500">
-      <div class="flex items-center px-4 py-2.5 bg-gradient-to-b from-black/8 to-black/2">
-        <div class="w-3 h-3 rounded-full bg-[#ff5f57] mr-2"></div>
-        <div class="w-3 h-3 rounded-full bg-[#febc2e] mr-2"></div>
-        <div class="w-3 h-3 rounded-full bg-[#28c840] mr-4"></div>
-        <div class="text-sm text-gray-500 font-medium">小泉动漫二创站</div>
+      <div class="flex items-center justify-between px-4 py-2.5 bg-gradient-to-b from-black/8 to-black/2">
+        <div class="flex items-center">
+          <div class="w-3 h-3 rounded-full bg-[#ff5f57] mr-2"></div>
+          <div class="w-3 h-3 rounded-full bg-[#febc2e] mr-2"></div>
+          <div class="w-3 h-3 rounded-full bg-[#28c840] mr-4"></div>
+          <div class="text-sm text-gray-500 font-medium">小泉动漫二创站</div>
+        </div>
+        <ThemeSelector />
       </div>
 
       <div class="p-3 sm:p-6">
