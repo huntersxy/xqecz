@@ -322,7 +322,6 @@ onMounted(() => {
                 <div class="comment-content">
                   <div class="comment-header">
                     <span class="comment-author">{{ comment.user?.username }}</span>
-                    <span class="comment-time">{{ formatTime(comment.created_at) }}</span>
                     <button
                       v-if="userStore.isLoggedIn && (userStore.user?.is_admin || comment.user_id === userStore.user?.id)"
                       class="more-btn"
@@ -334,6 +333,7 @@ onMounted(() => {
                         <circle cx="5" cy="12" r="1"/>
                       </svg>
                     </button>
+                    <span class="comment-floor">{{ comment.id }}楼</span>
                   </div>
                   <p class="comment-text">{{ comment.text }}</p>
                   <div class="comment-footer">
@@ -978,6 +978,12 @@ onMounted(() => {
 }
 
 .comment-time {
+  font-size: 12px;
+  color: #999;
+}
+
+.comment-floor {
+  margin-left: auto;
   font-size: 12px;
   color: #999;
 }
