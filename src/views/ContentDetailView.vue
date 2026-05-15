@@ -25,6 +25,11 @@ const isSubmittingClaim = ref(false)
 
 const menuTarget = ref<number | null>(null)
 
+const currentPage = ref(1)
+const pageSize = ref(20)
+const totalComments = ref(0)
+const totalPages = ref(1)
+
 const renderedContent = computed(() => {
   if (!content.value) return ''
   const text = content.value.text || ''
@@ -79,12 +84,30 @@ async function loadContent() {
 async function loadComments() {
   try {
     const id = Number(route.params.id)
-    const res = await commentApi.list(id)
+    const res = await commentApi.list(id, currentPage.value, pageSize.value)
     if (res.code === 200) {
-      comments.value = res.data
+      comments.value = res.data.list
+      totalComments.value = res.data.total
+      totalPages.value = res.data.total_page
     }
   } catch (error) {
     console.error('加载评论失败:', error)
+  }
+}
+
+async function loadMoreComments() {
+  if (currentPage.value >= totalPages.value) return
+  currentPage.value++
+  try {
+    const id = Number(route.params.id)
+    const res = await commentApi.list(id, currentPage.value, pageSize.value)
+    if (res.code === 200) {
+      comments.value = [...comments.value, ...res.data.list]
+      totalComments.value = res.data.total
+      totalPages.value = res.data.total_page
+    }
+  } catch (error) {
+    console.error('加载更多评论失败:', error)
   }
 }
 
@@ -100,6 +123,7 @@ async function submitComment() {
     if (res.code === 200) {
       commentText.value = ''
       replyTarget.value = null
+      currentPage.value = 1
       message.value = '评论成功'
       await loadComments()
     } else {
@@ -122,6 +146,7 @@ async function deleteComment(commentId: number) {
     const res = await commentApi.delete(commentId)
     if (res.code === 200) {
       message.value = '删除成功'
+      currentPage.value = 1
       await loadComments()
     } else {
       message.value = res.message || '删除失败'
@@ -288,8 +313,15 @@ onMounted(() => {
           </div>
 
           <div class="bg-white/60 rounded-xl p-3 sm:p-4 shadow-md shadow-black/8 border border-white/36">
-            <div class="mb-3 sm:mb-4">
-              <h3 class="text-base sm:text-lg font-semibold text-gray-900">评论 ({{ comments.length }})</h3>
+            <div class="mb-3 sm:mb-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+              <h3 class="text-base sm:text-lg font-semibold text-gray-900">评论 ({{ totalComments }})</h3>
+              <button
+                v-if="currentPage < totalPages"
+                @click="loadMoreComments"
+                class="text-sm text-blue-500 hover:text-blue-600 font-medium"
+              >
+                加载更多
+              </button>
             </div>
 
             <div v-if="userStore.isLoggedIn" class="mb-3 sm:mb-4">
