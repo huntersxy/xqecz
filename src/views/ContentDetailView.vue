@@ -989,12 +989,8 @@ onMounted(() => {
   padding: 4px;
   cursor: pointer;
   color: #999;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.comment-item:hover .more-btn {
   opacity: 1;
+  transition: color 0.2s;
 }
 
 .more-btn:hover {
@@ -1156,13 +1152,7 @@ onMounted(() => {
   color: #999;
 }
 
-.reply-content .more-btn {
-  opacity: 0;
-}
 
-.reply-content:hover .more-btn {
-  opacity: 1;
-}
 
 .reply-text {
   margin: 0;
