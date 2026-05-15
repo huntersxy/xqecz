@@ -130,7 +130,7 @@ onMounted(() => {
 <template>
   <div class="min-h-screen p-2 sm:p-5 flex justify-center">
     <div class="w-full max-w-[1200px] overflow-hidden bg-white/75 rounded-xl shadow-lg shadow-black/5 border border-white/40">
-      <div class="flex items-center px-3 py-2 sm:px-4 sm:py-2.5 bg-gradient-to-b from-black/8 to-black/2 md:hidden">
+      <div class="flex items-center px-3 py-2 sm:px-4 sm:py-2.5 bg-gradient-to-b from-black/8 to-black/2">
         <div class="w-3 h-3 rounded-full bg-[#ff5f57] mr-2"></div>
         <div class="w-3 h-3 rounded-full bg-[#febc2e] mr-2"></div>
         <div class="w-3 h-3 rounded-full bg-[#28c840] mr-4"></div>
