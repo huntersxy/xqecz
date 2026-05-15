@@ -42,8 +42,11 @@ function getImageUrl(image?: string): string {
   return ''
 }
 
-function formatTime(ts: number): string {
+function formatTime(ts: number | string): string {
   if (!ts) return ''
+  if (typeof ts === 'string') {
+    return new Date(ts).toLocaleString('zh-CN')
+  }
   return new Date(ts * 1000).toLocaleString('zh-CN')
 }
 
@@ -322,6 +325,7 @@ onMounted(() => {
                 <div class="flex-1 relative">
                   <div class="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
                     <span class="font-semibold text-sm text-gray-900">{{ comment.user?.username }}</span>
+                    <span class="text-xs text-gray-400">{{ formatTime(comment.created_at) }}</span>
                     <button
                       v-if="userStore.isLoggedIn && (userStore.user?.is_admin || comment.user_id === userStore.user?.id)"
                       class="ml-auto p-1 text-gray-400 hover:text-gray-700 transition-colors"
@@ -333,7 +337,6 @@ onMounted(() => {
                         <circle cx="5" cy="12" r="1"/>
                       </svg>
                     </button>
-                    <span class="text-xs text-gray-400">{{ comment.id }}楼</span>
                   </div>
                   <p class="text-xs sm:text-sm text-gray-700 leading-relaxed">{{ comment.text }}</p>
                   <div class="mt-1 sm:mt-2">
