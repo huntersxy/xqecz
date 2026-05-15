@@ -190,77 +190,77 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="detail-container">
-    <div class="mac-window detail-window">
-      <div class="mac-title-bar">
-        <div class="mac-dot mac-dot-red"></div>
-        <div class="mac-dot mac-dot-yellow"></div>
-        <div class="mac-dot mac-dot-green"></div>
-        <div class="window-title">内容详情</div>
+  <div class="min-h-screen p-2 sm:p-5 flex justify-center">
+    <div class="w-full max-w-[800px] overflow-hidden bg-white/75 rounded-xl shadow-lg shadow-black/5 border border-white/40">
+      <div class="flex items-center px-3 py-2 sm:px-4 sm:py-2.5 bg-gradient-to-b from-black/8 to-black/2 md:hidden">
+        <div class="w-3 h-3 rounded-full bg-[#ff5f57] mr-2"></div>
+        <div class="w-3 h-3 rounded-full bg-[#febc2e] mr-2"></div>
+        <div class="w-3 h-3 rounded-full bg-[#28c840] mr-4"></div>
+        <div class="text-xs sm:text-sm text-gray-500 font-medium">内容详情</div>
       </div>
 
-      <div class="detail-content">
-        <div v-if="message" class="message-bar error">
-          {{ message }}
-          <span class="message-close" @click="message = ''">×</span>
+      <div class="p-4 sm:p-6">
+        <div v-if="message" class="px-3 py-2 sm:px-4 sm:py-3 rounded-lg mb-3 sm:mb-4 flex justify-between items-center" :class="{ 'bg-red-100 text-red-600': message.includes('失败') || message.includes('请'), 'bg-emerald-100 text-emerald-600': message.includes('成功') }">
+          <span class="text-sm">{{ message }}</span>
+          <span class="text-lg font-bold cursor-pointer" @click="message = ''">×</span>
         </div>
 
-        <div v-if="content" class="content-detail">
-          <div class="detail-header">
-            <button @click="goBack" class="back-btn mac-btn small-btn">
-              <svg class="back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div v-if="content" class="animate-[fadeIn_0.3s_ease]">
+          <div class="mb-3 sm:mb-5">
+            <button @click="goBack" class="flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 bg-black/5 rounded-lg text-sm text-gray-700 hover:bg-black/10 hover:text-blue-500 transition-all">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M19 12H5"/>
                 <polyline points="12 19 5 12 12 5"/>
               </svg>
-              返回
+              <span class="hidden sm:inline">返回</span>
             </button>
           </div>
 
-          <div class="content-main">
-            <div class="content-header">
-              <h1 class="content-title">{{ content.title }}</h1>
-              <div class="content-badges">
-                <span :class="['type-badge', content.type]">
+          <div class="bg-white/60 rounded-xl p-4 sm:p-6 mb-3 sm:mb-4 shadow-md shadow-black/8 border border-white/36">
+            <div class="mb-3 sm:mb-4">
+              <h1 class="text-lg sm:text-xl font-bold text-gray-900 mb-2 sm:mb-3 leading-relaxed">{{ content.title }}</h1>
+              <div class="flex gap-2 sm:gap-3">
+                <span :class="[content.type === 'video' ? 'bg-red-100 text-red-600' : content.type === 'image' ? 'bg-emerald-100 text-emerald-600' : content.type === 'link' ? 'bg-violet-100 text-violet-600' : 'bg-blue-100 text-blue-600']" class="px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-medium">
                   {{ content.type === 'video' ? '视频' : content.type === 'image' ? '图片' : content.type === 'link' ? '链接' : '文字' }}
                 </span>
-                <span :class="['status-badge', content.audit_status]">
+                <span :class="[content.audit_status === 'approved' ? 'bg-emerald-100 text-emerald-600' : content.audit_status === 'pending' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600']" class="px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-medium">
                   {{ content.audit_status === 'approved' ? '已通过' : content.audit_status === 'pending' ? '审核中' : '已拒绝' }}
                 </span>
               </div>
             </div>
 
-            <div class="content-meta">
-              <div class="meta-item">
-                <svg class="meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div class="flex flex-wrap gap-3 sm:gap-4 mb-3 sm:mb-4 pb-3 sm:pb-4 border-b border-black/6">
+              <div class="flex items-center gap-1.5 text-xs sm:text-sm text-gray-600">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                   <circle cx="12" cy="7" r="4"/>
                 </svg>
                 <span>{{ content.user?.username }}</span>
                 <button
                   @click="userStore.isLoggedIn ? showClaimModal = true : router.push('/login')"
-                  class="claim-link"
+                  class="text-gray-400 hover:text-blue-500 text-xs sm:text-sm underline underline-offset-2 decoration-dotted ml-1 sm:ml-2"
                 >
                   认领内容
                 </button>
               </div>
-              <div v-if="(content.tags || []).length > 0" class="meta-tags">
-                <svg class="meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <div v-if="(content.tags || []).length > 0" class="flex items-center gap-1.5 text-xs sm:text-sm text-gray-600">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                 </svg>
-                <span v-for="tag in (content.tags || [])" :key="tag" class="meta-tag">{{ tag }}</span>
+                <span v-for="tag in (content.tags || [])" :key="tag" class="px-1.5 py-0.5 bg-blue-500/10 rounded text-blue-500 text-xs">{{ tag }}</span>
               </div>
             </div>
 
-            <div class="content-timeline">
-              <span class="timeline-item">
-                <svg class="timeline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div class="flex flex-wrap gap-3 sm:gap-4 mb-4 sm:mb-5 text-xs sm:text-sm text-gray-400">
+              <span class="flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="12" cy="12" r="10"/>
                   <polyline points="12 6 12 12 16 14"/>
                 </svg>
                 {{ formatTime(content.created_at) }}
               </span>
-              <span v-if="content.updated_at !== content.created_at" class="timeline-item">
-                <svg class="timeline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <span v-if="content.updated_at !== content.created_at" class="flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="23 4 23 10 17 10"/>
                   <polyline points="18 21 23 21 23 15"/>
                   <path d="M20.49 9h-5.99M14.51 21h-5.99M9 9H3m3 12H3"/>
@@ -269,143 +269,142 @@ onMounted(() => {
               </span>
             </div>
 
-            <div class="content-body">
-              <div v-if="content.type === 'text'" class="text-content" v-html="renderedContent"></div>
-              <div v-else-if="content.type === 'image'" class="image-content">
-                <img :src="getImageUrl(content.img)" alt="内容图片" class="content-image" />
+            <div>
+              <div v-if="content.type === 'text'" class="text-gray-800 text-sm sm:text-base leading-relaxed" v-html="renderedContent"></div>
+              <div v-else-if="content.type === 'image'" class="flex justify-center">
+                <img :src="getImageUrl(content.img)" alt="内容图片" class="w-full sm:w-[90%] rounded-xl shadow-lg shadow-black/10" />
               </div>
-              <div v-else-if="content.type === 'video'" class="video-content">
-                <video controls class="content-video">
+              <div v-else-if="content.type === 'video'" class="flex justify-center">
+                <video controls class="w-full sm:w-[90%] max-h-[300px] sm:max-h-[450px] rounded-xl bg-black">
                   <source :src="getImageUrl(content.video)" />
                   您的浏览器不支持视频播放。
                 </video>
               </div>
-              <div v-else-if="content.type === 'link'" class="text-content" v-html="renderedContent"></div>
+              <div v-else-if="content.type === 'link'" class="text-gray-800 text-sm sm:text-base leading-relaxed" v-html="renderedContent"></div>
             </div>
           </div>
 
-          <div class="comments-section">
-            <div class="comments-header">
-              <h3>评论 ({{ comments.length }})</h3>
+          <div class="bg-white/60 rounded-xl p-3 sm:p-4 shadow-md shadow-black/8 border border-white/36">
+            <div class="mb-3 sm:mb-4">
+              <h3 class="text-base sm:text-lg font-semibold text-gray-900">评论 ({{ comments.length }})</h3>
             </div>
 
-            <div v-if="userStore.isLoggedIn" class="comment-input-area">
-              <div v-if="replyTarget" class="reply-indicator">
+            <div v-if="userStore.isLoggedIn" class="mb-3 sm:mb-4">
+              <div v-if="replyTarget" class="flex justify-between items-center px-3 py-2 bg-blue-500/10 rounded-lg mb-2 text-sm text-blue-500">
                 <span>回复 {{ replyTarget.user?.username }}:</span>
-                <button @click="cancelReply" class="cancel-reply-btn">取消</button>
+                <button @click="cancelReply" class="text-gray-500 hover:text-blue-500 font-medium">取消</button>
               </div>
               <textarea
                 v-model="commentText"
-                class="comment-input"
+                class="w-full min-h-[70px] sm:min-h-[80px] px-3 py-2 sm:px-4 sm:py-3 border border-black/10 rounded-lg bg-white text-sm resize-vertical focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10"
                 placeholder="写下你的评论..."
                 @keyup.enter.ctrl="submitComment"
               ></textarea>
-              <div class="comment-actions">
-                <span class="hint">Ctrl + Enter 发送</span>
-                <button @click="submitComment" class="mac-btn primary-btn">发表评论</button>
+              <div class="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-4 mt-2">
+                <span class="text-xs text-gray-400 hidden sm:block">Ctrl + Enter 发送</span>
+                <button @click="submitComment" class="w-full sm:w-auto px-4 sm:px-5 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-all">发表评论</button>
               </div>
             </div>
 
-            <div v-else class="login-prompt">
-              <p>请先登录以发表评论</p>
-              <RouterLink to="/login" class="mac-btn">登录</RouterLink>
+            <div v-else class="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-black/3 rounded-lg mb-3 sm:mb-4">
+              <p class="text-sm text-gray-600">请先登录以发表评论</p>
+              <RouterLink to="/login" class="w-full sm:w-auto px-4 sm:px-5 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium text-center hover:bg-blue-600 transition-all">登录</RouterLink>
             </div>
 
-            <div v-if="comments.length > 0" class="comments-list">
-              <div v-for="comment in comments" :key="comment.id" class="comment-item">
-                <div class="comment-avatar">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div v-if="comments.length > 0" class="space-y-2 sm:space-y-3">
+              <div v-for="comment in comments" :key="comment.id" class="flex gap-2 sm:gap-3 p-2 sm:p-3 bg-white/60 rounded-lg border border-white/36">
+                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
+                  <svg class="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                     <circle cx="12" cy="7" r="4"/>
                   </svg>
                 </div>
-                <div class="comment-content">
-                  <div class="comment-header">
-                    <span class="comment-author">{{ comment.user?.username }}</span>
+                <div class="flex-1 relative">
+                  <div class="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+                    <span class="font-semibold text-sm text-gray-900">{{ comment.user?.username }}</span>
                     <button
                       v-if="userStore.isLoggedIn && (userStore.user?.is_admin || comment.user_id === userStore.user?.id)"
-                      class="more-btn"
+                      class="ml-auto p-1 text-gray-400 hover:text-gray-700 transition-colors"
                       @click.stop="toggleMenu(comment.id)"
                     >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="1"/>
                         <circle cx="19" cy="12" r="1"/>
                         <circle cx="5" cy="12" r="1"/>
                       </svg>
                     </button>
-                    <span class="comment-floor">{{ comment.id }}楼</span>
+                    <span class="text-xs text-gray-400">{{ comment.id }}楼</span>
                   </div>
-                  <p class="comment-text">{{ comment.text }}</p>
-                  <div class="comment-footer">
-                    <button v-if="userStore.isLoggedIn" @click="replyTarget = comment" class="reply-btn">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <p class="text-xs sm:text-sm text-gray-700 leading-relaxed">{{ comment.text }}</p>
+                  <div class="mt-1 sm:mt-2">
+                    <button v-if="userStore.isLoggedIn" @click="replyTarget = comment" class="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 transition-colors">
+                      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                       </svg>
-                      回复
+                      <span>回复</span>
                     </button>
                   </div>
 
-                  <div v-if="menuTarget === comment.id" class="comment-menu">
-                    <button @click="deleteComment(comment.id); closeMenu()" class="menu-item delete-item">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <div v-if="menuTarget === comment.id" class="absolute right-0 top-0 bg-white rounded-lg shadow-lg shadow-black/12 p-1 min-w-[120px] z-10">
+                    <button @click="deleteComment(comment.id); closeMenu()" class="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded">
+                      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M3 6h18"/>
                         <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
                         <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
                       </svg>
                       删除
                     </button>
-                    <button @click="openReport(comment)" class="menu-item report-item">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <button @click="openReport(comment)" class="flex items-center gap-2 w-full px-3 py-2 text-sm text-amber-500 hover:bg-amber-50 rounded">
+                      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                       </svg>
                       举报
                     </button>
                   </div>
 
-                  <div v-if="comment.replies && comment.replies.length > 0" class="replies-list">
-                    <div v-for="reply in comment.replies" :key="reply.id" class="reply-item">
-                      <div class="reply-avatar">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <div v-if="comment.replies && comment.replies.length > 0" class="mt-2 sm:mt-3 pl-3 sm:pl-4 border-l-2 border-blue-500/20">
+                    <div v-for="reply in comment.replies" :key="reply.id" class="flex gap-2 mb-2 last:mb-0">
+                      <div class="w-7 h-7 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
+                        <svg class="w-3.5 h-3.5 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                           <circle cx="12" cy="7" r="4"/>
                         </svg>
                       </div>
-                      <div class="reply-content">
-                        <div class="reply-header">
-                          <span class="reply-author">{{ reply.user?.username }}</span>
-                          <span class="reply-time">{{ formatTime(reply.created_at) }}</span>
+                      <div class="flex-1 relative">
+                        <div class="flex items-center gap-1.5 mb-1">
+                          <span class="font-medium text-xs sm:text-sm text-gray-800">{{ reply.user?.username }}</span>
+                          <span class="text-xs text-gray-400">{{ formatTime(reply.created_at) }}</span>
                           <button
                             v-if="userStore.isLoggedIn && (userStore.user?.is_admin || reply.user_id === userStore.user?.id)"
-                            class="more-btn"
+                            class="ml-auto p-0.5 text-gray-400 hover:text-gray-700 transition-colors"
                             @click.stop="toggleMenu(-reply.id)"
                           >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                               <circle cx="12" cy="12" r="1"/>
                               <circle cx="19" cy="12" r="1"/>
                               <circle cx="5" cy="12" r="1"/>
                             </svg>
                           </button>
                         </div>
-                        <p class="reply-text"><span class="reply-to">{{ reply.parent?.user?.username }}:</span> {{ reply.text }}</p>
-                        <button v-if="userStore.isLoggedIn" @click="replyTarget = reply" class="reply-btn">
-                          回复
-                        </button>
-                      </div>
-                      <div v-if="menuTarget === -reply.id" class="comment-menu reply-menu">
-                        <button @click="deleteComment(reply.id); closeMenu()" class="menu-item delete-item">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M3 6h18"/>
-                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-                          </svg>
-                          删除
-                        </button>
-                        <button @click="openReport(reply)" class="menu-item report-item">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                          </svg>
-                          举报
-                        </button>
+                        <p class="text-xs sm:text-sm text-gray-600"><span class="text-blue-500 font-medium">{{ reply.parent?.user?.username }}:</span> {{ reply.text }}</p>
+                        <button v-if="userStore.isLoggedIn" @click="replyTarget = reply" class="text-xs text-gray-400 hover:text-blue-500 mt-1">回复</button>
+
+                        <div v-if="menuTarget === -reply.id" class="absolute right-0 top-full bg-white rounded-lg shadow-lg shadow-black/12 p-1 min-w-[120px] z-10 mt-1">
+                          <button @click="deleteComment(reply.id); closeMenu()" class="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path d="M3 6h18"/>
+                              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                            </svg>
+                            删除
+                          </button>
+                          <button @click="openReport(reply)" class="flex items-center gap-2 w-full px-3 py-2 text-sm text-amber-500 hover:bg-amber-50 rounded">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                            举报
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -413,1308 +412,79 @@ onMounted(() => {
               </div>
             </div>
 
-            <div v-else class="empty-comments">
-              <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div v-else class="flex flex-col items-center py-8 sm:py-10 text-gray-400">
+              <svg class="w-10 h-10 sm:w-12 sm:h-12 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
               </svg>
-              <p>暂无评论，快来发表第一条评论吧</p>
+              <p class="text-sm">暂无评论，快来发表第一条评论吧</p>
             </div>
           </div>
         </div>
 
-        <div v-else class="empty-state">
-          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div v-else class="flex flex-col items-center py-12 sm:py-20 text-gray-400">
+          <svg class="w-16 h-16 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M20 20h-8l-4-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2z"/>
             <polyline points="14 2 14 8 20 8"/>
             <line x1="9" y1="15" x2="15" y2="15"/>
           </svg>
-          <p>加载中...</p>
+          <p class="text-sm">加载中...</p>
         </div>
       </div>
+
+      <Teleport to="body">
+        <div v-if="reportTarget" class="fixed inset-0 flex items-center justify-center bg-black/50 z-[9999]" @click.self="reportTarget = null">
+          <div class="w-[90%] sm:w-[400px] bg-white/98 rounded-xl shadow-2xl overflow-hidden">
+            <div class="flex justify-between items-center px-4 py-3 border-b border-black/6 bg-gradient-to-b from-black/5 to-transparent">
+              <h3 class="font-semibold text-gray-900">举报评论</h3>
+              <button @click="reportTarget = null" class="text-gray-400 hover:text-blue-500 text-xl leading-none">×</button>
+            </div>
+            <div class="p-4">
+              <p class="text-sm text-gray-700 mb-2">您正在举报以下评论：</p>
+              <p class="px-3 py-2 bg-black/3 rounded-lg text-sm text-gray-500 italic mb-3">{{ reportTarget.text }}</p>
+              <label class="block text-sm text-gray-600 mb-2">举报原因（可选）</label>
+              <input v-model="reportReason" type="text" class="w-full px-3 py-2 border border-black/10 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10" placeholder="请输入举报原因" />
+            </div>
+            <div class="flex justify-end gap-3 px-4 py-3 border-t border-black/6 bg-black/3">
+              <button @click="reportTarget = null" class="px-4 py-2 text-sm text-gray-700 hover:text-blue-500 transition-colors">取消</button>
+              <button @click="submitReport" class="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors">确认举报</button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="showClaimModal" class="fixed inset-0 flex items-center justify-center bg-black/50 z-[9999]" @click.self="showClaimModal = false">
+          <div class="w-[90%] sm:w-[450px] bg-white/98 rounded-xl shadow-2xl overflow-hidden">
+            <div class="flex justify-between items-center px-4 py-3 border-b border-black/6 bg-gradient-to-b from-blue-500/5 to-transparent">
+              <h3 class="font-semibold text-gray-900">认领此内容</h3>
+              <button @click="showClaimModal = false" class="text-gray-400 hover:text-blue-500 text-xl leading-none">×</button>
+            </div>
+            <div class="p-4">
+              <p class="text-sm text-gray-600 mb-4 leading-relaxed">请提供认领理由，管理员将在审核后决定是否将此内容转移给您。</p>
+              <label class="block text-sm font-medium text-gray-700 mb-2">认领理由 <span class="text-red-500">*</span></label>
+              <textarea
+                v-model="claimReason"
+                class="w-full min-h-[120px] px-3 py-2 border border-black/10 rounded-lg text-sm bg-white resize-vertical focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10 disabled:opacity-60"
+                placeholder="请详细说明您认为此内容应归属于您的原因..."
+                :disabled="isSubmittingClaim"
+              ></textarea>
+            </div>
+            <div class="flex justify-end gap-3 px-4 py-3 border-t border-black/6 bg-black/3">
+              <button @click="showClaimModal = false" class="px-4 py-2 text-sm text-gray-700 hover:text-blue-500 transition-colors" :disabled="isSubmittingClaim">取消</button>
+              <button @click="submitClaim" class="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50" :disabled="isSubmittingClaim">
+                {{ isSubmittingClaim ? '提交中...' : '提交申请' }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="menuTarget" class="fixed inset-0 z-[90]" @click="closeMenu"></div>
+      </Teleport>
     </div>
-
-    <Teleport to="body">
-      <div v-if="reportTarget" class="report-modal-overlay" @click.self="reportTarget = null">
-        <div class="report-modal">
-          <div class="report-modal-header">
-            <h3>举报评论</h3>
-            <button @click="reportTarget = null" class="modal-close">×</button>
-          </div>
-          <div class="report-modal-body">
-            <p>您正在举报以下评论：</p>
-            <p class="report-content">{{ reportTarget.text }}</p>
-            <label class="report-label">举报原因（可选）</label>
-            <input v-model="reportReason" type="text" class="report-input" placeholder="请输入举报原因" />
-          </div>
-          <div class="report-modal-footer">
-            <button @click="reportTarget = null" class="mac-btn">取消</button>
-            <button @click="submitReport" class="mac-btn primary-btn">确认举报</button>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="showClaimModal" class="claim-modal-overlay" @click.self="showClaimModal = false">
-        <div class="claim-modal">
-          <div class="claim-modal-header">
-            <h3>认领此内容</h3>
-            <button @click="showClaimModal = false" class="modal-close">×</button>
-          </div>
-          <div class="claim-modal-body">
-            <p class="claim-desc">请提供认领理由，管理员将在审核后决定是否将此内容转移给您。</p>
-            <label class="claim-label">认领理由 <span class="required">*</span></label>
-            <textarea
-              v-model="claimReason"
-              class="claim-textarea"
-              placeholder="请详细说明您认为此内容应归属于您的原因..."
-              :disabled="isSubmittingClaim"
-            ></textarea>
-          </div>
-          <div class="claim-modal-footer">
-            <button @click="showClaimModal = false" class="mac-btn" :disabled="isSubmittingClaim">取消</button>
-            <button @click="submitClaim" class="mac-btn primary-btn" :disabled="isSubmittingClaim">
-              {{ isSubmittingClaim ? '提交中...' : '提交申请' }}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="menuTarget" class="menu-overlay" @click="closeMenu"></div>
-    </Teleport>
   </div>
 </template>
 
-<style scoped>
-.detail-container {
-  min-height: 100vh;
-  padding: 20px;
-  display: flex;
-  justify-content: center;
-}
-
-.detail-window {
-  width: 100%;
-  max-width: 800px;
-  min-height: calc(100vh - 40px);
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.75);
-  border-radius: 12px;
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.08),
-    0 2px 8px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-}
-
-.mac-title-bar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 10px 16px;
-  background: linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.02) 100%);
-  border-radius: 12px 12px 0 0;
-}
-
-.mac-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-
-.mac-dot-red {
-  background: #ff5f57;
-}
-
-.mac-dot-yellow {
-  background: #febc2e;
-}
-
-.mac-dot-green {
-  background: #28c840;
-}
-
-.window-title {
-  margin-left: 16px;
-  font-size: 13px;
-  color: #666;
-  font-weight: 500;
-}
-
-.detail-content {
-  flex: 1;
-  padding: 24px;
-  overflow-y: auto;
-}
-
-.message-bar {
-  padding: 10px 16px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.message-bar.error {
-  background: #fee2e2;
-  color: #dc2626;
-}
-
-.message-close {
-  cursor: pointer;
-  font-size: 20px;
-  line-height: 1;
-}
-
-.content-detail {
-  animation: fadeIn 0.3s ease;
-}
-
+<style>
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-.detail-header {
-  margin-bottom: 20px;
-}
-
-.back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(0, 0, 0, 0.05);
-}
-
-.back-btn:hover {
-  background: rgba(0, 0, 0, 0.1);
-  color: #3b82f6;
-}
-
-.back-icon {
-  width: 16px;
-  height: 16px;
-}
-
-.content-main {
-  background: rgba(255, 255, 255, 0.6);
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.08),
-    0 1px 4px rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.36);
-  margin-bottom: 16px;
-}
-
-.content-header {
-  margin-bottom: 16px;
-}
-
-.content-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin: 0 0 10px 0;
-  line-height: 1.3;
-}
-
-.content-badges {
-  display: flex;
-  gap: 8px;
-}
-
-.type-badge,
-.status-badge {
-  padding: 4px 10px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.type-badge.video {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
-
-.type-badge.link {
-  background: rgba(139, 92, 246, 0.1);
-  color: #7c3aed;
-}
-
-.type-badge.image {
-  background: #ecfdf5;
-  color: #059669;
-}
-
-.type-badge.text {
-  background: #eff6ff;
-  color: #2563eb;
-}
-
-.status-badge.approved {
-  background: #ecfdf5;
-  color: #059669;
-}
-
-.status-badge.pending {
-  background: #fef3c7;
-  color: #d97706;
-}
-
-.status-badge.rejected {
-  background: #fef2f2;
-  color: #dc2626;
-}
-
-.content-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin-bottom: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: #666;
-}
-
-.meta-tags {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: #666;
-}
-
-.meta-tag {
-  padding: 2px 8px;
-  background: rgba(59, 130, 246, 0.1);
-  border-radius: 4px;
-  color: #3b82f6;
-  font-size: 12px;
-}
-
-.meta-icon {
-  width: 16px;
-  height: 16px;
-}
-
-.content-timeline {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 16px;
-  font-size: 12px;
-  color: #999;
-}
-
-.timeline-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.timeline-icon {
-  width: 14px;
-  height: 14px;
-}
-
-.claim-link {
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  font: inherit;
-  font-size: 12px;
-  color: #aaa;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  text-decoration-style: dotted;
-  margin-left: 6px;
-  transition: color 0.2s;
-}
-
-.claim-link:hover {
-  color: #3b82f6;
-}
-
-.content-body {
-}
-
-.text-content {
-  font-size: 15px;
-  line-height: 1.8;
-  color: #333;
-}
-
-.text-content :deep(h1) {
-  font-size: 22px;
-  font-weight: 700;
-  margin: 18px 0 10px;
-}
-
-.text-content :deep(h2) {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 16px 0 8px;
-}
-
-.text-content :deep(h3) {
-  font-size: 16px;
-  font-weight: 600;
-  margin: 14px 0 8px;
-}
-
-.text-content :deep(p) {
-  margin: 0 0 10px;
-}
-
-.text-content :deep(a) {
-  color: #3b82f6;
-  text-decoration: none;
-}
-
-.text-content :deep(a:hover) {
-  text-decoration: underline;
-}
-
-.text-content :deep(img) {
-  max-width: 100%;
-  border-radius: 8px;
-  margin: 10px 0;
-}
-
-.image-content {
-  display: flex;
-  justify-content: center;
-}
-
-.content-image {
-  width: 100%;
-  border-radius: 10px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-}
-
-.video-content {
-  display: flex;
-  justify-content: center;
-}
-
-.content-video {
-  width: 100%;
-  max-width: 700px;
-  max-height: 450px;
-  border-radius: 10px;
-  background: #000;
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px;
-  color: #999;
-}
-
-.empty-icon {
-  width: 64px;
-  height: 64px;
-  margin-bottom: 16px;
-}
-
-.empty-state p {
-  margin: 0;
-}
-
-.comments-section {
-  background: rgba(255, 255, 255, 0.6);
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.08),
-    0 1px 4px rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.36);
-}
-
-.comments-header {
-  margin-bottom: 16px;
-}
-
-.comments-header h3 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin: 0;
-}
-
-.comment-input-area {
-  margin-bottom: 16px;
-}
-
-.reply-indicator {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
-  background: rgba(59, 130, 246, 0.1);
-  border-radius: 6px;
-  margin-bottom: 8px;
-  font-size: 13px;
-  color: #3b82f6;
-}
-
-.cancel-reply-btn {
-  background: none;
-  border: none;
-  color: #666;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.cancel-reply-btn:hover {
-  color: #3b82f6;
-}
-
-.comment-input {
-  width: 100%;
-  min-height: 70px;
-  padding: 12px 14px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  font-size: 14px;
-  resize: vertical;
-  box-sizing: border-box;
-  background: white;
-}
-
-.comment-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.comment-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 10px;
-}
-
-.hint {
-  font-size: 12px;
-  color: #999;
-}
-
-.login-prompt {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.03);
-  border-radius: 8px;
-  margin-bottom: 16px;
-}
-
-.login-prompt p {
-  margin: 0;
-  color: #666;
-}
-
-.comments-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.comment-item {
-  display: flex;
-  gap: 12px;
-  padding: 14px;
-  background: rgba(255, 255, 255, 0.6);
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.36);
-}
-
-.comment-avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: rgba(59, 130, 246, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.comment-avatar svg {
-  width: 18px;
-  height: 18px;
-  color: #3b82f6;
-}
-
-.comment-content {
-  flex: 1;
-  position: relative;
-}
-
-.comment-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 6px;
-}
-
-.comment-author {
-  font-weight: 600;
-  color: #1a1a1a;
-  font-size: 14px;
-}
-
-.comment-time {
-  font-size: 12px;
-  color: #999;
-}
-
-.comment-floor {
-  margin-left: auto;
-  font-size: 12px;
-  color: #999;
-}
-
-.more-btn {
-  margin-left: auto;
-  background: none;
-  border: none;
-  padding: 4px;
-  cursor: pointer;
-  color: #999;
-  opacity: 1;
-  transition: color 0.2s;
-}
-
-.more-btn:hover {
-  color: #333;
-}
-
-.more-btn svg {
-  width: 16px;
-  height: 16px;
-}
-
-.comment-text {
-  margin: 0;
-  font-size: 14px;
-  color: #333;
-  line-height: 1.6;
-}
-
-.comment-footer {
-  display: flex;
-  gap: 16px;
-  margin-top: 8px;
-}
-
-.reply-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  color: #999;
-  font-size: 12px;
-  transition: color 0.2s;
-}
-
-.reply-btn:hover {
-  color: #3b82f6;
-}
-
-.reply-btn svg {
-  width: 14px;
-  height: 14px;
-}
-
-.comment-menu {
-  position: absolute;
-  right: 0;
-  top: 0;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-  padding: 4px;
-  min-width: 120px;
-  z-index: 100;
-}
-
-.reply-menu {
-  right: 0;
-  top: 100%;
-  margin-top: 4px;
-}
-
-.menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 12px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 13px;
-  color: #333;
-  border-radius: 4px;
-  transition: background 0.2s;
-}
-
-.menu-item:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-.menu-item svg {
-  width: 14px;
-  height: 14px;
-}
-
-.delete-item {
-  color: #dc2626;
-}
-
-.report-item {
-  color: #f59e0b;
-}
-
-.menu-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 90;
-}
-
-.replies-list {
-  margin-top: 10px;
-  padding-left: 16px;
-  border-left: 2px solid rgba(59, 130, 246, 0.2);
-}
-
-.reply-item {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.reply-item:last-child {
-  margin-bottom: 0;
-}
-
-.reply-avatar {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: rgba(59, 130, 246, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.reply-avatar svg {
-  width: 14px;
-  height: 14px;
-  color: #3b82f6;
-}
-
-.reply-content {
-  flex: 1;
-  position: relative;
-}
-
-.reply-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 3px;
-}
-
-.reply-author {
-  font-weight: 500;
-  color: #333;
-  font-size: 12px;
-}
-
-.reply-time {
-  font-size: 11px;
-  color: #999;
-}
-
-
-
-.reply-text {
-  margin: 0;
-  font-size: 13px;
-  color: #444;
-  line-height: 1.5;
-}
-
-.reply-to {
-  color: #3b82f6;
-  font-weight: 500;
-}
-
-.empty-comments {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 30px;
-  color: #999;
-}
-
-.empty-comments .empty-icon {
-  width: 40px;
-  height: 40px;
-}
-
-.empty-comments p {
-  margin: 10px 0 0 0;
-  font-size: 14px;
-}
-
-.report-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 9999;
-}
-
-.report-modal {
-  background: rgba(255, 255, 255, 0.98);
-  border-radius: 12px;
-  width: 90%;
-  max-width: 400px;
-  overflow: hidden;
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.3);
-}
-
-.report-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  background: linear-gradient(180deg, rgba(0,0,0,0.05) 0%, transparent 100%);
-}
-
-.report-modal-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #999;
-  line-height: 1;
-}
-
-.modal-close:hover {
-  color: #3b82f6;
-}
-
-.report-modal-body {
-  padding: 20px;
-}
-
-.report-modal-body p {
-  margin: 0 0 10px 0;
-  font-size: 14px;
-  color: #333;
-}
-
-.report-content {
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.03);
-  border-radius: 6px;
-  font-style: italic;
-  color: #666 !important;
-}
-
-.report-label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 13px;
-  color: #666;
-}
-
-.report-input {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 6px;
-  font-size: 14px;
-  box-sizing: border-box;
-  background: white;
-}
-
-.report-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.report-modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 20px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-  background: rgba(0, 0, 0, 0.03);
-}
-
-.claim-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 9999;
-}
-
-.claim-modal {
-  background: rgba(255, 255, 255, 0.98);
-  border-radius: 12px;
-  width: 90%;
-  max-width: 450px;
-  overflow: hidden;
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.3);
-}
-
-.claim-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.05) 0%, transparent 100%);
-}
-
-.claim-modal-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.claim-modal-body {
-  padding: 20px;
-}
-
-.claim-desc {
-  margin: 0 0 16px 0;
-  font-size: 14px;
-  color: #666;
-  line-height: 1.6;
-}
-
-.claim-label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-}
-
-.claim-label .required {
-  color: #ef4444;
-}
-
-.claim-textarea {
-  width: 100%;
-  min-height: 120px;
-  padding: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  font-size: 14px;
-  line-height: 1.6;
-  resize: vertical;
-  box-sizing: border-box;
-  background: white;
-}
-
-.claim-textarea:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.claim-textarea:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.claim-modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 20px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-  background: rgba(0, 0, 0, 0.03);
-}
-
-@media screen and (max-width: 768px) {
-  .detail-container {
-    padding: 0;
-    min-height: calc(100vh - 60px);
-  }
-
-  .detail-window {
-    border-radius: 0;
-    box-shadow: none;
-    min-height: calc(100vh - 60px);
-    background: rgba(255, 255, 255, 0.9);
-  }
-
-  .mac-title-bar {
-    display: none;
-  }
-
-  .detail-content {
-    padding: 16px;
-  }
-
-  .content-main {
-    padding: 16px;
-    border-radius: 10px;
-  }
-
-  .content-title {
-    font-size: 20px;
-  }
-
-  .content-meta {
-    gap: 12px;
-    padding-bottom: 12px;
-    margin-bottom: 12px;
-  }
-
-  .meta-item {
-    font-size: 14px;
-  }
-
-  .meta-icon {
-    width: 18px;
-    height: 18px;
-  }
-
-  .content-timeline {
-    gap: 12px;
-    font-size: 13px;
-  }
-
-  .timeline-icon {
-    width: 16px;
-    height: 16px;
-  }
-
-  .content-body {
-    margin-top: 12px;
-  }
-
-  .text-content {
-    font-size: 16px;
-    line-height: 1.8;
-  }
-
-  .text-content :deep(h1) {
-    font-size: 20px;
-  }
-
-  .text-content :deep(h2) {
-    font-size: 18px;
-  }
-
-  .text-content :deep(h3) {
-    font-size: 16px;
-  }
-
-  .content-image {
-    width: 90%;
-    max-height: none;
-  }
-
-  .content-video {
-    width: 100%;
-    max-height: 300px;
-  }
-
-  .comments-section {
-    padding: 16px;
-    border-radius: 10px;
-  }
-
-  .comment-input {
-    min-height: 80px;
-    padding: 14px;
-    font-size: 15px;
-  }
-
-  .comment-actions {
-    flex-direction: column;
-    gap: 10px;
-    align-items: stretch;
-  }
-
-  .comment-actions .mac-btn {
-    width: 100%;
-  }
-
-  .hint {
-    display: none;
-  }
-
-  .comment-item {
-    flex-direction: row;
-    gap: 10px;
-    padding: 12px;
-  }
-
-  .comment-avatar {
-    width: 36px;
-    height: 36px;
-  }
-
-  .comment-avatar svg {
-    width: 18px;
-    height: 18px;
-  }
-
-  .comment-header {
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: flex-start;
-  }
-
-  .comment-author {
-    font-size: 14px;
-  }
-
-  .comment-time {
-    font-size: 11px;
-  }
-
-  .comment-text {
-    font-size: 14px;
-    line-height: 1.6;
-  }
-
-  .comment-footer {
-    margin-top: 6px;
-  }
-
-  .reply-btn {
-    font-size: 12px;
-  }
-
-  .replies-list {
-    padding-left: 10px;
-    margin-top: 8px;
-  }
-
-  .reply-item {
-    flex-direction: row;
-    gap: 8px;
-    padding: 8px 0;
-  }
-
-  .reply-avatar {
-    width: 28px;
-    height: 28px;
-  }
-
-  .reply-avatar svg {
-    width: 14px;
-    height: 14px;
-  }
-
-  .reply-header {
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-
-  .reply-text {
-    font-size: 13px;
-  }
-
-  .login-prompt {
-    flex-direction: column;
-    gap: 10px;
-    padding: 14px;
-    text-align: center;
-  }
-
-  .login-prompt p {
-    margin: 0;
-    font-size: 14px;
-  }
-
-  .login-prompt .mac-btn {
-    width: 100%;
-  }
-
-  .back-btn {
-    padding: 10px 16px;
-    font-size: 14px;
-  }
-
-  .back-icon {
-    width: 18px;
-    height: 18px;
-  }
-
-  .message-bar {
-    padding: 12px 14px;
-    font-size: 14px;
-  }
-
-  .report-modal {
-    width: 95%;
-    max-width: none;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.98);
-  }
-
-  .report-modal-body {
-    padding: 16px;
-  }
-
-  .report-input {
-    padding: 12px 14px;
-    font-size: 15px;
-  }
-
-  .claim-modal {
-    width: 95%;
-    max-width: none;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.98);
-  }
-
-  .claim-modal-body {
-    padding: 16px;
-  }
-
-  .claim-textarea {
-    min-height: 140px;
-    font-size: 15px;
-  }
-}
-
-@media screen and (max-width: 480px) {
-  .content-title {
-    font-size: 18px;
-  }
-
-  .type-badge,
-  .status-badge {
-    padding: 3px 8px;
-    font-size: 12px;
-  }
-
-  .content-image {
-    width: 90%;
-    max-height: none;
-  }
-
-  .content-video {
-    max-height: 220px;
-  }
-
-  .comments-section {
-    padding: 12px;
-  }
-
-  .comment-item {
-    padding: 10px;
-    gap: 8px;
-  }
-
-  .comment-avatar {
-    width: 32px;
-    height: 32px;
-  }
-
-  .comment-avatar svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  .comment-author {
-    font-size: 13px;
-  }
-
-  .comment-time {
-    font-size: 10px;
-  }
-
-  .comment-text {
-    font-size: 13px;
-  }
-
-  .replies-list {
-    padding-left: 8px;
-    margin-top: 6px;
-  }
-
-  .reply-item {
-    gap: 6px;
-    padding: 6px 0;
-  }
-
-  .reply-avatar {
-    width: 24px;
-    height: 24px;
-  }
-
-  .reply-avatar svg {
-    width: 12px;
-    height: 12px;
-  }
-
-  .reply-text {
-    font-size: 12px;
-  }
-
-  .reply-author {
-    font-size: 11px;
-  }
-
-  .reply-time {
-    font-size: 10px;
-  }
 }
 </style>

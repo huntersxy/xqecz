@@ -73,70 +73,68 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="reports-container">
-    <div class="mac-window reports-window">
-      <div class="mac-title-bar">
-        <div class="mac-dot mac-dot-red"></div>
-        <div class="mac-dot mac-dot-yellow"></div>
-        <div class="mac-dot mac-dot-green"></div>
-        <div class="window-title">举报管理</div>
+  <div class="min-h-screen p-2 sm:p-5 flex justify-center">
+    <div class="w-full max-w-[900px] overflow-hidden bg-white/75 rounded-xl shadow-lg shadow-black/5 border border-white/40">
+      <div class="flex items-center px-3 py-2 sm:px-4 sm:py-2.5 bg-gradient-to-b from-black/8 to-black/2 md:hidden">
+        <div class="w-3 h-3 rounded-full bg-[#ff5f57] mr-2"></div>
+        <div class="w-3 h-3 rounded-full bg-[#febc2e] mr-2"></div>
+        <div class="w-3 h-3 rounded-full bg-[#28c840] mr-4"></div>
+        <div class="text-xs sm:text-sm text-gray-500 font-medium">举报管理</div>
       </div>
 
-      <div class="reports-content">
-        <div v-if="message" class="message-bar">
-          {{ message }}
-          <span class="message-close" @click="message = ''">×</span>
+      <div class="p-4 sm:p-6">
+        <div v-if="message" class="px-3 py-2 sm:px-4 sm:py-3 rounded-lg mb-3 sm:mb-4 flex justify-between items-center bg-emerald-100 text-emerald-600">
+          <span class="text-sm">{{ message }}</span>
+          <span class="text-lg font-bold cursor-pointer" @click="message = ''">×</span>
         </div>
 
-        <div class="reports-header">
-          <button @click="goBack" class="back-btn mac-btn small-btn">
-            <svg class="back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <button @click="goBack" class="flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 bg-white/95 border border-black/10 rounded-lg text-sm text-gray-700 hover:bg-blue-500/10 hover:text-blue-500 transition-all">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M19 12H5"/>
               <polyline points="12 19 5 12 12 5"/>
             </svg>
-            返回
+            <span>返回</span>
           </button>
-          <h2>举报列表</h2>
+          <h2 class="text-lg sm:text-xl font-semibold text-gray-900">举报列表</h2>
         </div>
 
-        <div v-if="reports.length > 0" class="reports-list">
-          <div v-for="report in reports" :key="report.id" class="report-item">
-            <div class="report-info">
-              <div class="report-header">
-                <span class="report-id">#{{ report.id }}</span>
-                <span class="report-time">{{ report.created_at }}</span>
-                <span :class="['report-status', report.handled ? 'handled' : 'pending']">
-                  {{ report.handled ? '已处理' : '待处理' }}
-                </span>
-              </div>
-              
-              <div class="report-content">
-                <p class="report-reason">
-                  <span class="label">举报原因：</span>
-                  {{ report.reason || '其他' }}
-                </p>
-                <p class="report-comment">
-                  <span class="label">被举报内容：</span>
-                  {{ report.Comment?.text }}
-                </p>
-                <p class="report-reporter">
-                  <span class="label">举报人：</span>
-                  {{ report.User?.username }}
-                </p>
-              </div>
+        <div v-if="reports.length > 0" class="space-y-3 sm:space-y-4">
+          <div v-for="report in reports" :key="report.id" class="bg-white/60 rounded-xl p-3 sm:p-4 shadow-md shadow-black/8 border border-white/36">
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <span class="font-semibold text-blue-500 text-sm">#{{ report.id }}</span>
+              <span class="text-xs sm:text-sm text-gray-400">{{ report.created_at }}</span>
+              <span :class="[report.handled ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600']" class="px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs font-medium">
+                {{ report.handled ? '已处理' : '待处理' }}
+              </span>
+            </div>
+            
+            <div class="pb-3 sm:pb-4 border-b border-black/6 mb-3 sm:mb-4">
+              <p class="text-xs sm:text-sm text-gray-600 mb-1">
+                <span class="font-medium text-gray-400">举报原因：</span>
+                {{ report.reason || '其他' }}
+              </p>
+              <p class="text-xs sm:text-sm text-gray-500 italic mb-1">
+                <span class="font-medium text-gray-400">被举报内容：</span>
+                {{ report.Comment?.text }}
+              </p>
+              <p class="text-xs sm:text-sm text-gray-600">
+                <span class="font-medium text-gray-400">举报人：</span>
+                {{ report.User?.username }}
+              </p>
             </div>
 
-            <div class="report-actions">
+            <div class="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
               <button 
                 v-if="!report.handled" 
                 @click="handleReport(report.id)" 
-                class="mac-btn"
+                class="w-full sm:w-auto px-4 sm:px-5 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-all"
               >
                 标记已处理
               </button>
               <button 
                 @click="confirmDelete(report.comment_id, report.id)" 
-                class="mac-btn delete-btn"
+                class="w-full sm:w-auto px-4 sm:px-5 py-2 bg-red-500/10 text-red-500 border border-red-500/30 rounded-lg text-sm font-medium hover:bg-red-500/15 transition-all"
               >
                 删除评论
               </button>
@@ -144,414 +142,31 @@ onMounted(() => {
           </div>
         </div>
 
-        <div v-else class="empty-state">
-          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div v-else class="flex flex-col items-center py-8 sm:py-12 text-gray-400">
+          <svg class="w-12 h-12 sm:w-16 sm:h-16 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
           </svg>
-          <p>暂无举报</p>
+          <p class="text-sm">暂无举报</p>
         </div>
       </div>
-    </div>
 
-    <Teleport to="body">
-      <div v-if="showDeleteConfirm" class="tag-modal-overlay" @click.self="showDeleteConfirm = false">
-        <div class="tag-modal">
-          <div class="tag-modal-header">
-            <h3>确认删除</h3>
-            <button class="tag-modal-close" @click="showDeleteConfirm = false">×</button>
-          </div>
-          <div class="tag-modal-body">
-            <p>确定要删除这条评论吗？此操作不可撤销。</p>
-          </div>
-          <div class="tag-modal-footer">
-            <button @click="showDeleteConfirm = false" class="mac-btn">取消</button>
-            <button @click="deleteComment" class="mac-btn delete-btn">确定删除</button>
+      <Teleport to="body">
+        <div v-if="showDeleteConfirm" class="fixed inset-0 flex items-center justify-center bg-black/50 z-[9999]" @click.self="showDeleteConfirm = false">
+          <div class="w-[90%] sm:w-[400px] bg-white/98 rounded-xl shadow-2xl overflow-hidden">
+            <div class="flex justify-between items-center px-4 py-3 border-b border-black/6 bg-gradient-to-b from-black/5 to-transparent">
+              <h3 class="font-semibold text-gray-900">确认删除</h3>
+              <button @click="showDeleteConfirm = false" class="text-gray-400 hover:text-blue-500 text-xl leading-none">×</button>
+            </div>
+            <div class="p-4">
+              <p class="text-sm text-gray-700">确定要删除这条评论吗？此操作不可撤销。</p>
+            </div>
+            <div class="flex justify-end gap-3 px-4 py-3 border-t border-black/6 bg-black/3">
+              <button @click="showDeleteConfirm = false" class="px-4 py-2 text-sm text-gray-700 hover:text-blue-500 transition-colors">取消</button>
+              <button @click="deleteComment" class="px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors">确定删除</button>
+            </div>
           </div>
         </div>
-      </div>
-    </Teleport>
+      </Teleport>
+    </div>
   </div>
 </template>
-
-<style scoped>
-.reports-container {
-  min-height: 100vh;
-  padding: 20px;
-  display: flex;
-  justify-content: center;
-}
-
-.reports-window {
-  width: 100%;
-  max-width: 900px;
-  min-height: 600px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.75);
-  border-radius: 12px;
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.08),
-    0 2px 8px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-}
-
-.mac-title-bar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 10px 16px;
-  background: linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.02) 100%);
-  border-radius: 12px 12px 0 0;
-}
-
-.mac-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-
-.mac-dot-red {
-  background: #ff5f57;
-}
-
-.mac-dot-yellow {
-  background: #febc2e;
-}
-
-.mac-dot-green {
-  background: #28c840;
-}
-
-.window-title {
-  margin-left: 16px;
-  font-size: 13px;
-  color: #666;
-  font-weight: 500;
-}
-
-.reports-content {
-  padding: 24px;
-  background: rgba(255, 255, 255, 0.75);
-}
-
-.message-bar {
-  padding: 10px 16px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #ecfdf5;
-  color: #059669;
-}
-
-.message-close {
-  cursor: pointer;
-  font-size: 20px;
-  line-height: 1;
-}
-
-.reports-header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.reports-header h2 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  padding: 10px 16px;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-}
-
-.back-btn:hover {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-  border-color: rgba(59, 130, 246, 0.3);
-}
-
-.back-icon {
-  width: 16px;
-  height: 16px;
-}
-
-.reports-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.report-item {
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.36);
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.08),
-    0 1px 4px rgba(0, 0, 0, 0.04);
-  display: flex;
-  flex-direction: column;
-}
-
-.report-info {
-  flex: 1;
-}
-
-.report-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.report-id {
-  font-weight: 600;
-  color: #3b82f6;
-}
-
-.report-time {
-  font-size: 13px;
-  color: #999;
-}
-
-.report-status {
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
-  margin-left: auto;
-}
-
-.report-status.pending {
-  background: #fef3c7;
-  color: #d97706;
-}
-
-.report-status.handled {
-  background: #ecfdf5;
-  color: #059669;
-}
-
-.report-content {
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.report-content p {
-  margin: 8px 0;
-  font-size: 14px;
-  color: #333;
-}
-
-.report-content .label {
-  color: #999;
-  font-weight: 500;
-}
-
-.report-comment {
-  font-style: italic;
-  color: #666 !important;
-}
-
-.report-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.delete-btn {
-  background: rgba(220, 38, 38, 0.1);
-  color: #dc2626;
-  border: 1px solid rgba(220, 38, 38, 0.3);
-}
-
-.delete-btn:hover {
-  background: rgba(220, 38, 38, 0.15);
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 60px;
-  color: #999;
-}
-
-.empty-icon {
-  width: 64px;
-  height: 64px;
-  margin-bottom: 16px;
-}
-
-.empty-state p {
-  margin: 0;
-}
-
-.tag-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 9999;
-}
-
-.tag-modal {
-  background: rgba(255, 255, 255, 0.98);
-  border-radius: 12px;
-  width: 90%;
-  max-width: 400px;
-  overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-}
-
-.tag-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  background: linear-gradient(180deg, rgba(0,0,0,0.05) 0%, transparent 100%);
-}
-
-.tag-modal-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.tag-modal-close {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #999;
-  line-height: 1;
-  transition: color 0.2s ease;
-}
-
-.tag-modal-close:hover {
-  color: #3b82f6;
-}
-
-.tag-modal-body {
-  padding: 20px;
-}
-
-.tag-modal-body p {
-  margin: 0;
-  font-size: 14px;
-  color: #333;
-}
-
-.tag-modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 20px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-  background: rgba(0, 0, 0, 0.03);
-}
-
-@media screen and (max-width: 768px) {
-  .reports-container {
-    padding: 0;
-    min-height: calc(100vh - 60px);
-  }
-
-  .reports-window {
-    border-radius: 0;
-    box-shadow: none;
-    min-height: calc(100vh - 60px);
-    background: rgba(255, 255, 255, 0.9);
-  }
-
-  .mac-title-bar {
-    display: none;
-  }
-
-  .reports-content {
-    padding: 16px;
-  }
-
-  .reports-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
-  .reports-header h2 {
-    font-size: 18px;
-  }
-
-  .back-btn {
-    padding: 10px 16px;
-    font-size: 14px;
-  }
-
-  .report-item {
-    padding: 16px;
-  }
-
-  .report-header {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .report-status {
-    margin-left: 0;
-  }
-
-  .report-content p {
-    font-size: 14px;
-  }
-
-  .report-actions {
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 12px;
-  }
-
-  .report-actions .mac-btn {
-    width: 100%;
-    padding: 12px;
-    font-size: 15px;
-  }
-
-  .empty-state {
-    padding: 40px 16px;
-  }
-
-  .empty-icon {
-    width: 48px;
-    height: 48px;
-  }
-
-  .message-bar {
-    padding: 12px 14px;
-    font-size: 14px;
-  }
-
-  .tag-modal {
-    width: 95%;
-    max-width: none;
-    border-radius: 12px;
-  }
-}
-</style>
