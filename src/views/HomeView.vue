@@ -339,7 +339,7 @@ onMounted(() => {
 <template>
   <div class="min-h-screen p-2 sm:p-5 flex justify-center">
     <div class="w-full max-w-[1200px] min-h-screen overflow-hidden theme-card rounded-xl sm:rounded-xl shadow-lg shadow-black/5 border transition-all duration-500">
-      <div class="flex items-center justify-between px-4 py-2.5 bg-gradient-to-b from-black/8 to-black/2">
+      <div class="flex items-center justify-between px-4 py-2.5 theme-header-bg">
         <div class="flex items-center">
           <div class="w-3 h-3 rounded-full bg-[#ff5f57] mr-2"></div>
           <div class="w-3 h-3 rounded-full bg-[#febc2e] mr-2"></div>
@@ -352,7 +352,7 @@ onMounted(() => {
       <div class="p-3 sm:p-6">
         <div class="text-center mb-5 sm:mb-8">
           <img :src="logoImg" alt="小泉动漫二创站" class="max-w-full h-auto max-h-[80px] sm:max-h-[120px] mx-auto mb-2" />
-          <a @click="goToEasterEgg" class="block w-fit mx-auto px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white no-underline cursor-pointer transition-all duration-300 text-sm sm:text-base font-medium text-center hover:scale-105 hover:shadow-lg hover:shadow-indigo-500/40">🎉 发现精彩内容</a>
+          <a @click="goToEasterEgg" class="block w-fit mx-auto px-3 py-1.5 sm:px-4 sm:py-2 rounded-full theme-accent-gradient text-(--theme-on-primary) no-underline cursor-pointer transition-all duration-300 text-sm sm:text-base font-medium text-center hover:scale-105 hover:shadow-lg">🎉 发现精彩内容</a>
         </div>
 
         <div class="mb-4 sm:mb-6">
@@ -362,9 +362,9 @@ onMounted(() => {
               type="text"
               placeholder="搜索内容..."
               @keyup.enter="handleSearch"
-              class="flex-1 text-sm px-4 py-3 sm:py-2.5 min-h-[44px] sm:min-h-[auto] border theme-border rounded-lg theme-surface outline-none transition-all focus:border-blue-500 focus:ring-3 focus:ring-blue-500/10"
+              class="flex-1 text-sm px-4 py-3 sm:py-2.5 min-h-[44px] sm:min-h-[auto] border theme-border rounded-lg theme-surface outline-none transition-all focus:border-(--theme-primary) focus:ring-3 focus:ring-(--theme-primary)/10"
             />
-            <button @click="handleSearch" class="px-5 py-3 sm:py-2.5 min-h-[44px] sm:min-h-[auto] bg-blue-500 text-white border-none rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-blue-600 whitespace-nowrap">搜索</button>
+            <button @click="handleSearch" class="px-5 py-3 sm:py-2.5 min-h-[44px] sm:min-h-[auto] bg-(--theme-primary) text-(--theme-on-primary) border-none rounded-lg text-sm font-medium cursor-pointer transition-all hover:brightness-90 whitespace-nowrap">搜索</button>
           </div>
         </div>
 
@@ -380,8 +380,8 @@ onMounted(() => {
                 v-for="type in contentTypes"
                 :key="type"
                 @click="selectType(type)"
-                class="px-2 py-1 sm:px-3 sm:py-1 theme-surface border theme-border rounded-full text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:text-emerald-600 hover:border-emerald-600/30"
-                :class="{ 'bg-emerald-100/50 text-emerald-600 font-medium border-emerald-600/30': selectedTypes.includes(type) }"
+                class="px-2 py-1 sm:px-3 sm:py-1 theme-surface border theme-border rounded-full text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:text-(--theme-success) hover:border-(--theme-success)/30"
+                :class="{ 'bg-(--theme-success)/10 text-(--theme-success) font-medium border-(--theme-success)/30': selectedTypes.includes(type) }"
               >
                 {{ contentTypeLabels[type] }}
               </button>
@@ -395,8 +395,8 @@ onMounted(() => {
                 v-for="tag in sortedTags"
                 :key="tag"
                 @click="selectTag(tag)"
-                class="px-2 py-1 sm:px-3 sm:py-1 theme-surface border theme-border rounded-full text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:text-blue-500 hover:border-blue-500/30"
-                :class="{ 'bg-blue-100/50 text-blue-500 font-medium border-blue-500/30': selectedTags.includes(tag) }"
+                class="px-2 py-1 sm:px-3 sm:py-1 theme-surface border theme-border rounded-full text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:text-(--theme-primary) hover:border-(--theme-primary)/30"
+                :class="{ 'bg-(--theme-primary)/10 text-(--theme-primary) font-medium border-(--theme-primary)/30': selectedTags.includes(tag) }"
               >
                 {{ tag }}
               </button>
@@ -429,7 +429,7 @@ onMounted(() => {
                 <h2 class="text-base sm:text-lg font-semibold theme-text m-0">🔥 推荐内容</h2>
                 <div class="flex items-center gap-2 sm:gap-3">
                   <span class="text-xs sm:text-sm theme-text-secondary">精选推荐</span>
-                  <button @click="refreshRecommend" class="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 theme-surface border theme-border rounded-md text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500" :disabled="isRecommendLoading">
+                  <button @click="refreshRecommend" class="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 theme-surface border theme-border rounded-md text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:bg-(--theme-hover-bg) hover:border-(--theme-primary) hover:text-(--theme-primary)" :disabled="isRecommendLoading">
                     <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" :class="{ 'animate-spin': isRecommendLoading }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <polyline points="23 4 23 10 17 10" />
                       <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
@@ -437,7 +437,7 @@ onMounted(() => {
                     {{ isRecommendLoading ? '加载中...' : '刷新' }}
                   </button>
                 </div>
-                <span v-if="recommendHint" class="text-xs sm:text-sm text-red-500 animate-pulse">{{ recommendHint }}</span>
+                <span v-if="recommendHint" class="text-xs sm:text-sm text-(--theme-danger) animate-pulse">{{ recommendHint }}</span>
               </div>
 
               <div class="relative">
@@ -448,7 +448,7 @@ onMounted(() => {
                     @click="goToDetail({ ...content, type: content.type, audit_status: 'approved' } as unknown as Content)"
                     class="overflow-hidden cursor-pointer theme-card rounded-xl shadow-md transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
                   >
-                    <div class="relative w-full pt-[75%] bg-gray-100 overflow-hidden">
+                    <div class="relative w-full pt-[75%] theme-placeholder-bg overflow-hidden">
                       <img
                         :src="getImageUrl(content.thumb)"
                         :alt="content.title"
@@ -467,14 +467,14 @@ onMounted(() => {
                       <div class="flex items-center gap-2 flex-wrap">
                         <span class="text-xs theme-text-secondary">{{ content.user.username }}</span>
                         <div class="flex gap-1">
-                          <span v-for="tag in content.tags.slice(0, 2)" :key="tag" class="px-1.5 py-0.5 bg-orange-100/50 rounded text-xs text-orange-500">{{ tag }}</span>
+                          <span v-for="tag in content.tags.slice(0, 2)" :key="tag" class="px-1.5 py-0.5 bg-(--theme-warning)/10 rounded text-xs text-(--theme-warning)">{{ tag }}</span>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-                <div v-if="isRecommendLoading" class="absolute inset-0 flex flex-col items-center justify-center bg-white/50 z-10">
-                  <div class="w-10 h-10 border-3 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+                <div v-if="isRecommendLoading" class="absolute inset-0 flex flex-col items-center justify-center theme-overlay-bg z-10">
+                  <div class="w-10 h-10 border-3 border-(--theme-primary)/20 border-t-(--theme-primary) rounded-full animate-spin mx-auto mb-4"></div>
                   <p class="text-sm theme-text-secondary">加载中...</p>
                 </div>
               </div>
@@ -494,7 +494,7 @@ onMounted(() => {
                     @click="goToDetail(content)"
                     class="overflow-hidden cursor-pointer theme-card rounded-xl shadow-md transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
                   >
-                    <div class="relative w-full pt-[75%] bg-gray-100 overflow-hidden">
+                    <div class="relative w-full pt-[75%] theme-placeholder-bg overflow-hidden">
                       <template v-if="content.type === 'image' || content.type === 'video' || content.type === 'link'">
                         <img
                           :src="getImageUrl(content.thumb)"
@@ -512,16 +512,16 @@ onMounted(() => {
                         </div>
                       </template>
                       <template v-if="content.type === 'link'">
-                        <div class="absolute top-2 right-2 w-8 h-8 bg-violet-500/85 rounded-full flex items-center justify-center">
-                          <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <div class="absolute top-2 right-2 w-8 h-8 bg-(--theme-secondary) rounded-full flex items-center justify-center">
+                          <svg class="w-4 h-4 text-(--theme-on-primary)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
                             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
                           </svg>
                         </div>
                       </template>
                       <template v-if="content.type === 'text'">
-                        <div class="absolute top-0 left-0 w-full h-full p-4 bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center text-center">
-                          <p class="text-sm text-slate-500 m-0 line-clamp-4">{{ getPreviewText(content.text || '暂无内容') }}</p>
+                        <div class="absolute top-0 left-0 w-full h-full p-4 theme-surface flex items-center justify-center text-center">
+                          <p class="text-sm theme-text-secondary m-0 line-clamp-4">{{ getPreviewText(content.text || '暂无内容') }}</p>
                         </div>
                       </template>
                     </div>
@@ -540,7 +540,7 @@ onMounted(() => {
                         </div>
                       </div>
                       <div class="flex items-center gap-2">
-                        <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', content.type === 'video' ? 'bg-orange-100 text-orange-600' : content.type === 'image' ? 'bg-emerald-100 text-emerald-600' : content.type === 'link' ? 'bg-violet-100 text-violet-600' : 'bg-sky-100 text-sky-600']">
+                        <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', content.type === 'video' ? 'bg-(--theme-warning)/10 text-(--theme-warning)' : content.type === 'image' ? 'bg-(--theme-success)/10 text-(--theme-success)' : content.type === 'link' ? 'bg-(--theme-secondary)/10 text-(--theme-secondary)' : 'bg-(--theme-primary)/10 text-(--theme-primary)']">
                           {{ content.type === 'video' ? '视频' : content.type === 'image' ? '图片' : content.type === 'link' ? '链接' : '文字' }}
                         </span>
                         <span class="flex items-center gap-1 text-xs theme-text-secondary">
@@ -555,8 +555,8 @@ onMounted(() => {
                   </div>
                 </div>
                 
-                <div v-if="isLoading" class="absolute inset-0 flex flex-col items-center justify-center bg-white/50 z-10">
-                  <div class="w-10 h-10 border-3 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+                <div v-if="isLoading" class="absolute inset-0 flex flex-col items-center justify-center theme-overlay-bg z-10">
+                  <div class="w-10 h-10 border-3 border-(--theme-primary)/20 border-t-(--theme-primary) rounded-full animate-spin mx-auto mb-4"></div>
                   <p class="text-sm theme-text-secondary">加载中...</p>
                 </div>
               </div>
@@ -573,26 +573,26 @@ onMounted(() => {
         </motion.div>
 
         <div v-if="totalPages > 1" class="flex flex-wrap justify-center items-center gap-2 sm:gap-4 pt-4 border-t theme-border px-2">
-          <button @click="goToPage(1)" :disabled="page <= 1 || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 theme-surface border theme-border rounded-lg text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+          <button @click="goToPage(1)" :disabled="page <= 1 || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 theme-surface border theme-border rounded-lg text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:bg-(--theme-hover-bg) hover:border-(--theme-primary) hover:text-(--theme-primary) disabled:opacity-50 disabled:cursor-not-allowed">
             <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M19 19l-7-7 7-7" />
             </svg>
             <span class="hidden sm:inline">首页</span>
           </button>
-          <button @click="goToPage(page - 1)" :disabled="page <= 1 || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 theme-surface border theme-border rounded-lg text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+          <button @click="goToPage(page - 1)" :disabled="page <= 1 || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 theme-surface border theme-border rounded-lg text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:bg-(--theme-hover-bg) hover:border-(--theme-primary) hover:text-(--theme-primary) disabled:opacity-50 disabled:cursor-not-allowed">
             <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M15 19l-7-7 7-7" />
             </svg>
             <span class="hidden sm:inline">上一页</span>
           </button>
           <span class="px-2 py-2 text-xs sm:text-sm theme-text-secondary">第 {{ page }} / {{ totalPages }} 页</span>
-          <button @click="goToPage(page + 1)" :disabled="page >= totalPages || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 theme-surface border theme-border rounded-lg text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+          <button @click="goToPage(page + 1)" :disabled="page >= totalPages || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 theme-surface border theme-border rounded-lg text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:bg-(--theme-hover-bg) hover:border-(--theme-primary) hover:text-(--theme-primary) disabled:opacity-50 disabled:cursor-not-allowed">
             <span class="hidden sm:inline">下一页</span>
             <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M9 5l7 7-7 7" />
             </svg>
           </button>
-          <button @click="goToPage(totalPages)" :disabled="page >= totalPages || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 theme-surface border theme-border rounded-lg text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+          <button @click="goToPage(totalPages)" :disabled="page >= totalPages || isLoading" class="flex items-center gap-1 px-2 sm:px-3 py-2 theme-surface border theme-border rounded-lg text-xs sm:text-sm theme-text-secondary cursor-pointer transition-all hover:bg-(--theme-hover-bg) hover:border-(--theme-primary) hover:text-(--theme-primary) disabled:opacity-50 disabled:cursor-not-allowed">
             <span class="hidden sm:inline">尾页</span>
             <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M5 5l7 7-7 7" />

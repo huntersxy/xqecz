@@ -34,7 +34,7 @@ onUnmounted(() => {
 <template>
   <div class="theme-selector relative">
     <button
-      class="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/60 backdrop-blur-sm border border-white/30 text-sm transition-all hover:bg-white/80"
+      class="flex items-center gap-2 px-3 py-2 rounded-lg theme-surface backdrop-blur-sm theme-border text-sm transition-all hover:bg-[var(--theme-hover-bg)]"
       @click="showDropdown = !showDropdown"
     >
       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -49,14 +49,14 @@ onUnmounted(() => {
     
     <div 
       v-if="showDropdown"
-      class="absolute right-0 top-full mt-2 w-36 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-white/50 overflow-hidden z-50"
+      class="absolute right-0 top-full mt-2 w-36 theme-surface backdrop-blur-sm rounded-lg shadow-lg theme-border overflow-hidden z-50"
     >
       <button
         v-for="option in themeOptions"
         :key="option.key"
         @click="themeStore.setTheme(option.key); showDropdown = false"
-        class="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-100 transition-colors"
-        :class="{ 'bg-blue-50': themeStore.currentTheme === option.key }"
+        class="w-full flex items-center gap-3 px-4 py-2.5 text-sm theme-text hover:bg-[var(--theme-hover-bg)] transition-colors"
+        :class="{ 'bg-[var(--theme-primary)]/10 text-[var(--theme-primary)]': themeStore.currentTheme === option.key }"
       >
         <span 
           class="w-3 h-3 rounded-full"

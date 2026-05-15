@@ -12,6 +12,12 @@
   --theme-text: #1f2937;
   --theme-text-secondary: #6b7280;
   --theme-surface: rgba(255, 255, 255, 0.92);
+  --theme-header-bg: linear-gradient(to bottom, rgba(0,0,0,0.08), rgba(0,0,0,0.02));
+  --theme-accent-gradient: linear-gradient(to right, #6366f1, #a855f7);
+  --theme-hover-bg: #f3f4f6;
+  --theme-placeholder-bg: #f3f4f6;
+  --theme-on-primary: #ffffff;
+  --theme-overlay-bg: rgba(255, 255, 255, 0.5);
   --theme-card-bg: rgba(255, 255, 255, 0.75);
   --theme-card-border: rgba(255, 255, 255, 0.4);
   --theme-success: #22c55e;
@@ -57,44 +63,96 @@
 
 @layer utilities {
   .theme-card {
+    position: relative;
     background-color: var(--theme-card-bg);
     border-color: var(--theme-card-border);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow:
+      inset 2px 2px 1px 0 rgba(255, 255, 255, 0.5),
+      inset -1px -1px 1px 0 rgba(255, 255, 255, 0.3);
   }
-  
+
+  .theme-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent 50%);
+    pointer-events: none;
+  }
+
   .theme-text {
     color: var(--theme-text);
   }
-  
+
   .theme-primary {
     color: var(--theme-primary);
   }
-  
+
   .theme-bg-primary {
     background-color: var(--theme-primary);
   }
-  
+
   .theme-success {
     color: var(--theme-success);
   }
-  
+
   .theme-warning {
     color: var(--theme-warning);
   }
-  
+
   .theme-danger {
     color: var(--theme-danger);
   }
-  
+
   .theme-surface {
+    position: relative;
     background-color: var(--theme-surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow:
+      inset 1px 1px 0 0 rgba(255, 255, 255, 0.4),
+      inset -1px -1px 0 0 rgba(0, 0, 0, 0.04);
   }
-  
+
+  .theme-surface::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent 60%);
+    pointer-events: none;
+  }
+
   .theme-text-secondary {
     color: var(--theme-text-secondary);
   }
-  
+
   .theme-border {
     border-color: var(--theme-card-border);
+  }
+
+  .theme-header-bg {
+    background: var(--theme-header-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .theme-accent-gradient {
+    background: var(--theme-accent-gradient);
+  }
+
+  .theme-placeholder-bg {
+    background-color: var(--theme-placeholder-bg);
+  }
+
+  .theme-overlay-bg {
+    background-color: var(--theme-overlay-bg);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
 }
 

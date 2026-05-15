@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { RouterLink, RouterView } from 'vue-router'
 import { useUserStore } from './stores/user'
+import { useThemeStore } from './stores/theme'
 import { onMounted, ref } from 'vue'
 import logoImg from '@/assets/logo.webp'
 
 const userStore = useUserStore()
+useThemeStore()
 const isMobileMenuOpen = ref(false)
 const isMobileUA = ref(false)
 
@@ -223,7 +225,14 @@ onMounted(() => {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--theme-surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.mac-header.no-blur {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .mac-nav {
@@ -245,7 +254,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   text-decoration: none;
-  color: #1a1a1a;
+  color: var(--theme-text);
   font-weight: 600;
   font-size: 15px;
 }
@@ -253,7 +262,7 @@ onMounted(() => {
 .brand-icon {
   width: 24px;
   height: 24px;
-  color: #007aff;
+  color: var(--theme-primary);
 }
 
 .brand-logo {
@@ -272,20 +281,20 @@ onMounted(() => {
   gap: 6px;
   padding: 8px 16px;
   text-decoration: none;
-  color: #333;
+  color: var(--theme-text);
   border-radius: 8px;
   transition: all 0.2s ease;
   font-size: 14px;
 }
 
 .nav-link:hover {
-  background: rgba(0, 0, 0, 0.06);
-  color: #007aff;
+  background: var(--theme-hover-bg);
+  color: var(--theme-primary);
 }
 
 .nav-link.router-link-exact-active {
-  background: rgba(0, 122, 255, 0.1);
-  color: #007aff;
+  background: color-mix(in srgb, var(--theme-primary) 10%, transparent);
+  color: var(--theme-primary);
 }
 
 .link-icon {
@@ -304,19 +313,19 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--theme-hover-bg);
   border-radius: 20px;
 }
 
 .user-icon {
   width: 18px;
   height: 18px;
-  color: #666;
+  color: var(--theme-text-secondary);
 }
 
 .user-name {
   font-size: 13px;
-  color: #333;
+  color: var(--theme-text);
 }
 
 .admin-badge {
@@ -353,12 +362,12 @@ onMounted(() => {
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  color: #333;
+  color: var(--theme-text);
   transition: background 0.2s ease;
 }
 
 .mobile-menu-btn:hover {
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--theme-hover-bg);
 }
 
 .mobile-menu-btn svg {
@@ -387,7 +396,7 @@ onMounted(() => {
 .mobile-menu {
   width: 85%;
   max-width: 320px;
-  background: white;
+  background: var(--theme-surface);
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -404,13 +413,13 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 20px 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid var(--theme-card-border);
 }
 
 .mobile-menu-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--theme-text);
 }
 
 .mobile-menu-close {
@@ -419,11 +428,11 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--theme-hover-bg);
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  color: #666;
+  color: var(--theme-text-secondary);
 }
 
 .mobile-menu-close svg {
@@ -443,23 +452,23 @@ onMounted(() => {
   gap: 16px;
   padding: 16px;
   text-decoration: none;
-  color: #1a1a1a;
+  color: var(--theme-text);
   border-radius: 12px;
   transition: all 0.2s ease;
   font-size: 16px;
   margin-bottom: 6px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-card-border);
 }
 
 .mobile-nav-link:hover {
-  background: rgba(0, 122, 255, 0.06);
+  background: var(--theme-hover-bg);
 }
 
 .mobile-nav-link.router-link-exact-active {
-  background: linear-gradient(135deg, rgba(0, 122, 255, 0.15) 0%, rgba(0, 122, 255, 0.08) 100%);
-  color: #007aff;
-  border-color: rgba(0, 122, 255, 0.2);
+  background: color-mix(in srgb, var(--theme-primary) 12%, transparent);
+  color: var(--theme-primary);
+  border-color: color-mix(in srgb, var(--theme-primary) 20%, transparent);
 }
 
 .mobile-nav-link svg {
@@ -471,7 +480,7 @@ onMounted(() => {
 .mobile-user-section {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  border-top: 1px solid var(--theme-card-border);
 }
 
 .mobile-user-info {
@@ -479,7 +488,7 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background: rgba(0, 0, 0, 0.03);
+  background: var(--theme-hover-bg);
   border-radius: 10px;
   margin-bottom: 8px;
 }
@@ -487,7 +496,7 @@ onMounted(() => {
 .mobile-user-icon {
   width: 24px;
   height: 24px;
-  color: #007aff;
+  color: var(--theme-primary);
 }
 
 .mobile-user-details {
@@ -498,7 +507,7 @@ onMounted(() => {
   display: block;
   font-size: 15px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--theme-text);
 }
 
 .mobile-admin-badge {
@@ -519,10 +528,10 @@ onMounted(() => {
   gap: 8px;
   width: 100%;
   padding: 14px;
-  background: rgba(220, 38, 38, 0.1);
+  background: color-mix(in srgb, var(--theme-danger) 10%, transparent);
   border: none;
   border-radius: 10px;
-  color: #dc2626;
+  color: var(--theme-danger);
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
@@ -530,7 +539,7 @@ onMounted(() => {
 }
 
 .mobile-logout-btn:hover {
-  background: rgba(220, 38, 38, 0.15);
+  background: color-mix(in srgb, var(--theme-danger) 15%, transparent);
 }
 
 .mobile-logout-btn svg {
@@ -542,8 +551,8 @@ onMounted(() => {
 .site-footer {
   margin-top: 40px;
   padding: 20px;
-  background: rgba(255, 255, 255, 0.85);
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  background: var(--theme-surface);
+  border-top: 1px solid var(--theme-card-border);
   backdrop-filter: blur(10px);
 }
 
@@ -566,26 +575,26 @@ onMounted(() => {
 
 .copyright {
   font-size: 14px;
-  color: #666;
+  color: var(--theme-text-secondary);
   font-weight: 500;
 }
 
 .license {
   font-size: 13px;
-  color: #999;
+  color: var(--theme-text-secondary);
   padding: 4px 10px;
-  background: rgba(0, 0, 0, 0.03);
+  background: var(--theme-hover-bg);
   border-radius: 4px;
 }
 
 .icp {
   font-size: 13px;
-  color: #999;
+  color: var(--theme-text-secondary);
 }
 
 .footer-right {
   font-size: 13px;
-  color: #999;
+  color: var(--theme-text-secondary);
 }
 
 .build-info {
@@ -608,8 +617,8 @@ main {
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid rgba(0, 122, 255, 0.2);
-  border-top-color: #007aff;
+  border: 3px solid color-mix(in srgb, var(--theme-primary) 20%, transparent);
+  border-top-color: var(--theme-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -622,7 +631,7 @@ main {
 
 .loading-fallback p {
   margin-top: 16px;
-  color: #666;
+  color: var(--theme-text-secondary);
   font-size: 14px;
 }
 
