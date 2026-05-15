@@ -1,11 +1,154 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, defineComponent, h } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { RouterLink } from 'vue-router'
 import { contentApi, commentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import type { Content, Comment } from '@/types'
 import { renderMarkdown } from '@/utils'
+
+const CommentItem = defineComponent({
+  name: 'CommentItem',
+  props: {
+    comment: { type: Object as () => Comment, required: true },
+    replyTarget: { type: Object as () => Comment | null, required: true },
+    menuTarget: { type: Number, required: true },
+    level: { type: Number, default: 0 }
+  },
+  emits: ['select-reply', 'toggle-menu', 'delete-comment', 'report-comment'],
+  setup(props, { emit }) {
+    const userStore = useUserStore()
+
+    const formatTime = (ts: number | string) => {
+      if (!ts) return ''
+      const timestamp = typeof ts === 'string' ? parseInt(ts) : ts
+      return new Date(timestamp * 1000).toLocaleString('zh-CN')
+    }
+
+    return () => h('div', { class: 'flex gap-2 sm:gap-3 p-2 sm:p-3 bg-white/60 rounded-lg border border-white/36' }, [
+      h('div', { class: 'w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0' }, [
+        h('svg', { 
+          class: 'w-4 h-4 sm:w-5 sm:h-5 text-blue-500', 
+          viewBox: '0 0 24 24', 
+          fill: 'none', 
+          stroke: 'currentColor', 
+          'stroke-width': '2'
+        }, [
+          h('path', { d: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2' }),
+          h('circle', { cx: '12', cy: '7', r: '4' })
+        ])
+      ]),
+      h('div', { class: 'flex-1 relative' }, [
+        h('div', { class: 'flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2' }, [
+          h('span', { class: 'font-semibold text-sm text-gray-900' }, props.comment.user?.username),
+          h('span', { class: 'text-xs text-gray-400' }, formatTime(props.comment.created_at)),
+          userStore.isLoggedIn && (userStore.user?.is_admin || props.comment.user_id === userStore.user?.id) ? h('button', {
+            class: 'ml-auto p-1 text-gray-400 hover:text-gray-700 transition-colors',
+            onClick: (e: Event) => {
+              e.stopPropagation()
+              emit('toggle-menu', props.comment.id)
+            }
+          }, [
+            h('svg', {
+              class: 'w-4 h-4',
+              viewBox: '0 0 24 24',
+              fill: 'none',
+              stroke: 'currentColor',
+              'stroke-width': '2'
+            }, [
+              h('circle', { cx: '12', cy: '12', r: '1' }),
+              h('circle', { cx: '19', cy: '12', r: '1' }),
+              h('circle', { cx: '5', cy: '12', r: '1' })
+            ])
+          ]) : null
+        ]),
+        h('div', { class: 'text-xs sm:text-sm text-gray-700 leading-relaxed' }, [
+          props.comment.parent ? h('div', { class: 'mb-1 p-1.5 bg-gray-100 rounded text-xs text-gray-500 border-l-2 border-blue-500' }, [
+            h('span', { class: 'font-medium text-gray-600' }, props.comment.parent.user?.username + ': '),
+            props.comment.parent.text
+          ]) : null,
+          h('span', props.comment.text)
+        ]),
+        h('div', { class: 'mt-1 sm:mt-2' }, [
+          userStore.isLoggedIn ? h('button', {
+            class: 'flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 transition-colors',
+            onClick: () => emit('select-reply', props.comment)
+          }, [
+            h('svg', {
+              class: 'w-3.5 h-3.5',
+              viewBox: '0 0 24 24',
+              fill: 'none',
+              stroke: 'currentColor',
+              'stroke-width': '2'
+            }, [
+              h('path', { d: 'M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586z' })
+            ]),
+            h('span', '回复')
+          ]) : null
+        ]),
+        
+        props.menuTarget === props.comment.id ? h('div', {
+          class: 'absolute right-0 top-0 bg-white rounded-lg shadow-lg shadow-black/12 p-1 min-w-[120px] z-10'
+        }, [
+          h('button', {
+            class: 'flex items-center gap-2 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded',
+            onClick: () => {
+              emit('delete-comment', props.comment.id)
+              emit('toggle-menu', null)
+            }
+          }, [
+            h('svg', {
+              class: 'w-4 h-4',
+              viewBox: '0 0 24 24',
+              fill: 'none',
+              stroke: 'currentColor',
+              'stroke-width': '2'
+            }, [
+              h('path', { d: 'M3 6h18' }),
+              h('path', { d: 'M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6' }),
+              h('path', { d: 'M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2' })
+            ]),
+            '删除'
+          ]),
+          h('button', {
+            class: 'flex items-center gap-2 w-full px-3 py-2 text-sm text-amber-500 hover:bg-amber-50 rounded',
+            onClick: () => {
+              emit('report-comment', props.comment)
+              emit('toggle-menu', null)
+            }
+          }, [
+            h('svg', {
+              class: 'w-4 h-4',
+              viewBox: '0 0 24 24',
+              fill: 'none',
+              stroke: 'currentColor',
+              'stroke-width': '2'
+            }, [
+              h('path', { d: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' })
+            ]),
+            '举报'
+          ])
+        ]) : null,
+
+        props.comment.replies && props.comment.replies.length > 0 ? h('div', {
+          class: 'mt-2 sm:mt-3 pl-3 sm:pl-4 border-l-2 border-blue-500/20'
+        }, props.comment.replies.map(reply => 
+          h(CommentItem, {
+            key: reply.id,
+            comment: reply,
+            replyTarget: props.replyTarget,
+            menuTarget: props.menuTarget,
+            level: props.level + 1,
+            onSelectReply: (c: Comment) => emit('select-reply', c),
+            onToggleMenu: (id: number) => emit('toggle-menu', id),
+            onDeleteComment: (id: number) => emit('delete-comment', id),
+            onReportComment: (c: Comment) => emit('report-comment', c)
+          })
+        )) : null
+      ])
+    ])
+  }
+})
 
 const route = useRoute()
 const router = useRouter()
@@ -47,11 +190,8 @@ function getImageUrl(image?: string): string {
   return ''
 }
 
-function formatTime(ts: number | string): string {
+function formatTime(ts: number): string {
   if (!ts) return ''
-  if (typeof ts === 'string') {
-    return new Date(ts).toLocaleString('zh-CN')
-  }
   return new Date(ts * 1000).toLocaleString('zh-CN')
 }
 
@@ -81,11 +221,12 @@ async function loadContent() {
   }
 }
 
-async function loadComments() {
+async function loadComments(page: number = 1) {
   try {
     const id = Number(route.params.id)
-    const res = await commentApi.list(id, currentPage.value, pageSize.value)
+    const res = await commentApi.list(id, page, pageSize.value)
     if (res.code === 200) {
+      currentPage.value = page
       comments.value = res.data.list
       totalComments.value = res.data.total
       totalPages.value = res.data.total_page
@@ -95,20 +236,14 @@ async function loadComments() {
   }
 }
 
-async function loadMoreComments() {
+async function goToPrevPage() {
+  if (currentPage.value <= 1) return
+  await loadComments(currentPage.value - 1)
+}
+
+async function goToNextPage() {
   if (currentPage.value >= totalPages.value) return
-  currentPage.value++
-  try {
-    const id = Number(route.params.id)
-    const res = await commentApi.list(id, currentPage.value, pageSize.value)
-    if (res.code === 200) {
-      comments.value = [...comments.value, ...res.data.list]
-      totalComments.value = res.data.total
-      totalPages.value = res.data.total_page
-    }
-  } catch (error) {
-    console.error('加载更多评论失败:', error)
-  }
+  await loadComments(currentPage.value + 1)
 }
 
 async function submitComment() {
@@ -123,9 +258,8 @@ async function submitComment() {
     if (res.code === 200) {
       commentText.value = ''
       replyTarget.value = null
-      currentPage.value = 1
       message.value = '评论成功'
-      await loadComments()
+      await loadComments(1)
     } else {
       message.value = res.message || '评论失败'
     }
@@ -146,8 +280,7 @@ async function deleteComment(commentId: number) {
     const res = await commentApi.delete(commentId)
     if (res.code === 200) {
       message.value = '删除成功'
-      currentPage.value = 1
-      await loadComments()
+      await loadComments(currentPage.value)
     } else {
       message.value = res.message || '删除失败'
     }
@@ -237,8 +370,8 @@ onMounted(() => {
           <div class="mb-3 sm:mb-5">
             <button @click="goBack" class="flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 bg-black/5 rounded-lg text-sm text-gray-700 hover:bg-black/10 hover:text-blue-500 transition-all">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M19 12H5"/>
-                <polyline points="12 19 5 12 12 5"/>
+                <path d="M19 12H5"></path>
+                <polyline points="12 19 5 12 12 5"></polyline>
               </svg>
               <span class="hidden sm:inline">返回</span>
             </button>
@@ -260,8 +393,8 @@ onMounted(() => {
             <div class="flex flex-wrap gap-3 sm:gap-4 mb-3 sm:mb-4 pb-3 sm:pb-4 border-b border-black/6">
               <div class="flex items-center gap-1.5 text-xs sm:text-sm text-gray-600">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                  <circle cx="12" cy="7" r="4"/>
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
                 </svg>
                 <span>{{ content.user?.username }}</span>
                 <button
@@ -273,7 +406,7 @@ onMounted(() => {
               </div>
               <div v-if="(content.tags || []).length > 0" class="flex items-center gap-1.5 text-xs sm:text-sm text-gray-600">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                  <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                 </svg>
                 <span v-for="tag in (content.tags || [])" :key="tag" class="px-1.5 py-0.5 bg-blue-500/10 rounded text-blue-500 text-xs">{{ tag }}</span>
               </div>
@@ -282,16 +415,16 @@ onMounted(() => {
             <div class="flex flex-wrap gap-3 sm:gap-4 mb-4 sm:mb-5 text-xs sm:text-sm text-gray-400">
               <span class="flex items-center gap-1.5">
                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <polyline points="12 6 12 12 16 14"/>
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
                 </svg>
                 {{ formatTime(content.created_at) }}
               </span>
               <span v-if="content.updated_at !== content.created_at" class="flex items-center gap-1.5">
                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="23 4 23 10 17 10"/>
-                  <polyline points="18 21 23 21 23 15"/>
-                  <path d="M20.49 9h-5.99M14.51 21h-5.99M9 9H3m3 12H3"/>
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <polyline points="18 21 23 21 23 15"></polyline>
+                  <path d="M20.49 9h-5.99M14.51 21h-5.99M9 9H3m3 12H3"></path>
                 </svg>
                 {{ formatTime(content.updated_at) }}
               </span>
@@ -300,11 +433,11 @@ onMounted(() => {
             <div>
               <div v-if="content.type === 'text'" class="text-gray-800 text-sm sm:text-base leading-relaxed" v-html="renderedContent"></div>
               <div v-else-if="content.type === 'image'" class="flex justify-center">
-                <img :src="getImageUrl(content.img)" alt="内容图片" class="w-full sm:w-[90%] rounded-xl shadow-lg shadow-black/10" />
+                <img :src="getImageUrl(content.img)" alt="内容图片" class="w-full sm:w-[90%] rounded-xl shadow-lg shadow-black/10">
               </div>
               <div v-else-if="content.type === 'video'" class="flex justify-center">
                 <video controls class="w-full sm:w-[90%] max-h-[300px] sm:max-h-[450px] rounded-xl bg-black">
-                  <source :src="getImageUrl(content.video)" />
+                  <source :src="getImageUrl(content.video)">
                   您的浏览器不支持视频播放。
                 </video>
               </div>
@@ -315,13 +448,25 @@ onMounted(() => {
           <div class="bg-white/60 rounded-xl p-3 sm:p-4 shadow-md shadow-black/8 border border-white/36">
             <div class="mb-3 sm:mb-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
               <h3 class="text-base sm:text-lg font-semibold text-gray-900">评论 ({{ totalComments }})</h3>
-              <button
-                v-if="currentPage < totalPages"
-                @click="loadMoreComments"
-                class="text-sm text-blue-500 hover:text-blue-600 font-medium"
-              >
-                加载更多
-              </button>
+              <div class="flex items-center gap-2">
+                <button
+                  v-if="currentPage > 1"
+                  @click="goToPrevPage"
+                  class="px-3 py-1 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                >
+                  上一页
+                </button>
+                <span class="text-sm text-gray-500">
+                  第 {{ currentPage }} / {{ totalPages }} 页
+                </span>
+                <button
+                  v-if="currentPage < totalPages"
+                  @click="goToNextPage"
+                  class="px-3 py-1 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                >
+                  下一页
+                </button>
+              </div>
             </div>
 
             <div v-if="userStore.isLoggedIn" class="mb-3 sm:mb-4">
@@ -347,109 +492,23 @@ onMounted(() => {
             </div>
 
             <div v-if="comments.length > 0" class="space-y-2 sm:space-y-3">
-              <div v-for="comment in comments" :key="comment.id" class="flex gap-2 sm:gap-3 p-2 sm:p-3 bg-white/60 rounded-lg border border-white/36">
-                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
-                  <svg class="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                    <circle cx="12" cy="7" r="4"/>
-                  </svg>
-                </div>
-                <div class="flex-1 relative">
-                  <div class="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
-                    <span class="font-semibold text-sm text-gray-900">{{ comment.user?.username }}</span>
-                    <span class="text-xs text-gray-400">{{ formatTime(comment.created_at) }}</span>
-                    <button
-                      v-if="userStore.isLoggedIn && (userStore.user?.is_admin || comment.user_id === userStore.user?.id)"
-                      class="ml-auto p-1 text-gray-400 hover:text-gray-700 transition-colors"
-                      @click.stop="toggleMenu(comment.id)"
-                    >
-                      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="1"/>
-                        <circle cx="19" cy="12" r="1"/>
-                        <circle cx="5" cy="12" r="1"/>
-                      </svg>
-                    </button>
-                  </div>
-                  <p class="text-xs sm:text-sm text-gray-700 leading-relaxed">{{ comment.text }}</p>
-                  <div class="mt-1 sm:mt-2">
-                    <button v-if="userStore.isLoggedIn" @click="replyTarget = comment" class="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 transition-colors">
-                      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                      </svg>
-                      <span>回复</span>
-                    </button>
-                  </div>
-
-                  <div v-if="menuTarget === comment.id" class="absolute right-0 top-0 bg-white rounded-lg shadow-lg shadow-black/12 p-1 min-w-[120px] z-10">
-                    <button @click="deleteComment(comment.id); closeMenu()" class="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded">
-                      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M3 6h18"/>
-                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-                      </svg>
-                      删除
-                    </button>
-                    <button @click="openReport(comment)" class="flex items-center gap-2 w-full px-3 py-2 text-sm text-amber-500 hover:bg-amber-50 rounded">
-                      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                      </svg>
-                      举报
-                    </button>
-                  </div>
-
-                  <div v-if="comment.replies && comment.replies.length > 0" class="mt-2 sm:mt-3 pl-3 sm:pl-4 border-l-2 border-blue-500/20">
-                    <div v-for="reply in comment.replies" :key="reply.id" class="flex gap-2 mb-2 last:mb-0">
-                      <div class="w-7 h-7 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
-                        <svg class="w-3.5 h-3.5 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                          <circle cx="12" cy="7" r="4"/>
-                        </svg>
-                      </div>
-                      <div class="flex-1 relative">
-                        <div class="flex items-center gap-1.5 mb-1">
-                          <span class="font-medium text-xs sm:text-sm text-gray-800">{{ reply.user?.username }}</span>
-                          <span class="text-xs text-gray-400">{{ formatTime(reply.created_at) }}</span>
-                          <button
-                            v-if="userStore.isLoggedIn && (userStore.user?.is_admin || reply.user_id === userStore.user?.id)"
-                            class="ml-auto p-0.5 text-gray-400 hover:text-gray-700 transition-colors"
-                            @click.stop="toggleMenu(-reply.id)"
-                          >
-                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                              <circle cx="12" cy="12" r="1"/>
-                              <circle cx="19" cy="12" r="1"/>
-                              <circle cx="5" cy="12" r="1"/>
-                            </svg>
-                          </button>
-                        </div>
-                        <p class="text-xs sm:text-sm text-gray-600"><span class="text-blue-500 font-medium">{{ reply.parent?.user?.username }}:</span> {{ reply.text }}</p>
-                        <button v-if="userStore.isLoggedIn" @click="replyTarget = reply" class="text-xs text-gray-400 hover:text-blue-500 mt-1">回复</button>
-
-                        <div v-if="menuTarget === -reply.id" class="absolute right-0 top-full bg-white rounded-lg shadow-lg shadow-black/12 p-1 min-w-[120px] z-10 mt-1">
-                          <button @click="deleteComment(reply.id); closeMenu()" class="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded">
-                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                              <path d="M3 6h18"/>
-                              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-                              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-                            </svg>
-                            删除
-                          </button>
-                          <button @click="openReport(reply)" class="flex items-center gap-2 w-full px-3 py-2 text-sm text-amber-500 hover:bg-amber-50 rounded">
-                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                              <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                            </svg>
-                            举报
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <template v-for="comment in comments" :key="comment.id">
+                <CommentItem
+                  :comment="comment"
+                  :reply-target="replyTarget"
+                  :menu-target="menuTarget"
+                  :level="0"
+                  @select-reply="replyTarget = $event"
+                  @toggle-menu="menuTarget = $event"
+                  @delete-comment="deleteComment($event)"
+                  @report-comment="openReport($event)"
+                />
+              </template>
             </div>
 
             <div v-else class="flex flex-col items-center py-8 sm:py-10 text-gray-400">
               <svg class="w-10 h-10 sm:w-12 sm:h-12 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
               </svg>
               <p class="text-sm">暂无评论，快来发表第一条评论吧</p>
             </div>
@@ -458,9 +517,9 @@ onMounted(() => {
 
         <div v-else class="flex flex-col items-center py-12 sm:py-20 text-gray-400">
           <svg class="w-16 h-16 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20 20h-8l-4-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="9" y1="15" x2="15" y2="15"/>
+            <path d="M20 20h-8l-4-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="9" y1="15" x2="15" y2="15"></line>
           </svg>
           <p class="text-sm">加载中...</p>
         </div>
@@ -477,7 +536,7 @@ onMounted(() => {
               <p class="text-sm text-gray-700 mb-2">您正在举报以下评论：</p>
               <p class="px-3 py-2 bg-black/3 rounded-lg text-sm text-gray-500 italic mb-3">{{ reportTarget.text }}</p>
               <label class="block text-sm text-gray-600 mb-2">举报原因（可选）</label>
-              <input v-model="reportReason" type="text" class="w-full px-3 py-2 border border-black/10 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10" placeholder="请输入举报原因" />
+              <input v-model="reportReason" type="text" class="w-full px-3 py-2 border border-black/10 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10" placeholder="请输入举报原因">
             </div>
             <div class="flex justify-end gap-3 px-4 py-3 border-t border-black/6 bg-black/3">
               <button @click="reportTarget = null" class="px-4 py-2 text-sm text-gray-700 hover:text-blue-500 transition-colors">取消</button>
