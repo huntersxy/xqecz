@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useThemeStore } from '@/stores/theme'
 import type { ThemeType } from '@/stores/theme'
 
 const themeStore = useThemeStore()
+
+const showDropdown = ref(false)
 
 const themeOptions = computed(() => {
   return Object.entries(themeStore.themes).map(([key, config]) => ({
@@ -11,6 +13,21 @@ const themeOptions = computed(() => {
     name: config.name,
     color: config.primary
   }))
+})
+
+function handleClickOutside(event: MouseEvent) {
+  const target = event.target as HTMLElement
+  if (!target.closest('.theme-selector')) {
+    showDropdown.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
@@ -50,32 +67,3 @@ const themeOptions = computed(() => {
     </div>
   </div>
 </template>
-
-<script lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-
-export default {
-  setup() {
-    const showDropdown = ref(false)
-
-    function handleClickOutside(event: MouseEvent) {
-      const target = event.target as HTMLElement
-      if (!target.closest('.theme-selector')) {
-        showDropdown.value = false
-      }
-    }
-
-    onMounted(() => {
-      document.addEventListener('click', handleClickOutside)
-    })
-
-    onUnmounted(() => {
-      document.removeEventListener('click', handleClickOutside)
-    })
-
-    return {
-      showDropdown
-    }
-  }
-}
-</script>
