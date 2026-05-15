@@ -1,158 +1,46 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@import "tailwindcss";
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
-html, body {
-  height: 100%;
-  min-height: 100vh;
-}
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 
-html {
-  font-size: 14px;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+  html, body {
+    height: 100%;
+    min-height: 100vh;
+  }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  min-height: 100vh;
-  -webkit-tap-highlight-color: transparent;
-}
+  html {
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-#app {
-  min-height: 100vh;
-  background: url('./bg.webp');
-  background-size: cover;
-  background-position: center center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-  background-color: #000;
+  body {
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #app {
+    min-height: 100vh;
+    background: url('./bg.webp');
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-color: #000;
+  }
 }
 
 @media screen and (max-width: 768px) {
   html {
     font-size: 13px;
-  }
-}
-
-.mac-btn {
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 6px;
-  font-size: 14px;
-  color: #333;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.mac-btn:hover {
-  background: rgba(59, 130, 246, 0.08);
-  color: #3b82f6;
-  border-color: rgba(59, 130, 246, 0.3);
-}
-
-.primary-btn {
-  background: rgba(59, 130, 246, 0.95);
-  color: white;
-  border-color: rgba(59, 130, 246, 0.95);
-}
-
-.primary-btn:hover {
-  background: rgba(37, 99, 235, 0.95);
-  color: white;
-  border-color: rgba(37, 99, 235, 0.95);
-}
-
-.danger-btn {
-  background: rgba(239, 68, 68, 0.95);
-  color: white;
-  border-color: rgba(239, 68, 68, 0.95);
-}
-
-.danger-btn:hover {
-  background: rgba(220, 38, 38, 0.95);
-  color: white;
-  border-color: rgba(220, 38, 38, 0.95);
-}
-
-.mac-input {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  font-size: 14px;
-  background: white;
-  box-sizing: border-box;
-}
-
-.mac-input:focus {
-  outline: none;
-  border-color: rgba(59, 130, 246, 0.5);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-}
-
-.mac-title-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 8px 8px 0 0;
-  background: linear-gradient(180deg, rgba(0,0,0,0.05) 0%, transparent 100%);
-}
-
-.mac-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-
-.mac-dot-red {
-  background: #ff5f56;
-}
-
-.mac-dot-yellow {
-  background: #ffbd2e;
-}
-
-.mac-dot-green {
-  background: #27c93f;
-}
-
-.mac-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.mac-scrollbar::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 3px;
-}
-
-.mac-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 3px;
-}
-
-.mac-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
-}
-
-@media screen and (max-width: 768px) {
-  .mac-btn {
-    padding: 10px 16px;
-    font-size: 15px;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .mac-input {
-    padding: 12px 14px;
-    font-size: 15px;
-    min-height: 44px;
   }
 }

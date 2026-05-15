@@ -17,8 +17,8 @@ export interface User {
   username: string
   is_admin: boolean
   is_banned: boolean
-  created_at: number
-  updated_at: number
+  created_at: number | string
+  updated_at: number | string
 }
 
 export interface LoginResponse {
@@ -70,11 +70,12 @@ export interface Comment {
   text: string
   parent_id: number | null
   is_banned: boolean
-  created_at: number
-  updated_at?: number
-  user?: { id: number; username: string; is_admin?: boolean }
+  created_at: number | string
+  updated_at?: number | string
+  user?: { id: number; username: string; is_admin?: boolean; is_banned?: boolean; created_at?: string; updated_at?: string }
   parent?: Pick<Comment, 'id' | 'user_id' | 'text'> & { user?: { id: number; username: string } }
   replies?: Comment[]
+  content?: Content
 }
 
 export interface CommentReport {

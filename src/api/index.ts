@@ -18,6 +18,14 @@ import type {
   CreatePollData,
 } from '@/types'
 
+export interface CommentListResponse {
+  list: Comment[]
+  total: number
+  page: number
+  page_size: number
+  total_page: number
+}
+
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 const api = ofetch.create({
@@ -213,8 +221,10 @@ export const commentApi = {
     })
   },
 
-  list: (contentId: number) => {
-    return request<Comment[]>(`/comment/list/${contentId}`)
+  list: (contentId: number, page: number = 1, pageSize: number = 20) => {
+    return request<CommentListResponse>(`/comment/list/${contentId}`, {
+      query: { page, page_size: pageSize }
+    })
   },
 
   delete: (id: number) => request(`/comment/${id}`, { method: 'DELETE' }),

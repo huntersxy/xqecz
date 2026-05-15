@@ -40,65 +40,65 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div v-if="visible" class="modal-overlay" @click.self="$emit('close')">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>编辑内容</h2>
-        <span class="modal-close" @click="$emit('close')">×</span>
+  <div v-if="visible" class="fixed inset-0 flex items-center justify-center z-[9999] bg-black/50" @click.self="$emit('close')">
+    <div class="w-[90%] max-w-[600px] bg-white/98 rounded-xl shadow-2xl overflow-hidden relative z-[10000]">
+      <div class="flex justify-between items-center px-5 py-4 bg-gradient-to-b from-black/5 to-transparent border-b border-black/5">
+        <h2 class="text-base font-semibold text-gray-900 m-0">编辑内容</h2>
+        <span class="text-2xl text-gray-400 cursor-pointer leading-none hover:text-blue-500 transition-colors" @click="$emit('close')">×</span>
       </div>
-      <div class="modal-body">
-        <div class="form-row">
-          <label class="form-label">标题</label>
-          <input v-model="editForm.title" type="text" class="mac-input" />
+      <div class="p-5">
+        <div class="mb-4">
+          <label class="block text-[13px] font-medium text-gray-700 mb-2">标题</label>
+          <input v-model="editForm.title" type="text" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10" />
         </div>
-        <div v-if="editForm.type === 'text'" class="form-row">
-          <label class="form-label">内容</label>
-          <div class="md-toolbar">
-            <button type="button" @click="$emit('insertMarkdown', '## ')" class="md-btn" title="标题">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div v-if="editForm.type === 'text'" class="mb-4">
+          <label class="block text-[13px] font-medium text-gray-700 mb-2">内容</label>
+          <div class="flex gap-1 mb-2 p-1.5 bg-black/3 rounded-md">
+            <button type="button" @click="$emit('insertMarkdown', '## ')" class="w-8 h-8 flex items-center justify-center bg-white border border-black/10 rounded-md text-gray-600 hover:text-blue-500 hover:border-blue-300 transition-all active:bg-blue-50 active:shadow-inner active:ring-1 active:ring-blue-200" title="标题">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M4 12h16M4 6h16M4 18h10" />
               </svg>
             </button>
-            <button type="button" @click="$emit('insertMarkdown', '**', '**')" class="md-btn" title="粗体">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <button type="button" @click="$emit('insertMarkdown', '**', '**')" class="w-8 h-8 flex items-center justify-center bg-white border border-black/10 rounded-md text-gray-600 hover:text-blue-500 hover:border-blue-300 transition-all active:bg-blue-50 active:shadow-inner active:ring-1 active:ring-blue-200" title="粗体">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
                 <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
               </svg>
             </button>
-            <button type="button" @click="$emit('insertMarkdown', '*', '*')" class="md-btn" title="斜体">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <button type="button" @click="$emit('insertMarkdown', '*', '*')" class="w-8 h-8 flex items-center justify-center bg-white border border-black/10 rounded-md text-gray-600 hover:text-blue-500 hover:border-blue-300 transition-all active:bg-blue-50 active:shadow-inner active:ring-1 active:ring-blue-200" title="斜体">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="19" y1="4" x2="10" y2="4" />
                 <line x1="14" y1="20" x2="5" y2="20" />
                 <line x1="15" y1="4" x2="9" y2="20" />
               </svg>
             </button>
-            <button type="button" @click="$emit('triggerImageUpload')" class="md-btn" title="上传图片">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <button type="button" @click="$emit('triggerImageUpload')" class="w-8 h-8 flex items-center justify-center bg-white border border-black/10 rounded-md text-gray-600 hover:text-blue-500 hover:border-blue-300 transition-all active:bg-blue-50 active:shadow-inner active:ring-1 active:ring-blue-200" title="上传图片">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                 <circle cx="8.5" cy="8.5" r="1.5" />
                 <polyline points="21 15 16 10 5 21" />
               </svg>
             </button>
           </div>
-          <textarea v-model="editForm.content" class="mac-input textarea edit-textarea"></textarea>
+          <textarea v-model="editForm.content" class="w-full min-h-[200px] resize-y font-mono text-sm leading-relaxed box-border bg-white border border-gray-200 rounded-lg p-3 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10 edit-textarea"></textarea>
         </div>
-        <div v-else class="form-row">
-          <label class="form-label">文件</label>
-          <input type="file" @change="$emit('handleFileChange', $event)" class="file-input" />
+        <div v-else class="mb-4">
+          <label class="block text-[13px] font-medium text-gray-700 mb-2">文件</label>
+          <input type="file" @change="$emit('handleFileChange', $event)" class="p-2 border border-gray-200 rounded-lg bg-white cursor-pointer" />
         </div>
-        <div v-if="editForm.type === 'link'" class="form-row">
-          <label class="form-label">链接地址</label>
-          <input v-model="editForm.url" type="url" class="mac-input" placeholder="https://..." />
+        <div v-if="editForm.type === 'link'" class="mb-4">
+          <label class="block text-[13px] font-medium text-gray-700 mb-2">链接地址</label>
+          <input v-model="editForm.url" type="url" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10" placeholder="https://..." />
         </div>
-        <div class="form-row">
-          <label class="form-label">标签</label>
-          <div class="tag-buttons-row">
-            <div class="tag-buttons">
+        <div class="mb-4">
+          <label class="block text-[13px] font-medium text-gray-700 mb-2">标签</label>
+          <div class="mt-2">
+            <div class="flex flex-wrap gap-2">
               <span v-for="tag in mergedTags" :key="tag"
-                :class="['tag-btn', { selected: editForm.tags.includes(tag) }]"
+                :class="['px-3 py-1 bg-white border cursor-pointer transition-all text-sm rounded-full', editForm.tags.includes(tag) ? 'bg-blue-100/50 border-blue-300 text-blue-600 hover:border-blue-400' : 'border-black/20 text-gray-700 hover:border-blue-300 hover:text-blue-500']"
                 @click="$emit('toggleTag', tag)">{{ tag }}</span>
-              <button type="button" @click="$emit('addTag', 'edit')" class="quick-add-btn" title="添加标签">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <button type="button" @click="$emit('addTag', 'edit')" class="w-8 h-8 flex items-center justify-center bg-white border-dashed border-black/20 rounded-md text-gray-500 hover:border-blue-300 hover:text-blue-500 transition-all" title="添加标签">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <line x1="12" y1="5" x2="12" y2="19" />
                   <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
@@ -107,244 +107,10 @@ const emit = defineEmits<{
           </div>
         </div>
       </div>
-      <div class="modal-footer">
-        <button @click="$emit('close')" class="mac-btn">取消</button>
-        <button @click="$emit('save')" class="mac-btn primary-btn">保存</button>
+      <div class="flex justify-end gap-3 px-5 py-4 bg-black/3">
+        <button @click="$emit('close')" class="px-4 py-2 bg-white border border-black/10 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">取消</button>
+        <button @click="$emit('save')" class="px-4 py-2 bg-blue-500 border border-blue-500 rounded-lg text-sm text-white hover:bg-blue-600 transition-colors">保存</button>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  background: rgba(0, 0, 0, 0.5);
-}
-
-.modal-content {
-  width: 90%;
-  max-width: 600px;
-  background: rgba(255, 255, 255, 0.98);
-  border-radius: 12px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  overflow: hidden;
-  position: relative;
-  z-index: 10000;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.05) 0%, transparent 100%);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.modal-header h2 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin: 0;
-}
-
-.modal-close {
-  font-size: 24px;
-  color: #999;
-  cursor: pointer;
-  line-height: 1;
-}
-
-.modal-close:hover {
-  color: #3b82f6;
-}
-
-.modal-body {
-  padding: 20px;
-}
-
-.form-row {
-  margin-bottom: 16px;
-}
-
-.form-label {
-  display: block;
-  font-size: 13px;
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 8px;
-}
-
-.mac-input {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  font-size: 14px;
-  background: white;
-  box-sizing: border-box;
-}
-
-.mac-input:focus {
-  outline: none;
-  border-color: rgba(59, 130, 246, 0.5);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-}
-
-.md-toolbar {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 8px;
-  padding: 6px;
-  background: rgba(0, 0, 0, 0.03);
-  border-radius: 6px;
-}
-
-.md-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 6px;
-  color: #666;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.md-btn:hover {
-  background: rgba(255, 255, 255, 0.95);
-  color: #3b82f6;
-  border-color: rgba(59, 130, 246, 0.3);
-}
-
-.md-btn:active {
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
-  box-shadow: inset 0 1px 2px rgba(59, 130, 246, 0.1);
-}
-
-.md-btn svg {
-  width: 16px;
-  height: 16px;
-}
-
-.textarea {
-  width: 100%;
-  min-height: 200px;
-  resize: vertical;
-  font-family: monospace;
-  font-size: 14px;
-  line-height: 1.6;
-  box-sizing: border-box;
-  background: white;
-}
-
-.file-input {
-  padding: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  background: white;
-  cursor: pointer;
-}
-
-.file-path {
-  display: block;
-  margin-top: 8px;
-  font-size: 12px;
-  color: #888;
-}
-
-.tag-buttons-row {
-  margin-top: 8px;
-}
-
-.tag-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.tag-btn {
-  padding: 4px 10px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  border-radius: 20px;
-  font-size: 13px;
-  color: #333;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.tag-btn:hover {
-  border-color: rgba(59, 130, 246, 0.3);
-  color: #3b82f6;
-}
-
-.tag-btn.selected {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.3);
-  color: #3b82f6;
-}
-
-.quick-add-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px dashed rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
-  color: #888;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.quick-add-btn:hover {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(59, 130, 246, 0.3);
-  color: #3b82f6;
-}
-
-.quick-add-btn svg {
-  width: 16px;
-  height: 16px;
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 20px;
-  background: rgba(0, 0, 0, 0.03);
-}
-
-@media screen and (max-width: 768px) {
-  .modal-content {
-    width: 95%;
-    max-width: none;
-    margin: 12px;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.98);
-  }
-
-  .modal-body {
-    padding: 16px;
-  }
-
-  .modal-footer {
-    padding: 14px 16px;
-    flex-wrap: wrap;
-  }
-}
-</style>

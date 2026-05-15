@@ -92,13 +92,11 @@ const showChangeAuthorModal = ref(false)
 const changeAuthorContentId = ref(0)
 const changeAuthorCurrentName = ref('')
 
-// 投票管理相关
 const polls = ref<Poll[]>([])
 const pollsPage = ref(1)
 const pollsTotal = ref(0)
 const pollsTotalPages = ref(1)
 
-// 认领管理相关
 const claims = ref<Claim[]>([])
 const claimsPage = ref(1)
 const claimsTotal = ref(0)
@@ -355,7 +353,7 @@ async function loadPolls() {
     if (res.code === 200) {
       polls.value = res.data.list
       pollsTotal.value = res.data.list.length
-      pollsTotalPages.value = 1 // 假设目前只有一页
+      pollsTotalPages.value = 1
     }
   } catch (error) {
     console.error('加载投票列表失败', error)
@@ -669,34 +667,39 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="admin-container">
-    <div class="mac-window admin-window">
-      <div class="mac-title-bar">
-        <div class="mac-dot mac-dot-red"></div>
-        <div class="mac-dot mac-dot-yellow"></div>
-        <div class="mac-dot mac-dot-green"></div>
-        <div class="window-title">小泉动漫 - 后台管理</div>
+  <div class="min-h-screen p-2 sm:p-4 md:p-5 lg:p-6 flex justify-center bg-gradient-to-br from-slate-50/50 to-blue-50/30">
+    <div class="w-full max-w-6xl bg-white/80 backdrop-blur-sm rounded-xl shadow-lg shadow-black/5 border border-white/50 overflow-hidden">
+      <div class="flex items-center px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-b from-black/8 to-black/2 md:hidden">
+        <div class="w-3 h-3 rounded-full bg-[#ff5f57] mr-2"></div>
+        <div class="w-3 h-3 rounded-full bg-[#febc2e] mr-2"></div>
+        <div class="w-3 h-3 rounded-full bg-[#28c840] mr-4"></div>
+        <div class="text-xs sm:text-sm text-gray-500 font-medium">小泉动漫 - 后台管理</div>
       </div>
 
-      <div class="admin-content">
-        <div v-if="message" class="message-bar" :class="{ success: message.includes('成功'), error: message.includes('失败') }">
-          {{ message }}
-          <span class="message-close" @click="message = ''">×</span>
+      <div class="p-3 sm:p-4 md:p-6">
+        <div v-if="message" class="px-3 sm:px-4 py-2 sm:py-3 rounded-lg mb-3 sm:mb-4 flex justify-between items-center" :class="message.includes('成功') ? 'bg-emerald-50/80 text-emerald-600' : 'bg-red-50/80 text-red-600'">
+          <span class="text-xs sm:text-sm">{{ message }}</span>
+          <span class="text-sm font-bold cursor-pointer hover:opacity-70" @click="message = ''">×</span>
         </div>
 
-        <div class="nav-tabs">
+        <div class="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4 pb-2 sm:pb-3 border-b border-black/6">
           <button
             v-for="tab in [{key:'my',label:'我的内容'},{key:'pending',label:'审核内容'},{key:'all',label:'所有内容'},{key:'users',label:'用户管理'},{key:'polls',label:'投票管理'},{key:'claims',label:'认领管理'}]"
             :key="tab.key"
             v-show="tab.key === 'my' || userStore.user?.is_admin"
             @click="onTabChange(tab.key)"
-            :class="['nav-tab', { active: activeTab === tab.key }]"
+            :class="[
+              'px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-md transition-all',
+              activeTab === tab.key 
+                ? 'bg-blue-500/10 text-blue-500 font-medium border border-blue-500/30' 
+                : 'bg-white/95 text-gray-600 border border-black/10 hover:bg-blue-500/8 hover:text-blue-500 hover:border-blue-500/30'
+            ]"
           >
             {{ tab.label }}
           </button>
         </div>
 
-        <div v-if="activeTab === 'my'" class="tab-content">
+        <div v-if="activeTab === 'my'" class="space-y-3 sm:space-y-4">
           <input
             ref="imageUploadInput"
             type="file"
@@ -704,19 +707,19 @@ onMounted(() => {
             style="display: none"
             @change="handleImageUpload"
           />
-          <div class="section-header">
-            <h2 class="section-title">上传内容</h2>
-            <button @click="router.push('/upload')" class="mac-btn primary-btn">
+          <div class="flex items-center justify-between">
+            <h2 class="text-base sm:text-lg font-semibold text-gray-900">上传内容</h2>
+            <button @click="router.push('/upload')" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-500/95 text-white border border-blue-500/95 rounded-md text-xs sm:text-sm hover:bg-blue-700/95 hover:border-blue-700/95 transition-all">
               新建上传
             </button>
           </div>
           
-          <div class="section-header">
-            <h2 class="section-title">我的内容</h2>
-            <span class="section-count">共 {{ myContentsTotal }} 条</span>
+          <div class="flex items-center justify-between">
+            <h2 class="text-base sm:text-lg font-semibold text-gray-900">我的内容</h2>
+            <span class="text-xs sm:text-sm text-gray-500">共 {{ myContentsTotal }} 条</span>
           </div>
 
-          <div class="content-list">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
             <AdminContentCard
               v-for="content in myContents"
               :key="content.id"
@@ -740,13 +743,13 @@ onMounted(() => {
           />
         </div>
 
-        <div v-if="activeTab === 'pending'" class="tab-content">
-          <div class="section-header">
-            <h2 class="section-title">待审核内容</h2>
-            <span class="section-count">共 {{ pendingContentsTotal }} 条</span>
+        <div v-if="activeTab === 'pending'" class="space-y-3 sm:space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-base sm:text-lg font-semibold text-gray-900">待审核内容</h2>
+            <span class="text-xs sm:text-sm text-gray-500">共 {{ pendingContentsTotal }} 条</span>
           </div>
 
-          <div class="content-list">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
             <AdminContentCard
               v-for="content in pendingContents"
               :key="content.id"
@@ -768,13 +771,13 @@ onMounted(() => {
           />
         </div>
 
-        <div v-if="activeTab === 'all'" class="tab-content">
-          <div class="section-header">
-            <h2 class="section-title">所有内容</h2>
-            <div class="section-actions">
-              <span class="section-count">共 {{ allContentsTotal }} 条</span>
-              <button @click="regenerateAllThumbnails" class="mac-btn secondary-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div v-if="activeTab === 'all'" class="space-y-3 sm:space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-base sm:text-lg font-semibold text-gray-900">所有内容</h2>
+            <div class="flex items-center gap-2 sm:gap-3">
+              <span class="text-xs sm:text-sm text-gray-500">共 {{ allContentsTotal }} 条</span>
+              <button @click="regenerateAllThumbnails" class="flex items-center gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-white/95 text-gray-600 border border-black/10 rounded-md text-xs sm:text-sm hover:bg-blue-500/8 hover:text-blue-500 hover:border-blue-500/30 transition-all">
+                <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
                   <path d="M3 3v5h5"/>
                   <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
@@ -785,7 +788,7 @@ onMounted(() => {
             </div>
           </div>
 
-          <div class="content-list">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
             <AdminContentCard
               v-for="content in allContents"
               :key="content.id"
@@ -812,13 +815,13 @@ onMounted(() => {
           />
         </div>
 
-        <div v-if="activeTab === 'users'" class="tab-content">
-          <div class="section-header">
-            <h2 class="section-title">用户管理</h2>
-            <span class="section-count">共 {{ usersTotal }} 条</span>
+        <div v-if="activeTab === 'users'" class="space-y-3 sm:space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-base sm:text-lg font-semibold text-gray-900">用户管理</h2>
+            <span class="text-xs sm:text-sm text-gray-500">共 {{ usersTotal }} 条</span>
           </div>
 
-          <div class="user-list">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
             <AdminUserCard
               v-for="user in users"
               :key="user.id"
@@ -839,45 +842,45 @@ onMounted(() => {
           />
         </div>
 
-        <div v-if="activeTab === 'polls'" class="tab-content">
-          <div class="section-header">
-            <h2 class="section-title">投票管理</h2>
-            <div class="section-actions">
-              <span class="section-count">共 {{ pollsTotal }} 条</span>
-              <button @click="showCreatePollModal = true" class="mac-btn primary-btn">
+        <div v-if="activeTab === 'polls'" class="space-y-3 sm:space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-base sm:text-lg font-semibold text-gray-900">投票管理</h2>
+            <div class="flex items-center gap-2 sm:gap-3">
+              <span class="text-xs sm:text-sm text-gray-500">共 {{ pollsTotal }} 条</span>
+              <button @click="showCreatePollModal = true" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-500/95 text-white border border-blue-500/95 rounded-md text-xs sm:text-sm hover:bg-blue-700/95 hover:border-blue-700/95 transition-all">
                 创建投票
               </button>
             </div>
           </div>
 
-          <div class="poll-list">
+          <div class="space-y-2 sm:space-y-3">
             <div
               v-for="poll in polls"
               :key="poll.id"
-              class="poll-item"
+              class="bg-white/95 border border-black/10 rounded-lg p-3 sm:p-4"
             >
-              <div class="poll-item-header">
-                <div class="poll-item-title">{{ poll.title }}</div>
-                <div class="poll-item-meta">
-                  <span>{{ poll.vote_count }} 票</span>
-                  <span>{{ new Date(poll.created_at).toLocaleString() }}</span>
+              <div class="flex flex-wrap items-start justify-between gap-2">
+                <div class="flex-1">
+                  <div class="text-base sm:text-lg font-semibold text-gray-900 mb-1">{{ poll.title }}</div>
+                  <div class="flex flex-wrap gap-2 text-xs sm:text-sm text-gray-500">
+                    <span>{{ poll.vote_count }} 票</span>
+                    <span>{{ new Date(poll.created_at).toLocaleString() }}</span>
+                  </div>
                 </div>
-              </div>
-              <div v-if="poll.description" class="poll-item-description">
-                {{ poll.description }}
-              </div>
-              <div class="poll-item-options">
-                <span v-for="(option, index) in poll.options" :key="index" class="poll-option-tag">
-                  {{ option }}
-                </span>
-              </div>
-              <div class="poll-item-actions">
                 <button
                   @click="handleDeletePoll(poll.id)"
-                  class="mac-btn danger-btn"
+                  class="px-2 sm:px-3 py-1 sm:py-1.5 bg-red-500/95 text-white border border-red-500/95 rounded-md text-xs sm:text-sm hover:bg-red-700/95 hover:border-red-700/95 transition-all shrink-0"
                 >
                   删除
                 </button>
+              </div>
+              <div v-if="poll.description" class="text-xs sm:text-sm text-gray-600 mt-2 sm:mt-3 leading-relaxed">
+                {{ poll.description }}
+              </div>
+              <div class="flex flex-wrap gap-1.5 sm:gap-2 mt-2 sm:mt-3">
+                <span v-for="(option, index) in poll.options" :key="index" class="px-2 sm:px-2.5 py-0.5 sm:py-1 bg-blue-500/10 border border-blue-500/30 rounded-full text-xs sm:text-sm text-blue-500">
+                  {{ option }}
+                </span>
               </div>
             </div>
           </div>
@@ -892,12 +895,12 @@ onMounted(() => {
           />
         </div>
 
-        <div v-if="activeTab === 'claims'" class="tab-content">
-          <div class="section-header">
-            <h2 class="section-title">认领管理</h2>
-            <div class="section-actions">
-              <span class="section-count">共 {{ claimsTotal }} 条</span>
-              <select v-model="claimsStatusFilter" @change="claimsPage = 1; loadClaims()" class="form-input filter-select">
+        <div v-if="activeTab === 'claims'" class="space-y-3 sm:space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-base sm:text-lg font-semibold text-gray-900">认领管理</h2>
+            <div class="flex items-center gap-2 sm:gap-3">
+              <span class="text-xs sm:text-sm text-gray-500">共 {{ claimsTotal }} 条</span>
+              <select v-model="claimsStatusFilter" @change="claimsPage = 1; loadClaims()" class="px-2.5 sm:px-3 py-1.5 sm:py-2 border border-black/10 rounded-md text-xs sm:text-sm bg-white focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10">
                 <option value="">全部状态</option>
                 <option value="pending">待处理</option>
                 <option value="approved">已通过</option>
@@ -906,53 +909,50 @@ onMounted(() => {
             </div>
           </div>
 
-          <div class="claim-list">
+          <div class="space-y-2 sm:space-y-3">
             <div
               v-for="claim in claims"
               :key="claim.id"
-              class="claim-item"
+              class="bg-white/60 border border-white/36 rounded-xl p-3 sm:p-4 shadow-md shadow-black/5"
             >
-              <div class="claim-media">
-                <template v-if="claim.content.type !== 'text' && claim.content.type !== 'link'">
-                  <img
-                    :src="getImageUrl(claim.content.thumb)"
-                    :alt="claim.content.type === 'video' ? '视频封面' : '内容图片'"
-                    class="claim-thumb"
-                    loading="lazy"
-                  />
-                </template>
-                <template v-else>
-                  <div class="claim-text-preview">{{ getPreviewText(claim.content.text) }}</div>
-                </template>
-              </div>
-              <div class="claim-body">
-                <div class="claim-item-header">
-                  <span class="claim-content-title">{{ claim.content?.title || '未知内容' }}</span>
-                  <span :class="['claim-status', claim.status]">
-                    {{ claim.status === 'pending' ? '待处理' : claim.status === 'approved' ? '已通过' : '已拒绝' }}
-                  </span>
+              <div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <div class="w-full sm:w-48 h-28 sm:h-36 bg-gray-100 rounded-lg overflow-hidden shrink-0">
+                  <template v-if="claim.content.type !== 'text' && claim.content.type !== 'link'">
+                    <img
+                      :src="getImageUrl(claim.content.thumb)"
+                      :alt="claim.content.type === 'video' ? '视频封面' : '内容图片'"
+                      class="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  </template>
+                  <template v-else>
+                    <div class="w-full h-full p-2 text-xs text-gray-500 overflow-hidden flex items-center justify-center">
+                      {{ getPreviewText(claim.content.text) }}
+                    </div>
+                  </template>
                 </div>
-                <div class="claim-item-body">
-                  <div class="claim-info">
-                    <span class="claim-label">认领者：</span>
-                    <span class="claim-value">{{ claim.user?.username || '未知用户' }}</span>
+                <div class="flex-1 space-y-2">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <span class="text-base sm:text-lg font-semibold text-gray-900">{{ claim.content?.title || '未知内容' }}</span>
+                    <span :class="[
+                      'px-2 sm:px-3 py-1 rounded-full text-xs font-medium',
+                      claim.status === 'pending' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/30' :
+                      claim.status === 'approved' ? 'bg-green-500/10 text-green-600 border border-green-500/30' :
+                      'bg-red-500/10 text-red-600 border border-red-500/30'
+                    ]">
+                      {{ claim.status === 'pending' ? '待处理' : claim.status === 'approved' ? '已通过' : '已拒绝' }}
+                    </span>
                   </div>
-                  <div class="claim-info">
-                    <span class="claim-label">认领理由：</span>
-                    <span class="claim-value">{{ claim.reason }}</span>
+                  <div class="text-xs sm:text-sm text-gray-600 space-y-1">
+                    <div><span class="text-gray-400">认领者：</span>{{ claim.user?.username || '未知用户' }}</div>
+                    <div><span class="text-gray-400">认领理由：</span>{{ claim.reason }}</div>
+                    <div v-if="claim.remark"><span class="text-gray-400">备注：</span>{{ claim.remark }}</div>
+                    <div><span class="text-gray-400">提交时间：</span>{{ new Date(claim.created_at).toLocaleString() }}</div>
                   </div>
-                  <div v-if="claim.remark" class="claim-info">
-                    <span class="claim-label">备注：</span>
-                    <span class="claim-value">{{ claim.remark }}</span>
+                  <div v-if="claim.status === 'pending'" class="flex gap-2 mt-2">
+                    <button @click="handleClaim(claim.id, 'approve')" class="flex-1 px-3 py-1.5 bg-blue-500/95 text-white border border-blue-500/95 rounded-md text-xs sm:text-sm hover:bg-blue-700/95 hover:border-blue-700/95 transition-all">通过</button>
+                    <button @click="handleClaim(claim.id, 'reject')" class="flex-1 px-3 py-1.5 bg-red-500/95 text-white border border-red-500/95 rounded-md text-xs sm:text-sm hover:bg-red-700/95 hover:border-red-700/95 transition-all">拒绝</button>
                   </div>
-                  <div class="claim-info">
-                    <span class="claim-label">提交时间：</span>
-                    <span class="claim-value">{{ new Date(claim.created_at).toLocaleString() }}</span>
-                  </div>
-                </div>
-                <div v-if="claim.status === 'pending'" class="claim-item-actions">
-                  <button @click="handleClaim(claim.id, 'approve')" class="mac-btn primary-btn">通过</button>
-                  <button @click="handleClaim(claim.id, 'reject')" class="mac-btn danger-btn">拒绝</button>
                 </div>
               </div>
             </div>
@@ -1042,702 +1042,71 @@ onMounted(() => {
         @confirm="handleDelete"
       />
 
-      <!-- 创建投票模态框 -->
       <div
         v-if="showCreatePollModal"
-        class="modal-overlay"
+        class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3"
         @click.self="showCreatePollModal = false"
       >
-        <div class="modal-content poll-modal">
-          <div class="modal-header">
-            <h3>创建投票</h3>
-            <button @click="showCreatePollModal = false" class="modal-close">×</button>
+        <div class="w-full max-w-md sm:max-w-lg bg-white rounded-xl shadow-xl overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-black/6">
+            <h3 class="text-base sm:text-lg font-semibold text-gray-900">创建投票</h3>
+            <button @click="showCreatePollModal = false" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/6 text-gray-500 hover:text-gray-800 transition-all">
+              <span class="text-xl font-bold">×</span>
+            </button>
           </div>
-          <div class="modal-body">
-            <div class="form-group">
-              <label>投票标题</label>
+          <div class="p-4 space-y-3">
+            <div>
+              <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">投票标题</label>
               <input
                 v-model="createPollForm.title"
                 type="text"
                 placeholder="请输入投票标题"
-                class="form-input"
+                class="w-full px-3 py-2 sm:py-2.5 border border-black/10 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10"
               />
             </div>
-            <div class="form-group">
-              <label>投票描述</label>
+            <div>
+              <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">投票描述</label>
               <textarea
                 v-model="createPollForm.description"
                 placeholder="请输入投票描述（可选）"
-                class="form-textarea"
                 rows="3"
+                class="w-full px-3 py-2 sm:py-2.5 border border-black/10 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10 resize-none"
               />
             </div>
-            <div class="form-group">
-              <label>投票选项</label>
-              <div class="options-list">
+            <div>
+              <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">投票选项</label>
+              <div class="space-y-2">
                 <div
                   v-for="(option, index) in createPollForm.options"
                   :key="index"
-                  class="option-item"
+                  class="flex gap-2 items-center"
                 >
                   <input
                     v-model="createPollForm.options[index]"
                     type="text"
                     placeholder="请输入选项内容"
-                    class="form-input"
+                    class="flex-1 px-3 py-2 sm:py-2.5 border border-black/10 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10"
                   />
                   <button
                     v-if="createPollForm.options.length > 2"
                     @click="removePollOption(index)"
-                    class="option-remove"
+                    class="w-8 h-8 flex items-center justify-center bg-red-500/10 border border-red-500/30 rounded-md text-red-500 hover:bg-red-500/20 hover:border-red-500/50 transition-all"
                   >
                     ×
                   </button>
                 </div>
               </div>
-              <button @click="addPollOption" class="add-option-btn mac-btn secondary-btn">
+              <button @click="addPollOption" class="mt-2 px-3 py-1.5 bg-white/95 text-gray-600 border border-black/10 rounded-md text-xs sm:text-sm hover:bg-blue-500/8 hover:text-blue-500 hover:border-blue-500/30 transition-all">
                 + 添加选项
               </button>
             </div>
           </div>
-          <div class="modal-footer">
-            <button @click="showCreatePollModal = false" class="mac-btn">取消</button>
-            <button @click="handleCreatePoll" class="mac-btn primary-btn">创建</button>
+          <div class="flex justify-end gap-2 px-4 py-3 border-t border-black/6">
+            <button @click="showCreatePollModal = false" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-white/95 text-gray-600 border border-black/10 rounded-md text-xs sm:text-sm hover:bg-blue-500/8 hover:text-blue-500 hover:border-blue-500/30 transition-all">取消</button>
+            <button @click="handleCreatePoll" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-500/95 text-white border border-blue-500/95 rounded-md text-xs sm:text-sm hover:bg-blue-700/95 hover:border-blue-700/95 transition-all">创建</button>
           </div>
         </div>
       </div>
     </Teleport>
   </div>
 </template>
-
-<style scoped>
-.admin-container {
-  min-height: 100vh;
-  padding: 20px;
-  display: flex;
-  justify-content: center;
-}
-
-.admin-window {
-  width: 100%;
-  max-width: 1400px;
-  min-height: 80vh;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.75);
-  border-radius: 12px;
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.08),
-    0 2px 8px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-}
-
-.mac-title-bar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 10px 16px;
-  background: linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.02) 100%);
-  border-radius: 12px 12px 0 0;
-}
-
-.mac-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-
-.mac-dot-red {
-  background: #ff5f57;
-}
-
-.mac-dot-yellow {
-  background: #febc2e;
-}
-
-.mac-dot-green {
-  background: #28c840;
-}
-
-.window-title {
-  margin-left: 16px;
-  font-size: 13px;
-  color: #666;
-  font-weight: 500;
-}
-
-.admin-content {
-  padding: 24px;
-  background: rgba(255, 255, 255, 0.75);
-}
-
-.message-bar {
-  padding: 12px 16px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.message-bar.success {
-  background: #ecfdf5;
-  color: #059669;
-}
-
-.message-bar.error {
-  background: #fef2f2;
-  color: #dc2626;
-}
-
-.message-close {
-  cursor: pointer;
-  font-size: 18px;
-  font-weight: bold;
-}
-
-.nav-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.nav-tab {
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 6px;
-  font-size: 14px;
-  color: #666;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.nav-tab:hover {
-  background: rgba(255, 255, 255, 0.95);
-  color: #3b82f6;
-  border-color: rgba(59, 130, 246, 0.3);
-}
-
-.nav-tab.active {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-  font-weight: 500;
-  border-color: rgba(59, 130, 246, 0.3);
-}
-
-.tab-content {
-  animation: fadeIn 0.2s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.section-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin: 0;
-}
-
-.section-count {
-  font-size: 13px;
-  color: #888;
-}
-
-.section-actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-/* 公共按钮样式 */
-.mac-btn {
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 6px;
-  font-size: 14px;
-  color: #333;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.mac-btn:hover {
-  background: rgba(59, 130, 246, 0.08);
-  color: #3b82f6;
-  border-color: rgba(59, 130, 246, 0.3);
-}
-
-.primary-btn {
-  background: rgba(59, 130, 246, 0.95);
-  color: white;
-  border-color: rgba(59, 130, 246, 0.95);
-}
-
-.primary-btn:hover {
-  background: rgba(37, 99, 235, 0.95);
-  color: white;
-  border-color: rgba(37, 99, 235, 0.95);
-}
-
-.danger-btn {
-  background: rgba(239, 68, 68, 0.95);
-  color: white;
-  border-color: rgba(239, 68, 68, 0.95);
-}
-
-.danger-btn:hover {
-  background: rgba(220, 38, 38, 0.95);
-  color: white;
-  border-color: rgba(220, 38, 38, 0.95);
-}
-
-.secondary-btn {
-  background: rgba(255, 255, 255, 0.95);
-  color: #666;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 6px;
-  padding: 6px 14px;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.2s ease;
-}
-
-.secondary-btn:hover {
-  background: rgba(59, 130, 246, 0.08);
-  color: #3b82f6;
-  border-color: rgba(59, 130, 246, 0.3);
-}
-
-.secondary-btn svg {
-  width: 14px;
-  height: 14px;
-}
-
-.content-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-}
-
-.user-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
-}
-
-.poll-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.poll-item {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.poll-item-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 8px;
-}
-
-.poll-item-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1a1a1a;
-  flex: 1;
-}
-
-.poll-item-meta {
-  display: flex;
-  gap: 12px;
-  font-size: 13px;
-  color: #888;
-  white-space: nowrap;
-}
-
-.poll-item-description {
-  font-size: 14px;
-  color: #666;
-  margin-bottom: 12px;
-  line-height: 1.5;
-}
-
-.poll-item-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.poll-option-tag {
-  padding: 4px 10px;
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: 12px;
-  font-size: 12px;
-  color: #3b82f6;
-  white-space: nowrap;
-}
-
-.poll-item-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-/* 投票创建模态框样式 */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
-  max-width: 500px;
-  width: 90%;
-  max-height: 80vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.poll-modal .modal-content {
-  max-width: 600px;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  font-size: 24px;
-  color: #666;
-  cursor: pointer;
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: all 0.2s ease;
-}
-
-.modal-close:hover {
-  background: rgba(0, 0, 0, 0.06);
-  color: #333;
-}
-
-.modal-body {
-  padding: 20px;
-  overflow-y: auto;
-  flex: 1;
-}
-
-.modal-footer {
-  padding: 16px 20px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-group label {
-  display: block;
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 6px;
-}
-
-.form-input,
-.form-textarea {
-  width: 100%;
-  padding: 10px 12px;
-  font-size: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 6px;
-  background: white;
-  outline: none;
-  transition: all 0.2s ease;
-}
-
-.form-input:focus,
-.form-textarea:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.form-textarea {
-  resize: vertical;
-  min-height: 80px;
-}
-
-.options-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.option-item {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.option-item .form-input {
-  flex: 1;
-}
-
-.option-remove {
-  padding: 4px 8px;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 4px;
-  font-size: 14px;
-  color: #ef4444;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.option-remove:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: #ef4444;
-}
-
-.add-option-btn {
-  margin-top: 8px;
-}
-
-/* 认领管理样式 */
-.claim-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.claim-item {
-  display: flex;
-  gap: 16px;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.36);
-  border-radius: 12px;
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.08),
-    0 1px 4px rgba(0, 0, 0, 0.04);
-}
-
-.claim-media {
-  width: 200px;
-  height: 140px;
-  flex-shrink: 0;
-  overflow: hidden;
-  background: #f8f9fa;
-  border-radius: 8px;
-}
-
-.claim-thumb {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.claim-text-preview {
-  width: 100%;
-  height: 100%;
-  padding: 8px;
-  font-size: 12px;
-  color: #666;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 5;
-  -webkit-box-orient: vertical;
-}
-
-.claim-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.claim-item-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.claim-content-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.claim-status {
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.claim-status.pending {
-  background: rgba(245, 158, 11, 0.1);
-  color: #d97706;
-  border: 1px solid rgba(245, 158, 11, 0.3);
-}
-
-.claim-status.approved {
-  background: rgba(34, 197, 94, 0.1);
-  color: #16a34a;
-  border: 1px solid rgba(34, 197, 94, 0.3);
-}
-
-.claim-status.rejected {
-  background: rgba(239, 68, 68, 0.1);
-  color: #dc2626;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.claim-item-body {
-  margin-bottom: 12px;
-}
-
-.claim-info {
-  font-size: 14px;
-  color: #666;
-  margin-bottom: 4px;
-  line-height: 1.5;
-}
-
-.claim-label {
-  color: #888;
-  font-weight: 500;
-}
-
-.claim-value {
-  color: #333;
-}
-
-.claim-item-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.filter-select {
-  width: auto;
-  min-width: 120px;
-}
-
-@media screen and (max-width: 768px) {
-  .admin-container {
-    padding: 0;
-  }
-
-  .admin-window {
-    border-radius: 0;
-    box-shadow: none;
-    min-height: 100vh;
-  }
-
-  .mac-title-bar {
-    display: none;
-  }
-
-  .admin-content {
-    padding: 12px;
-  }
-
-  .nav-tabs {
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-  }
-
-  .nav-tab {
-    padding: 6px 12px;
-    font-size: 13px;
-  }
-
-  .section-header {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .section-actions {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .secondary-btn {
-    padding: 5px 10px;
-    font-size: 12px;
-  }
-
-  .mac-btn {
-    padding: 6px 12px;
-    font-size: 13px;
-  }
-
-  .claim-item {
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .claim-media {
-    width: 100%;
-    height: 200px;
-  }
-}
-</style>

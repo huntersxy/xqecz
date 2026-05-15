@@ -54,244 +54,49 @@ const handleChangeAuthor = () => emit('changeAuthor', props.content);
 </script>
 
 <template>
-  <div class="content-item mac-card">
-    <div class="item-media">
-        <template v-if="contentType !== 'text'">
-          <img
-            :src="getImageUrl(content.thumb)"
-            :alt="contentType === 'video' ? '视频封面' : '内容图片'"
-            class="item-image"
-            loading="lazy"
-            @load="onImageLoad"
-          />
-        </template>
+  <div class="flex flex-col bg-white/60 border border-white/30 rounded-xl shadow-md overflow-hidden">
+    <div class="relative w-full pt-[75%] bg-gray-100 overflow-hidden">
+      <template v-if="contentType !== 'text'">
+        <img
+          :src="getImageUrl(content.thumb)"
+          :alt="contentType === 'video' ? '视频封面' : '内容图片'"
+          class="absolute top-0 left-0 w-full h-full object-cover"
+          loading="lazy"
+          @load="onImageLoad"
+        />
+      </template>
       <template v-else>
-        <div class="item-text-preview">{{ getPreviewText(contentText) }}</div>
+        <div class="absolute top-0 left-0 w-full h-full p-2 text-sm text-gray-600 overflow-hidden line-clamp-5">
+          {{ getPreviewText(contentText) }}
+        </div>
       </template>
     </div>
-    <div class="item-info">
-      <h3 class="item-title">{{ title }}</h3>
-      <div class="item-tags">
-        <span v-for="tag in tags" :key="tag" class="item-tag">{{ tag }}</span>
+    <div class="flex-1 flex flex-col justify-between p-3">
+      <h3 class="text-[15px] font-semibold text-gray-900 mb-2 truncate">{{ title }}</h3>
+      <div class="flex flex-wrap gap-1 mb-2">
+        <span v-for="tag in tags" :key="tag" class="px-2 py-0.5 bg-black/5 rounded text-xs text-gray-600">{{ tag }}</span>
       </div>
-      <div class="item-meta">
-        <span :class="['type-badge', contentType]">
-          {{ contentType === 'video' ? '视频' : contentType === 'image' ? '图片' : contentType === 'link' ? '链接' : '文字' }}
-        </span>
-        <span class="meta-item">{{ viewCount }} 次浏览</span>
-        <span v-if="showAuthor" class="meta-item">{{ authorName }}</span>
+      <div class="flex items-center gap-2 mb-2">
+        <span v-if="contentType === 'text'" class="px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-600">文字</span>
+        <span v-else-if="contentType === 'image'" class="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-600">图片</span>
+        <span v-else-if="contentType === 'video'" class="px-2 py-0.5 rounded text-xs bg-red-100 text-red-600">视频</span>
+        <span v-else-if="contentType === 'link'" class="px-2 py-0.5 rounded text-xs bg-violet-100 text-violet-600">链接</span>
+        <span class="text-[13px] text-gray-500">{{ viewCount }} 次浏览</span>
+        <span v-if="showAuthor" class="text-[13px] text-gray-500">{{ authorName }}</span>
       </div>
-      <div v-if="showActions || showAuditActions" class="item-actions">
+      <div v-if="showActions || showAuditActions" class="flex flex-wrap gap-2">
         <template v-if="showActions">
-          <button @click="handleView" class="action-btn">查看</button>
-          <button @click="handleEdit" class="action-btn">编辑</button>
-          <button
-            v-if="showRegenerateThumbnail && contentType === 'video'"
-            @click="handleRegenerateThumbnail"
-            class="action-btn"
-          >
-            更新封面
-          </button>
-          <button v-if="showChangeAuthor" @click="handleChangeAuthor" class="action-btn">修改作者</button>
-          <button @click="handleDelete" class="action-btn delete-btn">删除</button>
+          <button @click="handleView" class="px-3 py-1.5 bg-white/95 border border-gray-200 rounded-md text-[13px] text-gray-700 hover:text-blue-600 hover:border-blue-300 transition-colors">查看</button>
+          <button @click="handleEdit" class="px-3 py-1.5 bg-white/95 border border-gray-200 rounded-md text-[13px] text-gray-700 hover:text-blue-600 hover:border-blue-300 transition-colors">编辑</button>
+          <button v-if="showRegenerateThumbnail && contentType === 'video'" @click="handleRegenerateThumbnail" class="px-3 py-1.5 bg-white/95 border border-gray-200 rounded-md text-[13px] text-gray-700 hover:text-blue-600 hover:border-blue-300 transition-colors">更新封面</button>
+          <button v-if="showChangeAuthor" @click="handleChangeAuthor" class="px-3 py-1.5 bg-white/95 border border-gray-200 rounded-md text-[13px] text-gray-700 hover:text-blue-600 hover:border-blue-300 transition-colors">修改作者</button>
+          <button @click="handleDelete" class="px-3 py-1.5 bg-red-100/50 border border-red-200 rounded-md text-[13px] text-red-600 hover:bg-red-100 transition-colors">删除</button>
         </template>
         <template v-if="showAuditActions">
-          <button @click="handleApprove" class="action-btn approve-btn">通过</button>
-          <button @click="handleReject" class="action-btn reject-btn">拒绝</button>
+          <button @click="handleApprove" class="px-3 py-1.5 bg-emerald-100/50 border border-emerald-200 rounded-md text-[13px] text-emerald-600 hover:bg-emerald-100 transition-colors">通过</button>
+          <button @click="handleReject" class="px-3 py-1.5 bg-red-100/50 border border-red-200 rounded-md text-[13px] text-red-600 hover:bg-red-100 transition-colors">拒绝</button>
         </template>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.content-item {
-  display: flex;
-  flex-direction: column;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.36);
-  border-radius: 12px;
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.08),
-    0 1px 4px rgba(0, 0, 0, 0.04);
-  overflow: hidden;
-}
-
-.item-media {
-  position: relative;
-  width: 100%;
-  padding-top: 75%;
-  overflow: hidden;
-  background: #f8f9fa;
-}
-
-.item-image {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.item-text-preview {
-  width: 100%;
-  height: 100%;
-  padding: 8px;
-  font-size: 12px;
-  color: #666;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 5;
-  -webkit-box-orient: vertical;
-}
-
-.item-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 12px;
-}
-
-.item-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin: 0 0 8px 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.item-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 8px;
-}
-
-.item-tag {
-  padding: 2px 8px;
-  background: rgba(0, 0, 0, 0.06);
-  border-radius: 4px;
-  font-size: 12px;
-  color: #666;
-}
-
-.item-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.type-badge {
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.type-badge.text {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-}
-
-.type-badge.image {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-}
-
-.type-badge.video {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
-
-.type-badge.link {
-  background: rgba(139, 92, 246, 0.1);
-  color: #7c3aed;
-}
-
-.meta-item {
-  font-size: 13px;
-  color: #888;
-}
-
-.item-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.action-btn {
-  padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 6px;
-  font-size: 13px;
-  color: #333;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.action-btn:hover {
-  background: rgba(255, 255, 255, 0.95);
-  color: #3b82f6;
-  border-color: rgba(59, 130, 246, 0.3);
-}
-
-.action-btn.approve-btn {
-  background: rgba(5, 150, 105, 0.1);
-  border-color: rgba(5, 150, 105, 0.3);
-  color: #059669;
-}
-
-.action-btn.approve-btn:hover {
-  background: rgba(5, 150, 105, 0.15);
-}
-
-.action-btn.reject-btn {
-  background: rgba(220, 38, 38, 0.1);
-  border-color: rgba(220, 38, 38, 0.3);
-  color: #dc2626;
-}
-
-.action-btn.reject-btn:hover {
-  background: rgba(220, 38, 38, 0.15);
-}
-
-.action-btn.delete-btn {
-  background: rgba(220, 38, 38, 0.1);
-  border-color: rgba(220, 38, 38, 0.3);
-  color: #dc2626;
-}
-
-.action-btn.delete-btn:hover {
-  background: rgba(220, 38, 38, 0.15);
-}
-
-@media screen and (max-width: 768px) {
-  .item-info {
-    padding: 10px;
-  }
-
-  .item-title {
-    font-size: 14px;
-  }
-
-  .item-tag {
-    padding: 3px 8px;
-    font-size: 13px;
-  }
-
-  .item-actions {
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .action-btn {
-    padding: 8px 14px;
-    font-size: 14px;
-    min-width: 70px;
-  }
-}
-</style>
