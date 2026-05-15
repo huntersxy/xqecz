@@ -55,14 +55,12 @@ const contents = ref<Content[]>([])
 const recommendContents = ref<RecommendContent[]>([])
 const allTags = ref<string[]>([])
 
-// 从 store 初始化状态
 const selectedTags = ref<string[]>(homeStore.selectedTags)
 const searchKeyword = ref(homeStore.searchKeyword)
 const selectedTypes = ref<string[]>(homeStore.selectedTypes)
 const page = ref(homeStore.page)
 const recommendPage = ref(homeStore.recommendPage)
 
-// 加载状态
 const isLoading = ref(false)
 const isRecommendLoading = ref(false)
 const contentKey = ref(0)
@@ -247,7 +245,6 @@ onBeforeRouteLeave((to, from, next) => {
       scrollPosition: window.scrollY,
     })
   } else if (to.path === '/') {
-    // 如果是返回首页，不保存状态，让首页恢复时使用已有状态
   } else {
     homeStore.clearState()
   }
@@ -339,62 +336,63 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="home-container">
-    <div class="main-window">
-      <div class="mac-title-bar">
-        <div class="mac-dot mac-dot-red"></div>
-        <div class="mac-dot mac-dot-yellow"></div>
-        <div class="mac-dot mac-dot-green"></div>
-        <div class="window-title">小泉动漫二创站</div>
+  <div class="min-h-screen p-5 flex justify-center">
+    <div class="w-full max-w-[1200px] min-h-screen overflow-hidden bg-white/75 rounded-xl shadow-lg shadow-black/5 border border-white/40 transition-all duration-500">
+      <div class="flex items-center px-4 py-2.5 bg-gradient-to-b from-black/8 to-black/2 md:hidden">
+        <div class="w-3 h-3 rounded-full bg-[#ff5f57] mr-2"></div>
+        <div class="w-3 h-3 rounded-full bg-[#febc2e] mr-2"></div>
+        <div class="w-3 h-3 rounded-full bg-[#28c840] mr-4"></div>
+        <div class="text-sm text-gray-500 font-medium">小泉动漫二创站</div>
       </div>
 
-      <div class="content-area">
-        <div class="header-section">
-          <img :src="logoImg" alt="小泉动漫二创站" class="app-logo" />
-          <a @click="goToEasterEgg" class="app-subtitle egg-link"> 🎉 发现精彩内容 </a>
+      <div class="p-6">
+        <div class="text-center mb-8">
+          <img :src="logoImg" alt="小泉动漫二创站" class="max-w-full h-auto max-h-[120px] mx-auto mb-2" />
+          <a @click="goToEasterEgg" class="block w-fit mx-auto px-4 py-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white no-underline cursor-pointer transition-all duration-300 text-base font-medium text-center hover:scale-105 hover:shadow-lg hover:shadow-indigo-500/40">🎉 发现精彩内容</a>
         </div>
 
-        <div class="search-section">
-          <div class="search-box">
+        <div class="mb-6">
+          <div class="flex gap-3 max-w-[600px] mx-auto">
             <input
               v-model="searchKeyword"
               type="text"
               placeholder="搜索内容..."
               @keyup.enter="handleSearch"
-              class="search-input"
+              class="flex-1 text-sm px-4 py-2.5 border border-black/10 rounded-lg bg-white outline-none transition-all focus:border-blue-500 focus:ring-3 focus:ring-blue-500/10"
             />
-            <button @click="handleSearch" class="search-btn">搜索</button>
+            <button @click="handleSearch" class="px-5 py-2.5 bg-blue-500 text-white border-none rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-blue-600 whitespace-nowrap">搜索</button>
           </div>
         </div>
 
-        <!-- 最新投票 -->
-        <div class="poll-section">
+        <div class="mb-6">
           <PollComponent />
         </div>
 
-        <div class="filter-section">
-          <div class="filter-group">
-            <label class="filter-label">类型</label>
-            <div class="type-cloud">
+        <div class="flex flex-wrap gap-5 mb-6 p-4 bg-black/3 rounded-xl md:flex-col">
+          <div class="flex flex-col gap-1.5">
+            <span class="text-xs text-gray-600 font-medium">类型</span>
+            <div class="flex flex-wrap gap-2">
               <button
                 v-for="type in contentTypes"
                 :key="type"
                 @click="selectType(type)"
-                :class="['type-cloud-item', { active: selectedTypes.includes(type) }]"
+                class="px-3 py-1 bg-white/95 border border-black/10 rounded-full text-sm text-gray-700 cursor-pointer transition-all hover:text-emerald-600 hover:border-emerald-600/30"
+                :class="{ 'bg-emerald-100/50 text-emerald-600 font-medium border-emerald-600/30': selectedTypes.includes(type) }"
               >
                 {{ contentTypeLabels[type] }}
               </button>
             </div>
           </div>
 
-          <div class="filter-group">
-            <label class="filter-label">标签云</label>
-            <div class="tag-cloud">
+          <div class="flex flex-col gap-1.5">
+            <span class="text-xs text-gray-600 font-medium">标签云</span>
+            <div class="flex flex-wrap gap-2">
               <button
                 v-for="tag in sortedTags"
                 :key="tag"
                 @click="selectTag(tag)"
-                :class="['tag-cloud-item', { active: selectedTags.includes(tag) }]"
+                class="px-3 py-1 bg-white/95 border border-black/10 rounded-full text-sm text-gray-700 cursor-pointer transition-all hover:text-blue-500 hover:border-blue-500/30"
+                :class="{ 'bg-blue-100/50 text-blue-500 font-medium border-blue-500/30': selectedTags.includes(tag) }"
               >
                 {{ tag }}
               </button>
@@ -403,22 +401,17 @@ onMounted(() => {
         </div>
 
         <motion.div
-          class="sections-container"
-          :animate="{
-            height: 'auto',
-            transition: { duration: 0.3, ease: 'easeOut' },
-          }"
-          style="overflow: hidden; min-height: 100px"
+          class="relative overflow-hidden"
+          style="min-height: 100px"
+          :animate="{ height: 'auto', transition: { duration: 0.3, ease: 'easeOut' } }"
         >
           <motion.div
-            class="sections-wrapper"
-            :animate="{
-              transition: { duration: 0.3, ease: 'easeOut' },
-            }"
+            :animate="{ transition: { duration: 0.3, ease: 'easeOut' } }"
           >
             <motion.div
               id="recommend-section"
-              class="recommend-section"
+              class="mb-6"
+              :style="{ scrollMarginTop: '120px' }"
               :initial="{ opacity: 1, y: 0 }"
               :animate="{
                 opacity: swapSections ? 0 : 1,
@@ -428,179 +421,126 @@ onMounted(() => {
               }"
               style="overflow: hidden"
             >
-              <div class="section-header">
-                <h2 class="section-title">🔥 推荐内容</h2>
-                <div class="recommend-actions">
-                  <span class="section-count">精选推荐</span>
-                  <button @click="refreshRecommend" class="refresh-btn" :disabled="isRecommendLoading">
-                    <svg
-                      class="refresh-icon"
-                      :class="{ 'rotating': isRecommendLoading }"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
+              <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-semibold text-gray-900 m-0">🔥 推荐内容</h2>
+                <div class="flex items-center gap-3">
+                  <span class="text-sm text-gray-500">精选推荐</span>
+                  <button @click="refreshRecommend" class="flex items-center gap-1 px-3 py-1.5 bg-white/90 border border-black/10 rounded-md text-sm text-gray-600 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500" :disabled="isRecommendLoading">
+                    <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': isRecommendLoading }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <polyline points="23 4 23 10 17 10" />
                       <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
                     </svg>
                     {{ isRecommendLoading ? '加载中...' : '刷新' }}
                   </button>
                 </div>
-                <span v-if="recommendHint" class="recommend-hint">{{ recommendHint }}</span>
+                <span v-if="recommendHint" class="absolute right-6 top-1/2 -translate-y-1/2 text-sm text-red-500 animate-pulse">{{ recommendHint }}</span>
               </div>
 
-              <div class="recommend-grid-wrapper">
-                <div class="recommend-grid" :class="{ 'grid-loading': isRecommendLoading }">
+              <div class="relative">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" :class="{ 'opacity-30 pointer-events-none transition-opacity': isRecommendLoading }">
                   <div
                     v-for="content in recommendContents"
                     :key="content.id"
-                    @click="
-                      goToDetail({
-                        ...content,
-                        type: content.type,
-                        audit_status: 'approved',
-                      } as unknown as Content)
-                    "
-                    class="recommend-card"
+                    @click="goToDetail({ ...content, type: content.type, audit_status: 'approved' } as unknown as Content)"
+                    class="overflow-hidden cursor-pointer bg-white/80 border border-white/40 rounded-xl shadow-md transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
                   >
-                    <div class="recommend-media">
+                    <div class="relative w-full pt-[75%] bg-gray-100 overflow-hidden">
                       <img
                         :src="getImageUrl(content.thumb)"
                         :alt="content.title"
-                        class="recommend-image"
+                        class="absolute top-0 left-0 w-full h-full object-cover"
                         loading="lazy"
                         @load="onImageLoad"
                       />
-                      <div v-if="content.type === 'video'" class="play-overlay">
-                        <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor">
+                      <div v-if="content.type === 'video'" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-black/60 rounded-full flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M8 5v14l11-7z" />
                         </svg>
                       </div>
                     </div>
-                    <div class="recommend-info">
-                      <h3 class="recommend-title">{{ content.title }}</h3>
-                      <div class="recommend-meta">
-                        <span class="recommend-author">{{ content.user.username }}</span>
-                        <span class="recommend-tags">
-                          <span
-                            v-for="tag in content.tags.slice(0, 2)"
-                            :key="tag"
-                            class="recommend-tag"
-                            >{{ tag }}</span
-                          >
-                        </span>
+                    <div class="p-3">
+                      <h3 class="text-sm font-semibold text-gray-900 mb-2 overflow-hidden text-ellipsis whitespace-nowrap">{{ content.title }}</h3>
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-xs text-gray-500">{{ content.user.username }}</span>
+                        <div class="flex gap-1">
+                          <span v-for="tag in content.tags.slice(0, 2)" :key="tag" class="px-1.5 py-0.5 bg-orange-100/50 rounded text-xs text-orange-500">{{ tag }}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-                <div v-if="isRecommendLoading" class="loading-overlay">
-                  <div class="loading-spinner"></div>
-                  <p>加载中...</p>
+                <div v-if="isRecommendLoading" class="absolute inset-0 flex flex-col items-center justify-center bg-white/50 z-10">
+                  <div class="w-10 h-10 border-3 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+                  <p class="text-sm text-gray-500">加载中...</p>
                 </div>
               </div>
             </motion.div>
 
-            <div
-              id="content-section"
-              class="content-section"
-            >
-              <div class="section-header">
-                <h2 class="section-title">📅 最近上传</h2>
-                <span class="section-count">共 {{ total }} 条</span>
+            <div id="content-section" class="mb-6" style="scroll-margin-top: 120px">
+              <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-semibold text-gray-900 m-0">📅 最近上传</h2>
+                <span class="text-sm text-gray-500">共 {{ total }} 条</span>
               </div>
 
-              <div class="content-grid-wrapper">
-                <div class="content-grid" :class="{ 'grid-loading': isLoading }">
+              <div class="relative">
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5" :class="{ 'opacity-30 pointer-events-none transition-opacity': isLoading }">
                   <div
                     v-for="content in contents"
                     :key="content.id"
                     @click="goToDetail(content)"
-                    class="content-card"
+                    class="overflow-hidden cursor-pointer bg-white/60 border border-white/40 rounded-xl shadow-md transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
                   >
-                    <div class="card-media">
-                      <template v-if="content.type === 'image'">
+                    <div class="relative w-full pt-[75%] bg-gray-100 overflow-hidden">
+                      <template v-if="content.type === 'image' || content.type === 'video' || content.type === 'link'">
                         <img
                           :src="getImageUrl(content.thumb)"
-                          alt="内容图片"
-                          class="card-image"
+                          :alt="content.type === 'link' ? '链接' : (content.type === 'video' ? '视频封面' : '内容图片')"
+                          class="absolute top-0 left-0 w-full h-full object-cover"
                           loading="lazy"
                           @load="onImageLoad"
                         />
                       </template>
-                      <template v-else-if="content.type === 'video'">
-                        <img
-                          :src="getImageUrl(content.thumb)"
-                          alt="视频封面"
-                          class="card-image"
-                          loading="lazy"
-                          @load="onImageLoad"
-                        />
-                        <div class="play-overlay">
-                          <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor">
+                      <template v-if="content.type === 'video'">
+                        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-black/60 rounded-full flex items-center justify-center">
+                          <svg class="w-5 h-5 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M8 5v14l11-7z" />
                           </svg>
                         </div>
                       </template>
-                      <template v-else-if="content.type === 'link'">
-                        <img
-                          :src="getImageUrl(content.thumb)"
-                          alt="链接"
-                          class="card-image"
-                          loading="lazy"
-                          @load="onImageLoad"
-                        />
-                        <div class="link-overlay">
-                          <svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <template v-if="content.type === 'link'">
+                        <div class="absolute top-2 right-2 w-8 h-8 bg-violet-500/85 rounded-full flex items-center justify-center">
+                          <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
                             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
                           </svg>
                         </div>
                       </template>
-                      <template v-else>
-                        <div class="text-preview">
-                          <p class="preview-text">
-                            {{ getPreviewText(content.text || '暂无内容') }}
-                          </p>
+                      <template v-if="content.type === 'text'">
+                        <div class="absolute top-0 left-0 w-full h-full p-4 bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center text-center">
+                          <p class="text-sm text-slate-500 m-0 line-clamp-4">{{ getPreviewText(content.text || '暂无内容') }}</p>
                         </div>
                       </template>
                     </div>
-                    <div class="card-info">
-                      <h3 class="card-title">{{ content.title }}</h3>
-                      <div class="card-meta">
-                        <span class="meta-item">
-                          <svg
-                            class="meta-icon"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                          >
+                    <div class="p-4">
+                      <h3 class="text-base font-semibold text-gray-900 mb-2.5 overflow-hidden text-ellipsis whitespace-nowrap">{{ content.title }}</h3>
+                      <div class="flex items-center gap-2 mb-2.5 flex-wrap">
+                        <span class="flex items-center gap-1 text-xs text-gray-500">
+                          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                             <circle cx="12" cy="7" r="4" />
                           </svg>
                           {{ content.user?.username }}
                         </span>
-                        <div class="tags-wrapper">
-                          <span v-for="tag in content.tags" :key="tag" class="meta-tag">{{
-                            tag
-                          }}</span>
+                        <div class="flex gap-1 flex-wrap">
+                          <span v-for="tag in content.tags" :key="tag" class="px-1.5 py-0.5 bg-black/6 rounded text-xs text-gray-600">{{ tag }}</span>
                         </div>
                       </div>
-                      <div class="card-type">
-                        <span :class="['type-badge', content.type]">
-                          {{
-                            content.type === 'video'
-                              ? '视频'
-                              : content.type === 'image'
-                                ? '图片'
-                                : content.type === 'link'
-                                  ? '链接'
-                                  : '文字'
-                          }}
+                      <div class="flex items-center gap-2">
+                        <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', content.type === 'video' ? 'bg-orange-100 text-orange-600' : content.type === 'image' ? 'bg-emerald-100 text-emerald-600' : content.type === 'link' ? 'bg-violet-100 text-violet-600' : 'bg-sky-100 text-sky-600']">
+                          {{ content.type === 'video' ? '视频' : content.type === 'image' ? '图片' : content.type === 'link' ? '链接' : '文字' }}
                         </span>
-                        <span class="view-count">
-                          <svg class="view-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <span class="flex items-center gap-1 text-xs text-gray-400">
+                          <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                             <circle cx="12" cy="12" r="3"/>
                           </svg>
@@ -611,52 +551,46 @@ onMounted(() => {
                   </div>
                 </div>
                 
-                <div v-if="isLoading" class="loading-overlay">
-                  <div class="loading-spinner"></div>
-                  <p>加载中...</p>
+                <div v-if="isLoading" class="absolute inset-0 flex flex-col items-center justify-center bg-white/50 z-10">
+                  <div class="w-10 h-10 border-3 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+                  <p class="text-sm text-gray-500">加载中...</p>
                 </div>
               </div>
               
-              <div v-if="!isLoading && contents.length === 0" class="empty-state">
-                <svg
-                  class="empty-icon"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                >
+              <div v-if="!isLoading && contents.length === 0" class="text-center py-16 text-gray-400">
+                <svg class="w-16 h-16 mx-auto mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                   <circle cx="12" cy="12" r="10" />
                   <polyline points="12 6 12 12 16 14" />
                 </svg>
-                <p>暂无内容</p>
+                <p class="text-sm">暂无内容</p>
               </div>
             </div>
           </motion.div>
         </motion.div>
 
-        <div v-if="totalPages > 1" class="pagination-section">
-          <button @click="goToPage(1)" :disabled="page <= 1 || isLoading" class="pagination-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div v-if="totalPages > 1" class="flex justify-center items-center gap-4 pt-4 border-t border-black/6">
+          <button @click="goToPage(1)" :disabled="page <= 1 || isLoading" class="flex items-center gap-1.5 px-4 py-2 bg-white border border-black/10 rounded-lg text-sm text-gray-700 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-black/10 disabled:hover:text-gray-700">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M19 19l-7-7 7-7" />
             </svg>
             首页
           </button>
-          <button @click="goToPage(page - 1)" :disabled="page <= 1 || isLoading" class="pagination-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <button @click="goToPage(page - 1)" :disabled="page <= 1 || isLoading" class="flex items-center gap-1.5 px-4 py-2 bg-white border border-black/10 rounded-lg text-sm text-gray-700 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-black/10 disabled:hover:text-gray-700">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M15 19l-7-7 7-7" />
             </svg>
             上一页
           </button>
-          <span class="pagination-info">第 {{ page }} / {{ totalPages }} 页</span>
-          <button @click="goToPage(page + 1)" :disabled="page >= totalPages || isLoading" class="pagination-btn">
+          <span class="text-sm text-gray-600">第 {{ page }} / {{ totalPages }} 页</span>
+          <button @click="goToPage(page + 1)" :disabled="page >= totalPages || isLoading" class="flex items-center gap-1.5 px-4 py-2 bg-white border border-black/10 rounded-lg text-sm text-gray-700 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-black/10 disabled:hover:text-gray-700">
             下一页
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M9 5l7 7-7 7" />
             </svg>
           </button>
-          <button @click="goToPage(totalPages)" :disabled="page >= totalPages || isLoading" class="pagination-btn">
+          <button @click="goToPage(totalPages)" :disabled="page >= totalPages || isLoading" class="flex items-center gap-1.5 px-4 py-2 bg-white border border-black/10 rounded-lg text-sm text-gray-700 cursor-pointer transition-all hover:bg-gray-100 hover:border-blue-500 hover:text-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-black/10 disabled:hover:text-gray-700">
             尾页
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M5 5l7 7-7 7" />
             </svg>
           </button>
@@ -665,968 +599,3 @@ onMounted(() => {
     </div>
   </div>
 </template>
-
-<style scoped>
-.home-container {
-  min-height: 100vh;
-  padding: 20px;
-  display: flex;
-  justify-content: center;
-}
-
-.main-window {
-  width: 100%;
-  max-width: 1200px;
-  min-height: 100vh;
-  overflow: hidden;
-  transition: min-height 0.5s ease;
-  background: rgba(255, 255, 255, 0.75);
-  border-radius: 12px;
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.08),
-    0 2px 8px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-}
-
-.mac-title-bar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 10px 16px;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.02) 100%);
-  border-radius: 12px 12px 0 0;
-}
-
-.mac-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-
-.mac-dot-red {
-  background: #ff5f57;
-}
-
-.mac-dot-yellow {
-  background: #febc2e;
-}
-
-.mac-dot-green {
-  background: #28c840;
-}
-
-.window-title {
-  margin-left: 16px;
-  font-size: 13px;
-  color: #666;
-  font-weight: 500;
-}
-
-.content-area {
-  padding: 24px;
-}
-
-.header-section {
-  text-align: center;
-  margin-bottom: 32px;
-}
-
-.app-logo {
-  max-width: 100%;
-  height: auto;
-  max-height: 120px;
-  margin-bottom: 8px;
-}
-
-.app-subtitle {
-  font-size: 14px;
-  color: #888;
-  margin: 0;
-}
-
-.egg-link {
-  display: block;
-  width: fit-content;
-  margin: 0 auto;
-  padding: 8px 16px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 16px;
-  font-weight: 500;
-  text-align: center;
-}
-
-.egg-link:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-
-.search-section {
-  margin-bottom: 24px;
-}
-
-.search-box {
-  display: flex;
-  gap: 12px;
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-.search-input {
-  flex: 1;
-  font-size: 14px;
-  padding: 10px 16px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  background: white;
-  outline: none;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.search-input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.search-btn {
-  padding: 10px 20px;
-  background: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.search-btn:hover {
-  background: #2563eb;
-}
-
-.filter-section {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-  margin-bottom: 24px;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.03);
-  border-radius: 10px;
-}
-
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.filter-label {
-  font-size: 12px;
-  color: #666;
-  font-weight: 500;
-}
-
-.filter-select {
-  min-width: 140px;
-  font-size: 14px;
-}
-
-.tag-cloud {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.tag-cloud-item {
-  padding: 4px 12px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 20px;
-  font-size: 13px;
-  color: #555;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.tag-cloud-item:hover {
-  background: rgba(255, 255, 255, 0.95);
-  color: #3b82f6;
-  border-color: rgba(59, 130, 246, 0.3);
-}
-
-.tag-cloud-item.active {
-  background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
-  font-weight: 500;
-  border-color: rgba(59, 130, 246, 0.3);
-}
-
-.type-cloud {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.type-cloud-item {
-  padding: 4px 12px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 20px;
-  font-size: 13px;
-  color: #555;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.type-cloud-item:hover {
-  background: rgba(255, 255, 255, 0.95);
-  color: #059669;
-  border-color: rgba(5, 150, 105, 0.3);
-}
-
-.type-cloud-item.active {
-  background: rgba(5, 150, 105, 0.15);
-  color: #059669;
-  font-weight: 500;
-  border-color: rgba(5, 150, 105, 0.3);
-}
-
-.sections-container {
-  position: relative;
-}
-
-.poll-section {
-  margin-bottom: 24px;
-}
-
-.recommend-section {
-  margin-bottom: 24px;
-  scroll-margin-top: 120px;
-}
-
-.recommend-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-
-.recommend-card {
-  overflow: hidden;
-  cursor: pointer;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.36);
-  border-radius: 12px;
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.08),
-    0 1px 4px rgba(0, 0, 0, 0.04);
-}
-
-.recommend-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-}
-
-.recommend-media {
-  position: relative;
-  width: 100%;
-  padding-top: 75%;
-  background: #f8f9fa;
-  overflow: hidden;
-}
-
-.recommend-image {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.recommend-info {
-  padding: 12px;
-}
-
-.recommend-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin: 0 0 8px 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.recommend-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.recommend-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.refresh-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 6px;
-  font-size: 13px;
-  color: #555;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.refresh-btn:hover {
-  background: #f0f0f0;
-  border-color: #3b82f6;
-  color: #3b82f6;
-}
-
-.refresh-icon {
-  width: 14px;
-  height: 14px;
-}
-
-.recommend-hint {
-  position: absolute;
-  right: 24px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 13px;
-  color: #ef4444;
-  animation: fadeInOut 2s ease;
-}
-
-@keyframes fadeInOut {
-  0%,
-  100% {
-    opacity: 0;
-  }
-  10%,
-  90% {
-    opacity: 1;
-  }
-}
-
-.recommend-author {
-  font-size: 12px;
-  color: #888;
-}
-
-.recommend-tags {
-  display: flex;
-  gap: 4px;
-}
-
-.recommend-tag {
-  padding: 1px 6px;
-  background: rgba(251, 146, 60, 0.15);
-  border-radius: 4px;
-  font-size: 11px;
-  color: #fb923c;
-}
-
-.content-section {
-  margin-bottom: 24px;
-  scroll-margin-top: 120px;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.section-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin: 0;
-}
-
-.section-count {
-  font-size: 13px;
-  color: #888;
-}
-
-.content-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-}
-
-.content-card {
-  overflow: hidden;
-  cursor: pointer;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.36);
-  border-radius: 12px;
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.08),
-    0 1px 4px rgba(0, 0, 0, 0.04);
-}
-
-.content-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-}
-
-.card-media {
-  position: relative;
-  width: 100%;
-  padding-top: 75%;  background: #f8f9fa;
-  overflow: hidden;
-}
-
-.card-image {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.card-video {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.play-overlay {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 48px;
-  height: 48px;
-  background: rgba(0, 0, 0, 0.6);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.play-icon {
-  width: 20px;
-  height: 20px;
-  color: white;
-  margin-left: 3px;
-}
-
-.link-overlay {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 32px;
-  height: 32px;
-  background: rgba(139, 92, 246, 0.85);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.link-icon {
-  width: 16px;
-  height: 16px;
-  color: white;
-}
-
-.text-preview {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  padding: 16px;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-
-.preview-text {
-  font-size: 13px;
-  color: #64748b;
-  line-height: 1.5;
-  margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.card-info {
-  padding: 16px;
-}
-
-.card-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin: 0 0 10px 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.card-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: #888;
-}
-
-.meta-icon {
-  width: 14px;
-  height: 14px;
-}
-
-.tags-wrapper {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.meta-tag {
-  padding: 2px 6px;
-  background: rgba(0, 0, 0, 0.06);
-  border-radius: 4px;
-  font-size: 11px;
-  color: #666;
-}
-
-.card-type {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.view-count {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 11px;
-  color: #999;
-}
-
-.view-icon {
-  width: 13px;
-  height: 13px;
-  flex-shrink: 0;
-}
-
-.type-badge {
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.type-badge.video {
-  background: #fff0e6;
-  color: #d97706;
-}
-
-.type-badge.image {
-  background: #ecfdf5;
-  color: #059669;
-}
-
-.type-badge.link {
-  background: #f5f3ff;
-  color: #7c3aed;
-}
-
-.type-badge.text {
-  background: #f0f9ff;
-  color: #0284c7;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: #999;
-}
-
-.empty-icon {
-  width: 64px;
-  height: 64px;
-  margin-bottom: 16px;
-}
-
-.pagination-section {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.pagination-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: white;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  font-size: 14px;
-  color: #333;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.pagination-btn:hover:not(:disabled) {
-  background: #f8f9fa;
-  border-color: #3b82f6;
-  color: #3b82f6;
-}
-
-.pagination-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.pagination-btn svg {
-  width: 14px;
-  height: 14px;
-}
-
-.pagination-info {
-  font-size: 14px;
-  color: #666;
-}
-
-.loading-state {
-  grid-column: 1 / -1;
-  text-align: center;
-  padding: 60px 20px;
-  color: #999;
-}
-
-.recommend-grid-wrapper,
-.content-grid-wrapper {
-  position: relative;
-}
-
-.grid-loading {
-  opacity: 0.3;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-}
-
-.loading-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.5);
-  z-index: 10;
-  animation: fadeIn 0.2s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  margin: 0 auto 16px;
-  border: 3px solid rgba(59, 130, 246, 0.2);
-  border-top-color: #3b82f6;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.refresh-icon.rotating {
-  animation: spin 1s linear infinite;
-}
-
-@media screen and (max-width: 768px) {
-  .home-container {
-    padding: 0;
-    min-height: calc(100vh - 60px);
-  }
-
-  .main-window {
-    border-radius: 0;
-    box-shadow: none;
-    min-height: calc(100vh - 60px);
-    background: rgba(255, 255, 255, 0.9);
-  }
-
-  .mac-title-bar {
-    display: none;
-  }
-
-  .content-area {
-    padding: 16px;
-  }
-
-  .header-section {
-    margin-bottom: 20px;
-  }
-
-  .app-logo {
-    max-height: 80px;
-  }
-
-  .app-subtitle {
-    font-size: 13px;
-  }
-
-  .search-box {
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .search-input {
-    min-height: 48px;
-    font-size: 15px;
-  }
-
-  .search-btn {
-    min-height: 48px;
-    font-size: 15px;
-  }
-
-  .filter-section {
-    flex-direction: column;
-    gap: 12px;
-    padding: 14px;
-  }
-
-  .filter-group {
-    width: 100%;
-  }
-
-  .filter-label {
-    font-size: 13px;
-  }
-
-  .tag-cloud-item,
-  .type-cloud-item {
-    padding: 6px 14px;
-    font-size: 14px;
-  }
-
-  .recommend-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-  }
-
-  .recommend-card {
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 12px;
-  }
-
-  .recommend-info {
-    padding: 10px;
-  }
-
-  .recommend-title {
-    font-size: 13px;
-    margin-bottom: 6px;
-  }
-
-  .recommend-author {
-    font-size: 11px;
-  }
-
-  .recommend-tag {
-    padding: 1px 5px;
-    font-size: 10px;
-  }
-
-  .refresh-btn {
-    padding: 4px 10px;
-    font-size: 12px;
-  }
-
-  .refresh-icon {
-    width: 12px;
-    height: 12px;
-  }
-
-  .content-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .content-card {
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  }
-
-  .card-media {
-    padding-top: 75%;
-  }
-
-  .play-overlay {
-    width: 40px;
-    height: 40px;
-  }
-
-  .play-icon {
-    width: 16px;
-    height: 16px;
-  }
-
-  .card-info {
-    padding: 12px;
-  }
-
-  .card-title {
-    font-size: 14px;
-    margin-bottom: 6px;
-  }
-
-  .card-meta {
-    gap: 6px;
-    margin-bottom: 6px;
-  }
-
-  .meta-item {
-    font-size: 11px;
-  }
-
-  .meta-icon {
-    width: 12px;
-    height: 12px;
-  }
-
-  .meta-tag {
-    padding: 1px 5px;
-    font-size: 10px;
-  }
-
-  .type-badge {
-    padding: 2px 6px;
-    font-size: 10px;
-  }
-
-  .section-header {
-    margin-bottom: 12px;
-  }
-
-  .section-title {
-    font-size: 16px;
-  }
-
-  .section-count {
-    font-size: 12px;
-  }
-
-  .pagination-section {
-    gap: 12px;
-    padding-top: 12px;
-  }
-
-  .pagination-btn {
-    min-width: 80px;
-    padding: 10px 12px;
-  }
-
-  .pagination-info {
-    font-size: 13px;
-  }
-
-  .empty-state {
-    padding: 40px 16px;
-  }
-
-  .empty-icon {
-    width: 48px;
-    height: 48px;
-  }
-}
-
-@media screen and (max-width: 480px) {
-  .recommend-grid {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .recommend-card {
-    background: rgba(255, 255, 255, 0.98);
-  }
-
-  .recommend-info {
-    padding: 8px;
-  }
-
-  .recommend-title {
-    font-size: 12px;
-  }
-
-  .content-grid {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .content-card {
-    background: rgba(255, 255, 255, 0.98);
-  }
-
-  .card-info {
-    padding: 10px;
-  }
-
-  .card-title {
-    font-size: 13px;
-  }
-}
-</style>
