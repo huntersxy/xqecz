@@ -3,14 +3,13 @@ import type { IncomingMessage, ClientRequest } from 'node:http'
 
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import tailwindcss from '@tailwindcss/vite'
 
-// 获取当前日期作为构建日期
 const buildDate = new Date().toISOString().split('T')[0]
 
-// https://vite.dev/config/
 export default defineConfig(async ({ mode }) => {
   const isDev = mode === 'development'
-  const plugins: any[] = [vue()]
+  const plugins: any[] = [vue(), tailwindcss()]
 
   if (isDev) {
     plugins.push((await import('vite-plugin-vue-devtools')).default())
