@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, computed, onMounted, defineComponent, h } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { RouterLink } from 'vue-router'
@@ -25,10 +25,10 @@ const CommentItem = defineComponent({
       return new Date(timestamp * 1000).toLocaleString('zh-CN')
     }
 
-    return () => h('div', { class: 'flex gap-2 sm:gap-3 p-2 sm:p-3 bg-white/60 rounded-lg border border-white/36' }, [
-      h('div', { class: 'w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0' }, [
+    return () => h('div', { class: 'flex gap-2 sm:gap-3 p-2 sm:p-3 bg-[var(--theme-card-bg)] rounded-lg border border-[var(--theme-card-border)]' }, [
+      h('div', { class: 'w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--theme-primary)]/10 flex items-center justify-center shrink-0' }, [
         h('svg', { 
-          class: 'w-4 h-4 sm:w-5 sm:h-5 text-blue-500', 
+          class: 'w-4 h-4 sm:w-5 sm:h-5 text-[var(--theme-primary)]', 
           viewBox: '0 0 24 24', 
           fill: 'none', 
           stroke: 'currentColor', 
@@ -40,10 +40,10 @@ const CommentItem = defineComponent({
       ]),
       h('div', { class: 'flex-1 relative' }, [
         h('div', { class: 'flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2' }, [
-          h('span', { class: 'font-semibold text-sm text-gray-900' }, props.comment.user?.username),
-          h('span', { class: 'text-xs text-gray-400' }, formatTime(props.comment.created_at)),
+          h('span', { class: 'font-semibold text-sm theme-text' }, props.comment.user?.username),
+          h('span', { class: 'text-xs theme-text-secondary' }, formatTime(props.comment.created_at)),
           userStore.isLoggedIn && (userStore.user?.is_admin || props.comment.user_id === userStore.user?.id) ? h('button', {
-            class: 'ml-auto p-1 text-gray-400 hover:text-gray-700 transition-colors',
+            class: 'ml-auto p-1 theme-text-secondary hover:theme-text transition-colors',
             onClick: (e: Event) => {
               e.stopPropagation()
               emit('toggle-menu', props.comment.id)
@@ -62,16 +62,16 @@ const CommentItem = defineComponent({
             ])
           ]) : null
         ]),
-        h('div', { class: 'text-xs sm:text-sm text-gray-700 leading-relaxed' }, [
-          props.comment.parent ? h('div', { class: 'mb-1 p-1.5 bg-gray-100 rounded text-xs text-gray-500 border-l-2 border-blue-500' }, [
-            h('span', { class: 'font-medium text-gray-600' }, props.comment.parent.user?.username + ': '),
+        h('div', { class: 'text-xs sm:text-sm theme-text leading-relaxed' }, [
+          props.comment.parent ? h('div', { class: 'mb-1 p-1.5 bg-[var(--theme-hover-bg)] rounded text-xs theme-text-secondary border-l-2 border-[var(--theme-primary)]' }, [
+            h('span', { class: 'font-medium theme-text-secondary' }, props.comment.parent.user?.username + ': '),
             props.comment.parent.text
           ]) : null,
           h('span', props.comment.text)
         ]),
         h('div', { class: 'mt-1 sm:mt-2' }, [
           userStore.isLoggedIn ? h('button', {
-            class: 'flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 transition-colors',
+            class: 'flex items-center gap-1 text-xs theme-text-secondary hover:text-[var(--theme-primary)] transition-colors',
             onClick: () => emit('select-reply', props.comment)
           }, [
             h('svg', {
@@ -88,10 +88,10 @@ const CommentItem = defineComponent({
         ]),
         
         props.menuTarget === props.comment.id ? h('div', {
-          class: 'absolute right-0 top-0 bg-white rounded-lg shadow-lg shadow-black/12 p-1 min-w-[120px] z-10'
+          class: 'absolute right-0 top-0 bg-[var(--theme-surface)] rounded-lg shadow-lg shadow-black/12 p-1 min-w-[120px] z-10'
         }, [
           h('button', {
-            class: 'flex items-center gap-2 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded',
+            class: 'flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--theme-danger)] hover:bg-[var(--theme-danger)]/5 rounded',
             onClick: () => {
               emit('delete-comment', props.comment.id)
               emit('toggle-menu', null)
@@ -111,7 +111,7 @@ const CommentItem = defineComponent({
             '删除'
           ]),
           h('button', {
-            class: 'flex items-center gap-2 w-full px-3 py-2 text-sm text-amber-500 hover:bg-amber-50 rounded',
+            class: 'flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--theme-warning)] hover:bg-[var(--theme-warning)]/5 rounded',
             onClick: () => {
               emit('report-comment', props.comment)
               emit('toggle-menu', null)
@@ -131,7 +131,7 @@ const CommentItem = defineComponent({
         ]) : null,
 
         props.comment.replies && props.comment.replies.length > 0 ? h('div', {
-          class: 'mt-2 sm:mt-3 pl-3 sm:pl-4 border-l-2 border-blue-500/20'
+          class: 'mt-2 sm:mt-3 pl-3 sm:pl-4 border-l-2 border-[var(--theme-primary)]/20'
         }, props.comment.replies.map(reply => 
           h(CommentItem, {
             key: reply.id,
@@ -352,23 +352,23 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen p-2 sm:p-5 flex justify-center">
-    <div class="w-full max-w-[800px] overflow-hidden bg-white/75 rounded-xl shadow-lg shadow-black/5 border border-white/40">
-      <div class="flex items-center px-3 py-2 sm:px-4 sm:py-2.5 bg-gradient-to-b from-black/8 to-black/2">
+    <div class="w-full max-w-[800px] overflow-hidden bg-[var(--theme-surface)] rounded-xl shadow-lg shadow-black/5 border border-[var(--theme-card-border)]">
+      <div class="flex items-center px-3 py-2 sm:px-4 sm:py-2.5 theme-header-bg">
         <div class="w-3 h-3 rounded-full bg-[#ff5f57] mr-2"></div>
         <div class="w-3 h-3 rounded-full bg-[#febc2e] mr-2"></div>
         <div class="w-3 h-3 rounded-full bg-[#28c840] mr-4"></div>
-        <div class="text-xs sm:text-sm text-gray-500 font-medium">内容详情</div>
+        <div class="text-xs sm:text-sm theme-text-secondary font-medium">内容详情</div>
       </div>
 
       <div class="p-4 sm:p-6">
-        <div v-if="message" class="px-3 py-2 sm:px-4 sm:py-3 rounded-lg mb-3 sm:mb-4 flex justify-between items-center" :class="{ 'bg-red-100 text-red-600': message.includes('失败') || message.includes('请'), 'bg-emerald-100 text-emerald-600': message.includes('成功') }">
+        <div v-if="message" class="px-3 py-2 sm:px-4 sm:py-3 rounded-lg mb-3 sm:mb-4 flex justify-between items-center" :class="{ 'bg-[var(--theme-danger)]/10 text-[var(--theme-danger)]': message.includes('失败') || message.includes('请'), 'bg-[var(--theme-success)]/10 text-[var(--theme-success)]': message.includes('成功') }">
           <span class="text-sm">{{ message }}</span>
           <span class="text-lg font-bold cursor-pointer" @click="message = ''">×</span>
         </div>
 
         <div v-if="content" class="animate-[fadeIn_0.3s_ease]">
           <div class="mb-3 sm:mb-5">
-            <button @click="goBack" class="flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 bg-black/5 rounded-lg text-sm text-gray-700 hover:bg-black/10 hover:text-blue-500 transition-all">
+            <button @click="goBack" class="flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 bg-[var(--theme-hover-bg)] rounded-lg text-sm theme-text hover:bg-black/10 hover:text-[var(--theme-primary)] transition-all">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M19 12H5"></path>
                 <polyline points="12 19 5 12 12 5"></polyline>
@@ -377,21 +377,21 @@ onMounted(() => {
             </button>
           </div>
 
-          <div class="bg-white/60 rounded-xl p-4 sm:p-6 mb-3 sm:mb-4 shadow-md shadow-black/8 border border-white/36">
+          <div class="bg-[var(--theme-card-bg)] rounded-xl p-4 sm:p-6 mb-3 sm:mb-4 shadow-md shadow-black/8 border border-[var(--theme-card-border)]">
             <div class="mb-3 sm:mb-4">
-              <h1 class="text-lg sm:text-xl font-bold text-gray-900 mb-2 sm:mb-3 leading-relaxed">{{ content.title }}</h1>
+              <h1 class="text-lg sm:text-xl font-bold theme-text mb-2 sm:mb-3 leading-relaxed">{{ content.title }}</h1>
               <div class="flex gap-2 sm:gap-3">
-                <span :class="[content.type === 'video' ? 'bg-red-100 text-red-600' : content.type === 'image' ? 'bg-emerald-100 text-emerald-600' : content.type === 'link' ? 'bg-violet-100 text-violet-600' : 'bg-blue-100 text-blue-600']" class="px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-medium">
+                <span :class="[content.type === 'video' ? 'bg-[var(--theme-danger)]/10 text-[var(--theme-danger)]' : content.type === 'image' ? 'bg-[var(--theme-success)]/10 text-[var(--theme-success)]' : content.type === 'link' ? 'bg-[var(--theme-secondary)]/10 text-[var(--theme-secondary)]' : 'bg-[var(--theme-primary)]/10 text-[var(--theme-primary)]']" class="px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-medium">
                   {{ content.type === 'video' ? '视频' : content.type === 'image' ? '图片' : content.type === 'link' ? '链接' : '文字' }}
                 </span>
-                <span :class="[content.audit_status === 'approved' ? 'bg-emerald-100 text-emerald-600' : content.audit_status === 'pending' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600']" class="px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-medium">
+                <span :class="[content.audit_status === 'approved' ? 'bg-[var(--theme-success)]/10 text-[var(--theme-success)]' : content.audit_status === 'pending' ? 'bg-[var(--theme-warning)]/10 text-[var(--theme-warning)]' : 'bg-[var(--theme-danger)]/10 text-[var(--theme-danger)]']" class="px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-medium">
                   {{ content.audit_status === 'approved' ? '已通过' : content.audit_status === 'pending' ? '审核中' : '已拒绝' }}
                 </span>
               </div>
             </div>
 
-            <div class="flex flex-wrap gap-3 sm:gap-4 mb-3 sm:mb-4 pb-3 sm:pb-4 border-b border-black/6">
-              <div class="flex items-center gap-1.5 text-xs sm:text-sm text-gray-600">
+            <div class="flex flex-wrap gap-3 sm:gap-4 mb-3 sm:mb-4 pb-3 sm:pb-4 border-b border-[var(--theme-card-border)]">
+              <div class="flex items-center gap-1.5 text-xs sm:text-sm theme-text-secondary">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                   <circle cx="12" cy="7" r="4"></circle>
@@ -399,20 +399,20 @@ onMounted(() => {
                 <span>{{ content.user?.username }}</span>
                 <button
                   @click="userStore.isLoggedIn ? showClaimModal = true : router.push('/login')"
-                  class="text-gray-400 hover:text-blue-500 text-xs sm:text-sm underline underline-offset-2 decoration-dotted ml-1 sm:ml-2"
+                  class="theme-text-secondary hover:text-[var(--theme-primary)] text-xs sm:text-sm underline underline-offset-2 decoration-dotted ml-1 sm:ml-2"
                 >
                   认领内容
                 </button>
               </div>
-              <div v-if="(content.tags || []).length > 0" class="flex items-center gap-1.5 text-xs sm:text-sm text-gray-600">
+              <div v-if="(content.tags || []).length > 0" class="flex items-center gap-1.5 text-xs sm:text-sm theme-text-secondary">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                 </svg>
-                <span v-for="tag in (content.tags || [])" :key="tag" class="px-1.5 py-0.5 bg-blue-500/10 rounded text-blue-500 text-xs">{{ tag }}</span>
+                <span v-for="tag in (content.tags || [])" :key="tag" class="px-1.5 py-0.5 bg-[var(--theme-primary)]/10 rounded text-[var(--theme-primary)] text-xs">{{ tag }}</span>
               </div>
             </div>
 
-            <div class="flex flex-wrap gap-3 sm:gap-4 mb-4 sm:mb-5 text-xs sm:text-sm text-gray-400">
+            <div class="flex flex-wrap gap-3 sm:gap-4 mb-4 sm:mb-5 text-xs sm:text-sm theme-text-secondary">
               <span class="flex items-center gap-1.5">
                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="12" cy="12" r="10"></circle>
@@ -431,7 +431,7 @@ onMounted(() => {
             </div>
 
             <div>
-              <div v-if="content.type === 'text'" class="text-gray-800 text-sm sm:text-base leading-relaxed" v-html="renderedContent"></div>
+              <div v-if="content.type === 'text'" class="theme-text text-sm sm:text-base leading-relaxed" v-html="renderedContent"></div>
               <div v-else-if="content.type === 'image'" class="flex justify-center">
                 <img :src="getImageUrl(content.img)" alt="内容图片" class="w-full sm:w-[90%] rounded-xl shadow-lg shadow-black/10">
               </div>
@@ -441,28 +441,28 @@ onMounted(() => {
                   您的浏览器不支持视频播放。
                 </video>
               </div>
-              <div v-else-if="content.type === 'link'" class="text-gray-800 text-sm sm:text-base leading-relaxed" v-html="renderedContent"></div>
+              <div v-else-if="content.type === 'link'" class="theme-text text-sm sm:text-base leading-relaxed" v-html="renderedContent"></div>
             </div>
           </div>
 
-          <div class="bg-white/60 rounded-xl p-3 sm:p-4 shadow-md shadow-black/8 border border-white/36">
+          <div class="bg-[var(--theme-card-bg)] rounded-xl p-3 sm:p-4 shadow-md shadow-black/8 border border-[var(--theme-card-border)]">
             <div class="mb-3 sm:mb-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-              <h3 class="text-base sm:text-lg font-semibold text-gray-900">评论 ({{ totalComments }})</h3>
+              <h3 class="text-base sm:text-lg font-semibold theme-text">评论 ({{ totalComments }})</h3>
               <div class="flex items-center gap-2">
                 <button
                   v-if="currentPage > 1"
                   @click="goToPrevPage"
-                  class="px-3 py-1 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                  class="px-3 py-1 text-sm theme-text-secondary bg-[var(--theme-hover-bg)] hover:bg-[var(--theme-hover-bg)] rounded transition-colors"
                 >
                   上一页
                 </button>
-                <span class="text-sm text-gray-500">
+                <span class="text-sm theme-text-secondary">
                   第 {{ currentPage }} / {{ totalPages }} 页
                 </span>
                 <button
                   v-if="currentPage < totalPages"
                   @click="goToNextPage"
-                  class="px-3 py-1 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                  class="px-3 py-1 text-sm theme-text-secondary bg-[var(--theme-hover-bg)] hover:bg-[var(--theme-hover-bg)] rounded transition-colors"
                 >
                   下一页
                 </button>
@@ -470,25 +470,25 @@ onMounted(() => {
             </div>
 
             <div v-if="userStore.isLoggedIn" class="mb-3 sm:mb-4">
-              <div v-if="replyTarget" class="flex justify-between items-center px-3 py-2 bg-blue-500/10 rounded-lg mb-2 text-sm text-blue-500">
+              <div v-if="replyTarget" class="flex justify-between items-center px-3 py-2 bg-[var(--theme-primary)]/10 rounded-lg mb-2 text-sm text-[var(--theme-primary)]">
                 <span>回复 {{ replyTarget.user?.username }}:</span>
-                <button @click="cancelReply" class="text-gray-500 hover:text-blue-500 font-medium">取消</button>
+                <button @click="cancelReply" class="theme-text-secondary hover:text-[var(--theme-primary)] font-medium">取消</button>
               </div>
               <textarea
                 v-model="commentText"
-                class="w-full min-h-[70px] sm:min-h-[80px] px-3 py-2 sm:px-4 sm:py-3 border border-black/10 rounded-lg bg-white text-sm resize-vertical focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10"
+                class="w-full min-h-[70px] sm:min-h-[80px] px-3 py-2 sm:px-4 sm:py-3 border border-[var(--theme-card-border)] rounded-lg bg-[var(--theme-surface)] theme-text text-sm resize-vertical focus:outline-none focus:border-[var(--theme-primary)]/50 focus:ring-2 focus:ring-[var(--theme-primary)]/10"
                 placeholder="写下你的评论..."
                 @keyup.enter.ctrl="submitComment"
               ></textarea>
               <div class="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-4 mt-2">
-                <span class="text-xs text-gray-400 hidden sm:block">Ctrl + Enter 发送</span>
-                <button @click="submitComment" class="w-full sm:w-auto px-4 sm:px-5 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-all">发表评论</button>
+                <span class="text-xs theme-text-secondary hidden sm:block">Ctrl + Enter 发送</span>
+                <button @click="submitComment" class="w-full sm:w-auto px-4 sm:px-5 py-2 bg-[var(--theme-primary)] text-white rounded-lg text-sm font-medium hover:brightness-90 transition-all">发表评论</button>
               </div>
             </div>
 
-            <div v-else class="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-black/3 rounded-lg mb-3 sm:mb-4">
-              <p class="text-sm text-gray-600">请先登录以发表评论</p>
-              <RouterLink to="/login" class="w-full sm:w-auto px-4 sm:px-5 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium text-center hover:bg-blue-600 transition-all">登录</RouterLink>
+            <div v-else class="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-[var(--theme-hover-bg)] rounded-lg mb-3 sm:mb-4">
+              <p class="text-sm theme-text-secondary">请先登录以发表评论</p>
+              <RouterLink to="/login" class="w-full sm:w-auto px-4 sm:px-5 py-2 bg-[var(--theme-primary)] text-white rounded-lg text-sm font-medium text-center hover:brightness-90 transition-all">登录</RouterLink>
             </div>
 
             <div v-if="comments.length > 0" class="space-y-2 sm:space-y-3">
@@ -506,7 +506,7 @@ onMounted(() => {
               </template>
             </div>
 
-            <div v-else class="flex flex-col items-center py-8 sm:py-10 text-gray-400">
+            <div v-else class="flex flex-col items-center py-8 sm:py-10 theme-text-secondary">
               <svg class="w-10 h-10 sm:w-12 sm:h-12 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
               </svg>
@@ -515,7 +515,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <div v-else class="flex flex-col items-center py-12 sm:py-20 text-gray-400">
+        <div v-else class="flex flex-col items-center py-12 sm:py-20 theme-text-secondary">
           <svg class="w-16 h-16 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M20 20h-8l-4-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2z"></path>
             <polyline points="14 2 14 8 20 8"></polyline>
@@ -526,44 +526,44 @@ onMounted(() => {
       </div>
 
       <Teleport to="body">
-        <div v-if="reportTarget" class="fixed inset-0 flex items-center justify-center bg-black/50 z-[9999]" @click.self="reportTarget = null">
-          <div class="w-[90%] sm:w-[400px] bg-white/98 rounded-xl shadow-2xl overflow-hidden">
-            <div class="flex justify-between items-center px-4 py-3 border-b border-black/6 bg-gradient-to-b from-black/5 to-transparent">
-              <h3 class="font-semibold text-gray-900">举报评论</h3>
-              <button @click="reportTarget = null" class="text-gray-400 hover:text-blue-500 text-xl leading-none">×</button>
+        <div v-if="reportTarget" class="fixed inset-0 flex items-center justify-center bg-[var(--theme-hover-bg)]0 z-[9999]" @click.self="reportTarget = null">
+          <div class="w-[90%] sm:w-[400px] bg-[var(--theme-surface)] rounded-xl shadow-2xl overflow-hidden">
+            <div class="flex justify-between items-center px-4 py-3 border-b border-[var(--theme-card-border)] bg-gradient-to-b from-black/5 to-transparent">
+              <h3 class="font-semibold theme-text">举报评论</h3>
+              <button @click="reportTarget = null" class="theme-text-secondary hover:text-[var(--theme-primary)] text-xl leading-none">×</button>
             </div>
             <div class="p-4">
-              <p class="text-sm text-gray-700 mb-2">您正在举报以下评论：</p>
-              <p class="px-3 py-2 bg-black/3 rounded-lg text-sm text-gray-500 italic mb-3">{{ reportTarget.text }}</p>
-              <label class="block text-sm text-gray-600 mb-2">举报原因（可选）</label>
-              <input v-model="reportReason" type="text" class="w-full px-3 py-2 border border-black/10 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10" placeholder="请输入举报原因">
+              <p class="text-sm theme-text mb-2">您正在举报以下评论：</p>
+              <p class="px-3 py-2 bg-[var(--theme-hover-bg)] rounded-lg text-sm theme-text-secondary italic mb-3">{{ reportTarget.text }}</p>
+              <label class="block text-sm theme-text-secondary mb-2">举报原因（可选）</label>
+              <input v-model="reportReason" type="text" class="w-full px-3 py-2 border border-[var(--theme-card-border)] rounded-lg text-sm bg-[var(--theme-surface)] theme-text focus:outline-none focus:border-[var(--theme-primary)]/50 focus:ring-2 focus:ring-[var(--theme-primary)]/10" placeholder="请输入举报原因">
             </div>
-            <div class="flex justify-end gap-3 px-4 py-3 border-t border-black/6 bg-black/3">
-              <button @click="reportTarget = null" class="px-4 py-2 text-sm text-gray-700 hover:text-blue-500 transition-colors">取消</button>
-              <button @click="submitReport" class="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors">确认举报</button>
+            <div class="flex justify-end gap-3 px-4 py-3 border-t border-[var(--theme-card-border)] bg-[var(--theme-hover-bg)]">
+              <button @click="reportTarget = null" class="px-4 py-2 text-sm theme-text hover:text-[var(--theme-primary)] transition-colors">取消</button>
+              <button @click="submitReport" class="px-4 py-2 bg-[var(--theme-primary)] text-white text-sm font-medium rounded-lg hover:brightness-90 transition-colors">确认举报</button>
             </div>
           </div>
         </div>
 
-        <div v-if="showClaimModal" class="fixed inset-0 flex items-center justify-center bg-black/50 z-[9999]" @click.self="showClaimModal = false">
-          <div class="w-[90%] sm:w-[450px] bg-white/98 rounded-xl shadow-2xl overflow-hidden">
-            <div class="flex justify-between items-center px-4 py-3 border-b border-black/6 bg-gradient-to-b from-blue-500/5 to-transparent">
-              <h3 class="font-semibold text-gray-900">认领此内容</h3>
-              <button @click="showClaimModal = false" class="text-gray-400 hover:text-blue-500 text-xl leading-none">×</button>
+        <div v-if="showClaimModal" class="fixed inset-0 flex items-center justify-center bg-[var(--theme-hover-bg)]0 z-[9999]" @click.self="showClaimModal = false">
+          <div class="w-[90%] sm:w-[450px] bg-[var(--theme-surface)] rounded-xl shadow-2xl overflow-hidden">
+            <div class="flex justify-between items-center px-4 py-3 border-b border-[var(--theme-card-border)] bg-gradient-to-b from-blue-500/5 to-transparent">
+              <h3 class="font-semibold theme-text">认领此内容</h3>
+              <button @click="showClaimModal = false" class="theme-text-secondary hover:text-[var(--theme-primary)] text-xl leading-none">×</button>
             </div>
             <div class="p-4">
-              <p class="text-sm text-gray-600 mb-4 leading-relaxed">请提供认领理由，管理员将在审核后决定是否将此内容转移给您。</p>
-              <label class="block text-sm font-medium text-gray-700 mb-2">认领理由 <span class="text-red-500">*</span></label>
+              <p class="text-sm theme-text-secondary mb-4 leading-relaxed">请提供认领理由，管理员将在审核后决定是否将此内容转移给您。</p>
+              <label class="block text-sm font-medium theme-text mb-2">认领理由 <span class="text-[var(--theme-danger)]">*</span></label>
               <textarea
                 v-model="claimReason"
-                class="w-full min-h-[120px] px-3 py-2 border border-black/10 rounded-lg text-sm bg-white resize-vertical focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10 disabled:opacity-60"
+                class="w-full min-h-[120px] px-3 py-2 border border-[var(--theme-card-border)] rounded-lg text-sm bg-[var(--theme-surface)] theme-text resize-vertical focus:outline-none focus:border-[var(--theme-primary)]/50 focus:ring-2 focus:ring-[var(--theme-primary)]/10 disabled:opacity-60"
                 placeholder="请详细说明您认为此内容应归属于您的原因..."
                 :disabled="isSubmittingClaim"
               ></textarea>
             </div>
-            <div class="flex justify-end gap-3 px-4 py-3 border-t border-black/6 bg-black/3">
-              <button @click="showClaimModal = false" class="px-4 py-2 text-sm text-gray-700 hover:text-blue-500 transition-colors" :disabled="isSubmittingClaim">取消</button>
-              <button @click="submitClaim" class="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50" :disabled="isSubmittingClaim">
+            <div class="flex justify-end gap-3 px-4 py-3 border-t border-[var(--theme-card-border)] bg-[var(--theme-hover-bg)]">
+              <button @click="showClaimModal = false" class="px-4 py-2 text-sm theme-text hover:text-[var(--theme-primary)] transition-colors" :disabled="isSubmittingClaim">取消</button>
+              <button @click="submitClaim" class="px-4 py-2 bg-[var(--theme-primary)] text-white text-sm font-medium rounded-lg hover:brightness-90 transition-colors disabled:opacity-50" :disabled="isSubmittingClaim">
                 {{ isSubmittingClaim ? '提交中...' : '提交申请' }}
               </button>
             </div>

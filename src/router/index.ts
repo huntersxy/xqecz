@@ -17,6 +17,7 @@ const ContentDetailView = createAsyncComponent(() => import('../views/ContentDet
 const UploadView = createAsyncComponent(() => import('../views/UploadView.vue'))
 const AdminView = createAsyncComponent(() => import('../views/AdminView.vue'))
 const AdminReportsView = createAsyncComponent(() => import('../views/AdminReportsView.vue'))
+const ThemeSettingsView = createAsyncComponent(() => import('../views/ThemeSettingsView.vue'))
 
 const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
@@ -58,6 +59,11 @@ const router = createRouter({
       name: 'admin-reports',
       component: AdminReportsView,
       meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/theme',
+      name: 'theme-settings',
+      component: ThemeSettingsView,
     },
   ],
 })

@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 interface Props {
   currentPage: number;
   totalPages: number;
@@ -24,18 +24,18 @@ const handleNext = () => {
     <button
       @click="handlePrev"
       :disabled="currentPage <= 1"
-      class="flex items-center gap-1.5 px-3 py-2 text-[14px] text-gray-700 bg-white/95 border border-gray-200 rounded-md hover:text-blue-600 hover:border-blue-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-gray-700 disabled:hover:border-gray-200 transition-colors"
+      class="flex items-center gap-1.5 px-3 py-2 text-[14px] theme-text bg-[var(--theme-surface)] border border-gray-200 rounded-md hover:text-[var(--theme-primary)] hover:border-blue-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:theme-text disabled:hover:border-gray-200 transition-colors"
     >
       <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M15 19l-7-7 7-7"/>
       </svg>
       上一页
     </button>
-    <span class="text-[14px] text-gray-600">第 {{ currentPage }} / {{ totalPages }} 页</span>
+    <span class="text-[14px] theme-text-secondary">第 {{ currentPage }} / {{ totalPages }} 页</span>
     <button
       @click="handleNext"
       :disabled="currentPage >= totalPages"
-      class="flex items-center gap-1.5 px-3 py-2 text-[14px] text-gray-700 bg-white/95 border border-gray-200 rounded-md hover:text-blue-600 hover:border-blue-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-gray-700 disabled:hover:border-gray-200 transition-colors"
+      class="flex items-center gap-1.5 px-3 py-2 text-[14px] theme-text bg-[var(--theme-surface)] border border-gray-200 rounded-md hover:text-[var(--theme-primary)] hover:border-blue-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:theme-text disabled:hover:border-gray-200 transition-colors"
     >
       下一页
       <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

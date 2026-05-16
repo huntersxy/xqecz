@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
@@ -668,21 +668,21 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen p-2 sm:p-4 md:p-5 lg:p-6 flex justify-center bg-transparent">
-    <div class="w-full max-w-6xl bg-white/75 rounded-xl shadow-lg shadow-black/5 border border-white/40 overflow-hidden">
-      <div class="flex items-center px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-b from-black/8 to-black/2">
+    <div class="w-full max-w-6xl bg-[var(--theme-surface)] rounded-xl shadow-lg shadow-black/5 border border-[var(--theme-card-border)] overflow-hidden">
+      <div class="flex items-center px-3 sm:px-4 py-2 sm:py-2.5 theme-header-bg">
         <div class="w-3 h-3 rounded-full bg-[#ff5f57] mr-2"></div>
         <div class="w-3 h-3 rounded-full bg-[#febc2e] mr-2"></div>
         <div class="w-3 h-3 rounded-full bg-[#28c840] mr-4"></div>
-        <div class="text-xs sm:text-sm text-gray-500 font-medium">小泉动漫 - 后台管理</div>
+        <div class="text-xs sm:text-sm theme-text-secondary font-medium">小泉动漫 - 后台管理</div>
       </div>
 
       <div class="p-3 sm:p-4 md:p-6">
-        <div v-if="message" class="px-3 sm:px-4 py-2 sm:py-3 rounded-lg mb-3 sm:mb-4 flex justify-between items-center" :class="message.includes('成功') ? 'bg-emerald-50/80 text-emerald-600' : 'bg-red-50/80 text-red-600'">
+        <div v-if="message" class="px-3 sm:px-4 py-2 sm:py-3 rounded-lg mb-3 sm:mb-4 flex justify-between items-center" :class="message.includes('成功') ? 'bg-emerald-50/80 text-[var(--theme-success)]' : 'bg-[var(--theme-danger)]/5/80 text-[var(--theme-danger)]'">
           <span class="text-xs sm:text-sm">{{ message }}</span>
           <span class="text-sm font-bold cursor-pointer hover:opacity-70" @click="message = ''">×</span>
         </div>
 
-        <div class="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4 pb-2 sm:pb-3 border-b border-black/6">
+        <div class="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4 pb-2 sm:pb-3 border-b border-[var(--theme-card-border)]">
           <button
             v-for="tab in [{key:'my',label:'我的内容'},{key:'pending',label:'审核内容'},{key:'all',label:'所有内容'},{key:'users',label:'用户管理'},{key:'polls',label:'投票管理'},{key:'claims',label:'认领管理'}]"
             :key="tab.key"
@@ -691,8 +691,8 @@ onMounted(() => {
             :class="[
               'px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-md transition-all',
               activeTab === tab.key 
-                ? 'bg-blue-500/10 text-blue-500 font-medium border border-blue-500/30' 
-                : 'bg-white/95 text-gray-600 border border-black/10 hover:bg-blue-500/8 hover:text-blue-500 hover:border-blue-500/30'
+                ? 'bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] font-medium border border-[var(--theme-primary)]/30' 
+                : 'bg-[var(--theme-surface)] theme-text-secondary border border-[var(--theme-card-border)] hover:bg-[var(--theme-primary)]/8 hover:text-[var(--theme-primary)] hover:border-[var(--theme-primary)]/30'
             ]"
           >
             {{ tab.label }}
@@ -708,15 +708,15 @@ onMounted(() => {
             @change="handleImageUpload"
           />
           <div class="flex items-center justify-between">
-            <h2 class="text-base sm:text-lg font-semibold text-gray-900">上传内容</h2>
-            <button @click="router.push('/upload')" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-500/95 text-white border border-blue-500/95 rounded-md text-xs sm:text-sm hover:bg-blue-700/95 hover:border-blue-700/95 transition-all">
+            <h2 class="text-base sm:text-lg font-semibold theme-text">上传内容</h2>
+            <button @click="router.push('/upload')" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-[var(--theme-primary)]/95 text-white border border-[var(--theme-primary)]/95 rounded-md text-xs sm:text-sm hover:bg-blue-700/95 hover:border-blue-700/95 transition-all">
               新建上传
             </button>
           </div>
           
           <div class="flex items-center justify-between">
-            <h2 class="text-base sm:text-lg font-semibold text-gray-900">我的内容</h2>
-            <span class="text-xs sm:text-sm text-gray-500">共 {{ myContentsTotal }} 条</span>
+            <h2 class="text-base sm:text-lg font-semibold theme-text">我的内容</h2>
+            <span class="text-xs sm:text-sm theme-text-secondary">共 {{ myContentsTotal }} 条</span>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
@@ -745,8 +745,8 @@ onMounted(() => {
 
         <div v-if="activeTab === 'pending'" class="space-y-3 sm:space-y-4">
           <div class="flex items-center justify-between">
-            <h2 class="text-base sm:text-lg font-semibold text-gray-900">待审核内容</h2>
-            <span class="text-xs sm:text-sm text-gray-500">共 {{ pendingContentsTotal }} 条</span>
+            <h2 class="text-base sm:text-lg font-semibold theme-text">待审核内容</h2>
+            <span class="text-xs sm:text-sm theme-text-secondary">共 {{ pendingContentsTotal }} 条</span>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
@@ -773,10 +773,10 @@ onMounted(() => {
 
         <div v-if="activeTab === 'all'" class="space-y-3 sm:space-y-4">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 class="text-base sm:text-lg font-semibold text-gray-900">所有内容</h2>
+            <h2 class="text-base sm:text-lg font-semibold theme-text">所有内容</h2>
             <div class="flex items-center gap-2 sm:gap-3">
-              <span class="text-xs sm:text-sm text-gray-500">共 {{ allContentsTotal }} 条</span>
-              <button @click="regenerateAllThumbnails" class="flex items-center gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-white/95 text-gray-600 border border-black/10 rounded-md text-xs sm:text-sm hover:bg-blue-500/8 hover:text-blue-500 hover:border-blue-500/30 transition-all">
+              <span class="text-xs sm:text-sm theme-text-secondary">共 {{ allContentsTotal }} 条</span>
+              <button @click="regenerateAllThumbnails" class="flex items-center gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-[var(--theme-surface)] theme-text-secondary border border-[var(--theme-card-border)] rounded-md text-xs sm:text-sm hover:bg-[var(--theme-primary)]/8 hover:text-[var(--theme-primary)] hover:border-[var(--theme-primary)]/30 transition-all">
                 <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
                   <path d="M3 3v5h5"/>
@@ -817,8 +817,8 @@ onMounted(() => {
 
         <div v-if="activeTab === 'users'" class="space-y-3 sm:space-y-4">
           <div class="flex items-center justify-between">
-            <h2 class="text-base sm:text-lg font-semibold text-gray-900">用户管理</h2>
-            <span class="text-xs sm:text-sm text-gray-500">共 {{ usersTotal }} 条</span>
+            <h2 class="text-base sm:text-lg font-semibold theme-text">用户管理</h2>
+            <span class="text-xs sm:text-sm theme-text-secondary">共 {{ usersTotal }} 条</span>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
@@ -844,10 +844,10 @@ onMounted(() => {
 
         <div v-if="activeTab === 'polls'" class="space-y-3 sm:space-y-4">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 class="text-base sm:text-lg font-semibold text-gray-900">投票管理</h2>
+            <h2 class="text-base sm:text-lg font-semibold theme-text">投票管理</h2>
             <div class="flex items-center gap-2 sm:gap-3">
-              <span class="text-xs sm:text-sm text-gray-500">共 {{ pollsTotal }} 条</span>
-              <button @click="showCreatePollModal = true" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-500/95 text-white border border-blue-500/95 rounded-md text-xs sm:text-sm hover:bg-blue-700/95 hover:border-blue-700/95 transition-all">
+              <span class="text-xs sm:text-sm theme-text-secondary">共 {{ pollsTotal }} 条</span>
+              <button @click="showCreatePollModal = true" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-[var(--theme-primary)]/95 text-white border border-[var(--theme-primary)]/95 rounded-md text-xs sm:text-sm hover:bg-blue-700/95 hover:border-blue-700/95 transition-all">
                 创建投票
               </button>
             </div>
@@ -857,28 +857,28 @@ onMounted(() => {
             <div
               v-for="poll in polls"
               :key="poll.id"
-              class="bg-white/95 border border-black/10 rounded-lg p-3 sm:p-4"
+              class="bg-[var(--theme-surface)] border border-[var(--theme-card-border)] rounded-lg p-3 sm:p-4"
             >
               <div class="flex flex-wrap items-start justify-between gap-2">
                 <div class="flex-1">
-                  <div class="text-base sm:text-lg font-semibold text-gray-900 mb-1">{{ poll.title }}</div>
-                  <div class="flex flex-wrap gap-2 text-xs sm:text-sm text-gray-500">
+                  <div class="text-base sm:text-lg font-semibold theme-text mb-1">{{ poll.title }}</div>
+                  <div class="flex flex-wrap gap-2 text-xs sm:text-sm theme-text-secondary">
                     <span>{{ poll.vote_count }} 票</span>
                     <span>{{ new Date(poll.created_at).toLocaleString() }}</span>
                   </div>
                 </div>
                 <button
                   @click="handleDeletePoll(poll.id)"
-                  class="px-2 sm:px-3 py-1 sm:py-1.5 bg-red-500/95 text-white border border-red-500/95 rounded-md text-xs sm:text-sm hover:bg-red-700/95 hover:border-red-700/95 transition-all shrink-0"
+                  class="px-2 sm:px-3 py-1 sm:py-1.5 bg-[var(--theme-danger)]/50/95 text-white border border-red-500/95 rounded-md text-xs sm:text-sm hover:bg-red-700/95 hover:border-red-700/95 transition-all shrink-0"
                 >
                   删除
                 </button>
               </div>
-              <div v-if="poll.description" class="text-xs sm:text-sm text-gray-600 mt-2 sm:mt-3 leading-relaxed">
+              <div v-if="poll.description" class="text-xs sm:text-sm theme-text-secondary mt-2 sm:mt-3 leading-relaxed">
                 {{ poll.description }}
               </div>
               <div class="flex flex-wrap gap-1.5 sm:gap-2 mt-2 sm:mt-3">
-                <span v-for="(option, index) in poll.options" :key="index" class="px-2 sm:px-2.5 py-0.5 sm:py-1 bg-blue-500/10 border border-blue-500/30 rounded-full text-xs sm:text-sm text-blue-500">
+                <span v-for="(option, index) in poll.options" :key="index" class="px-2 sm:px-2.5 py-0.5 sm:py-1 bg-[var(--theme-primary)]/10 border border-[var(--theme-primary)]/30 rounded-full text-xs sm:text-sm text-[var(--theme-primary)]">
                   {{ option }}
                 </span>
               </div>
@@ -897,10 +897,10 @@ onMounted(() => {
 
         <div v-if="activeTab === 'claims'" class="space-y-3 sm:space-y-4">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 class="text-base sm:text-lg font-semibold text-gray-900">认领管理</h2>
+            <h2 class="text-base sm:text-lg font-semibold theme-text">认领管理</h2>
             <div class="flex items-center gap-2 sm:gap-3">
-              <span class="text-xs sm:text-sm text-gray-500">共 {{ claimsTotal }} 条</span>
-              <select v-model="claimsStatusFilter" @change="claimsPage = 1; loadClaims()" class="px-2.5 sm:px-3 py-1.5 sm:py-2 border border-black/10 rounded-md text-xs sm:text-sm bg-white focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10">
+              <span class="text-xs sm:text-sm theme-text-secondary">共 {{ claimsTotal }} 条</span>
+              <select v-model="claimsStatusFilter" @change="claimsPage = 1; loadClaims()" class="px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--theme-card-border)] rounded-md text-xs sm:text-sm bg-[var(--theme-surface)] focus:outline-none focus:border-[var(--theme-primary)]/50 focus:ring-2 focus:ring-[var(--theme-primary)]/10">
                 <option value="">全部状态</option>
                 <option value="pending">待处理</option>
                 <option value="approved">已通过</option>
@@ -913,10 +913,10 @@ onMounted(() => {
             <div
               v-for="claim in claims"
               :key="claim.id"
-              class="bg-white/60 border border-white/36 rounded-xl p-3 sm:p-4 shadow-md shadow-black/5"
+              class="bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-xl p-3 sm:p-4 shadow-md shadow-black/5"
             >
               <div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                <div class="w-full sm:w-48 h-28 sm:h-36 bg-gray-100 rounded-lg overflow-hidden shrink-0">
+                <div class="w-full sm:w-48 h-28 sm:h-36 bg-[var(--theme-hover-bg)] rounded-lg overflow-hidden shrink-0">
                   <template v-if="claim.content.type !== 'text' && claim.content.type !== 'link'">
                     <img
                       :src="getImageUrl(claim.content.thumb)"
@@ -926,32 +926,32 @@ onMounted(() => {
                     />
                   </template>
                   <template v-else>
-                    <div class="w-full h-full p-2 text-xs text-gray-500 overflow-hidden flex items-center justify-center">
+                    <div class="w-full h-full p-2 text-xs theme-text-secondary overflow-hidden flex items-center justify-center">
                       {{ getPreviewText(claim.content.text) }}
                     </div>
                   </template>
                 </div>
                 <div class="flex-1 space-y-2">
                   <div class="flex flex-wrap items-center justify-between gap-2">
-                    <span class="text-base sm:text-lg font-semibold text-gray-900">{{ claim.content?.title || '未知内容' }}</span>
+                    <span class="text-base sm:text-lg font-semibold theme-text">{{ claim.content?.title || '未知内容' }}</span>
                     <span :class="[
                       'px-2 sm:px-3 py-1 rounded-full text-xs font-medium',
-                      claim.status === 'pending' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/30' :
+                      claim.status === 'pending' ? 'bg-amber-500/10 text-[var(--theme-warning)] border border-amber-500/30' :
                       claim.status === 'approved' ? 'bg-green-500/10 text-green-600 border border-green-500/30' :
-                      'bg-red-500/10 text-red-600 border border-red-500/30'
+                      'bg-[var(--theme-danger)]/50/10 text-[var(--theme-danger)] border border-red-500/30'
                     ]">
                       {{ claim.status === 'pending' ? '待处理' : claim.status === 'approved' ? '已通过' : '已拒绝' }}
                     </span>
                   </div>
-                  <div class="text-xs sm:text-sm text-gray-600 space-y-1">
-                    <div><span class="text-gray-400">认领者：</span>{{ claim.user?.username || '未知用户' }}</div>
-                    <div><span class="text-gray-400">认领理由：</span>{{ claim.reason }}</div>
-                    <div v-if="claim.remark"><span class="text-gray-400">备注：</span>{{ claim.remark }}</div>
-                    <div><span class="text-gray-400">提交时间：</span>{{ new Date(claim.created_at).toLocaleString() }}</div>
+                  <div class="text-xs sm:text-sm theme-text-secondary space-y-1">
+                    <div><span class="theme-text-secondary">认领者：</span>{{ claim.user?.username || '未知用户' }}</div>
+                    <div><span class="theme-text-secondary">认领理由：</span>{{ claim.reason }}</div>
+                    <div v-if="claim.remark"><span class="theme-text-secondary">备注：</span>{{ claim.remark }}</div>
+                    <div><span class="theme-text-secondary">提交时间：</span>{{ new Date(claim.created_at).toLocaleString() }}</div>
                   </div>
                   <div v-if="claim.status === 'pending'" class="flex gap-2 mt-2">
-                    <button @click="handleClaim(claim.id, 'approve')" class="flex-1 px-3 py-1.5 bg-blue-500/95 text-white border border-blue-500/95 rounded-md text-xs sm:text-sm hover:bg-blue-700/95 hover:border-blue-700/95 transition-all">通过</button>
-                    <button @click="handleClaim(claim.id, 'reject')" class="flex-1 px-3 py-1.5 bg-red-500/95 text-white border border-red-500/95 rounded-md text-xs sm:text-sm hover:bg-red-700/95 hover:border-red-700/95 transition-all">拒绝</button>
+                    <button @click="handleClaim(claim.id, 'approve')" class="flex-1 px-3 py-1.5 bg-[var(--theme-primary)]/95 text-white border border-[var(--theme-primary)]/95 rounded-md text-xs sm:text-sm hover:bg-blue-700/95 hover:border-blue-700/95 transition-all">通过</button>
+                    <button @click="handleClaim(claim.id, 'reject')" class="flex-1 px-3 py-1.5 bg-[var(--theme-danger)]/50/95 text-white border border-red-500/95 rounded-md text-xs sm:text-sm hover:bg-red-700/95 hover:border-red-700/95 transition-all">拒绝</button>
                   </div>
                 </div>
               </div>
@@ -1044,37 +1044,37 @@ onMounted(() => {
 
       <div
         v-if="showCreatePollModal"
-        class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3"
+        class="fixed inset-0 bg-[var(--theme-hover-bg)]0 flex items-center justify-center z-50 p-3"
         @click.self="showCreatePollModal = false"
       >
-        <div class="w-full max-w-md sm:max-w-lg bg-white rounded-xl shadow-xl overflow-hidden">
-          <div class="flex items-center justify-between px-4 py-3 border-b border-black/6">
-            <h3 class="text-base sm:text-lg font-semibold text-gray-900">创建投票</h3>
-            <button @click="showCreatePollModal = false" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/6 text-gray-500 hover:text-gray-800 transition-all">
+        <div class="w-full max-w-md sm:max-w-lg bg-[var(--theme-surface)] rounded-xl shadow-xl overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-[var(--theme-card-border)]">
+            <h3 class="text-base sm:text-lg font-semibold theme-text">创建投票</h3>
+            <button @click="showCreatePollModal = false" class="w-8 h-8 flex items-center justify-center rounded-full hover:border-[var(--theme-card-border)] theme-text-secondary hover:theme-text transition-all">
               <span class="text-xl font-bold">×</span>
             </button>
           </div>
           <div class="p-4 space-y-3">
             <div>
-              <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">投票标题</label>
+              <label class="block text-xs sm:text-sm font-medium theme-text mb-1.5">投票标题</label>
               <input
                 v-model="createPollForm.title"
                 type="text"
                 placeholder="请输入投票标题"
-                class="w-full px-3 py-2 sm:py-2.5 border border-black/10 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10"
+                class="w-full px-3 py-2 sm:py-2.5 border border-[var(--theme-card-border)] rounded-lg text-sm bg-[var(--theme-surface)] focus:outline-none focus:border-[var(--theme-primary)]/50 focus:ring-2 focus:ring-[var(--theme-primary)]/10"
               />
             </div>
             <div>
-              <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">投票描述</label>
+              <label class="block text-xs sm:text-sm font-medium theme-text mb-1.5">投票描述</label>
               <textarea
                 v-model="createPollForm.description"
                 placeholder="请输入投票描述（可选）"
                 rows="3"
-                class="w-full px-3 py-2 sm:py-2.5 border border-black/10 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10 resize-none"
+                class="w-full px-3 py-2 sm:py-2.5 border border-[var(--theme-card-border)] rounded-lg text-sm bg-[var(--theme-surface)] focus:outline-none focus:border-[var(--theme-primary)]/50 focus:ring-2 focus:ring-[var(--theme-primary)]/10 resize-none"
               />
             </div>
             <div>
-              <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">投票选项</label>
+              <label class="block text-xs sm:text-sm font-medium theme-text mb-1.5">投票选项</label>
               <div class="space-y-2">
                 <div
                   v-for="(option, index) in createPollForm.options"
@@ -1085,25 +1085,25 @@ onMounted(() => {
                     v-model="createPollForm.options[index]"
                     type="text"
                     placeholder="请输入选项内容"
-                    class="flex-1 px-3 py-2 sm:py-2.5 border border-black/10 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10"
+                    class="flex-1 px-3 py-2 sm:py-2.5 border border-[var(--theme-card-border)] rounded-lg text-sm bg-[var(--theme-surface)] focus:outline-none focus:border-[var(--theme-primary)]/50 focus:ring-2 focus:ring-[var(--theme-primary)]/10"
                   />
                   <button
                     v-if="createPollForm.options.length > 2"
                     @click="removePollOption(index)"
-                    class="w-8 h-8 flex items-center justify-center bg-red-500/10 border border-red-500/30 rounded-md text-red-500 hover:bg-red-500/20 hover:border-red-500/50 transition-all"
+                    class="w-8 h-8 flex items-center justify-center bg-[var(--theme-danger)]/50/10 border border-red-500/30 rounded-md text-[var(--theme-danger)] hover:bg-[var(--theme-danger)]/50/20 hover:border-red-500/50 transition-all"
                   >
                     ×
                   </button>
                 </div>
               </div>
-              <button @click="addPollOption" class="mt-2 px-3 py-1.5 bg-white/95 text-gray-600 border border-black/10 rounded-md text-xs sm:text-sm hover:bg-blue-500/8 hover:text-blue-500 hover:border-blue-500/30 transition-all">
+              <button @click="addPollOption" class="mt-2 px-3 py-1.5 bg-[var(--theme-surface)] theme-text-secondary border border-[var(--theme-card-border)] rounded-md text-xs sm:text-sm hover:bg-[var(--theme-primary)]/8 hover:text-[var(--theme-primary)] hover:border-[var(--theme-primary)]/30 transition-all">
                 + 添加选项
               </button>
             </div>
           </div>
-          <div class="flex justify-end gap-2 px-4 py-3 border-t border-black/6">
-            <button @click="showCreatePollModal = false" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-white/95 text-gray-600 border border-black/10 rounded-md text-xs sm:text-sm hover:bg-blue-500/8 hover:text-blue-500 hover:border-blue-500/30 transition-all">取消</button>
-            <button @click="handleCreatePoll" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-500/95 text-white border border-blue-500/95 rounded-md text-xs sm:text-sm hover:bg-blue-700/95 hover:border-blue-700/95 transition-all">创建</button>
+          <div class="flex justify-end gap-2 px-4 py-3 border-t border-[var(--theme-card-border)]">
+            <button @click="showCreatePollModal = false" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-[var(--theme-surface)] theme-text-secondary border border-[var(--theme-card-border)] rounded-md text-xs sm:text-sm hover:bg-[var(--theme-primary)]/8 hover:text-[var(--theme-primary)] hover:border-[var(--theme-primary)]/30 transition-all">取消</button>
+            <button @click="handleCreatePoll" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-[var(--theme-primary)]/95 text-white border border-[var(--theme-primary)]/95 rounded-md text-xs sm:text-sm hover:bg-blue-700/95 hover:border-blue-700/95 transition-all">创建</button>
           </div>
         </div>
       </div>
