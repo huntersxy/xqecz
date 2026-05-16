@@ -38,7 +38,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <header class="sticky top-0 z-100 bg-[var(--theme-surface)] backdrop-blur-[calc(var(--theme-blur,0px)*1.6)] liquid-glass-nav" :class="{ '!backdrop-blur-0': isMobileUA }">
+  <header class="sticky top-0 z-100 bg-[var(--theme-surface)] liquid-glass-nav" :class="{ '!backdrop-blur-0': isMobileUA }">
     <nav class="max-w-[1400px] mx-auto px-4 py-2 flex justify-between items-center">
       <div class="flex items-center">
         <RouterLink to="/" class="flex items-center gap-2 no-underline font-semibold text-[15px] text-[var(--theme-text)]">
@@ -54,25 +54,12 @@ onMounted(() => {
           </svg>
           <span>首页</span>
         </RouterLink>
-        <RouterLink v-if="userStore.isLoggedIn" to="/upload" class="flex items-center gap-1.5 px-4 py-2 no-underline rounded-lg text-[14px] text-[var(--theme-text)] transition-all duration-200 hover:bg-[var(--theme-hover-bg)] hover:text-[var(--theme-primary)]" @click="closeMobileMenu">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          <span>上传内容</span>
-        </RouterLink>
         <RouterLink v-if="userStore.isLoggedIn" to="/admin" class="flex items-center gap-1.5 px-4 py-2 no-underline rounded-lg text-[14px] text-[var(--theme-text)] transition-all duration-200 hover:bg-[var(--theme-hover-bg)] hover:text-[var(--theme-primary)]" @click="closeMobileMenu">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
             <circle cx="12" cy="12" r="3"/>
           </svg>
           <span>后台管理</span>
-        </RouterLink>
-        <RouterLink v-if="userStore.user?.is_admin" to="/admin/reports" class="flex items-center gap-1.5 px-4 py-2 no-underline rounded-lg text-[14px] text-[var(--theme-text)] transition-all duration-200 hover:bg-[var(--theme-hover-bg)] hover:text-[var(--theme-primary)]" @click="closeMobileMenu">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-          </svg>
-          <span>举报管理</span>
         </RouterLink>
         <RouterLink to="/theme" class="flex items-center gap-1.5 px-4 py-2 no-underline rounded-lg text-[14px] text-[var(--theme-text)] transition-all duration-200 hover:bg-[var(--theme-hover-bg)] hover:text-[var(--theme-primary)]" @click="closeMobileMenu">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -159,25 +146,12 @@ onMounted(() => {
           <span>首页</span>
         </RouterLink>
 
-        <RouterLink v-if="userStore.isLoggedIn" to="/upload" class="flex items-center gap-4 px-4 py-4 no-underline rounded-xl text-[16px] text-[var(--theme-text)] transition-all duration-200 hover:bg-[var(--theme-hover-bg)] mb-1.5 bg-[var(--theme-surface)] border border-[var(--theme-card-border)]" @click="closeMobileMenu">
-          <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          <span>上传内容</span>
-        </RouterLink>
         <RouterLink v-if="userStore.isLoggedIn" to="/admin" class="flex items-center gap-4 px-4 py-4 no-underline rounded-xl text-[16px] text-[var(--theme-text)] transition-all duration-200 hover:bg-[var(--theme-hover-bg)] mb-1.5 bg-[var(--theme-surface)] border border-[var(--theme-card-border)]" @click="closeMobileMenu">
           <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
             <circle cx="12" cy="12" r="3"/>
           </svg>
           <span>管理后台</span>
-        </RouterLink>
-        <RouterLink v-if="userStore.isLoggedIn" to="/admin/reports" class="flex items-center gap-4 px-4 py-4 no-underline rounded-xl text-[16px] text-[var(--theme-text)] transition-all duration-200 hover:bg-[var(--theme-hover-bg)] mb-1.5 bg-[var(--theme-surface)] border border-[var(--theme-card-border)]" @click="closeMobileMenu">
-          <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-          </svg>
-          <span>举报管理</span>
         </RouterLink>
         <RouterLink to="/theme" class="flex items-center gap-4 px-4 py-4 no-underline rounded-xl text-[16px] text-[var(--theme-text)] transition-all duration-200 hover:bg-[var(--theme-hover-bg)] mb-1.5 bg-[var(--theme-surface)] border border-[var(--theme-card-border)]" @click="closeMobileMenu">
           <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

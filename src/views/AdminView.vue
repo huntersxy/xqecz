@@ -2,8 +2,8 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { contentApi, adminApi, pollApi } from '@/api'
-import type { Content, User, Poll, CreatePollData, Claim } from '@/types'
+import { contentApi, adminApi, pollApi, commentApi } from '@/api'
+import type { Content, User, Poll, CreatePollData, Claim, CommentReport } from '@/types'
 import { getPreviewText, renderMarkdown } from '@/utils'
 
 function getImageUrl(image?: string): string {
@@ -25,7 +25,6 @@ import AdminContentDetailModal from '@/components/admin/AdminContentDetailModal.
 import AdminEditModal from '@/components/admin/AdminEditModal.vue'
 import AdminDeleteConfirm from '@/components/admin/AdminDeleteConfirm.vue'
 import AdminQuickAddTag from '@/components/admin/AdminQuickAddTag.vue'
-import AdminUploadForm from '@/components/admin/AdminUploadForm.vue'
 import AdminChangeAuthorModal from '@/components/admin/AdminChangeAuthorModal.vue'
 
 const userStore = useUserStore()
@@ -33,11 +32,12 @@ const router = useRouter()
 
 const activeTab = ref('my')
 const message = ref('')
-const showUploadModal = ref(false)
+const agreeUpload = ref(false)
+const uploadFormExpanded = ref(true)
 
 const uploadForm = ref({
   title: '',
-    type: 'text' as 'video' | 'image' | 'text' | 'link',
+    type: 'image' as 'video' | 'image' | 'text' | 'link',
   content: '',
   url: '',
   tags: [] as string[],
@@ -103,6 +103,61 @@ const claimsTotal = ref(0)
 const claimsTotalPages = ref(1)
 const claimsStatusFilter = ref('')
 
+const reports = ref<CommentReport[]>([])
+const showReportDeleteConfirm = ref(false)
+const deleteReportTargetId = ref(0)
+const deleteReportId = ref(0)
+
+async function loadReports() {
+  try {
+    const res = await commentApi.getReports()
+    if (res.code === 200) {
+      reports.value = res.data
+    }
+  } catch {
+    message.value = '加载举报列表失败'
+  }
+}
+
+async function handleReportAction(reportId: number) {
+  try {
+    const res = await commentApi.handleReport(reportId)
+    if (res.code === 200) {
+      message.value = '处理成功'
+      await loadReports()
+    } else {
+      message.value = res.message || '处理失败'
+    }
+  } catch {
+    message.value = '处理失败'
+  }
+}
+
+function confirmReportDelete(commentId: number, reportId: number) {
+  deleteReportTargetId.value = commentId
+  deleteReportId.value = reportId
+  showReportDeleteConfirm.value = true
+}
+
+async function deleteReportComment() {
+  const commentId = deleteReportTargetId.value
+  const reportId = deleteReportId.value
+  
+  try {
+    const deleteRes = await commentApi.delete(commentId)
+    if (deleteRes.code === 200) {
+      await commentApi.handleReport(reportId)
+      message.value = '删除成功'
+      await loadReports()
+    } else {
+      message.value = deleteRes.message || '删除失败'
+    }
+  } catch {
+    message.value = '删除失败'
+  }
+  showReportDeleteConfirm.value = false
+}
+
 const showCreatePollModal = ref(false)
 const createPollForm = ref<CreatePollData>({
   title: '',
@@ -119,6 +174,19 @@ const allTags = computed(() => {
   })
   return Array.from(tagsSet)
 })
+
+const allTagsList = ref<string[]>([])
+
+async function loadAllTags() {
+  try {
+    const res = await contentApi.getTags()
+    if (res.code === 200) {
+      allTagsList.value = res.data as string[]
+    }
+  } catch {
+    console.error('加载标签失败')
+  }
+}
 
 const renderedDetailContent = computed(() => {
   if (!contentDetail.value) return ''
@@ -146,6 +214,7 @@ function insertMarkdown(prefix: string, suffix: string = '') {
 }
 
 const imageUploadInput = ref<HTMLInputElement | null>(null)
+const uploadFileInput = ref<HTMLInputElement | null>(null)
 const editImageUploadInput = ref<HTMLInputElement | null>(null)
 
 function triggerImageUpload() {
@@ -470,9 +539,9 @@ async function handleUpload() {
     })
     if (res.code === 200) {
       message.value = '上传成功'
-      uploadForm.value = { title: '', type: 'text', content: '', url: '', tags: [], file: undefined }
+      uploadForm.value = { title: '', type: 'image', content: '', url: '', tags: [], file: undefined }
       filePreview.value = ''
-      showUploadModal.value = false
+      agreeUpload.value = false
       loadMyContents()
     } else {
       message.value = res.message || '上传失败'
@@ -657,12 +726,14 @@ function onTabChange(tab: string) {
   if (tab === 'users') loadUsers()
   if (tab === 'polls') loadPolls()
   if (tab === 'claims') loadClaims()
+  if (tab === 'reports') loadReports()
 }
 
 onMounted(() => {
   if (userStore.isLoggedIn) {
     loadMyContents()
   }
+  loadAllTags()
 })
 </script>
 
@@ -684,7 +755,7 @@ onMounted(() => {
 
         <div class="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4 pb-2 sm:pb-3 border-b border-[var(--theme-card-border)]">
           <button
-            v-for="tab in [{key:'my',label:'我的内容'},{key:'pending',label:'审核内容'},{key:'all',label:'所有内容'},{key:'users',label:'用户管理'},{key:'polls',label:'投票管理'},{key:'claims',label:'认领管理'}]"
+            v-for="tab in [{key:'my',label:'我的内容'},{key:'pending',label:'审核内容'},{key:'all',label:'所有内容'},{key:'users',label:'用户管理'},{key:'polls',label:'投票管理'},{key:'claims',label:'认领管理'},{key:'reports',label:'举报管理'}]"
             :key="tab.key"
             v-show="tab.key === 'my' || userStore.user?.is_admin"
             @click="onTabChange(tab.key)"
@@ -707,11 +778,141 @@ onMounted(() => {
             style="display: none"
             @change="handleImageUpload"
           />
-          <div class="flex items-center justify-between">
-            <h2 class="text-base sm:text-lg font-semibold theme-text">上传内容</h2>
-            <button @click="router.push('/upload')" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-[var(--theme-primary)]/95 text-white border border-[var(--theme-primary)]/95 rounded-md text-xs sm:text-sm hover:bg-blue-700/95 hover:border-blue-700/95 transition-all">
-              新建上传
-            </button>
+          <div class="mb-4 bg-[var(--theme-surface)] border border-[var(--theme-card-border)] rounded-xl overflow-hidden">
+            <div class="flex justify-between items-center px-5 py-4 bg-gradient-to-b from-black/5 to-transparent border-b border-black/5 cursor-pointer" @click="uploadFormExpanded = !uploadFormExpanded">
+              <h2 class="text-base font-semibold theme-text m-0">上传内容</h2>
+              <span class="text-2xl theme-text-secondary leading-none transition-transform" :class="{ 'rotate-180': uploadFormExpanded }">▼</span>
+            </div>
+            <div v-if="uploadFormExpanded" class="p-5">
+              <div class="mb-4">
+                <label class="block text-[13px] font-medium theme-text mb-2">标题</label>
+                <input v-model="uploadForm.title" type="text" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-[var(--theme-surface)] focus:outline-none focus:border-[var(--theme-primary)]/50 focus:ring-2 focus:ring-[var(--theme-primary)]/10" placeholder="输入标题" />
+              </div>
+              <div class="mb-4">
+                <label class="block text-[13px] font-medium theme-text mb-2">类型</label>
+                <div class="flex gap-4">
+                  <label class="flex items-center gap-1.5 cursor-pointer text-sm theme-text">
+                    <input type="radio" value="text" v-model="uploadForm.type" class="cursor-pointer" />
+                    <span>文字</span>
+                  </label>
+                  <label class="flex items-center gap-1.5 cursor-pointer text-sm theme-text">
+                    <input type="radio" value="image" v-model="uploadForm.type" class="cursor-pointer" />
+                    <span>图片</span>
+                  </label>
+                  <label class="flex items-center gap-1.5 cursor-pointer text-sm theme-text">
+                    <input type="radio" value="video" v-model="uploadForm.type" class="cursor-pointer" />
+                    <span>视频</span>
+                  </label>
+                  <label class="flex items-center gap-1.5 cursor-pointer text-sm theme-text">
+                    <input type="radio" value="link" v-model="uploadForm.type" class="cursor-pointer" />
+                    <span>链接</span>
+                  </label>
+                </div>
+              </div>
+              <div v-if="uploadForm.type === 'text'" class="mb-4">
+                <label class="block text-[13px] font-medium theme-text mb-2">内容</label>
+                <div class="flex gap-1 mb-2 p-1.5 bg-[var(--theme-hover-bg)] rounded-md">
+                  <button type="button" @click="insertMarkdown('## ')" class="w-8 h-8 flex items-center justify-center bg-[var(--theme-surface)] border border-[var(--theme-card-border)] rounded-md theme-text-secondary hover:text-[var(--theme-primary)] hover:border-blue-300 transition-all active:bg-blue-50 active:shadow-inner active:ring-1 active:ring-blue-200" title="标题">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M4 12h16M4 6h16M4 18h10" />
+                    </svg>
+                  </button>
+                  <button type="button" @click="insertMarkdown('**', '**')" class="w-8 h-8 flex items-center justify-center bg-[var(--theme-surface)] border border-[var(--theme-card-border)] rounded-md theme-text-secondary hover:text-[var(--theme-primary)] hover:border-blue-300 transition-all active:bg-blue-50 active:shadow-inner active:ring-1 active:ring-blue-200" title="粗体">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
+                      <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
+                    </svg>
+                  </button>
+                  <button type="button" @click="insertMarkdown('*', '*')" class="w-8 h-8 flex items-center justify-center bg-[var(--theme-surface)] border border-[var(--theme-card-border)] rounded-md theme-text-secondary hover:text-[var(--theme-primary)] hover:border-blue-300 transition-all active:bg-blue-50 active:shadow-inner active:ring-1 active:ring-blue-200" title="斜体">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="19" y1="4" x2="10" y2="4" />
+                      <line x1="14" y1="20" x2="5" y2="20" />
+                      <line x1="15" y1="4" x2="9" y2="20" />
+                    </svg>
+                  </button>
+                  <button type="button" @click="triggerImageUpload" class="w-8 h-8 flex items-center justify-center bg-[var(--theme-surface)] border border-[var(--theme-card-border)] rounded-md theme-text-secondary hover:text-[var(--theme-primary)] hover:border-blue-300 transition-all active:bg-blue-50 active:shadow-inner active:ring-1 active:ring-blue-200" title="上传图片">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                      <circle cx="8.5" cy="8.5" r="1.5" />
+                      <polyline points="21 15 16 10 5 21" />
+                    </svg>
+                  </button>
+                </div>
+                <textarea v-model="uploadForm.content" class="w-full min-h-[200px] resize-y font-mono text-sm leading-relaxed box-border bg-[var(--theme-surface)] border border-gray-200 rounded-lg p-3 focus:outline-none focus:border-[var(--theme-primary)]/50 focus:ring-2 focus:ring-[var(--theme-primary)]/10 upload-textarea" placeholder="支持Markdown"></textarea>
+              </div>
+              <div v-else class="mb-4">
+                <label class="block text-[13px] font-medium theme-text mb-2">文件</label>
+                <input type="file" ref="uploadFileInput" @change="handleFileChange" class="hidden" :accept="uploadForm.type === 'image' ? 'image/*' : 'video/*'" />
+                <div 
+                  @click="uploadFileInput?.click()" 
+                  class="w-full p-6 border-2 border-dashed border-[var(--theme-card-border)] rounded-lg bg-[var(--theme-surface)] cursor-pointer hover:border-[var(--theme-primary)]/50 hover:bg-[var(--theme-hover-bg)] transition-all flex flex-col items-center justify-center gap-2"
+                >
+                  <svg class="w-8 h-8 theme-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  <span class="text-sm theme-text-secondary">{{ uploadForm.file ? uploadForm.file.name : '点击或拖拽文件至此处' }}</span>
+                </div>
+                <div v-if="filePreview" class="relative mt-3 rounded-lg overflow-hidden">
+                  <img v-if="uploadForm.type === 'image'" :src="filePreview" class="w-full max-h-[300px] object-contain" />
+                  <video v-else-if="uploadForm.type === 'video'" :src="filePreview" class="w-full max-h-[300px]" controls />
+                  <button type="button" @click="filePreview = ''; uploadForm.file = undefined; if (uploadFileInput) uploadFileInput.value = ''" class="absolute top-2 right-2 w-7 h-7 bg-black/50 text-white rounded-full cursor-pointer text-lg flex items-center justify-center hover:bg-black/70 transition-colors">×</button>
+                </div>
+              </div>
+              <div v-if="uploadForm.type === 'video'" class="border-t border-gray-200 pt-2.5 px-4 pb-0">
+                <label class="flex gap-2 text-xs theme-text-secondary leading-relaxed cursor-pointer items-start hover:theme-text">
+                  <input type="checkbox" v-model="agreeUpload" class="mt-0.5 shrink-0 cursor-pointer" />
+                  <span>自2026年5月14日起，本平台建议使用「链接」类型来代替视频类型，您可以在链接类型中填入您的B站视频链接。若您同意，但您继续上传大于15MB的视频，则视为委托站长通过二创站官方B站账号代为上传，原视频将替换为该B站链接。该官方账号不会产生任何收益，亦不会用于上传其他内容。勾选即表示您已阅读并同意上述条款。</span>
+                </label>
+              </div>
+              <div class="border-t border-gray-200 pt-1 pb-0 mt-4">
+                <div class="text-xs theme-text-secondary leading-relaxed">上传至本站的内容如未另行标注版权信息，默认采用<a href="https://creativecommons.org/licenses/by/4.0/deed.zh-hans" target="_blank" rel="noopener" class="text-[var(--theme-primary)] no-underline hover:underline">知识共享署名 4.0 国际许可协议（CC BY 4.0）</a>进行授权。建议您在作品中添加水印或署名以保障自身权益。</div>
+              </div>
+              <div v-if="uploadForm.type === 'link'" class="mb-4 mt-4">
+                <label class="block text-[13px] font-medium theme-text mb-2">链接地址</label>
+                <input v-model="uploadForm.url" type="url" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-[var(--theme-surface)] focus:outline-none focus:border-[var(--theme-primary)]/50 focus:ring-2 focus:ring-[var(--theme-primary)]/10" placeholder="https://..." />
+              </div>
+              <div class="mb-4">
+                <label class="block text-[13px] font-medium theme-text mb-2">标签</label>
+                <div class="mt-2 space-y-3">
+                  <div v-if="uploadForm.tags.length > 0">
+                    <div class="text-xs theme-text-secondary mb-1.5">已选择</div>
+                    <div class="flex flex-wrap gap-2">
+                      <span v-for="tag in uploadForm.tags" :key="tag"
+                        class="px-3 py-1 bg-[var(--theme-primary)]/10 border border-blue-300 text-[var(--theme-primary)] cursor-pointer transition-all text-sm rounded-full hover:border-blue-400"
+                        @click="toggleTag(tag)">{{ tag }} <span class="ml-1 text-xs">×</span></span>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="text-xs theme-text-secondary mb-1.5">全部标签</div>
+                    <div class="flex flex-wrap gap-2">
+                      <span v-for="tag in allTagsList" :key="tag"
+                        :class="['px-3 py-1 bg-[var(--theme-surface)] border cursor-pointer transition-all text-sm rounded-full', uploadForm.tags.includes(tag) ? 'bg-[var(--theme-primary)]/10/50 border-blue-300 text-[var(--theme-primary)] hover:border-blue-400' : 'border-black/20 theme-text hover:border-blue-300 hover:text-[var(--theme-primary)]']"
+                        @click="toggleTag(tag)">{{ tag }}</span>
+                      <button type="button" @click="tagTargetForm = 'upload'; showQuickAddTag = true" class="w-8 h-8 flex items-center justify-center bg-[var(--theme-surface)] border-dashed border-black/20 rounded-md theme-text-secondary hover:border-blue-300 hover:text-[var(--theme-primary)] transition-all" title="添加标签">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <line x1="12" y1="5" x2="12" y2="19" />
+                          <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div v-if="isUploading" class="mb-4">
+                <div class="relative w-full h-5 bg-gray-200 rounded-full overflow-hidden">
+                  <div class="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-300" :style="{ width: `${uploadProgress}%` }"></div>
+                  <span class="absolute inset-0 flex items-center justify-center text-xs font-medium text-white drop-shadow-md">{{ uploadProgress }}%</span>
+                </div>
+              </div>
+              <div class="flex justify-end gap-3 px-0 py-2">
+                <button @click="uploadForm = { title: '', type: 'image', content: '', url: '', tags: [], file: undefined }; filePreview = ''; agreeUpload = false" class="px-4 py-2 bg-[var(--theme-surface)] border border-[var(--theme-card-border)] rounded-lg text-sm theme-text hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" :disabled="isUploading">清空</button>
+                <button @click="handleUpload" class="px-4 py-2 bg-[var(--theme-primary)] border border-[var(--theme-primary)] rounded-lg text-sm text-white hover:bg-[var(--theme-primary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed" :disabled="isUploading || (uploadForm.type === 'video' && uploadForm.file && uploadForm.file.size > 15 * 1024 * 1024 && !agreeUpload)">
+                  {{ isUploading ? '上传中...' : '提交' }}
+                </button>
+              </div>
+            </div>
           </div>
           
           <div class="flex items-center justify-between">
@@ -869,7 +1070,7 @@ onMounted(() => {
                 </div>
                 <button
                   @click="handleDeletePoll(poll.id)"
-                  class="px-2 sm:px-3 py-1 sm:py-1.5 bg-[var(--theme-danger)]/50/95 text-white border border-red-500/95 rounded-md text-xs sm:text-sm hover:bg-red-700/95 hover:border-red-700/95 transition-all shrink-0"
+                  class="px-2 sm:px-3 py-1 sm:py-1.5 bg-red-500/20 text-red-500 border border-red-500/50 rounded-md text-xs sm:text-sm hover:bg-red-500/30 hover:border-red-500/70 transition-all shrink-0"
                 >
                   删除
                 </button>
@@ -967,6 +1168,58 @@ onMounted(() => {
             @change="(page: number) => { claimsPage = page; loadClaims() }"
           />
         </div>
+
+        <div v-if="activeTab === 'reports'" class="space-y-3 sm:space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-base sm:text-lg font-semibold theme-text">举报列表</h2>
+            <span class="text-xs sm:text-sm theme-text-secondary">共 {{ reports.length }} 条</span>
+          </div>
+
+          <div v-if="reports.length > 0" class="space-y-2 sm:space-y-3">
+            <div v-for="report in reports" :key="report.id" class="bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-xl p-3 sm:p-4 shadow-md shadow-black/5">
+              <div class="flex flex-wrap items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                <span class="font-semibold text-[var(--theme-primary)] text-sm">#{{ report.id }}</span>
+                <span class="text-xs sm:text-sm theme-text-secondary">{{ report.created_at }}</span>
+                <span :class="[report.handled ? 'bg-[var(--theme-success)]/10 text-[var(--theme-success)]' : 'bg-[var(--theme-warning)]/10 text-[var(--theme-warning)]']" class="px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs font-medium">
+                  {{ report.handled ? '已处理' : '待处理' }}
+                </span>
+              </div>
+              
+              <div class="pb-3 sm:pb-4 border-b border-[var(--theme-card-border)] mb-3 sm:mb-4">
+                <p class="text-xs sm:text-sm theme-text-secondary mb-1">
+                  <span class="font-medium theme-text-secondary">举报原因：</span>
+                  {{ report.reason || '其他' }}
+                </p>
+                <p class="text-xs sm:text-sm theme-text-secondary italic mb-1">
+                  <span class="font-medium theme-text-secondary">被举报内容：</span>
+                  {{ report.Comment?.text }}
+                </p>
+                <p class="text-xs sm:text-sm theme-text-secondary">
+                  <span class="font-medium theme-text-secondary">举报人：</span>
+                  {{ report.User?.username }}
+                </p>
+              </div>
+
+              <div class="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
+                <button 
+                  v-if="!report.handled" 
+                  @click="handleReportAction(report.id)" 
+                  class="w-full sm:w-auto px-4 sm:px-5 py-2 bg-[var(--theme-primary)] text-white rounded-lg text-sm font-medium hover:brightness-90 transition-all"
+                >
+                  标记已处理
+                </button>
+                <button 
+                  @click="confirmReportDelete(report.comment_id, report.id)" 
+                  class="w-full sm:w-auto px-4 sm:px-5 py-2 bg-red-500/20 text-red-500 border border-red-500/50 rounded-lg text-sm font-medium hover:bg-red-500/30 transition-all"
+                >
+                  删除评论
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <AdminEmptyState v-else text="暂无举报" />
+        </div>
       </div>
     </div>
 
@@ -978,29 +1231,12 @@ onMounted(() => {
       @change="handleEditImageUpload"
     />
     
-    <AdminUploadForm
-      :visible="showUploadModal"
-      :upload-form="uploadForm"
-      :all-tags="allTags"
-      :file-preview="filePreview"
-      :upload-progress="uploadProgress"
-      :is-uploading="isUploading"
-      @close="showUploadModal = false; filePreview = ''"
-      @submit="handleUpload"
-      @insert-markdown="insertMarkdown"
-      @trigger-image-upload="triggerImageUpload"
-      @handle-image-upload="handleImageUpload"
-      @handle-file-change="handleFileChange"
-      @add-tag="addTag"
-      @remove-tag="removeTag"
-      @toggle-tag="toggleTag"
-      @clear-preview="clearFilePreview"
-    />
+
     
     <AdminEditModal
       :visible="isEditModal"
       :edit-form="editForm"
-      :all-tags="allTags"
+      :all-tags="allTagsList"
       @close="isEditModal = false"
       @save="handleUpdate"
       @insert-markdown="insertMarkdown"
@@ -1041,6 +1277,26 @@ onMounted(() => {
         @close="showDeleteConfirm = false"
         @confirm="handleDelete"
       />
+
+      <div
+        v-if="showReportDeleteConfirm"
+        class="fixed inset-0 flex items-center justify-center bg-[var(--theme-hover-bg)]0 z-[9999]"
+        @click.self="showReportDeleteConfirm = false"
+      >
+        <div class="w-[90%] sm:w-[400px] bg-[var(--theme-surface)] rounded-xl shadow-2xl overflow-hidden">
+          <div class="flex justify-between items-center px-4 py-3 border-b border-[var(--theme-card-border)] bg-gradient-to-b from-black/5 to-transparent">
+            <h3 class="font-semibold theme-text">确认删除</h3>
+            <button @click="showReportDeleteConfirm = false" class="theme-text-secondary hover:text-[var(--theme-primary)] text-xl leading-none">×</button>
+          </div>
+          <div class="p-4">
+            <p class="text-sm theme-text">确定要删除这条评论吗？此操作不可撤销。</p>
+          </div>
+          <div class="flex justify-end gap-3 px-4 py-3 border-t border-[var(--theme-card-border)] bg-[var(--theme-hover-bg)]">
+            <button @click="showReportDeleteConfirm = false" class="px-4 py-2 text-sm theme-text hover:text-[var(--theme-primary)] transition-colors">取消</button>
+            <button @click="deleteReportComment" class="px-4 py-2 bg-red-500/20 text-red-500 text-sm font-medium rounded-lg hover:bg-red-500/30 transition-colors">确定删除</button>
+          </div>
+        </div>
+      </div>
 
       <div
         v-if="showCreatePollModal"

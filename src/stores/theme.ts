@@ -27,7 +27,7 @@ export const THEME_LIST: ThemeInfo[] = [
   {
     key: 'liquidGlass',
     name: '液态玻璃',
-    description: '玻璃拟态风格，通透质感',
+    description: '玻璃拟态风格，通透质感（仅主页生效）',
     previewColor: '#22d3ee',
     performanceLabel: '高性能消耗'
   }
@@ -35,9 +35,14 @@ export const THEME_LIST: ThemeInfo[] = [
 
 export const useThemeStore = defineStore('theme', () => {
   const currentTheme = ref<ThemeType>('default')
+  const glassBlur = ref(5)
 
   function setTheme(theme: ThemeType) {
     currentTheme.value = theme
+  }
+
+  function setGlassBlur(blur: number) {
+    glassBlur.value = blur
   }
 
   function applyThemeClass() {
@@ -45,20 +50,37 @@ export const useThemeStore = defineStore('theme', () => {
     document.documentElement.classList.add(`theme-${currentTheme.value}`)
   }
 
+  function applyGlassBlur() {
+    document.documentElement.style.setProperty('--theme-blur', `${glassBlur.value}px`)
+  }
+
   const savedTheme = localStorage.getItem('theme') as ThemeType | null
   if (savedTheme && THEME_LIST.find(t => t.key === savedTheme)) {
     currentTheme.value = savedTheme
   }
 
+  const savedBlur = localStorage.getItem('glassBlur')
+  if (savedBlur) {
+    glassBlur.value = parseInt(savedBlur, 10)
+  }
+
   applyThemeClass()
+  applyGlassBlur()
 
   watch(currentTheme, () => {
     localStorage.setItem('theme', currentTheme.value)
     applyThemeClass()
   }, { immediate: true })
 
+  watch(glassBlur, () => {
+    localStorage.setItem('glassBlur', String(glassBlur.value))
+    applyGlassBlur()
+  })
+
   return {
     currentTheme,
-    setTheme
+    glassBlur,
+    setTheme,
+    setGlassBlur
   }
 })

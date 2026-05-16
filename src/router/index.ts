@@ -16,7 +16,6 @@ const LoginView = createAsyncComponent(() => import('../views/LoginView.vue'))
 const ContentDetailView = createAsyncComponent(() => import('../views/ContentDetailView.vue'))
 const UploadView = createAsyncComponent(() => import('../views/UploadView.vue'))
 const AdminView = createAsyncComponent(() => import('../views/AdminView.vue'))
-const AdminReportsView = createAsyncComponent(() => import('../views/AdminReportsView.vue'))
 const ThemeSettingsView = createAsyncComponent(() => import('../views/ThemeSettingsView.vue'))
 
 const router = createRouter({
@@ -52,12 +51,6 @@ const router = createRouter({
       path: '/admin',
       name: 'admin',
       component: AdminView,
-      meta: { requiresAuth: true, requiresAdmin: true }
-    },
-    {
-      path: '/admin/reports',
-      name: 'admin-reports',
-      component: AdminReportsView,
       meta: { requiresAuth: true, requiresAdmin: true }
     },
     {

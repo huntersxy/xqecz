@@ -40,16 +40,20 @@ function goBack() {
             <p class="text-sm theme-text-secondary">每个主题都有独特的布局和视觉体验</p>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 max-w-[800px] mx-auto">
+          <div class="max-w-[1000px] mx-auto mb-4 sm:mb-6">
+            <h2 class="text-lg sm:text-xl font-bold theme-text">MAC风</h2>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 max-w-[1000px] mx-auto">
             <div
               v-for="theme in THEME_LIST"
               :key="theme.key"
-              class="theme-option-card theme-card rounded-xl overflow-hidden border-2 transition-all duration-300 cursor-pointer hover:-translate-y-1 hover:shadow-lg"
+              class="theme-option-card theme-card rounded-xl overflow-hidden border-2 transition-all duration-300 cursor-pointer hover:-translate-y-1 hover:shadow-lg group relative"
               :class="{ 'border-[var(--theme-primary)] shadow-md': themeStore.currentTheme === theme.key, 'theme-border': themeStore.currentTheme !== theme.key }"
               @click="selectTheme(theme.key)"
             >
               <div class="theme-preview h-40 sm:h-48 relative overflow-hidden" :style="{ background: `linear-gradient(135deg, ${theme.previewColor}, ${theme.previewColor}88)` }">
-                <div class="preview-mockup absolute inset-4 sm:inset-6 theme-surface rounded-lg shadow-lg overflow-hidden">
+                <div class="preview-mockup absolute inset-4 sm:inset-6 theme-surface rounded-lg shadow-lg overflow-hidden" :class="`preview-${theme.key}`">
                   <div class="flex items-center gap-1.5 px-3 py-2 theme-header-bg">
                     <div class="w-2 h-2 rounded-full bg-[#ff5f57]"></div>
                     <div class="w-2 h-2 rounded-full bg-[#febc2e]"></div>
@@ -83,6 +87,30 @@ function goBack() {
               </div>
             </div>
           </div>
+
+          <div v-if="themeStore.currentTheme === 'liquidGlass'" class="max-w-[800px] mx-auto mt-6 sm:mt-8 p-4 sm:p-6 theme-card rounded-xl theme-border">
+            <h3 class="text-base sm:text-lg font-semibold theme-text mb-4">液态玻璃设置</h3>
+            <div class="space-y-4">
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <label class="text-sm theme-text-secondary">模糊程度</label>
+                  <span class="text-sm font-medium theme-text">{{ themeStore.glassBlur }}px</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="30"
+                  step="1"
+                  v-model.number="themeStore.glassBlur"
+                  class="w-full h-2 rounded-lg appearance-none cursor-pointer bg-[var(--theme-placeholder-bg)] accent-[var(--theme-primary)]"
+                />
+                <div class="flex justify-between mt-1 text-xs theme-text-secondary">
+                  <span>无模糊</span>
+                  <span>强模糊</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -92,5 +120,29 @@ function goBack() {
 <style scoped>
 .theme-option-card {
   border-color: var(--theme-card-border);
+}
+
+.preview-default {
+  --theme-surface: rgba(255, 255, 255, 0.92);
+  --theme-header-bg: linear-gradient(to bottom, rgba(0,0,0,0.08), rgba(0,0,0,0.02));
+  --theme-placeholder-bg: #f3f4f6;
+  --theme-text: #1f2937;
+  --theme-text-secondary: #6b7280;
+}
+
+.preview-dark {
+  --theme-surface: rgba(40, 40, 70, 0.9);
+  --theme-header-bg: linear-gradient(to bottom, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  --theme-placeholder-bg: #374151;
+  --theme-text: #f3f4f6;
+  --theme-text-secondary: #9ca3af;
+}
+
+.preview-liquidGlass {
+  --theme-surface: rgba(255, 255, 255, 0.75);
+  --theme-header-bg: linear-gradient(to bottom, rgba(255,255,255,0.15), rgba(255,255,255,0.05));
+  --theme-placeholder-bg: rgba(255, 255, 255, 0.15);
+  --theme-text: #000000;
+  --theme-text-secondary: #333333;
 }
 </style>

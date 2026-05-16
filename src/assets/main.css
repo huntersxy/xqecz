@@ -23,7 +23,6 @@
   --theme-success: #22c55e;
   --theme-warning: #f59e0b;
   --theme-danger: #ef4444;
-  --theme-blur: 0px;
   --theme-glass-tint: none;
   --theme-glass-tint-light: none;
   --theme-glass-distortion: none;
@@ -81,7 +80,6 @@ html.theme-dark {
   --theme-success: #4ade80;
   --theme-warning: #fbbf24;
   --theme-danger: #f87171;
-  --theme-blur: 0px;
 }
 
 html.theme-dark #app::after {
@@ -162,7 +160,7 @@ html.theme-liquidGlass {
   --theme-success: #34d399;
   --theme-warning: #fbbf24;
   --theme-danger: #f87171;
-  --theme-blur: 12px;
+  --theme-blur: 5px;
   --theme-glass-distortion: url(#liquid-glass);
 }
 
@@ -175,13 +173,16 @@ html.theme-liquidGlass textarea::placeholder {
   color: rgba(0, 0, 0, 0.5) !important;
 }
 
+html.theme-liquidGlass .pk-vs {
+  text-shadow: none !important;
+  color: #ffffff !important;
+}
+
 @layer utilities {
   .theme-card {
     background-image: var(--theme-glass-tint, none);
     background-color: var(--theme-card-bg);
     border-color: var(--theme-card-border);
-    backdrop-filter: blur(var(--theme-blur, 0px));
-    -webkit-backdrop-filter: blur(var(--theme-blur, 0px));
   }
 
   .theme-text {
@@ -211,8 +212,6 @@ html.theme-liquidGlass textarea::placeholder {
   .theme-surface {
     background-image: var(--theme-glass-tint-light, none);
     background-color: var(--theme-surface);
-    backdrop-filter: blur(var(--theme-blur, 0px));
-    -webkit-backdrop-filter: blur(var(--theme-blur, 0px));
   }
 
   .theme-text-secondary {
@@ -225,8 +224,6 @@ html.theme-liquidGlass textarea::placeholder {
 
   .theme-header-bg {
     background: var(--theme-header-bg);
-    backdrop-filter: blur(var(--theme-blur, 0px));
-    -webkit-backdrop-filter: blur(var(--theme-blur, 0px));
   }
 
   .theme-accent-gradient {
@@ -239,8 +236,6 @@ html.theme-liquidGlass textarea::placeholder {
 
   .theme-overlay-bg {
     background-color: var(--theme-overlay-bg);
-    backdrop-filter: blur(calc(var(--theme-blur, 0px) * 0.6));
-    -webkit-backdrop-filter: blur(calc(var(--theme-blur, 0px) * 0.6));
   }
 
   .theme-glass-layer {
@@ -248,9 +243,16 @@ html.theme-liquidGlass textarea::placeholder {
     inset: 0;
     z-index: 0;
     border-radius: inherit;
-    backdrop-filter: var(--theme-glass-distortion, none) blur(var(--theme-blur, 0px)) contrast(1.05) brightness(1.08);
-    -webkit-backdrop-filter: var(--theme-glass-distortion, none) blur(var(--theme-blur, 0px)) contrast(1.05) brightness(1.08);
     pointer-events: none;
+  }
+
+  html.theme-liquidGlass .theme-card,
+  html.theme-liquidGlass .theme-surface,
+  html.theme-liquidGlass .theme-header-bg,
+  html.theme-liquidGlass .theme-overlay-bg,
+  html.theme-liquidGlass .theme-glass-layer {
+    backdrop-filter: blur(var(--theme-blur));
+    -webkit-backdrop-filter: blur(var(--theme-blur));
   }
 }
 
