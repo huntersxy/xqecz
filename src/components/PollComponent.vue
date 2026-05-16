@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { pollApi } from '@/api'
 import type { PollDetail } from '@/types'
@@ -189,7 +189,7 @@ onMounted(() => {
 .empty-state {
   text-align: center;
   padding: 24px 16px;
-  color: #999;
+  color: var(--theme-text-secondary);
 }
 
 .loading-icon,
@@ -211,8 +211,8 @@ onMounted(() => {
 
 .poll-card {
   width: 100%;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.36);
+  background: var(--theme-card-bg);
+  border: 1px solid var(--theme-card-border);
   border-radius: 10px;
   padding: 12px;
   box-shadow:
@@ -228,7 +228,7 @@ onMounted(() => {
 .poll-title {
   font-size: 14px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--theme-text);
   margin: 0;
 }
 
@@ -246,7 +246,7 @@ onMounted(() => {
 .pk-button {
   width: 100%;
   padding: 8px 10px;
-  background: white;
+  background: var(--theme-surface);
   border: 2px solid var(--border-color);
   border-radius: 6px;
   cursor: pointer;
@@ -263,7 +263,7 @@ onMounted(() => {
 .pk-button:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  background: color-mix(in srgb, var(--option-color) 8%, white);
+  background: color-mix(in srgb, var(--option-color) 8%, var(--theme-surface));
 }
 
 .pk-button:disabled {
@@ -273,7 +273,7 @@ onMounted(() => {
 .pk-option.pk-voted .pk-button {
   border-width: 4px;
   font-weight: 600;
-  background: color-mix(in srgb, var(--option-color) 12%, white);
+  background: color-mix(in srgb, var(--option-color) 12%, var(--theme-surface));
 }
 
 .pk-text {
@@ -302,7 +302,7 @@ onMounted(() => {
 .pk-vs {
   font-size: 12px;
   font-weight: 700;
-  color: #888;
+  color: var(--theme-text-secondary);
   padding: 0 4px;
 }
 
@@ -311,7 +311,7 @@ onMounted(() => {
   height: 16px;
   border-radius: 8px;
   overflow: hidden;
-  background: #f0f0f0;
+  background: var(--theme-placeholder-bg);
   display: flex;
   margin-bottom: 8px;
 }
@@ -336,10 +336,10 @@ onMounted(() => {
   gap: 8px;
   margin-top: 16px;
   padding: 12px;
-  background: rgba(239, 68, 68, 0.1);
+  background: color-mix(in srgb, var(--theme-danger) 10%, transparent);
   border-radius: 8px;
   font-size: 14px;
-  color: #dc2626;
+  color: var(--theme-danger);
 }
 
 .error-message svg {

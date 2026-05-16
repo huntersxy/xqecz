@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed } from 'vue';
 import { getImageUrl, renderMarkdown } from '@/utils';
 import type { Content } from '@/types';

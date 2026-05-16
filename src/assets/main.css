@@ -2,6 +2,30 @@
 
 @theme {
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  
+  --theme-name: 'default';
+  --theme-bg-image: url('./bg.webp');
+  --theme-bg-color: #000000;
+  --theme-primary: #3b82f6;
+  --theme-secondary: #6366f1;
+  --theme-accent: #ec4899;
+  --theme-text: #000000;
+  --theme-text-secondary: #333333;
+  --theme-surface: rgba(255, 255, 255, 0.92);
+  --theme-header-bg: linear-gradient(to bottom, rgba(0,0,0,0.08), rgba(0,0,0,0.02));
+  --theme-accent-gradient: linear-gradient(to right, #6366f1, #a855f7);
+  --theme-hover-bg: #f3f4f6;
+  --theme-placeholder-bg: #f3f4f6;
+  --theme-on-primary: #ffffff;
+  --theme-overlay-bg: rgba(255, 255, 255, 0.5);
+  --theme-card-bg: rgba(255, 255, 255, 0.75);
+  --theme-card-border: rgba(255, 255, 255, 0.4);
+  --theme-success: #22c55e;
+  --theme-warning: #f59e0b;
+  --theme-danger: #ef4444;
+  --theme-glass-tint: none;
+  --theme-glass-tint-light: none;
+  --theme-glass-distortion: none;
 }
 
 @layer base {
@@ -26,16 +50,209 @@
     font-family: var(--font-sans);
     min-height: 100vh;
     -webkit-tap-highlight-color: transparent;
+    color: var(--theme-text);
   }
 
   #app {
     min-height: 100vh;
-    background: url('./bg.webp');
+    background: var(--theme-bg-image);
     background-size: cover;
     background-position: center center;
     background-repeat: no-repeat;
     background-attachment: fixed;
-    background-color: #000;
+    background-color: var(--theme-bg-color);
+  }
+}
+
+html.theme-dark {
+  --theme-text: #f3f4f6;
+  --theme-text-secondary: #9ca3af;
+  --theme-surface: rgba(40, 40, 70, 0.9);
+  --theme-header-bg: linear-gradient(to bottom, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  --theme-hover-bg: rgba(255, 255, 255, 0.08);
+  --theme-placeholder-bg: #374151;
+  --theme-overlay-bg: rgba(0, 0, 0, 0.5);
+  --theme-card-bg: rgba(30, 30, 50, 0.85);
+  --theme-card-border: rgba(255, 255, 255, 0.1);
+  --theme-primary: #60a5fa;
+  --theme-secondary: #818cf8;
+  --theme-accent: #f472b6;
+  --theme-success: #4ade80;
+  --theme-warning: #fbbf24;
+  --theme-danger: #f87171;
+}
+
+html.theme-dark #app::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 0;
+  pointer-events: none;
+}
+
+html.theme-dark #app > header,
+html.theme-dark #app > main,
+html.theme-dark #app > footer {
+  position: relative;
+  z-index: 1;
+}
+
+html.theme-dark input::placeholder,
+html.theme-dark textarea::placeholder {
+  color: rgba(255, 255, 255, 0.3) !important;
+}
+
+html.theme-dark .markdown-body,
+html.theme-dark .markdown-body h1,
+html.theme-dark .markdown-body h2,
+html.theme-dark .markdown-body h3,
+html.theme-dark .markdown-body h4,
+html.theme-dark .markdown-body h5,
+html.theme-dark .markdown-body h6,
+html.theme-dark .markdown-body p,
+html.theme-dark .markdown-body li,
+html.theme-dark .markdown-body a {
+  color: var(--theme-text) !important;
+}
+
+html.theme-dark .markdown-body code {
+  background: var(--theme-hover-bg);
+  color: var(--theme-text);
+}
+
+html.theme-dark .markdown-body pre {
+  background: var(--theme-hover-bg);
+}
+
+html.theme-dark .markdown-body blockquote {
+  border-left-color: var(--theme-primary);
+  color: var(--theme-text-secondary);
+}
+
+html.theme-dark .markdown-body hr {
+  border-color: var(--theme-card-border);
+}
+
+html.theme-dark .markdown-body table {
+  border-color: var(--theme-card-border);
+}
+
+html.theme-dark .markdown-body table th,
+html.theme-dark .markdown-body table td {
+  border-color: var(--theme-card-border);
+}
+
+html.theme-liquidGlass {
+  --theme-text: #000000;
+  --theme-text-secondary: #333333;
+  --theme-surface: rgba(255, 255, 255, 0.75);
+  --theme-header-bg: linear-gradient(to bottom, rgba(255,255,255,0.15), rgba(255,255,255,0.05));
+  --theme-hover-bg: rgba(255, 255, 255, 0.2);
+  --theme-placeholder-bg: rgba(255, 255, 255, 0.15);
+  --theme-on-primary: #082f49;
+  --theme-overlay-bg: rgba(255, 255, 255, 0.12);
+  --theme-card-bg: rgba(255, 255, 255, 0.65);
+  --theme-card-border: rgba(255, 255, 255, 0.3);
+  --theme-primary: #3b82f6;
+  --theme-secondary: #38bdf8;
+  --theme-accent: #f472b6;
+  --theme-success: #34d399;
+  --theme-warning: #fbbf24;
+  --theme-danger: #f87171;
+  --theme-blur: 5px;
+  --theme-glass-distortion: url(#liquid-glass);
+}
+
+html.theme-liquidGlass body {
+  color: #000000;
+}
+
+html.theme-liquidGlass input::placeholder,
+html.theme-liquidGlass textarea::placeholder {
+  color: rgba(0, 0, 0, 0.5) !important;
+}
+
+html.theme-liquidGlass .pk-vs {
+  text-shadow: none !important;
+  color: #ffffff !important;
+}
+
+@layer utilities {
+  .theme-card {
+    background-image: var(--theme-glass-tint, none);
+    background-color: var(--theme-card-bg);
+    border-color: var(--theme-card-border);
+  }
+
+  .theme-text {
+    color: var(--theme-text);
+  }
+
+  .theme-primary {
+    color: var(--theme-primary);
+  }
+
+  .theme-bg-primary {
+    background-color: var(--theme-primary);
+  }
+
+  .theme-success {
+    color: var(--theme-success);
+  }
+
+  .theme-warning {
+    color: var(--theme-warning);
+  }
+
+  .theme-danger {
+    color: var(--theme-danger);
+  }
+
+  .theme-surface {
+    background-image: var(--theme-glass-tint-light, none);
+    background-color: var(--theme-surface);
+  }
+
+  .theme-text-secondary {
+    color: var(--theme-text-secondary);
+  }
+
+  .theme-border {
+    border-color: var(--theme-card-border);
+  }
+
+  .theme-header-bg {
+    background: var(--theme-header-bg);
+  }
+
+  .theme-accent-gradient {
+    background: var(--theme-accent-gradient);
+  }
+
+  .theme-placeholder-bg {
+    background-color: var(--theme-placeholder-bg);
+  }
+
+  .theme-overlay-bg {
+    background-color: var(--theme-overlay-bg);
+  }
+
+  .theme-glass-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  html.theme-liquidGlass .theme-card,
+  html.theme-liquidGlass .theme-surface,
+  html.theme-liquidGlass .theme-header-bg,
+  html.theme-liquidGlass .theme-overlay-bg,
+  html.theme-liquidGlass .theme-glass-layer {
+    backdrop-filter: blur(var(--theme-blur));
+    -webkit-backdrop-filter: blur(var(--theme-blur));
   }
 }
 

@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
 import type { User } from '@/types';
 import { adminApi } from '@/api';

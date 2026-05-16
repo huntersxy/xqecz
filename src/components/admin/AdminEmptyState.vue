@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 interface Props {
   text?: string;
   type?: 'content' | 'pending' | 'user';
@@ -11,7 +11,7 @@ const props = withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <div class="text-center py-12 px-5 text-gray-400">
+  <div class="text-center py-12 px-5 theme-text-secondary">
     <svg v-if="type === 'content' || type === 'pending'" class="w-16 h-16 mx-auto mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
       <circle cx="12" cy="12" r="10"/>
       <polyline points="12 6 12 12 16 14"/>
