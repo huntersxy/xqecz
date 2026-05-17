@@ -17,6 +17,7 @@ const ContentDetailView = createAsyncComponent(() => import('../views/ContentDet
 const UploadView = createAsyncComponent(() => import('../views/UploadView.vue'))
 const AdminView = createAsyncComponent(() => import('../views/AdminView.vue'))
 const ThemeSettingsView = createAsyncComponent(() => import('../views/ThemeSettingsView.vue'))
+const MusicView = createAsyncComponent(() => import('../views/MusicView.vue'))
 
 const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
@@ -57,6 +58,11 @@ const router = createRouter({
       path: '/theme',
       name: 'theme-settings',
       component: ThemeSettingsView,
+    },
+    {
+      path: '/music',
+      name: 'music',
+      component: MusicView,
     },
   ],
 })

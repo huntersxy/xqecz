@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { useThemeStore, THEME_LIST, type ThemeType } from '@/stores/theme'
 import { useRouter } from 'vue-router'
+import { computed } from 'vue'
 
 const themeStore = useThemeStore()
 const router = useRouter()
+
+const defaultThemes = computed(() => THEME_LIST.filter(t => t.category === 'default'))
+const specialThemes = computed(() => THEME_LIST.filter(t => t.category === 'special'))
 
 function selectTheme(key: ThemeType) {
   themeStore.setTheme(key)
@@ -41,12 +45,12 @@ function goBack() {
           </div>
 
           <div class="max-w-[1000px] mx-auto mb-4 sm:mb-6">
-            <h2 class="text-lg sm:text-xl font-bold theme-text">MAC风</h2>
+            <h2 class="text-lg sm:text-xl font-bold theme-text">MAC 风</h2>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 max-w-[1000px] mx-auto">
             <div
-              v-for="theme in THEME_LIST"
+              v-for="theme in defaultThemes"
               :key="theme.key"
               class="theme-option-card theme-card rounded-xl overflow-hidden border-2 transition-all duration-300 cursor-pointer hover:-translate-y-1 hover:shadow-lg group relative"
               :class="{ 'border-[var(--theme-primary)] shadow-md': themeStore.currentTheme === theme.key, 'theme-border': themeStore.currentTheme !== theme.key }"
@@ -80,6 +84,54 @@ function goBack() {
                   <h3 class="text-sm sm:text-base font-semibold theme-text">{{ theme.name }}</h3>
                   <div class="flex items-center gap-2">
                     <span v-if="theme.performanceLabel" class="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-500/10 text-orange-500">{{ theme.performanceLabel }}</span>
+                    <span v-if="themeStore.currentTheme === theme.key" class="px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--theme-primary)]/10 text-[var(--theme-primary)]">当前使用</span>
+                  </div>
+                </div>
+                <p class="text-xs sm:text-sm theme-text-secondary mt-1">{{ theme.description }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="specialThemes.length > 0" class="max-w-[1000px] mx-auto mt-8 sm:mt-10 mb-4 sm:mb-6">
+            <h2 class="text-lg sm:text-xl font-bold theme-text">特殊主题</h2>
+          </div>
+
+          <div v-if="specialThemes.length > 0" class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 max-w-[1000px] mx-auto">
+            <div
+              v-for="theme in specialThemes"
+              :key="theme.key"
+              class="theme-option-card theme-card rounded-xl overflow-hidden border-2 transition-all duration-300 cursor-pointer hover:-translate-y-1 hover:shadow-lg group relative"
+              :class="{ 'border-[var(--theme-primary)] shadow-md': themeStore.currentTheme === theme.key, 'theme-border': themeStore.currentTheme !== theme.key }"
+              @click="selectTheme(theme.key)"
+            >
+              <div class="theme-preview h-40 sm:h-48 relative overflow-hidden" :style="{ background: `linear-gradient(135deg, ${theme.previewColor}, ${theme.previewColor}88)` }">
+                <div class="preview-mockup absolute inset-4 sm:inset-6 theme-surface rounded-lg shadow-lg overflow-hidden" :class="`preview-${theme.key}`">
+                  <div class="flex items-center gap-1.5 px-3 py-2 theme-header-bg">
+                    <div class="w-2 h-2 rounded-full bg-[#ff5f57]"></div>
+                    <div class="w-2 h-2 rounded-full bg-[#febc2e]"></div>
+                    <div class="w-2 h-2 rounded-full bg-[#28c840]"></div>
+                  </div>
+                  <div class="p-2 sm:p-3">
+                    <div class="h-1.5 rounded-full theme-placeholder-bg w-3/5 mb-2"></div>
+                    <div class="h-1.5 rounded-full theme-placeholder-bg w-full mb-3"></div>
+                    <div class="grid grid-cols-3 gap-1.5">
+                      <div class="h-8 rounded theme-placeholder-bg"></div>
+                      <div class="h-8 rounded theme-placeholder-bg"></div>
+                      <div class="h-8 rounded theme-placeholder-bg"></div>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="themeStore.currentTheme === theme.key" class="absolute top-2 right-2 sm:top-3 sm:right-3 w-7 h-7 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center shadow-md">
+                  <svg class="w-4 h-4 sm:w-5 sm:h-5" :style="{ color: theme.previewColor }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+              </div>
+              <div class="p-3 sm:p-4">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-sm sm:text-base font-semibold theme-text">{{ theme.name }}</h3>
+                  <div class="flex items-center gap-2">
+                    <span v-if="theme.performanceLabel" class="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-500">{{ theme.performanceLabel }}</span>
                     <span v-if="themeStore.currentTheme === theme.key" class="px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--theme-primary)]/10 text-[var(--theme-primary)]">当前使用</span>
                   </div>
                 </div>
