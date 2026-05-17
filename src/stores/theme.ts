@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 
-export type ThemeType = 'default' | 'dark' | 'liquidGlass' | 'immersiveMusic'
+export type ThemeType = 'default' | 'dark' | 'liquidGlass' | 'immersiveMusic' | 'bilibiliStyle'
 
 export interface ThemeInfo {
   key: ThemeType
@@ -42,6 +42,13 @@ export const THEME_LIST: ThemeInfo[] = [
     previewColor: '#a855f7',
     performanceLabel: '中等性能消耗',
     category: 'special'
+  },
+  {
+    key: 'bilibiliStyle',
+    name: 'B 站风格',
+    description: '仿 Bilibili 布局，卡片式内容展示',
+    previewColor: '#fb7299',
+    category: 'default'
   }
 ]
 
@@ -58,7 +65,7 @@ export const useThemeStore = defineStore('theme', () => {
   }
 
   function applyThemeClass() {
-    document.documentElement.classList.remove('theme-default', 'theme-dark', 'theme-liquidGlass', 'theme-immersiveMusic')
+    document.documentElement.classList.remove('theme-default', 'theme-dark', 'theme-liquidGlass', 'theme-immersiveMusic', 'theme-bilibiliStyle')
     document.documentElement.classList.add(`theme-${currentTheme.value}`)
   }
 
