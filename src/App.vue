@@ -1,16 +1,20 @@
 <script setup lang="ts">
-import { RouterLink, RouterView } from 'vue-router'
+import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { useUserStore } from './stores/user'
 import { useThemeStore } from './stores/theme'
-import { onMounted, ref, watch, onUnmounted } from 'vue'
+import { onMounted, ref, watch, onUnmounted, computed } from 'vue'
 import logoImg from '@/assets/logo.webp'
 
+const route = useRoute()
 const userStore = useUserStore()
 const themeStore = useThemeStore()
 const isMobileMenuOpen = ref(false)
 const isMobileUA = ref(false)
 const navExpanded = ref(false)
 let autoCollapseTimer: ReturnType<typeof setTimeout> | null = null
+
+const isMusicRoute = computed(() => route.path === '/music')
+const isImmersiveMusic = computed(() => themeStore.currentTheme === 'immersiveMusic' || isMusicRoute.value)
 
 const buildDate = import.meta.env.VITE_BUILD_DATE || new Date().toISOString().split('T')[0]
 const currentYear = new Date().getFullYear()
@@ -41,7 +45,7 @@ function toggleNav() {
 }
 
 watch(() => themeStore.currentTheme, (newTheme) => {
-  if (newTheme !== 'immersiveMusic') {
+  if (newTheme !== 'immersiveMusic' && !isMusicRoute.value) {
     navExpanded.value = false
     if (autoCollapseTimer) clearTimeout(autoCollapseTimer)
   }
@@ -64,7 +68,7 @@ onUnmounted(() => {
 
 <template>
   <!-- 沉浸音乐主题悬浮按钮 -->
-  <div v-if="themeStore.currentTheme === 'immersiveMusic' && !navExpanded" 
+  <div v-if="isImmersiveMusic && !navExpanded" 
        class="floating-menu-btn fixed top-6 right-6 z-[999999] w-16 h-16 rounded-full bg-white border-4 border-blue-500 cursor-pointer flex items-center justify-center hover:scale-110 hover:shadow-2xl transition-all duration-300 shadow-xl"
        @click="toggleNav"
        style="pointer-events: auto !important; opacity: 1 !important; display: flex !important;">
@@ -75,15 +79,15 @@ onUnmounted(() => {
     </svg>
   </div>
 
-  <header v-show="themeStore.currentTheme !== 'immersiveMusic' || navExpanded" 
+  <header v-show="!isImmersiveMusic || navExpanded" 
            class="sticky top-0 z-100 bg-[var(--theme-surface)] liquid-glass-nav transition-all duration-300" 
-           :class="{ '!backdrop-blur-0': isMobileUA, '!fixed top-4 left-4 right-4 max-w-[1400px] mx-auto rounded-xl shadow-2xl !z-[99998]': themeStore.currentTheme === 'immersiveMusic' }">
+           :class="{ '!backdrop-blur-0': isMobileUA, '!fixed top-4 left-4 right-4 max-w-[1400px] mx-auto rounded-xl shadow-2xl !z-[99998]': isImmersiveMusic }">
     <nav class="max-w-[1400px] mx-auto px-4 py-2 flex justify-between items-center">
       <div class="flex items-center gap-3">
         <RouterLink to="/" class="flex items-center gap-2 no-underline font-semibold text-[15px] text-[var(--theme-text)]">
           <img :src="logoImg" alt="小泉动漫二创站" class="h-8 w-auto" />
         </RouterLink>
-        <button v-if="themeStore.currentTheme === 'immersiveMusic'" 
+        <button v-if="isImmersiveMusic" 
                 @click="toggleNav" 
                 class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--theme-hover-bg)] transition-colors">
           <svg class="w-5 h-5 theme-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -237,7 +241,7 @@ onUnmounted(() => {
     </div>
   </div>
 
-  <footer v-if="themeStore.currentTheme !== 'immersiveMusic'" class="mt-10 py-5 bg-[var(--theme-surface)] border-t border-[var(--theme-card-border)] backdrop-blur-[10px]">
+  <footer v-if="!isImmersiveMusic" class="mt-10 py-5 bg-[var(--theme-surface)] border-t border-[var(--theme-card-border)] backdrop-blur-[10px]">
     <div class="max-w-[1400px] mx-auto flex justify-between items-center flex-wrap gap-3 px-4">
       <div class="flex items-center gap-4 flex-wrap">
         <span class="text-[14px] text-[var(--theme-text-secondary)] font-medium">© {{ currentYear }} 小泉动漫二创站</span>

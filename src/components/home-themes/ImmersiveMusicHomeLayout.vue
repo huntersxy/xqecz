@@ -194,13 +194,16 @@ async function startAudioVisualization() {
         ctx.fill()
       }
 
-      ctx.fillStyle = `rgba(255, 255, 255, ${0.9 + intensity * 0.1})`
+      ctx.fillStyle = `rgba(150, 150, 150, ${0.8 + intensity * 0.2})`
       ctx.font = '18px -apple-system, BlinkMacSystemFont, sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.shadowColor = 'rgba(255, 255, 255, 0.5)'
       ctx.shadowBlur = 10
-      ctx.fillText(isListening.value ? '聆听中' : '沉浸音乐', centerX, centerY)
+      
+      const now = new Date()
+      const timeStr = now.toLocaleTimeString('zh-CN', { hour12: false })
+      ctx.fillText(isListening.value ? timeStr : '沉浸音乐', centerX, centerY)
       ctx.shadowBlur = 0
     }
 
