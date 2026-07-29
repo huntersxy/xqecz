@@ -1,0 +1,146 @@
+import { z } from 'zod'
+
+// ── 基础常量与类型(单一来源,types/index.ts re-export)──
+// 2026-07-29: 上传"去分类"改造后，新数据只允许 `image`（有文件）和 `text`（纯描述）两种 type；
+// 旧的 `video` / `link` 由后端迁移脚本一次性归并为 `text`，前端类型保留兼容（防历史脏数据）。
+//   - CONTENT_TYPES（运行时）：新数据范围 = ['image', 'text']
+//   - ContentType（类型）：兼容历史 = 'image' | 'text' | 'video' | 'link'
+// 这样旧的 `content.type === 'video'` 比较 type-check 仍能通过，运行时永远只取到 image/text。
+const contentTypeValues = ['image', 'text', 'video', 'link'] as const
+export type ContentType = (typeof contentTypeValues)[number]
+export const CONTENT_TYPES: readonly ContentType[] = ['image', 'text'] as const
+
+// ── 通用宽松 transform(匹配原 normalize 的 `Number()||0` / `typeof==='string'? : ''` 兜底语义)──
+// 用 z.unknown + transform 而不是 z.coerce,避免 NaN 不触发 default 的边界问题;
+// 严格校验留给"值域有界的字段"(type/audit_status)用 enum/catch。
+const num = z.unknown().transform((v) => Number(v) || 0)
+const str = z.unknown().transform((v) => (typeof v === 'string' ? v : ''))
+const bool = z.unknown().transform((v) => Boolean(v))
+const tagsArr = z
+  .unknown()
+  .transform((v) =>
+    Array.isArray(v) ? v.filter((t): t is string => typeof t === 'string') : [],
+  )
+
+// ── User(完整) ──
+// 与原 normalize 等价:id/username 必填(契约保证),其他 optional 兜空。
+export const UserSchema = z.object({
+  id: num,
+  username: str,
+  email: str.optional(),
+  is_admin: bool.optional(),
+  is_banned: bool.optional(),
+  created_at: num.optional(),
+  updated_at: num.optional(),
+})
+export type User = z.infer<typeof UserSchema>
+
+// ── User(简介,推荐页用) ──
+const UserBriefSchema = z.object({
+  id: num,
+  username: str,
+})
+
+// ── RecommendContent(推荐页) ──
+// type 非法值兜底 'text'（历史可能仍是 video/link/text，统一落 text）。
+export const RecommendContentSchema = z.object({
+  id: num,
+  title: str,
+  type: z
+    .any()
+    .transform((v) => (contentTypeValues as readonly string[]).includes(v) ? (v as ContentType) : 'text'),
+  url: str.optional().default(''),
+  thumb: str.optional().default(''),
+  tags: tagsArr,
+  view_count: num,
+  user: UserBriefSchema,
+  created_at: num,
+})
+export type RecommendContent = z.infer<typeof RecommendContentSchema>
+
+// ── Content(列表/详情) ──
+// type 非法值兜底 'text'（历史 video/link → text）。
+export const ContentSchema = z.object({
+  id: num,
+  title: str,
+  type: z
+    .any()
+    .transform((v) => (contentTypeValues as readonly string[]).includes(v) ? (v as ContentType) : 'text'),
+  text: str.optional().default(''),
+  url: str.optional().default(''),
+  thumb: str.optional().default(''),
+  video: str.optional().default(''),
+  img: str.optional().default(''),
+  origin: str.optional().default(''),
+  file_size: num.optional().default(0),
+  user: UserSchema,
+  avatar_url: str.optional().default(''),
+  tags: tagsArr,
+  view_count: num,
+  audit_status: z.enum(['pending', 'approved', 'rejected']).optional(),
+  created_at: num,
+  updated_at: num.optional(),
+})
+export type Content = z.infer<typeof ContentSchema>
+
+// ── Comment ──
+export const CommentSchema: z.ZodType<{
+  id: number
+  content_id: number
+  user_id: number
+  text: string
+  parent_id: number | null
+  is_banned: boolean
+  created_at: number
+  updated_at?: number
+  user?: { id: number; username: string }
+  parent?: { id: number; user_id: number; text: string; user?: { id: number; username: string } }
+  replies?: Comment[]
+}> = z.object({
+  id: num,
+  content_id: num,
+  user_id: num,
+  text: str,
+  parent_id: num.nullable(),
+  is_banned: bool,
+  created_at: num,
+  updated_at: num.optional(),
+  user: UserBriefSchema.optional(),
+  parent: z.object({
+    id: num,
+    user_id: num,
+    text: str,
+    user: UserBriefSchema.optional(),
+  }).optional(),
+  replies: z.lazy(() => z.array(CommentSchema)).optional(),
+})
+export type Comment = z.infer<typeof CommentSchema>
+
+// ── Poll ──
+export const PollSchema = z.object({
+  id: num,
+  title: str,
+  description: str,
+  options: z.unknown().transform((v) => Array.isArray(v) ? v.filter((o): o is string => typeof o === 'string') : []),
+  vote_count: num,
+  user_id: num,
+  user: UserBriefSchema.optional(),
+  created_at: str,
+  updated_at: str.optional(),
+})
+export type Poll = z.infer<typeof PollSchema>
+
+// ── Claim ──
+export const ClaimSchema = z.object({
+  id: num,
+  content_id: num,
+  user_id: num,
+  user: UserBriefSchema,
+  content: ContentSchema,
+  reason: str,
+  status: z.enum(['pending', 'approved', 'rejected']),
+  remark: str,
+  created_at: str,
+  updated_at: str.optional(),
+})
+export type Claim = z.infer<typeof ClaimSchema>

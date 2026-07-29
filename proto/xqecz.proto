@@ -1,0 +1,105 @@
+syntax = "proto3";
+
+package xqecz;
+
+option go_package = "xqecz-worker/proto";
+
+// ── 文件处理 ──
+
+message ThumbnailRequest {
+  string file_path = 1;
+  string content_type = 2; // "image" | "video"
+}
+
+message ThumbnailResponse {
+  string thumb_path = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+message CompressRequest {
+  string file_path = 1;
+}
+
+message CompressResponse {
+  string compressed_path = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+message UploadToS3Request {
+  string file_path = 1;
+  string content_type = 2;
+}
+
+message UploadToS3Response {
+  string cdn_url = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+message LinkPreviewRequest {
+  string url = 1;
+}
+
+message LinkPreviewResponse {
+  string title = 1;
+  string image = 2;
+  string platform = 3;
+  bool success = 4;
+  string error = 5;
+}
+
+// ── 推荐算法 ──
+// 架构约束（见 AGENTS.md）：NestJS 独占 DB/Redis，worker 不直连；
+// 因此内容数据由 NestJS 从 MySQL 读取后通过 gRPC 传入，worker 仅做纯计算，
+// 把评分结果返回给 NestJS，由后者写入 Redis ZSet。
+
+// 推荐输入：由 NestJS 从 MySQL 读取后通过 gRPC 传入。
+message RecommendItem {
+  uint64 content_id = 1;
+  int64 created_at_unix = 2;  // 内容创建时间（Unix 秒）
+  uint64 view_count = 3;       // 浏览量信号
+}
+
+// 推荐输出：worker 计算出的评分，返回给 NestJS 由其写入 Redis。
+message ScoredItem {
+  uint64 content_id = 1;
+  double score = 2;
+}
+
+message RefreshRecommendRequest {
+  // NestJS 提供的内容数据（推荐算法需要的输入）
+  repeated RecommendItem items = 1;
+}
+
+message RefreshRecommendResponse {
+  bool success = 1;
+  string error = 2;
+  // 计算完成的评分列表，交由 NestJS 写入 Redis ZSet（recommend:hot）。
+  repeated ScoredItem results = 3;
+}
+
+// ── 健康检查 ──
+
+message HealthRequest {}
+message HealthResponse {
+  string status = 1;
+  string version = 2;
+}
+
+// ── Service 定义 ──
+
+service WorkerService {
+  // 健康检查
+  rpc Health(HealthRequest) returns (HealthResponse);
+
+  // 文件处理
+  rpc GenerateThumbnail(ThumbnailRequest) returns (ThumbnailResponse);
+  rpc CompressImage(CompressRequest) returns (CompressResponse);
+  rpc UploadToS3(UploadToS3Request) returns (UploadToS3Response);
+  rpc FetchLinkPreview(LinkPreviewRequest) returns (LinkPreviewResponse);
+
+  // 推荐算法
+  rpc RefreshRecommend(RefreshRecommendRequest) returns (RefreshRecommendResponse);
+}

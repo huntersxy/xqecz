@@ -1,0 +1,19 @@
+{
+  "name": "xqecz",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:api": "pnpm --filter ./packages/api run start:dev",
+    "dev:worker": "pnpm run worker:run",
+    "dev:fe": "pnpm --filter ./packages/frontend run dev",
+    "build": "pnpm --filter ./packages/api run build && pnpm --filter ./packages/frontend run build && pnpm run worker:build",
+    "start": "pnpm run build && pnpm run start:services",
+    "start:services": "concurrently -n api,worker,fe -c blue,green,magenta \"pnpm --filter ./packages/api run start:prod\" \"pnpm run worker:run\" \"pnpm --filter ./packages/frontend run preview\"",
+    "worker:build": "cd packages/worker && go build ./cmd/server/",
+    "worker:run": "node scripts/run-worker.mjs",
+    "proto:generate": "pnpm --filter @xqecz/proto run generate"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}

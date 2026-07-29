@@ -1,0 +1,41 @@
+# ── 依赖 ──
+node_modules/
+packages/worker/vendor/
+
+# ── 构建产物 ──
+dist/
+packages/api/dist/
+packages/frontend/dist/
+packages/worker/*.exe
+
+# ── 环境变量 / 密钥（绝对不提交）──
+.env
+.env.*
+!.env.example
+
+# ── 运行时数据（共享卷内容不入库）──
+data/uploads/
+data/thumbs/
+data/images/
+!data/uploads/.gitkeep
+!data/thumbs/.gitkeep
+!data/images/.gitkeep
+
+# ── OS / IDE / 日志 ──
+.DS_Store
+Thumbs.db
+*.log
+coverage/
+.turbo/
+
+# ── Proto 生成代码 ──
+proto/gen/
+
+# ── 外部工具缓存 ──
+/.workbuddy
+/.zcode
+/archive
+
+# ── 临时文件 ──
+_tmp_*
+NOT

@@ -1,0 +1,13 @@
+{
+  "name": "@xqecz/proto",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "generate:ts": "protoc --plugin=protoc-gen-ts_proto=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=./gen/ts --ts_proto_opt=outputServices=grpc-js,env=node,esModuleInterop=true -I. xqecz.proto",
+    "generate:go": "protoc --go_out=./gen/go --go-grpc_out=./gen/go --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative xqecz.proto",
+    "generate": "npm run generate:ts && npm run generate:go"
+  },
+  "devDependencies": {
+    "ts-proto": "^2.1.3"
+  }
+}

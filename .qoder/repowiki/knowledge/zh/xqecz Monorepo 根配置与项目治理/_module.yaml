@@ -1,0 +1,12 @@
+schema_version: 1
+module_path: ""
+title: xqecz Monorepo 根配置与项目治理
+scope:
+    - .gitignore
+    - package.json
+    - pnpm-workspace.yaml
+    - plan.md
+    - AGENTS.md
+source_files: []
+depends_on: []
+related_to: []
