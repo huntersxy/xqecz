@@ -17,6 +17,12 @@ export const useHomeStore = defineStore('home', () => {
   // 是否已经加载过数据（用于判断是否需要恢复状态）
   const hasLoaded = ref(false)
 
+  // 搜索触发器（每次 +1 通知订阅者重新查询）
+  const searchTrigger = ref(0)
+  function triggerSearch() {
+    searchTrigger.value++
+  }
+
   // 保存状态
   function saveState(params: {
     searchKeyword: string
@@ -61,6 +67,8 @@ export const useHomeStore = defineStore('home', () => {
     recommendPage,
     scrollPosition,
     hasLoaded,
+    searchTrigger,
+    triggerSearch,
     saveState,
     clearState,
     restoreScroll

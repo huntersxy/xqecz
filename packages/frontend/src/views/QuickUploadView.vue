@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+import { toast } from '@/composables/useToast'
 import { contentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { CC_LICENSE_TEXT } from '@/utils/constants'
@@ -42,11 +42,11 @@ function handleAddCustomTag(tag: string) {
 
 function beforeUpload(f: File) {
   if (!f.type.startsWith('image/') && !f.type.startsWith('video/')) {
-    message.error('仅支持图片或视频文件')
+    toast.error('仅支持图片或视频文件')
     return false
   }
   if (f.size > MAX_FILE_SIZE) {
-    message.error('文件大小不能超过 20MB')
+    toast.error('文件大小不能超过 20MB')
     return false
   }
   file.value = f
@@ -90,7 +90,7 @@ function validate(): string | null {
 async function handleSubmit() {
   const err = validate()
   if (err) {
-    message.warning(err)
+    toast.warning(err)
     return
   }
   uploading.value = true
@@ -112,13 +112,13 @@ async function handleSubmit() {
         GUEST_STORAGE_KEY,
         JSON.stringify({ nickname: form.value.nickname.trim(), email: form.value.email.trim() }),
       )
-      message.success('上传成功，可在首页查看')
+      toast.success('上传成功，可在首页查看')
       router.push('/')
     } else {
-      message.error(res.message || '上传失败')
+      toast.error(res.message || '上传失败')
     }
   } catch (e) {
-    message.error((e as Error)?.message || '上传失败，请稍后重试')
+    toast.error((e as Error)?.message || '上传失败，请稍后重试')
   } finally {
     uploading.value = false
   }

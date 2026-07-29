@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { message, Modal } from 'ant-design-vue'
+import { toast, useConfirm } from '@/composables/useToast'
 import { apiKeyApi } from '@/api'
 import type { ApiKey, ApiKeyCreated, CreateApiKeyData } from '@/types'
 
@@ -33,11 +33,11 @@ async function loadKeys() {
 
 async function handleCreate() {
   if (!newName.value.trim()) {
-    message.warning('请输入名称')
+    toast.warning('请输入名称')
     return
   }
   if (newPermissions.value.length === 0) {
-    message.warning('至少选择一个权限')
+    toast.warning('至少选择一个权限')
     return
   }
 
@@ -56,30 +56,24 @@ async function handleCreate() {
 }
 
 async function handleDelete(id: number, name: string) {
-  Modal.confirm({
-    title: '撤销 API Key',
-    content: `确定要撤销 "${name}" 吗？撤销后使用该 Key 的应用将立即无法访问。`,
-    okText: '撤销',
-    okType: 'danger',
-    cancelText: '取消',
-    async onOk() {
-      await apiKeyApi.delete(id)
-      message.success('已撤销')
-      loadKeys()
-    },
-  })
+  const { confirm } = useConfirm()
+  const ok = await confirm(`确定要撤销 "${name}" 吗？撤销后使用该 Key 的应用将立即无法访问。`)
+  if (!ok) return
+  await apiKeyApi.delete(id)
+  toast.success('已撤销')
+  loadKeys()
 }
 
 async function toggleActive(key: ApiKey) {
   await apiKeyApi.update(key.id, { is_active: !key.is_active })
-  message.success(key.is_active ? '已禁用' : '已启用')
+  toast.success(key.is_active ? '已禁用' : '已启用')
   loadKeys()
 }
 
 function copyKey() {
   if (createdKey.value?.key) {
     navigator.clipboard.writeText(createdKey.value.key)
-    message.success('已复制到剪贴板')
+    toast.success('已复制到剪贴板')
   }
 }
 
@@ -165,10 +159,10 @@ onMounted(loadKeys)
     <a-modal v-model:open="showCreateModal" title="新建 API 密钥" @ok="handleCreate" ok-text="创建" cancel-text="取消">
       <a-form layout="vertical">
         <a-form-item label="名称" required>
-          <a-input v-model:value="newName" placeholder="例如：我的上传工具" maxlength="100" />
+          <a-input v-model:value="newName" placeholder="例如：我的上传工具" :maxlength="100" />
         </a-form-item>
         <a-form-item label="权限" required>
-          <a-checkbox-group v-model:value="newPermissions" :options="allPermissions" />
+          <a-checkbox-group v-model:value="newPermissions" :options="(allPermissions as any)" />
         </a-form-item>
       </a-form>
     </a-modal>

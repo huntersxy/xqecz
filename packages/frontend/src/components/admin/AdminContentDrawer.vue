@@ -2,7 +2,8 @@
 import { useAdminStore } from '@/stores/admin'
 import { adminApi } from '@/api'
 import { getImageUrl, renderMarkdown } from '@/utils'
-import { Tag, Modal } from 'ant-design-vue'
+import { Tag } from 'ant-design-vue'
+import { useConfirm } from '@/composables/useToast'
 import type { User } from '@/types'
 import { PlusOutlined } from '@ant-design/icons-vue'
 
@@ -25,6 +26,9 @@ const renderedContent = computed(() => {
   if (!admin.drawerContent) return ''
   return renderMarkdown(admin.drawerContent.text || '')
 })
+
+// 保留 video/link 展示兜底（历史脏数据），用 string 比较避免收窄后的类型错误
+const drawerTypeStr = computed(() => admin.drawerContent?.type as string)
 
 const filteredUsers = computed(() => {
   if (!authorKeyword.value.trim()) return allUsers.value
@@ -75,14 +79,11 @@ async function handleSave() {
 
 async function handleChangeAuthor(userId: number, username: string) {
   if (!admin.drawerContent) return
-  Modal.confirm({
-    title: '修改作者',
-    content: `确定将作者改为「${username}」吗？`,
-    async onOk() {
-      const ok = await admin.changeAuthor(admin.drawerContent!.id, userId)
-      if (ok) admin.closeDrawer()
-    },
-  })
+  const { confirm } = useConfirm()
+  const ok = await confirm(`确定将作者改为「${username}」吗？`)
+  if (!ok) return
+  const changed = await admin.changeAuthor(admin.drawerContent.id, userId)
+  if (changed) admin.closeDrawer()
 }
 
 function toggleTag(tag: string) {
@@ -111,8 +112,8 @@ function addNewTag() {
       <a-tabs v-model:activeKey="tabKey">
         <a-tab-pane key="preview" tab="预览">
           <div class="preview-meta">
-            <Tag :color="admin.drawerContent.type === 'video' ? 'red' : admin.drawerContent.type === 'image' ? 'green' : admin.drawerContent.type === 'link' ? 'orange' : 'blue'">
-              {{ { video: '视频', image: '图片', link: '链接', text: '文字' }[admin.drawerContent.type] }}
+            <Tag :color="drawerTypeStr === 'video' ? 'red' : drawerTypeStr === 'image' ? 'green' : drawerTypeStr === 'link' ? 'orange' : 'blue'">
+              {{ { video: '视频', image: '图片', link: '链接', text: '文字' }[drawerTypeStr] }}
             </Tag>
             <Tag v-if="admin.drawerContent.audit_status" :color="admin.drawerContent.audit_status === 'approved' ? 'success' : admin.drawerContent.audit_status === 'pending' ? 'warning' : 'error'">
               {{ { approved: '已通过', pending: '审核中', rejected: '已拒绝' }[admin.drawerContent.audit_status] }}
@@ -127,10 +128,10 @@ function addNewTag() {
           <div v-if="admin.drawerContent.type === 'image'" class="preview-media-wrap">
             <img :src="getImageUrl(admin.drawerContent.img)" class="preview-media" alt="" />
           </div>
-          <div v-else-if="admin.drawerContent.type === 'video'" class="preview-media-wrap">
+          <div v-else-if="drawerTypeStr === 'video'" class="preview-media-wrap">
             <video controls class="preview-media"><source :src="getImageUrl(admin.drawerContent.video)" /><track kind="captions" /></video>
           </div>
-          <div v-else-if="admin.drawerContent.type === 'link'" class="preview-media-wrap">
+          <div v-else-if="drawerTypeStr === 'link'" class="preview-media-wrap">
             <a :href="admin.drawerContent.url" target="_blank" rel="noopener">
               <img v-if="admin.drawerContent.thumb" :src="getImageUrl(admin.drawerContent.thumb)" class="preview-media" alt="" />
               <div v-else class="link-box">{{ admin.drawerContent.url }}</div>
@@ -159,7 +160,7 @@ function addNewTag() {
               <MarkdownToolbar @insert="insertMarkdown" @upload-image="() => {}" />
               <a-textarea v-model:value="editContent" :rows="8" class="drawer-edit-textarea" />
             </a-form-item>
-            <a-form-item v-if="admin.drawerContent.type !== 'text' && admin.drawerContent.type !== 'link'" label="替换文件">
+            <a-form-item v-if="admin.drawerContent.type !== 'text'" label="替换文件">
               <input type="file" :accept="admin.drawerContent.type === 'image' ? 'image/*' : 'video/*'" @change="(e: Event) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) { editFile = f; editFileName = f.name } }" />
               <span v-if="editFileName" style="margin-left: 8px; font-size: 13px">{{ editFileName }}</span>
             </a-form-item>

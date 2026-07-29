@@ -1,17 +1,25 @@
-import { ref, watch } from 'vue'
+import { computed, watch } from 'vue'
+import { useHomeStore } from '@/stores/home'
 
-// 模块级单例：搜索关键字。App.vue 的搜索框写入，WaterfallTheme 监听变化触发请求。
-const searchKeyword = ref('')
-const searchTrigger = ref(0)
-
+// 全局搜索：单一真相源在 home store。
+// App.vue 通过 searchKeyword 写入，HomeView 通过 watchGlobalSearch 监听触发查询。
 export function useGlobalSearch() {
+  const homeStore = useHomeStore()
+
+  const searchKeyword = computed({
+    get: () => homeStore.searchKeyword,
+    set: (v: string) => { homeStore.searchKeyword = v },
+  })
+
   function triggerSearch() {
-    searchTrigger.value++
+    homeStore.triggerSearch()
   }
-  return { searchKeyword, searchTrigger, triggerSearch }
+
+  return { searchKeyword, triggerSearch }
 }
 
-// 直接 watch 模块级 ref：App.vue 触发时，订阅者会拿到新值
+// 监听搜索触发器：HomeView 订阅，触发时重新查询
 export function watchGlobalSearch(handler: () => void) {
-  watch(searchTrigger, handler)
+  const homeStore = useHomeStore()
+  watch(() => homeStore.searchTrigger, handler)
 }

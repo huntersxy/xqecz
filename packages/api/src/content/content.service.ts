@@ -303,7 +303,7 @@ export class ContentService implements OnModuleInit, OnModuleDestroy {
     return this.decorateContent(saved)
   }
 
-  /** 异步媒体处理：缩略图 → (图片)压缩 → S3 上传，逐步回写数据库。任一步失败仅告警不影响其他步骤。 */
+  /** 异步媒体处理：缩略图 → (图片)压缩，逐步回写数据库。任一步失败仅告警不影响其他步骤。 */
   private async processMedia(id: number, absPath: string, type: string) {
     try {
       const t = await this.worker.generateThumbnail(absPath, type)
@@ -327,18 +327,6 @@ export class ContentService implements OnModuleInit, OnModuleDestroy {
       } catch (e) {
         console.warn(`[media] compress error #${id}:`, (e as Error)?.message)
       }
-    }
-
-    try {
-      const s3 = await this.worker.uploadToS3(absPath, type === 'image' ? 'image/webp' : 'video/mp4')
-      if (s3?.success && s3.cdn_url) {
-        // 仅当配置了 S3 才覆盖 file_path 为 CDN URL；否则保留本地 /uploads 路径。
-        await this.contentRepo.update(id, { file_path: s3.cdn_url })
-      } else if (s3 && !s3.success) {
-        console.warn(`[media] s3 failed for #${id}: ${s3.error}`)
-      }
-    } catch (e) {
-      console.warn(`[media] s3 error #${id}:`, (e as Error)?.message)
     }
   }
 

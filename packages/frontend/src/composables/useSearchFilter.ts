@@ -13,7 +13,11 @@ export function useSearchFilter() {
 
   const allTags = ref<string[]>([])
   const selectedTags = ref<string[]>(homeStore.selectedTags)
-  const searchKeyword = ref(homeStore.searchKeyword)
+  // 搜索关键字直接用 store 的 ref（单一真相源）
+  const searchKeyword = computed({
+    get: () => homeStore.searchKeyword,
+    set: (v: string) => { homeStore.searchKeyword = v },
+  })
   const selectedTypes = ref<string[]>(homeStore.selectedTypes)
 
   const cachedTags = useStorage<{ tags: string[]; date: string } | null>('home_tags_cache', null)

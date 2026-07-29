@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { adminApi, contentApi, commentApi, pollApi } from '@/api'
-import { message, Modal } from 'ant-design-vue'
+import { toast } from '@/composables/useToast'
+import { Modal } from 'ant-design-vue'
 import type { Content, User, Claim, CommentReport, Poll, CreatePollData } from '@/types'
 
 interface PaginatedState<T> {
@@ -19,9 +20,9 @@ function createPaginatedState<T>(pageSize = 20): PaginatedState<T> {
 async function apiChangeAuthor(contentId: number, userId: number): Promise<boolean> {
   try {
     await adminApi.updateContentAuthor(contentId, userId)
-    message.success('作者已更新')
+    toast.success('作者已更新')
     return true
-  } catch (e: unknown) { message.error((e as Error).message || '更新失败'); return false }
+  } catch (e: unknown) { toast.error((e as Error).message || '更新失败'); return false }
 }
 
 function apiConfirmDelete(id: number, onOk?: () => void) {
@@ -32,9 +33,9 @@ function apiConfirmDelete(id: number, onOk?: () => void) {
     async onOk() {
       try {
         await contentApi.delete(id)
-        message.success('删除成功')
+        toast.success('删除成功')
         onOk?.()
-      } catch (e: unknown) { message.error((e as Error).message || '删除失败') }
+      } catch (e: unknown) { toast.error((e as Error).message || '删除失败') }
     },
   })
 }
@@ -42,33 +43,33 @@ function apiConfirmDelete(id: number, onOk?: () => void) {
 async function apiAuditContent(id: number, status: 'approved' | 'rejected', _adminId: number): Promise<boolean> {
   try {
     await adminApi.audit(id, { status, remark: '' })
-    message.success('审核成功')
+    toast.success('审核成功')
     return true
-  } catch (e: unknown) { message.error((e as Error).message || '审核失败'); return false }
+  } catch (e: unknown) { toast.error((e as Error).message || '审核失败'); return false }
 }
 
 async function apiUpdateUserRole(id: number, isAdmin: boolean): Promise<boolean> {
   try {
     await adminApi.updateUserRole(id, isAdmin)
-    message.success('更新成功')
+    toast.success('更新成功')
     return true
-  } catch (e: unknown) { message.error((e as Error).message || '更新失败'); return false }
+  } catch (e: unknown) { toast.error((e as Error).message || '更新失败'); return false }
 }
 
 async function apiUpdateUserBan(id: number, isBanned: boolean): Promise<boolean> {
   try {
     await adminApi.updateUserBan(id, isBanned)
-    message.success(isBanned ? '封禁成功' : '解封成功')
+    toast.success(isBanned ? '封禁成功' : '解封成功')
     return true
-  } catch (e: unknown) { message.error((e as Error).message || (isBanned ? '封禁失败' : '解封失败')); return false }
+  } catch (e: unknown) { toast.error((e as Error).message || (isBanned ? '封禁失败' : '解封失败')); return false }
 }
 
 async function apiDeleteUser(id: number): Promise<boolean> {
   try {
     await adminApi.deleteUser(id)
-    message.success('删除成功')
+    toast.success('删除成功')
     return true
-  } catch (e: unknown) { message.error((e as Error).message || '删除失败'); return false }
+  } catch (e: unknown) { toast.error((e as Error).message || '删除失败'); return false }
 }
 
 async function apiHandleClaim(claimId: number, action: 'approve' | 'reject'): Promise<boolean> {
@@ -79,48 +80,48 @@ async function apiHandleClaim(claimId: number, action: 'approve' | 'reject'): Pr
   }
   try {
     await adminApi.handleClaim(claimId, action, reason || undefined)
-    message.success(action === 'approve' ? '认领已通过' : '认领已拒绝')
+    toast.success(action === 'approve' ? '认领已通过' : '认领已拒绝')
     return true
-  } catch (e: unknown) { message.error((e as Error).message || '操作失败'); return false }
+  } catch (e: unknown) { toast.error((e as Error).message || '操作失败'); return false }
 }
 
 async function apiDeletePoll(id: number): Promise<boolean> {
   try {
     await pollApi.delete(id)
-    message.success('删除成功')
+    toast.success('删除成功')
     return true
-  } catch (e: unknown) { message.error((e as Error).message || '删除失败'); return false }
+  } catch (e: unknown) { toast.error((e as Error).message || '删除失败'); return false }
 }
 
 async function apiHandleReport(reportId: number): Promise<boolean> {
   try {
     await commentApi.handleReport(reportId)
-    message.success('处理成功')
+    toast.success('处理成功')
     return true
-  } catch (e: unknown) { message.error((e as Error).message || '处理失败'); return false }
+  } catch (e: unknown) { toast.error((e as Error).message || '处理失败'); return false }
 }
 
 async function apiDeleteComment(commentId: number): Promise<boolean> {
   try {
     await commentApi.delete(commentId)
-    message.success('删除成功')
+    toast.success('删除成功')
     return true
-  } catch (e: unknown) { message.error((e as Error).message || '删除失败'); return false }
+  } catch (e: unknown) { toast.error((e as Error).message || '删除失败'); return false }
 }
 
 async function apiRegenerateThumbnail(id: number): Promise<boolean> {
   try {
     await adminApi.regenerateThumbnail(id)
-    message.success('封面更新成功')
+    toast.success('封面更新成功')
     return true
-  } catch (e: unknown) { message.error((e as Error).message || '封面更新失败'); return false }
+  } catch (e: unknown) { toast.error((e as Error).message || '封面更新失败'); return false }
 }
 
 async function apiRegenerateAllThumbnails() {
   try {
     const r = await adminApi.regenerateAllThumbnails()
-    message.success(`已开始处理 ${r.data.count} 条`)
-  } catch (e: unknown) { message.error((e as Error).message || '操作失败') }
+    toast.success(`已开始处理 ${r.data.count} 条`)
+  } catch (e: unknown) { toast.error((e as Error).message || '操作失败') }
 }
 
 export const useAdminStore = defineStore('admin', () => {
@@ -153,7 +154,7 @@ export const useAdminStore = defineStore('admin', () => {
     try {
       const r = await contentApi.getTags()
       tags.value = r.data
-    } catch (e: unknown) { message.error((e as Error).message || '加载失败') } finally { tagsLoading.value = false }
+    } catch (e: unknown) { toast.error((e as Error).message || '加载失败') } finally { tagsLoading.value = false }
   }
 
   async function loadMyContent(page = 1) {
@@ -164,7 +165,7 @@ export const useAdminStore = defineStore('admin', () => {
       myContent.list = r.data.list
       myContent.total = r.data.total
       myContent.totalPages = r.data.total_page
-    } catch (e: unknown) { message.error((e as Error).message || '加载失败') } finally { myContent.loading = false }
+    } catch (e: unknown) { toast.error((e as Error).message || '加载失败') } finally { myContent.loading = false }
   }
 
   async function loadAllContent(page = 1) {
@@ -175,7 +176,7 @@ export const useAdminStore = defineStore('admin', () => {
       allContent.list = r.data.list
       allContent.total = r.data.total
       allContent.totalPages = r.data.total_page
-    } catch (e: unknown) { message.error((e as Error).message || '加载失败') } finally { allContent.loading = false }
+    } catch (e: unknown) { toast.error((e as Error).message || '加载失败') } finally { allContent.loading = false }
   }
 
   async function loadPendingContent(page = 1) {
@@ -186,7 +187,7 @@ export const useAdminStore = defineStore('admin', () => {
       pendingContent.list = r.data.list
       pendingContent.total = r.data.total
       pendingContent.totalPages = r.data.total_page
-    } catch (e: unknown) { message.error((e as Error).message || '加载失败') } finally { pendingContent.loading = false }
+    } catch (e: unknown) { toast.error((e as Error).message || '加载失败') } finally { pendingContent.loading = false }
   }
 
   async function loadUsers(page = 1) {
@@ -197,7 +198,7 @@ export const useAdminStore = defineStore('admin', () => {
       users.list = r.data.list
       users.total = r.data.total
       users.totalPages = r.data.total_page
-    } catch (e: unknown) { message.error((e as Error).message || '加载失败') } finally { users.loading = false }
+    } catch (e: unknown) { toast.error((e as Error).message || '加载失败') } finally { users.loading = false }
   }
 
   async function loadClaims(page = 1, status?: string) {
@@ -209,7 +210,7 @@ export const useAdminStore = defineStore('admin', () => {
       claims.list = r.data.list
       claims.total = r.data.total
       claims.totalPages = Math.ceil(r.data.total / r.data.page_size)
-    } catch (e: unknown) { message.error((e as Error).message || '加载失败') } finally { claims.loading = false }
+    } catch (e: unknown) { toast.error((e as Error).message || '加载失败') } finally { claims.loading = false }
   }
 
   async function loadPolls() {
@@ -217,7 +218,7 @@ export const useAdminStore = defineStore('admin', () => {
     try {
       const r = await pollApi.list()
       polls.value = r.data.list
-    } catch (e: unknown) { message.error((e as Error).message || '加载失败') } finally { pollsLoading.value = false }
+    } catch (e: unknown) { toast.error((e as Error).message || '加载失败') } finally { pollsLoading.value = false }
   }
 
   async function loadReports() {
@@ -225,7 +226,7 @@ export const useAdminStore = defineStore('admin', () => {
     try {
       const r = await commentApi.getReports()
       reports.value = r.data
-    } catch (e: unknown) { message.error((e as Error).message || '加载举报列表失败') } finally { reportsLoading.value = false }
+    } catch (e: unknown) { toast.error((e as Error).message || '加载举报列表失败') } finally { reportsLoading.value = false }
   }
 
   function openDrawer(content: Content, mode: 'view' | 'edit' = 'view') {
@@ -243,7 +244,7 @@ export const useAdminStore = defineStore('admin', () => {
     try {
       const r = await contentApi.detail(id)
       return r.data
-    } catch (e: unknown) { message.error((e as Error).message || '加载失败'); return null }
+    } catch (e: unknown) { toast.error((e as Error).message || '加载失败'); return null }
   }
 
   async function saveContent(id: number, data: {
@@ -252,26 +253,26 @@ export const useAdminStore = defineStore('admin', () => {
     drawerSaving.value = true
     try {
       await contentApi.update(id, data)
-      message.success('保存成功')
+      toast.success('保存成功')
       return true
-    } catch (e: unknown) { message.error((e as Error).message || '保存失败'); return false }
+    } catch (e: unknown) { toast.error((e as Error).message || '保存失败'); return false }
     finally { drawerSaving.value = false }
   }
 
   async function createPoll(): Promise<boolean> {
     const valid = createPollForm.value.options.filter((o) => o.trim())
-    if (valid.length < 2) { message.error('至少需要2个有效选项'); return false }
+    if (valid.length < 2) { toast.error('至少需要2个有效选项'); return false }
     try {
       await pollApi.create({
         title: createPollForm.value.title.trim(),
         description: (createPollForm.value.description || '').trim(),
         options: valid.map((o) => o.trim()),
       })
-      message.success('投票创建成功')
+      toast.success('投票创建成功')
       showCreatePollModal.value = false
       createPollForm.value = { title: '', description: '', options: ['', ''] }
       return true
-    } catch (e: unknown) { message.error((e as Error).message || '创建失败'); return false }
+    } catch (e: unknown) { toast.error((e as Error).message || '创建失败'); return false }
   }
 
   function addPollOption() { createPollForm.value.options.push('') }
@@ -293,9 +294,9 @@ export const useAdminStore = defineStore('admin', () => {
         user_id: data.userId,
         file: data.file,
       }, (p) => { uploadProgress.value = p })
-      message.success('上传成功')
+      toast.success('上传成功')
       return true
-    } catch (e: unknown) { message.error(`上传失败: ${(e as Error).message}`); return false }
+    } catch (e: unknown) { toast.error(`上传失败: ${(e as Error).message}`); return false }
     finally { uploading.value = false; uploadProgress.value = 0 }
   }
 

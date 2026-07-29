@@ -27,17 +27,6 @@ message CompressResponse {
   string error = 3;
 }
 
-message UploadToS3Request {
-  string file_path = 1;
-  string content_type = 2;
-}
-
-message UploadToS3Response {
-  string cdn_url = 1;
-  bool success = 2;
-  string error = 3;
-}
-
 message LinkPreviewRequest {
   string url = 1;
 }
@@ -97,7 +86,6 @@ service WorkerService {
   // 文件处理
   rpc GenerateThumbnail(ThumbnailRequest) returns (ThumbnailResponse);
   rpc CompressImage(CompressRequest) returns (CompressResponse);
-  rpc UploadToS3(UploadToS3Request) returns (UploadToS3Response);
   rpc FetchLinkPreview(LinkPreviewRequest) returns (LinkPreviewResponse);
 
   // 推荐算法

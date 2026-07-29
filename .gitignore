@@ -39,3 +39,4 @@ proto/gen/
 # ── 临时文件 ──
 _tmp_*
 NOT
+/.qoder

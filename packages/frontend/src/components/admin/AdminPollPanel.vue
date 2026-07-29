@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { useAdminStore } from '@/stores/admin'
 import { SECONDARY_STYLE } from './adminColumns'
-import { Tag, Modal } from 'ant-design-vue'
+import { Tag } from 'ant-design-vue'
+import { useConfirm } from '@/composables/useToast'
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons-vue'
 
 const admin = useAdminStore()
 
-function confirmDeletePoll(id: number) {
-  Modal.confirm({
-    title: '删除投票', content: '确定删除该投票？', okType: 'danger',
-    async onOk() { await admin.deletePoll(id); admin.loadPolls() },
-  })
+async function confirmDeletePoll(id: number) {
+  const { confirm } = useConfirm()
+  const ok = await confirm('确定删除该投票？')
+  if (!ok) return
+  await admin.deletePoll(id)
+  admin.loadPolls()
 }
 
 onMounted(() => admin.loadPolls())

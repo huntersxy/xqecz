@@ -58,7 +58,7 @@ onMounted(() => { admin.loadTags() })
           mode="inline"
           :selected-keys="[admin.activeTab]"
           :items="menuItems"
-          @click="(info: { key: string }) => admin.activeTab = info.key"
+          @click="(info) => admin.activeTab = String(info.key)"
         />
       </a-layout-sider>
 
@@ -110,7 +110,7 @@ onMounted(() => { admin.loadTags() })
         mode="inline"
         :selected-keys="[admin.activeTab]"
         :items="menuItems"
-        @click="(info: { key: string }) => { admin.activeTab = info.key; mobileMenuOpen = false }"
+        @click="(info) => { admin.activeTab = String(info.key); mobileMenuOpen = false }"
       />
     </a-drawer>
 

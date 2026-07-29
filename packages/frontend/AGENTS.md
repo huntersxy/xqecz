@@ -3,20 +3,23 @@
 ## 关键命令
 
 ```bash
-# 启动开发服务器（热更新，API 代理到 localhost:8080）
-npm run dev
+# 启动开发服务器（热更新，API 代理到 localhost:3000）
+pnpm --filter ./packages/frontend run dev
 
 # 生产构建（先 type-check 再 vite build）
-npm run build
+pnpm --filter ./packages/frontend run build
 
 # 仅 TypeScript 类型检查（不构建）
-npm run type-check
+pnpm --filter ./packages/frontend run type-check
 
 # 完整 lint：oxlint + eslint 自动修复
-npm run lint
+pnpm --filter ./packages/frontend run lint
 
 # Prettier 格式化 src/ 下所有文件
-npm run format
+pnpm --filter ./packages/frontend run format
+
+# 单元测试
+pnpm --filter ./packages/frontend run test
 ```
 
 ---
@@ -34,6 +37,7 @@ npm run format
 | HTTP | ofetch | ^1.5 | 统一封装，自动重试，超时控制 |
 | Markdown | marked + DOMPurify | ^18.0 / ^3.4 | 渲染 + XSS 防护 |
 | 动画 | motion-v | ^2.2 | 声明式动画 |
+| 图片查看 | viewerjs | ^1.11 | 全屏图片查看器 |
 | 校验 | oxlint | ~1.60 | Rust 高性能 lint（correctness 规则） |
 | 校验 | ESLint | ^10.2 | vue-ts + oxlint 插件 |
 | 格式化 | Prettier | 3.8 | 统一代码风格 |
@@ -50,28 +54,38 @@ src/
 ├── api/              # HTTP 请求层，按业务域分模块导出
 │   └── index.ts      # authApi / contentApi / commentApi / pollApi / adminApi / apiKeyApi
 ├── assets/
-│   └── main.css      # Tailwind 入口 + 基础样式（不含主题变量）
-├── themes/           # 主题 .vue 文件，自动扫描注册
-│   ├── DefaultTheme.vue
-│   └── BilibiliStyleTheme.vue
+│   └── main.css      # Tailwind 入口 + CSS 变量（:root / html.dark）
 ├── components/
 │   ├── admin/        # 后台管理组件（Sass + antd）
 │   └── *.vue         # 通用 UI 组件
 ├── composables/      # 组合式函数
-│   └── useThemeRegistry.ts  # 主题注册 + applyThemeColors
+│   ├── useGlobalSearch.ts   # 全局搜索单例
+│   ├── useRecommendLoader.ts # 推荐内容加载
+│   ├── useSearchFilter.ts   # 搜索/标签/类型筛选
+│   └── useToast.ts          # 确认对话框 + toast
 ├── router/
 │   └── index.ts      # 路由表 + 导航守卫 + 后台预加载队列
 ├── stores/           # Pinia 全局状态
-│   ├── theme.ts      # 主题切换（currentTheme + mode）
+│   ├── theme.ts      # 明暗模式（mode: light/dark）
 │   ├── home.ts       # 首页搜索/筛选/分页/滚动位置缓存
+│   ├── admin.ts      # 后台管理状态
 │   └── user.ts       # 登录态 / 用户信息
 ├── types/
-│   └── index.ts      # 所有 TypeScript 类型定义
+│   ├── index.ts      # 所有 TypeScript 类型定义
+│   └── schemas.ts    # Zod schema（运行时校验 + transform）
 ├── utils/
 │   ├── index.ts      # getImageUrl / formatTime / renderMarkdown / getPreviewText
-│   └── constants.ts  # CC 协议文本 / 视频条款文本
-├── views/            # 页面级组件（薄路由层，逻辑下沉到 composables）
-├── App.vue           # 根组件：导航栏/页脚/Toast/Confirm 容器
+│   ├── constants.ts  # CC 协议文本 / 视频条款文本
+│   ├── asyncComponent.ts # 异步组件工厂（带错误边界）
+│   └── webVitals.ts  # Web Vitals 监控
+├── views/            # 页面级组件
+│   ├── HomeView.vue         # 首页（薄层 → <WaterfallTheme />）
+│   ├── WaterfallTheme.vue   # 瀑布流首页（推荐区 + 无限滚动 + 卡片点击路由跳转）
+│   ├── ContentDetailView.vue # 全屏覆盖式详情页（两栏布局 + 评论 + 认领）
+│   ├── QuickUploadView.vue  # 游客快速上传
+│   ├── LoginView.vue        # 登录页
+│   └── AdminView.vue        # 后台管理
+├── App.vue           # 根组件：导航栏/页脚/Toast/Confirm/路由过渡
 └── main.ts           # 入口：createApp → Pinia → Router → mount
 ```
 
@@ -87,21 +101,40 @@ View（薄层，组装组件）
 
 - **View 只管渲染**：从 composable 取数据，绑定到模板，不直接调 API
 - **Composable 管逻辑**：拥有本地状态，调用 API 和 Store，暴露方法给 View
-- **Store 管全局状态**：theme / home / user 三个领域，Setup Store 语法
+- **Store 管全局状态**：theme / home / admin / user 四个领域，Setup Store 语法
 
-### 主题系统（Sass + Tailwind CSS）
+### 明暗模式
 
-一个主题一个 `.vue` 文件，放在 `src/themes/`，自动扫描注册。每个主题包含 `themeMeta` 导出（含 light/dark 两套颜色），运行时通过 `applyThemeColors()` 注入 CSS 变量。
+明暗模式通过 `stores/theme.ts` 管理，仅操作 `document.documentElement` 的 `dark` class。CSS 变量值由 `main.css` 中的 `:root` / `html.dark` 控制，纯 CSS 切换，不通过 JS 逐个 setProperty。
 
-1. **主题文件**（`src/themes/*.vue`）：`<script>` 导出 `themeMeta`，`<script setup>` 定义布局，`<style lang="scss" scoped>` 定义样式
-2. **注册中心**（`composables/useThemeRegistry.ts`）：`import.meta.glob` 同步扫描，`registerTheme()` 注册
-3. **状态管理**（`stores/theme.ts`）：`currentTheme` + `mode`（light/dark），切换时调用 `applyThemeColors()`
-4. **后台适配**：antd `ConfigProvider` + `darkAlgorithm` 自动处理暗色，自定义样式用 CSS 变量
+- `App.vue` header 下拉切换日间/暗色
+- antd 通过 `ConfigProvider` + `darkAlgorithm` 自动适配暗色
+- Tailwind 组件可用 `dark:` 前缀或 `var(--theme-*)` / `var(--color-*)` CSS 变量
 
-### 路由懒加载 + 预加载
+### 路由
+
+| 路径 | 组件 | 说明 |
+|------|------|------|
+| `/` | HomeView → WaterfallTheme | 瀑布流首页 |
+| `/content/:id` | ContentDetailView | 全屏覆盖式详情页 |
+| `/quick-upload` | QuickUploadView | 游客快速上传 |
+| `/login` | LoginView | 登录页 |
+| `/admin` | AdminView | 后台管理（requiresAuth） |
 
 - 所有视图使用 `defineAsyncComponent` 按需加载
 - 首页加载后通过 `requestIdleCallback` 按优先级延迟预加载其他视图
+- 路由切换有淡入淡出过渡（`route-fade` Transition）
+
+### 详情页交互
+
+点击瀑布流卡片 → `homeStore.saveState()` 保存筛选/滚动位置 → `router.push('/content/:id')` 无痕切换到全屏详情页。
+
+详情页采用 `position: fixed; inset: 0` 全屏覆盖布局（覆盖 App header/footer）：
+- 左侧 60%：媒体区（图片点击触发 viewerjs 全屏看图 / 视频播放器 / 外链卡片 / 纯文字）
+- 右侧 40%：作者卡 + 标签 + 简介（Markdown 渲染）+ 参考图 + 生成参数 + 评论列表
+- 底部：点赞/收藏/分享/下载交互栏
+- 顶部返回箭头 / ESC / 浏览器后退 → `router.back()` 返回瀑布流
+- 窄屏 <768px 上下堆叠
 
 ---
 
@@ -146,12 +179,12 @@ const emit = defineEmits<{
 - View 组件尽量薄，不超过 **200 行**
 - 通用组件不超过 **500 行**
 - 业务逻辑必须下沉到 composable
-- `components/admin/` 下为后台专用组件，`components/home-themes/` 下为主题布局组件
+- `components/admin/` 下为后台专用组件
 
 #### 1.3 组件通信
 - 父子：Props down / Emits up
 - 跨组件共享状态：Pinia Store
-- 临时跨层级：`provide/inject`（仅在主题配置等场景）
+- 临时跨层级：`provide/inject`
 
 ### 二、样式
 
@@ -160,7 +193,7 @@ const emit = defineEmits<{
 
 - 间距、颜色、字体、边框、阴影、圆角等一律用 Tailwind 类
 - 响应式用 `sm:` / `lg:` / `xl:` 前缀
-- 暗色模式用 `dark:` 前缀（如项目引入）
+- 暗色模式用 `dark:` 前缀
 - 状态变体：`hover:` / `focus:` / `disabled:`
 - 过渡动画：`transition-*` / `duration-*` / `ease-*`
 
@@ -172,15 +205,17 @@ const emit = defineEmits<{
 <div style="padding: 8px 16px; background: #3b82f6;">
 ```
 
-#### 2.2 主题变量
-项目通过 `applyThemeColors()` 运行时注入 CSS 变量，可直接用 Tailwind 任意值语法：
+#### 2.2 CSS 变量
+项目通过 `main.css` 的 `:root` / `html.dark` 定义 CSS 变量，可直接用 Tailwind 任意值语法：
 
 ```vue
 <span class="text-[var(--theme-text)]">...</span>
 <div class="bg-[var(--theme-card-bg)] rounded-xl shadow-md">...</div>
 ```
 
-常用变量：`--theme-text`、`--theme-text-secondary`、`--theme-primary`、`--theme-surface`、`--theme-card-bg`、`--theme-card-border`、`--theme-hover-bg`、`--theme-bg-color`、`--admin-bg`（完整列表见 `theme.md`）
+新代码推荐用 `--color-*` 命名（如 `var(--color-primary)`），旧代码兼容别名 `--theme-*`（如 `var(--theme-primary)`）。
+
+常用变量：`--color-text`、`--color-text-secondary`、`--color-primary`、`--color-surface`、`--color-card`、`--color-border`、`--color-hover`、`--color-bg`（兼容别名 `--theme-*` 同名映射）
 
 ### 三、TypeScript
 
@@ -256,11 +291,11 @@ export function useXxx() {
 
 ```ts
 export const useThemeStore = defineStore('theme', () => {
-  const currentTheme = ref<ThemeType>(getDefaultTheme())
+  const mode = ref<'light' | 'dark'>('light')
 
-  function setTheme(theme: ThemeType) { /* ... */ }
+  function setMode(newMode: 'light' | 'dark') { /* ... */ }
 
-  return { currentTheme, setTheme }
+  return { mode, setMode }
 })
 ```
 
@@ -268,14 +303,14 @@ export const useThemeStore = defineStore('theme', () => {
 
 | 对象 | 规范 | 示例 |
 |------|------|------|
-| Vue 组件 | PascalCase | `HomeContentCard.vue` |
+| Vue 组件 | PascalCase | `CommentItem.vue` |
 | 视图组件 | PascalCase + `View` 后缀 | `HomeView.vue` |
-| Composable | camelCase + `use` 前缀 | `useContentLoader` |
+| Composable | camelCase + `use` 前缀 | `useRecommendLoader` |
 | Pinia Store | camelCase + `use` 前缀 + `Store` 后缀 | `useThemeStore` |
 | API 模块 | camelCase + `Api` 后缀 | `contentApi` |
 | Type 文件 | 集中 `types/index.ts` | — |
 | 常量 | SCREAMING_SNAKE_CASE | `CC_LICENSE_TEXT` |
-| CSS 变量 | kebab-case + `--theme-` 前缀 | `--theme-primary` |
+| CSS 变量 | kebab-case + `--color-` 前缀 | `--color-primary` |
 
 ### 八、错误处理
 
@@ -316,24 +351,9 @@ async function load() {
 - **后台预加载**：首页渲染后，低优先级 view 通过 `requestIdleCallback` 按延迟队列预加载
 - **标签缓存**：标签列表用 `localStorage` 按天缓存，减少 API 请求
 - **图片懒加载**：`<img loading="lazy">`（已默认）
-- **构建分包**：vite config 中 `manualChunks` 分离 vue-vendor / utils-vendor / motion-vendor
+- **构建分包**：vite config 中 `manualChunks` 分离 vue-vendor / antd-vendor / utils-vendor / motion-vendor
 
-### 十一、主题开发
-
-新增主题步骤（详见 `theme.md`）：
-
-1. 在 `src/themes/` 创建 `XxxTheme.vue`（文件名自动注册，无编号前缀）
-2. `<script>` 中导出 `themeMeta`，包含 key/name/colors 等元数据
-3. `<script setup>` 中使用 `useHomeLogic()` 获取数据
-4. 布局使用 `theme-*` 工具类或 Tailwind 任意值语法 `bg-[var(--theme-primary)]`
-5. `<style lang="scss" scoped>` 中使用 Sass 定义样式
-
-主题注册规则：
-- 自动扫描 `src/themes/*.vue`，从导出的 `themeMeta` 获取元数据
-- 每个主题包含 `colors.light` 和 `colors.dark` 两套配色
-- 后台管理通过 antd `darkAlgorithm` 自动适配暗色
-
-### 十二、分析规范
+### 十一、分析规范
 
 **对项目文件存在性、结构、状态的任何断言，必须先实际读取再下结论，禁止凭记忆或推测。**
 
@@ -343,15 +363,7 @@ async function load() {
 - 判断依赖是否被使用 → 先 `grep` 搜索 import 语句
 - 评估项目质量 → 逐项核实后列出，标注"已确认"和"未确认"
 
-```bash
-# 错误：凭印象断言
-"CI/CD 是空的"  # 未实际读取 .github/workflows/
-
-# 正确：先读取再下结论
-read .github/workflows/ → 确认有 deploy.yml 和 deploy-ftp.yml
-```
-
-### 十三、CI/CD
+### 十二、CI/CD
 
 项目已有 GitHub Actions 工作流：
 

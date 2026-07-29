@@ -1,5 +1,5 @@
 import { ofetch, type FetchContext } from 'ofetch'
-import { message } from 'ant-design-vue'
+import { toast } from '@/composables/useToast'
 import { toFormData, renameFileToMd5 } from '@/utils'
 import type {
   ApiResponse,
@@ -21,7 +21,6 @@ import type {
   PollListResponse,
   PollDetail,
   CreatePollData,
-  Claim,
   ClaimListResponse,
   UploadImageResponse,
   RegenerateThumbnailResponse,
@@ -116,10 +115,11 @@ async function request<T>(
 ): Promise<ApiResponse<T>> {
   try {
     return (await api(url, options)) as unknown as Promise<ApiResponse<T>>
-  } catch (err) {
+ } catch (err) {
     // F3: 把后端文案包进 Error，供调用方 catch 后直接展示
     const e = err as {
-      response?: { _data?: unknown }
+      response?: { _data?: unknown; status?: number }
+      status?: number
       data?: unknown
       message?: string
     }
@@ -128,7 +128,12 @@ async function request<T>(
       pickServerMessage(e.response?._data) ||
       e.message ||
       '请求失败'
-    message.error(msg)
+    // 401（未登录/会话过期）由 onResponseError 统一处理（登出 + 受保护页跳转），
+    // 这里不弹 toast，避免访客打开公开页（如首页 checkAuth）时出现"未登录"提示
+    const status = e.status ?? e.response?.status
+    if (status !== 401) {
+      toast.error(msg)
+    }
     throw apiError(msg)
   }
 }

@@ -55,7 +55,7 @@ describe('useUserStore', () => {
     vi.mocked(authApi.login).mockResolvedValue({
       code: 401,
       message: '用户名或密码错误',
-      data: null as any,
+      data: null as never,
     })
 
     const store = useUserStore()
@@ -88,7 +88,7 @@ describe('useUserStore', () => {
     vi.mocked(authApi.logout).mockResolvedValue({
       code: 200,
       message: 'success',
-      data: null as any,
+      data: null as never,
     })
 
     const store = useUserStore()

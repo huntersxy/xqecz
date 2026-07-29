@@ -22,7 +22,6 @@ const (
 	WorkerService_Health_FullMethodName            = "/xqecz.WorkerService/Health"
 	WorkerService_GenerateThumbnail_FullMethodName = "/xqecz.WorkerService/GenerateThumbnail"
 	WorkerService_CompressImage_FullMethodName     = "/xqecz.WorkerService/CompressImage"
-	WorkerService_UploadToS3_FullMethodName        = "/xqecz.WorkerService/UploadToS3"
 	WorkerService_FetchLinkPreview_FullMethodName  = "/xqecz.WorkerService/FetchLinkPreview"
 	WorkerService_RefreshRecommend_FullMethodName  = "/xqecz.WorkerService/RefreshRecommend"
 )
@@ -36,7 +35,6 @@ type WorkerServiceClient interface {
 	// 文件处理
 	GenerateThumbnail(ctx context.Context, in *ThumbnailRequest, opts ...grpc.CallOption) (*ThumbnailResponse, error)
 	CompressImage(ctx context.Context, in *CompressRequest, opts ...grpc.CallOption) (*CompressResponse, error)
-	UploadToS3(ctx context.Context, in *UploadToS3Request, opts ...grpc.CallOption) (*UploadToS3Response, error)
 	FetchLinkPreview(ctx context.Context, in *LinkPreviewRequest, opts ...grpc.CallOption) (*LinkPreviewResponse, error)
 	// 推荐算法
 	RefreshRecommend(ctx context.Context, in *RefreshRecommendRequest, opts ...grpc.CallOption) (*RefreshRecommendResponse, error)
@@ -80,16 +78,6 @@ func (c *workerServiceClient) CompressImage(ctx context.Context, in *CompressReq
 	return out, nil
 }
 
-func (c *workerServiceClient) UploadToS3(ctx context.Context, in *UploadToS3Request, opts ...grpc.CallOption) (*UploadToS3Response, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(UploadToS3Response)
-	err := c.cc.Invoke(ctx, WorkerService_UploadToS3_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *workerServiceClient) FetchLinkPreview(ctx context.Context, in *LinkPreviewRequest, opts ...grpc.CallOption) (*LinkPreviewResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(LinkPreviewResponse)
@@ -119,7 +107,6 @@ type WorkerServiceServer interface {
 	// 文件处理
 	GenerateThumbnail(context.Context, *ThumbnailRequest) (*ThumbnailResponse, error)
 	CompressImage(context.Context, *CompressRequest) (*CompressResponse, error)
-	UploadToS3(context.Context, *UploadToS3Request) (*UploadToS3Response, error)
 	FetchLinkPreview(context.Context, *LinkPreviewRequest) (*LinkPreviewResponse, error)
 	// 推荐算法
 	RefreshRecommend(context.Context, *RefreshRecommendRequest) (*RefreshRecommendResponse, error)
@@ -141,9 +128,6 @@ func (UnimplementedWorkerServiceServer) GenerateThumbnail(context.Context, *Thum
 }
 func (UnimplementedWorkerServiceServer) CompressImage(context.Context, *CompressRequest) (*CompressResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CompressImage not implemented")
-}
-func (UnimplementedWorkerServiceServer) UploadToS3(context.Context, *UploadToS3Request) (*UploadToS3Response, error) {
-	return nil, status.Error(codes.Unimplemented, "method UploadToS3 not implemented")
 }
 func (UnimplementedWorkerServiceServer) FetchLinkPreview(context.Context, *LinkPreviewRequest) (*LinkPreviewResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method FetchLinkPreview not implemented")
@@ -226,24 +210,6 @@ func _WorkerService_CompressImage_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _WorkerService_UploadToS3_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UploadToS3Request)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(WorkerServiceServer).UploadToS3(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: WorkerService_UploadToS3_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(WorkerServiceServer).UploadToS3(ctx, req.(*UploadToS3Request))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _WorkerService_FetchLinkPreview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(LinkPreviewRequest)
 	if err := dec(in); err != nil {
@@ -298,10 +264,6 @@ var WorkerService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CompressImage",
 			Handler:    _WorkerService_CompressImage_Handler,
-		},
-		{
-			MethodName: "UploadToS3",
-			Handler:    _WorkerService_UploadToS3_Handler,
 		},
 		{
 			MethodName: "FetchLinkPreview",

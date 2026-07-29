@@ -208,3 +208,14 @@
   - 后端 service + admin：`content.service.ts` 新增 `migrateOldTypes()`（幂等：`type in ('video','link') → 'text'`）；`admin.controller.ts` 新增 `POST /admin/content/migrate-old-types`（管理员手动触发）。
   - 死代码清理：删除 `HomeContentCard.vue` + `HomeContentCard.test.ts`（DefaultTheme/BilibiliStyleTheme 删除后已无引用）。
   - 验收：前端 type-check ✅；前端 vite build ✅；后端 typecheck ✅；后端 nest build ✅。dev 启动 + 4 种组合（仅标题/仅正文/仅媒体/全填）需手动验证。
+- 2026-07-29 — **步骤 4（前端清理与规范化重构）完成**。
+  - **阶段 1—删死代码**：删除 4 个零引用 composable（`useHomeLogic.ts` / `useContentLoader.ts` / `useMarkdownEditor.ts` / `useThemeRegistry.ts`）+ `useContentLoader.test.ts`；删除死视图 `EasterEggView.vue` + `/easter-egg` 路由；删除 6 个零模板引用组件（`MarkdownModal` / `PollComponent` / `MessageBanner` / `ModalBase` / `HomePagination` / `ContentTypeBadge`）+ `ContentTypeBadge.test.ts`；删除过时文档 `theme.md`。
+  - **阶段 2—覆盖层→路由页改造**：将 `ContentDetailView.vue` 重写为全屏覆盖式路由页（吸收原 ContentOverlay 视觉设计 + 保留评论/认领/举报）：`position:fixed;inset:0;z-index:1000`、两栏布局（左 60% 媒体 + 右 40% 详情）、viewerjs 全屏看图（zIndex 10000）、ESC/返回箭头关闭、mount 锁 body 滚动、watch `route.params.id` 重载。改造 `WaterfallTheme.vue`：`openContent()` 改为 `homeStore.saveState()` + `router.push('/content/:id')`；删除 `ContentOverlay` import / `overlayContent` 状态 / 组件标签。删除 `ContentOverlay.vue`（888 行）。`App.vue` 的 RouterView 加 `v-slot` + `<Transition name="route-fade" mode="out-in">` 包裹 Suspense，新增 route-fade CSS。
+  - **阶段 3—主题残留清理**：`themeColors.ts` 的 `applyThemeColors` 内联到 `stores/theme.ts`（直接 `classList.toggle`）并删除该文件；删 `App.vue` 死 CSS `.app-theme-section`；修正 `router/index.ts` 中 `/admin` 注释（“主题设置”→“API 密钥”）。
+  - **阶段 4—bug 修复**：删除 `WaterfallTheme.vue` 重复的 `watchGlobalSearch` 注册（每次搜索反复请求两次）；清理 `openViewer` 冗余别名；`onMountedTheme` 重命名。PollComponent 按方案 A 删除（后台 AdminPollPanel 保留）。
+  - **阶段 5—文档**：重写 `packages/frontend/AGENTS.md`（目录/明暗模式/路由表/详情页交互/上传规范）；根 `README.md` 去 Turborepo、补环境变量表、修正无 lint/typecheck 聚合脚本；根 `AGENTS.md` 补充内容类型缩窄为 image/text + 详情页为路由页。
+  - **阶段 6—验证**：`type-check` ✅；`build` ✅；`lint`（oxlint + eslint）✅（顺手修复 12 个无关的未使用变量/`any` 告警）；`test` 51/52 通过，唯一失败 `renderMarkdown > renders heading` 为既有环境问题（happy-dom 的 DOMPurify 剔离 `<h1>`，`utils/index.ts` 本次未改动）；死代码残留 grep 已清零。
+- 2026-07-29 — **收尾修复（测试环境 + 未登录 toast）**。
+  - **测试环境**：`vitest.config.ts` 的 `environment` 由 `happy-dom` 改为 `jsdom`（新增 devDependency `jsdom`）。原 `renderMarkdown > renders heading` 失败根因是 happy-dom 的 DOMPurify 集成会剔离 `<h1>`（实际浏览器正常）；切 jsdom 后 `test` 52/52 全部通过。
+  - **未登录 toast**：`api/index.ts` 的 `request()` catch 中，对 401（`e.status ?? e.response?.status`）不再调 `message.error`。401 已由 `onResponseError` 统一处理（登出 + 受保护页跳转）；修复前访客打开首页时 `App.vue` 的 `checkAuth()` → `getMe()` 返 401 会弹出"请求失败"/"未登录"提示，现已静默。
+  - 验收：`type-check` ✅；`lint` ✅；`test` 52/52 ✅；`build` ✅。

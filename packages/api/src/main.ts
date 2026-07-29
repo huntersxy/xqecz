@@ -5,13 +5,14 @@ import express from 'express'
 import { readFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { AppModule } from './app.module'
-import { UPLOAD_DIR, THUMB_DIR, IMAGES_DIR } from './paths'
+import { PROJECT_ROOT, UPLOAD_DIR, THUMB_DIR, IMAGES_DIR } from './paths'
 
 // 在 ConfigModule 加载前，先把 .env 注入 process.env。
+// .env 统一放在项目根目录一份（API/Worker/Frontend 共用），这里从 PROJECT_ROOT 读取。
 // 这样 main.ts 的静态目录、content.controller 的上传目录（均读 process.env.UPLOAD_DIR）
 // 与 content.service（读 ConfigService）会指向同一目录，避免此前「一个写 /app、一个读 /tmp」的错配。
 try {
-  const envPath = join(__dirname, '..', '.env')
+  const envPath = join(PROJECT_ROOT, '.env')
   const txt = readFileSync(envPath, 'utf8')
   for (const line of txt.split(/\r?\n/)) {
     const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/)

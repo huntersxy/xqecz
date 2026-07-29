@@ -9,7 +9,6 @@ interface WorkerGrpcService {
   health(data: {}): any
   generateThumbnail(data: { file_path: string; content_type: string }): any
   compressImage(data: { file_path: string }): any
-  uploadToS3(data: { file_path: string; content_type: string }): any
   fetchLinkPreview(data: { url: string }): any
   refreshRecommend(data: { items: { content_id: number; created_at_unix: number; view_count: number }[] }): any
 }
@@ -51,10 +50,6 @@ export class WorkerService implements OnModuleInit {
     return this.callWithTimeout(this.svc.compressImage({ file_path: filePath }))
   }
 
-  async uploadToS3(filePath: string, contentType: string): Promise<any> {
-    return this.callWithTimeout(this.svc.uploadToS3({ file_path: filePath, content_type: contentType }))
-  }
-
   async fetchLinkPreview(url: string): Promise<any> {
     return this.callWithTimeout(this.svc.fetchLinkPreview({ url }))
   }
@@ -69,7 +64,21 @@ export class WorkerService implements OnModuleInit {
         items: items.map((i) => ({ content_id: i.contentId, created_at_unix: i.createdAtUnix, view_count: i.viewCount })),
       }),
     )
-    const results = (resp?.results || []) as { content_id: number; score: number }[]
-    return results.map((r) => ({ contentId: r.content_id, score: r.score }))
+    const results = (resp?.results || []) as { content_id: unknown; score: number }[]
+    // 防御：若 loader 未配置 longs: Number，uint64 会是 Long 对象 {low, high, unsigned}，
+    // 这里统一归一化为普通 number，避免下游（Redis ZSet member）拿到对象。
+    const toNum = (v: unknown): number => {
+      if (typeof v === 'number') return v
+      if (typeof v === 'string') return Number(v)
+      if (v && typeof v === 'object' && 'low' in (v as any)) {
+        const l = v as { low: number; high: number }
+        return l.high * 4294967296 + (l.low >>> 0)
+      }
+      return NaN
+    }
+    return results
+      // score 防御：proto3 零值字段可能缺失（undefined），归一化为 0，避免 ZSet 写入报错。
+      .map((r) => ({ contentId: toNum(r.content_id), score: Number.isFinite(Number(r.score)) ? Number(r.score) : 0 }))
+      .filter((r) => Number.isFinite(r.contentId) && r.contentId > 0)
   }
 }

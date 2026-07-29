@@ -5,8 +5,9 @@ import { getImageUrl } from '@/utils'
 import { ACTION_COL, SECONDARY_STYLE } from './adminColumns'
 import { Tag, Tooltip, type TableColumnsType } from 'ant-design-vue'
 import { useMediaQuery } from '@vueuse/core'
+import type { Content } from '@/types'
 import {
-  PlayCircleOutlined, PictureOutlined, LinkOutlined, FileTextOutlined,
+  PictureOutlined, FileTextOutlined,
   EditOutlined, DeleteOutlined, SyncOutlined, CheckOutlined, CloseOutlined,
 } from '@ant-design/icons-vue'
 
@@ -27,9 +28,7 @@ const columns = computed<TableColumnsType>(() => [
 ])
 
 const typeMap: Record<string, { color: string; label: string; icon: Component }> = {
-  video: { color: 'red', label: '视频', icon: PlayCircleOutlined },
   image: { color: 'green', label: '图片', icon: PictureOutlined },
-  link: { color: 'orange', label: '链接', icon: LinkOutlined },
   text: { color: 'blue', label: '文字', icon: FileTextOutlined },
 }
 const auditMap: Record<string, { color: string; label: string }> = {
@@ -48,7 +47,6 @@ async function handleAudit(id: number, status: 'approved' | 'rejected') {
   if (await admin.auditContent(id, status, userStore.user.id)) load(data.value.page)
 }
 function handleDelete(id: number) { admin.confirmDelete(id, () => load(data.value.page)) }
-async function handleRegenerate(id: number) { if (await admin.regenerateThumbnail(id)) load(data.value.page) }
 function onTableChange(p: { current?: number }) { if (p.current) load(p.current) }
 
 onMounted(load)
@@ -88,10 +86,9 @@ onMounted(load)
             </template>
             <template v-if="column.key === 'actions'">
               <div class="action-group">
-                <Tooltip title="编辑"><a-button class="action-btn" size="small" @click="admin.openDrawer(record, 'edit')"><EditOutlined /></a-button></Tooltip>
+                <Tooltip title="编辑"><a-button class="action-btn" size="small" @click="admin.openDrawer(record as Content, 'edit')"><EditOutlined /></a-button></Tooltip>
                 <Tooltip v-if="mode === 'pending'" title="通过"><a-button class="action-btn" type="primary" size="small" @click="handleAudit(record.id, 'approved')"><CheckOutlined /></a-button></Tooltip>
                 <Tooltip v-if="mode === 'pending'" title="拒绝"><a-button class="action-btn" danger size="small" @click="handleAudit(record.id, 'rejected')"><CloseOutlined /></a-button></Tooltip>
-                <Tooltip v-if="record.type === 'video'" title="更新封面"><a-button class="action-btn" size="small" @click="handleRegenerate(record.id)"><SyncOutlined /></a-button></Tooltip>
                 <Tooltip title="删除"><a-button class="action-btn" danger size="small" @click="handleDelete(record.id)"><DeleteOutlined /></a-button></Tooltip>
               </div>
             </template>
@@ -117,7 +114,6 @@ onMounted(load)
               <Tooltip title="编辑"><a-button class="action-btn" size="small" @click="admin.openDrawer(record, 'edit')"><EditOutlined /></a-button></Tooltip>
               <Tooltip v-if="mode === 'pending'" title="通过"><a-button class="action-btn" type="primary" size="small" @click="handleAudit(record.id, 'approved')"><CheckOutlined /></a-button></Tooltip>
               <Tooltip v-if="mode === 'pending'" title="拒绝"><a-button class="action-btn" danger size="small" @click="handleAudit(record.id, 'rejected')"><CloseOutlined /></a-button></Tooltip>
-              <Tooltip v-if="record.type === 'video'" title="更新封面"><a-button class="action-btn" size="small" @click="handleRegenerate(record.id)"><SyncOutlined /></a-button></Tooltip>
               <Tooltip title="删除"><a-button class="action-btn" danger size="small" @click="handleDelete(record.id)"><DeleteOutlined /></a-button></Tooltip>
             </div>
           </div>

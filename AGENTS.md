@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-小泉动漫二创站（xqecz）— 用户上传/浏览二次创作内容（图片、视频、图文、链接），含评论、投票、管理后台。
+小泉动漫二创站（xqecz）— 用户上传/浏览二次创作内容（图片、图文，内容类型已缩窄为 image/text），含评论、管理后台。
 
 **Monorepo 架构**：NestJS 主后端（API）+ Go 无状态 Worker（文件处理 / 推荐打分）+ Vue 3 前端，通过 pnpm workspace 统一管理。
 
@@ -14,7 +14,7 @@
                        │   │  └── Redis（session / cache / 浏览量 / 推荐 ZSet）
                        │   │
                        │   └──gRPC──→ Go Worker（无状态计算）
-                       │                  ├─ GenerateThumbnail / CompressImage / UploadToS3（文件处理，读写共享上传目录）
+                       │                  ├─ GenerateThumbnail / CompressImage（文件处理，读写共享上传目录）
                        │                  ├─ FetchLinkPreview（OG 解析）
                        │                  └─ RefreshRecommend（纯打分，输入来自 NestJS，输出评分回传 NestJS）
                        │
@@ -48,17 +48,17 @@ D:\xqecz/
 │   ├── worker/            # Go 无状态 gRPC 微服务（不连 DB/Redis，无 cron）
 │   │   ├── cmd/server/    # 入口（gRPC server）
 │   │   ├── server/        # WorkerServer 实现（worker.go / recommend.go / worker_test.go）
-│   │   ├── config/        # env 驱动配置（TINIFY_*/S3_*/UPLOAD_DIR，无 DB/Redis 配置）
+│   │   ├── config/        # env 驱动配置（TINIFY_*/UPLOAD_DIR，无 DB/Redis 配置）
 │   │   ├── media/         # 缩略图（ffmpeg）、Tinify 压缩
 │   │   ├── linkpreview/   # OG/Twitter Card 解析
-│   │   ├── s3/            # AWS SigV4 直传（无依赖即降级本地路径）
 │   │   ├── proto/         # Go gRPC stub（从 proto/ 生成后复制）
 │   │   └── go.mod
 │   │
 │   └── frontend/          # Vue 3 前端（本仓内 packages/frontend）
+│       └── src/views/     # 路由页：首页瀑布流 WaterfallTheme；详情页 ContentDetailView 为全屏覆盖式路由页（/content/:id）
 │
 ├── proto/
-│   ├── xqecz.proto        # gRPC protobuf 定义（5 文件处理/推荐方法 + Health）
+│   ├── xqecz.proto        # gRPC protobuf 定义（4 文件处理/推荐方法 + Health）
 │   ├── gen/               # 生成产物（go/ + ts/）
 │   └── package.json
 │
@@ -77,7 +77,6 @@ D:\xqecz/
 | `Health` | — | status/version | 健康检查 |
 | `GenerateThumbnail` | file_path, content_type | thumb_path, success, error | ffmpeg 抽帧/缩放 → webp |
 | `CompressImage` | file_path | compressed_path, success, error | Tinify 压缩（无 key 即跳过） |
-| `UploadToS3` | file_path, content_type | cdn_url, success, error | S3 直传（无配置即降级本地路径） |
 | `FetchLinkPreview` | url | title/image/platform, success, error | 解析 OG 元数据 |
 | `RefreshRecommend` | items[]（content_id/created_at_unix/view_count） | results[]（content_id/score）, success | **纯打分**，不碰 DB/Redis |
 
@@ -110,6 +109,7 @@ pnpm build                                 # 三端全量构建（api dist/ + �
 pnpm worker:build                          # 仅 Worker 构建
 pnpm --filter ./packages/api run typecheck # API 类型检查
 cd packages/worker && go test ./...        # Worker 测试
+pnpm --filter ./packages/frontend run type-check # 前端类型检查
 pnpm --filter ./packages/frontend run build # 前端生产构建
 pnpm proto:generate                        # 生成 ts/go stub
 ```
@@ -120,8 +120,9 @@ pnpm proto:generate                        # 生成 ts/go stub
 - **NestJS 独占 DB/Redis** — Go worker 不访问 MySQL/Redis，也不含 cron 调度；它只做 gRPC 无状态计算，数据经 gRPC 从 NestJS 传入、结果回传 NestJS 落库/写缓存
 - **共享上传目录** — 文件处理路径通过 gRPC 传入绝对路径，NestJS 与 Go 必须指向同一 `UPLOAD_DIR`；单一配置源为 `packages/api/.env`，worker 由 `scripts/run-worker.mjs` 启动时自动读取该 .env 注入 `UPLOAD_DIR/THUMB_DIR/IMAGES_DIR`
 - **统一响应** — `{ code, message, data }` 包装格式
+- **内容类型已缩窄** — `content.type` 值域仅 `image` / `text`（按“是否有 file”自动推导）；存量 `video` / `link` 记录走一次性迁移归并为 `text`（`POST /admin/content/migrate-old-types`）
 - **软删除** — 所有删除写 `deleted_at`；Entity 已声明 `@DeleteDateColumn()`，TypeORM 的 `find/findOne/findAndCount` 查询自动附加 `WHERE deleted_at IS NULL`，业务代码无需手动过滤
-- **降级优先** — 外部依赖（Tinify/S3/Worker）缺失即降级，gRPC 永不返 rpc error，只返 `success=false` + `error` 文本
+- **降级优先** — 外部依赖（Tinify/Worker）缺失即降级，gRPC 永不返 rpc error，只返 `success=false` + `error` 文本
 
 ## 技术栈
 

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { useAdminStore } from '@/stores/admin'
 import { ACTION_COL, STATUS_COL, TIME_COL, SECONDARY_STYLE } from './adminColumns'
-import { Tag, Tooltip, Modal, type TableColumnsType } from 'ant-design-vue'
+import { Tag, Tooltip, type TableColumnsType } from 'ant-design-vue'
 import { useMediaQuery } from '@vueuse/core'
 import { CheckOutlined, DeleteOutlined } from '@ant-design/icons-vue'
+import { useConfirm } from '@/composables/useToast'
 
 const admin = useAdminStore()
 const isMobile = useMediaQuery('(max-width: 768px)')
@@ -22,13 +23,11 @@ function doHandle(id: number) {
   admin.handleReport(id).then(ok => { if (ok) admin.loadReports() })
 }
 
-function doDelete(commentId: number, reportId: number) {
-  Modal.confirm({
-    title: '删除评论', content: '确定删除？不可撤销。', okType: 'danger',
-    async onOk() {
-      if (await admin.deleteComment(commentId)) { await admin.handleReport(reportId); admin.loadReports() }
-    },
-  })
+async function doDelete(commentId: number, reportId: number) {
+  const { confirm } = useConfirm()
+  const ok = await confirm('确定删除？不可撤销。')
+  if (!ok) return
+  if (await admin.deleteComment(commentId)) { await admin.handleReport(reportId); admin.loadReports() }
 }
 
 onMounted(() => admin.loadReports())

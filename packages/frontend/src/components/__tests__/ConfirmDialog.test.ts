@@ -5,7 +5,7 @@ import ConfirmDialog from '../ConfirmDialog.vue'
 
 // Mock useConfirm composable
 const mockRespond = vi.fn()
-const mockPendingConfirm = ref<any>(null)
+const mockPendingConfirm = ref<{ title?: string; message: string } | null>(null)
 
 vi.mock('@/composables/useToast', () => ({
   useConfirm: vi.fn(() => ({

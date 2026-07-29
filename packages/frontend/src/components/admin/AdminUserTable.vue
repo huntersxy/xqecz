@@ -3,8 +3,9 @@ import { useUserStore } from '@/stores/user'
 import { useAdminStore } from '@/stores/admin'
 import { ACTION_COL, SECONDARY_STYLE } from './adminColumns'
 import { UserOutlined, DeleteOutlined, TeamOutlined, StopOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons-vue'
-import { Tag, Tooltip, Modal, type TableColumnsType } from 'ant-design-vue'
+import { Tag, Tooltip, type TableColumnsType } from 'ant-design-vue'
 import { useMediaQuery } from '@vueuse/core'
+import { useConfirm } from '@/composables/useToast'
 
 const userStore = useUserStore()
 const admin = useAdminStore()
@@ -21,27 +22,25 @@ function onTableChange(p: { current?: number }) {
   if (p.current) admin.loadUsers(p.current)
 }
 
-function doRole(id: number, isAdmin: boolean) {
-  Modal.confirm({
-    title: isAdmin ? '取消管理员' : '设为管理员',
-    content: isAdmin ? '确定取消该用户的管理员权限？' : '确定将该用户设为管理员？',
-    async onOk() { if (await admin.updateUserRole(id, !isAdmin)) admin.loadUsers(admin.users.page) },
-  })
+async function doRole(id: number, isAdmin: boolean) {
+  const { confirm } = useConfirm()
+  const ok = await confirm(isAdmin ? '确定取消该用户的管理员权限？' : '确定将该用户设为管理员？')
+  if (!ok) return
+  if (await admin.updateUserRole(id, !isAdmin)) admin.loadUsers(admin.users.page)
 }
 
-function doBan(id: number, isBanned: boolean) {
-  Modal.confirm({
-    title: isBanned ? '解封' : '封禁',
-    content: isBanned ? '确定解封该用户？' : '确定封禁该用户？',
-    async onOk() { if (await admin.updateUserBan(id, !isBanned)) admin.loadUsers(admin.users.page) },
-  })
+async function doBan(id: number, isBanned: boolean) {
+  const { confirm } = useConfirm()
+  const ok = await confirm(isBanned ? '确定解封该用户？' : '确定封禁该用户？')
+  if (!ok) return
+  if (await admin.updateUserBan(id, !isBanned)) admin.loadUsers(admin.users.page)
 }
 
-function doDelete(id: number) {
-  Modal.confirm({
-    title: '删除用户', content: '确定删除该用户？此操作不可撤销。', okType: 'danger',
-    async onOk() { if (await admin.deleteUser(id)) admin.loadUsers(admin.users.page) },
-  })
+async function doDelete(id: number) {
+  const { confirm } = useConfirm()
+  const ok = await confirm('确定删除该用户？此操作不可撤销。')
+  if (!ok) return
+  if (await admin.deleteUser(id)) admin.loadUsers(admin.users.page)
 }
 
 onMounted(() => admin.loadUsers())

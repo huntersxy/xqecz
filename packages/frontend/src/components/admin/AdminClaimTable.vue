@@ -3,6 +3,7 @@ import { useAdminStore } from '@/stores/admin'
 import { getImageUrl } from '@/utils'
 import { ACTION_COL, CONTENT_COL, STATUS_COL, CLAIMER_COL, REASON_COL, SECONDARY_STYLE } from './adminColumns'
 import { Tag, Tooltip, type TableColumnsType } from 'ant-design-vue'
+import type { SelectValue } from 'ant-design-vue/es/select'
 import { useMediaQuery } from '@vueuse/core'
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons-vue'
 
@@ -38,7 +39,7 @@ onMounted(load)
         <span>认领管理</span>
         <div class="flex items-center gap-3">
           <span class="text-xs font-normal" :style="{ color: SECONDARY_STYLE.split(': ')[1] }">共 {{ admin.claims.total }} 条</span>
-          <a-select :value="statusFilter || undefined" size="small" style="width:120px" @change="(v: string) => { statusFilter = v || ''; load() }">
+          <a-select :value="statusFilter || undefined" size="small" style="width:120px" @change="(v: SelectValue) => { statusFilter = (v as string) || ''; load() }">
             <a-select-option value="">全部状态</a-select-option>
             <a-select-option value="pending">待处理</a-select-option>
             <a-select-option value="approved">已通过</a-select-option>
@@ -54,7 +55,7 @@ onMounted(load)
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'content'">
               <div class="flex items-center gap-3">
-                <div v-if="record.content?.type !== 'text' && record.content?.type !== 'link'" class="flex-shrink-0 w-12 h-9 rounded overflow-hidden bg-gray-100">
+                <div v-if="record.content?.type !== 'text'" class="flex-shrink-0 w-12 h-9 rounded overflow-hidden bg-gray-100">
                   <img :src="getImageUrl(record.content?.thumb)" class="w-full h-full object-cover" loading="lazy" alt="" />
                 </div>
                 <Tooltip :title="record.content?.title || '未知内容'">

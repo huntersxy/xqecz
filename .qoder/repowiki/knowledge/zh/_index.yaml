@@ -3,17 +3,19 @@ schema_version: 1
 locale: zh-CN
 branch: master
 nodes_managed: true
-exported_at: "2026-07-28T12:09:37Z"
+exported_at: "2026-07-29T11:28:03Z"
 modules:
     "":
-        dir_name: xqecz Monorepo 根配置与项目治理
-        title: xqecz Monorepo 根配置与项目治理
+        dir_name: xqecz Monorepo 根配置与项目总览
+        title: xqecz Monorepo 根配置与项目总览
         scope:
+            - README.md
             - .gitignore
+            - AGENTS.md
+            - plan.md
             - package.json
             - pnpm-workspace.yaml
-            - plan.md
-            - AGENTS.md
+            - .env.example
         source_files: []
         children: []
         depends_on: []

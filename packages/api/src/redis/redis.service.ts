@@ -105,7 +105,13 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     pipe.del(tempKey)
     pipe.zadd(tempKey, ...args)
     pipe.rename(tempKey, key)
-    await pipe.exec()
+    const res = await pipe.exec()
+    // pipeline 单条命令失败不会抛异常，必须显式检查（此前 zadd 传入非法 member
+    // 静默失败，导致推荐位一直是旧数据）。
+    const failed = (res || []).filter(([err]) => err)
+    if (failed.length) {
+      throw new Error(`writeRecommendList pipeline failed: ${failed.map(([e]) => (e as Error).message).join('; ')}`)
+    }
   }
 
   async getRecommendList(page: number, pageSize: number): Promise<number[]> {

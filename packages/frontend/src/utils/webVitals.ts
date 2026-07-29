@@ -240,7 +240,7 @@ export function getPerformanceMetrics(): Record<string, number> {
 /**
  * 发送指标到分析服务 (示例实现)
  */
-export function sendToAnalytics(metric: WebVitalMetric): void {
+export function sendToAnalytics(_metric: WebVitalMetric): void {
   // 使用 sendBeacon API 异步发送
   if ('navigator' in globalThis && 'sendBeacon' in navigator) {
     // 替换为实际的分析端点

@@ -15,11 +15,6 @@ export const routes: RouteRecordRaw[] = [
     component: createAsyncComponent(() => import('../views/HomeView.vue')),
   },
   {
-    path: '/easter-egg',
-    name: 'easter-egg',
-    component: createAsyncComponent(() => import('../views/EasterEggView.vue')),
-  },
-  {
     path: '/quick-upload',
     name: 'quick-upload',
     component: createAsyncComponent(() => import('../views/QuickUploadView.vue')),
@@ -57,7 +52,7 @@ router.beforeEach(async (to) => {
     }
   }
 
-  // 注：/admin 同时承载「我的内容/上传/主题设置」(任意登录用户)
+  // 注：/admin 同时承载「我的内容/上传/API密钥」(任意登录用户)
   // 与「审核/用户/投票等管理功能」(仅管理员)。
   // 管理员门禁已在 AdminView 组件级按 is_admin 隔离，此处不整体拦截，
   // 否则会误伤非管理员的正常功能。

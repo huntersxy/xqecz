@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useUserStore } from './stores/user'
-import { useAdminStore } from './stores/admin'
 import { useThemeStore } from './stores/theme'
 import { useGlobalSearch } from './composables/useGlobalSearch'
 import { Toaster } from 'vue-sonner'
@@ -25,7 +24,6 @@ import { getAvatarUrl } from '@/utils'
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
-const admin = useAdminStore()
 const themeStore = useThemeStore()
 const isMobileMenuOpen = ref(false)
 const isMobileUA = ref(false)
@@ -83,8 +81,8 @@ const selectedKeys = computed(() => {
   return ['/']
 })
 
-function onNavClick(info: { key: string }) {
-  router.push(info.key)
+function onNavClick(info: { key: string | number }) {
+  router.push(String(info.key))
   isMobileMenuOpen.value = false
 }
 
@@ -251,21 +249,25 @@ onMounted(() => {
 
   <main :class="route.path.startsWith('/admin') ? 'admin-main' : ''" role="main">
     <ErrorBoundary>
-      <Suspense>
-        <RouterView />
-        <template #fallback>
-          <output
-            class="flex flex-col items-center justify-center py-[60px] px-5"
-            aria-live="polite"
-          >
-            <div
-              class="w-10 h-10 border-3 border-[color-mix(in_srgb,var(--theme-primary)_20%,transparent)] border-t-[var(--theme-primary)] rounded-full animate-spin"
-              aria-hidden="true"
-            ></div>
-            <p class="mt-4 text-[var(--theme-text-secondary)] text-[14px]">加载中...</p>
-          </output>
-        </template>
-      </Suspense>
+      <RouterView v-slot="{ Component }">
+        <Transition name="route-fade" mode="out-in">
+          <Suspense>
+            <component :is="Component" />
+            <template #fallback>
+              <output
+                class="flex flex-col items-center justify-center py-[60px] px-5"
+                aria-live="polite"
+              >
+                <div
+                  class="w-10 h-10 border-3 border-[color-mix(in_srgb,var(--theme-primary)_20%,transparent)] border-t-[var(--theme-primary)] rounded-full animate-spin"
+                  aria-hidden="true"
+                ></div>
+                <p class="mt-4 text-[var(--theme-text-secondary)] text-[14px]">加载中...</p>
+              </output>
+            </template>
+          </Suspense>
+        </Transition>
+      </RouterView>
     </ErrorBoundary>
   </main>
 
@@ -392,14 +394,6 @@ onMounted(() => {
   padding: 12px;
   min-width: 200px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.app-theme-section {
-  margin-bottom: 12px;
-}
-
-.app-theme-section:last-child {
-  margin-bottom: 0;
 }
 
 .app-theme-label {
@@ -648,5 +642,16 @@ onMounted(() => {
     flex-direction: column;
     gap: 8px;
   }
+}
+
+/* 路由切换淡入淡出 */
+.route-fade-enter-active,
+.route-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.route-fade-enter-from,
+.route-fade-leave-to {
+  opacity: 0;
 }
 </style>

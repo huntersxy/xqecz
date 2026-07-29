@@ -3,11 +3,9 @@ import { ref } from 'vue'
 import { useSearchFilter } from '../useSearchFilter'
 
 // Mock @vueuse/core
-const mockStorageValue = ref<any>(null)
+const mockStorageValue = ref<{ tags: string[]; date: string } | null>(null)
 vi.mock('@vueuse/core', () => ({
-  useStorage: vi.fn((key, defaultValue) => {
-    return mockStorageValue
-  }),
+  useStorage: vi.fn(() => mockStorageValue),
   useDebounceFn: vi.fn((fn) => fn),
 }))
 

@@ -19,7 +19,7 @@ export default defineConfig({
     },
   },
   test: {
-    environment: 'happy-dom',
+    environment: 'jsdom',
     exclude: [...configDefaults.exclude],
     root: fileURLToPath(new URL('./', import.meta.url)),
     setupFiles: ['./src/test-setup.ts'],

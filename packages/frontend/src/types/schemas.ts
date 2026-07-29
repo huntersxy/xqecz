@@ -1,12 +1,10 @@
 import { z } from 'zod'
 
 // ── 基础常量与类型(单一来源,types/index.ts re-export)──
-// 2026-07-29: 上传"去分类"改造后，新数据只允许 `image`（有文件）和 `text`（纯描述）两种 type；
-// 旧的 `video` / `link` 由后端迁移脚本一次性归并为 `text`，前端类型保留兼容（防历史脏数据）。
-//   - CONTENT_TYPES（运行时）：新数据范围 = ['image', 'text']
-//   - ContentType（类型）：兼容历史 = 'image' | 'text' | 'video' | 'link'
-// 这样旧的 `content.type === 'video'` 比较 type-check 仍能通过，运行时永远只取到 image/text。
-const contentTypeValues = ['image', 'text', 'video', 'link'] as const
+// 2026-07-29: 上传"去分类"改造后，数据只允许 `image`（有文件）和 `text`（纯描述）两种 type；
+// 旧的 `video` / `link` 已由后端迁移脚本归并为 `text`，前端类型同步收窄。
+// AdminContentDrawer 保留 video/link 展示分支作为历史脏数据兜底。
+const contentTypeValues = ['image', 'text'] as const
 export type ContentType = (typeof contentTypeValues)[number]
 export const CONTENT_TYPES: readonly ContentType[] = ['image', 'text'] as const
 
@@ -42,7 +40,7 @@ const UserBriefSchema = z.object({
 })
 
 // ── RecommendContent(推荐页) ──
-// type 非法值兜底 'text'（历史可能仍是 video/link/text，统一落 text）。
+// type 非法值兜底 'text'。
 export const RecommendContentSchema = z.object({
   id: num,
   title: str,
@@ -59,7 +57,7 @@ export const RecommendContentSchema = z.object({
 export type RecommendContent = z.infer<typeof RecommendContentSchema>
 
 // ── Content(列表/详情) ──
-// type 非法值兜底 'text'（历史 video/link → text）。
+// type 非法值兜底 'text'。
 export const ContentSchema = z.object({
   id: num,
   title: str,

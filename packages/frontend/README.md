@@ -76,7 +76,6 @@ src/
 ├── components/       # 通用 UI 组件
 │   ├── admin/        # 后台管理专用组件（上传 / 审核 / 用户 / 举报 / 认领 / API 密钥）
 │   ├── ErrorBoundary.vue      # 错误边界
-│   ├── MarkdownModal.vue      # 公告弹窗
 │   ├── PollComponent.vue      # 投票
 │   ├── ConfirmDialog.vue      # 全局确认对话框
 │   └── HomeContentCard.vue    # 内容卡片

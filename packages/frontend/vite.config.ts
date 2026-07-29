@@ -5,6 +5,7 @@ import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
+import { AntDesignVueResolver } from 'unplugin-vue-components/resolvers'
 import { ViteImageOptimizer } from 'vite-plugin-image-optimizer'
 
 const buildDate = new Date().toISOString().split('T')[0]
@@ -23,6 +24,7 @@ export default defineConfig(async ({ mode }) => {
     }),
     Components({
       dts: 'src/components.d.ts',
+      resolvers: [AntDesignVueResolver({ importStyle: false })],
     }),
   ]
 
@@ -61,6 +63,8 @@ export default defineConfig(async ({ mode }) => {
   }
 
   return {
+    // .env 统一放项目根目录一份（VITE_ 前缀的变量对客户端生效）
+    envDir: fileURLToPath(new URL('../..', import.meta.url)),
     plugins,
     define: {
       'import.meta.env.VITE_BUILD_DATE': JSON.stringify(buildDate),
@@ -71,8 +75,9 @@ export default defineConfig(async ({ mode }) => {
       },
     },
     build: {
-      // 平台 safe-delete 保护会拦截"批量清空 dist"，改为增量构建而非整体清空
-      emptyOutDir: false,
+      // 2026-07-29 恢复：此前 emptyOutDir: false 是为规避平台 safe-delete 拦截“批量清空 dist”，
+      // 但已引发“公告弹窗残留”事故（过期 chunk 未清理）。现改回 true，构建前整体清空 dist。
+      emptyOutDir: true,
       rollupOptions: {
         output: {
           manualChunks(id: string) {
