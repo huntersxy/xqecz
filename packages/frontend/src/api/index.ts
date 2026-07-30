@@ -333,14 +333,9 @@ export const contentApi = {
 
 export const commentApi = {
   add: (contentId: number, text: string, parentId?: number) => {
-    const formData = toFormData({
-      content_id: contentId,
-      text,
-      parent_id: parentId,
-    })
     return request<Comment>('/comment/add', {
       method: 'POST',
-      body: formData,
+      body: { content_id: contentId, text, parent_id: parentId },
     })
   },
 
@@ -355,13 +350,9 @@ export const commentApi = {
   count: (contentId: number) => request<CommentCount>(`/comment/count/${contentId}`),
 
   report: (commentId: number, reason?: string) => {
-    const formData = toFormData({
-      comment_id: commentId,
-      reason,
-    })
     return request<CommentReport>('/comment/report', {
       method: 'POST',
-      body: formData,
+      body: { comment_id: commentId, reason },
     })
   },
 

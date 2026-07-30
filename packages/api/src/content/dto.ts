@@ -11,10 +11,11 @@ export class UploadContentDto {
 }
 
 // 游客快速上传：title 必填；content（描述）与 file 至少一个（前端校验，后端兜底）。
+// 已登录用户可省略 nickname/email。
 export class QuickUploadDto {
   @IsString() @Length(1, 200) title!: string
-  @IsString() @Length(1, 50) nickname!: string
-  @IsEmail() email!: string
+  @IsOptional() @IsString() @Length(1, 50) nickname?: string
+  @IsOptional() @IsEmail() email?: string
   @IsOptional() @IsString() content?: string
   @IsOptional() tags?: string | string[]
 }

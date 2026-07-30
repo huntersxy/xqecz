@@ -99,8 +99,8 @@ async function handleSubmit() {
     const res = await contentApi.quickUpload(
       {
         title: form.value.title.trim(),
-        nickname: isLoggedIn.value ? '' : form.value.nickname.trim(),
-        email: isLoggedIn.value ? '' : form.value.email.trim(),
+        nickname: isLoggedIn.value ? userStore.user?.username || '' : form.value.nickname.trim(),
+        email: isLoggedIn.value ? userStore.user?.email || '' : form.value.email.trim(),
         content: form.value.content.trim() || undefined,
         tags: form.value.tags,
         file: file.value,
