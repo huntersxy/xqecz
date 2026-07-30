@@ -44,15 +44,15 @@ function md5Hex(input: string): string {
 
 export function formatTime(ts: number | string, useLocaleDate: boolean = false): string {
   if (!ts) return ''
-  const timestamp = typeof ts === 'string' ? Number.parseInt(ts, 10) : ts
-  const d = dayjs.unix(timestamp)
+  // ISO 字符串（如 '2026-07-15T03:08:20.763Z'）直接解析；数字或纯数字字符串走 Unix 秒
+  const d = typeof ts === 'string' && /^\d{4}-/.test(ts) ? dayjs(ts) : dayjs.unix(typeof ts === 'string' ? Number.parseInt(ts, 10) : ts)
   return useLocaleDate ? d.format('YYYY/MM/DD') : d.format('YYYY/MM/DD HH:mm:ss')
 }
 
 export function formatRelativeTime(ts: number | string): string {
   if (!ts) return ''
-  const timestamp = typeof ts === 'string' ? Number.parseInt(ts, 10) : ts
-  return dayjs.unix(timestamp).fromNow()
+  const d = typeof ts === 'string' && /^\d{4}-/.test(ts) ? dayjs(ts) : dayjs.unix(typeof ts === 'string' ? Number.parseInt(ts, 10) : ts)
+  return d.fromNow()
 }
 
 export function getPreviewText(content: string, maxLength: number = 100): string {

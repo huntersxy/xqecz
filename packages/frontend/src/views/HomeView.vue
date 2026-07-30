@@ -1,4 +1,9 @@
+<script lang="ts">
+export default { name: 'HomeView' }
+</script>
+
 <script setup lang="ts">
+import { ref, computed, onMounted, onActivated, nextTick, watch } from 'vue'
 import { useIntersectionObserver } from '@vueuse/core'
 import { useRouter } from 'vue-router'
 import { contentApi } from '@/api'
@@ -6,6 +11,7 @@ import { useHomeStore } from '@/stores/home'
 import { useRecommendLoader } from '@/composables/useRecommendLoader'
 import { useSearchFilter } from '@/composables/useSearchFilter'
 import { watchGlobalSearch } from '@/composables/useGlobalSearch'
+import { useWaterfallLayout } from '@/composables/useWaterfallLayout'
 import { ContentSchema } from '@/types/schemas'
 import WaterfallCard from '@/components/WaterfallCard.vue'
 import RecommendSection from '@/components/RecommendSection.vue'
@@ -32,6 +38,29 @@ const isLoading = ref(false)
 const isLoadingMore = ref(false)
 const hasMore = computed(() => currentPage.value <= totalPages.value)
 const sentinelRef = ref<HTMLElement | null>(null)
+const masonryRef = ref<HTMLElement | null>(null)
+
+const waterfall = useWaterfallLayout(masonryRef, allContents)
+
+// 首次加载或重置时全量布局
+watch(
+  () => allContents.value.length,
+  (newLen, oldLen) => {
+    if (newLen === 0) {
+      waterfall.positions.value.clear()
+      waterfall.containerHeight.value = 0
+      return
+    }
+    // 全量替换（非追加）
+    if (oldLen === 0 || newLen < oldLen) {
+      nextTick(() => waterfall.relayout())
+    }
+  },
+)
+
+function onImageLoaded(id: string | number) {
+  waterfall.onImageLoaded(id)
+}
 
 function openContent(content: Content) {
   homeStore.saveState({
@@ -41,6 +70,9 @@ function openContent(content: Content) {
     page: currentPage.value,
     recommendPage: recommendLoader.recommendPage.value,
     scrollPosition: globalThis.scrollY,
+    contents: allContents.value,
+    total: total.value,
+    totalPages: totalPages.value,
   })
   router.push(`/content/${content.id}`)
 }
@@ -69,8 +101,14 @@ async function fetchPage(page: number, append = false) {
       total.value = res.data.total
       totalPages.value = res.data.total_page
       currentPage.value = page
-      if (append) allContents.value.push(...parsed)
-      else allContents.value = parsed
+      if (append) {
+        const oldLen = allContents.value.length
+        allContents.value.push(...parsed)
+        // 增量追加新卡片位置
+        nextTick(() => waterfall.appendNewItems(allContents.value.slice(oldLen)))
+      } else {
+        allContents.value = parsed
+      }
     }
   } catch (e) { console.error('加载失败:', e) }
   finally { isLoading.value = false; isLoadingMore.value = false }
@@ -87,13 +125,24 @@ useIntersectionObserver(sentinelRef, ([{ isIntersecting }]) => {
 onMounted(() => {
   const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[]
   if (navEntries.length > 0 && navEntries[0].type === 'reload') homeStore.clearState()
-  if (homeStore.hasLoaded) {
-    homeStore.restoreScroll()
+
+  if (homeStore.hasLoaded && homeStore.cachedContents.length > 0) {
+    allContents.value = homeStore.cachedContents
+    currentPage.value = homeStore.page
+    total.value = homeStore.cachedTotal
+    totalPages.value = homeStore.cachedTotalPages
     recommendLoader.recommendPage.value = homeStore.recommendPage
+    nextTick(() => requestAnimationFrame(() => homeStore.restoreScroll()))
+  } else {
+    fetchPage(1)
+    recommendLoader.loadRecommendContents(recommendLoader.recommendPage.value)
   }
-  fetchPage(1)
   searchFilter.loadTags()
-  recommendLoader.loadRecommendContents(recommendLoader.recommendPage.value)
+})
+
+// keep-alive 激活时恢复滚动位置
+onActivated(() => {
+  nextTick(() => requestAnimationFrame(() => homeStore.restoreScroll()))
 })
 </script>
 
@@ -112,8 +161,26 @@ onMounted(() => {
       <div v-else-if="!isLoading && allContents.length === 0" class="wf-center-state">
         <p>暂无内容</p>
       </div>
-      <div v-else class="wf-masonry">
-        <WaterfallCard v-for="item in allContents" :key="item.id" :item="item" @click="openContent" />
+      <div
+        v-else
+        ref="masonryRef"
+        class="wf-masonry"
+        :style="{ position: 'relative', height: waterfall.containerHeight.value + 'px' }"
+      >
+        <WaterfallCard
+          v-for="item in allContents"
+          :key="item.id"
+          :item="item"
+          :data-wf-id="item.id"
+          :style="{
+            position: 'absolute',
+            left: (waterfall.positions.value.get(item.id)?.x ?? 0) + 'px',
+            top: (waterfall.positions.value.get(item.id)?.y ?? 0) + 'px',
+            width: (waterfall.positions.value.get(item.id)?.w ?? 0) + 'px',
+          }"
+          @click="openContent"
+          @image-loaded="onImageLoaded"
+        />
       </div>
       <div v-if="isLoadingMore" class="wf-loadmore"><div class="wf-spinner-sm"></div><span>加载更多...</span></div>
       <div ref="sentinelRef" class="wf-sentinel"></div>
@@ -129,10 +196,7 @@ onMounted(() => {
   max-width: 1600px; margin: 0 auto; padding: 0.75rem 0.75rem 3rem;
   @media (min-width: 640px) { padding: 1rem 1rem 3rem; }
 }
-.wf-masonry { columns: 2; column-gap: 10px; }
-@media (min-width: 640px) { .wf-masonry { columns: 3; } }
-@media (min-width: 1024px) { .wf-masonry { columns: 4; } }
-@media (min-width: 1400px) { .wf-masonry { columns: 5; } }
+.wf-masonry { width: 100%; }
 
 .wf-center-state {
   display: flex; flex-direction: column; align-items: center; justify-content: center;

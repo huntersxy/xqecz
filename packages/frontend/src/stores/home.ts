@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import type { Content } from '@/types'
 
 export const useHomeStore = defineStore('home', () => {
   // 搜索和筛选状态
@@ -17,6 +18,11 @@ export const useHomeStore = defineStore('home', () => {
   // 是否已经加载过数据（用于判断是否需要恢复状态）
   const hasLoaded = ref(false)
 
+  // 缓存列表数据（避免返回时重新请求）
+  const cachedContents = ref<Content[]>([])
+  const cachedTotal = ref(0)
+  const cachedTotalPages = ref(1)
+
   // 搜索触发器（每次 +1 通知订阅者重新查询）
   const searchTrigger = ref(0)
   function triggerSearch() {
@@ -31,6 +37,9 @@ export const useHomeStore = defineStore('home', () => {
     page: number
     recommendPage: number
     scrollPosition: number
+    contents?: Content[]
+    total?: number
+    totalPages?: number
   }) {
     searchKeyword.value = params.searchKeyword
     selectedTags.value = params.selectedTags
@@ -38,6 +47,9 @@ export const useHomeStore = defineStore('home', () => {
     page.value = params.page
     recommendPage.value = params.recommendPage
     scrollPosition.value = params.scrollPosition
+    if (params.contents) cachedContents.value = params.contents
+    if (params.total !== undefined) cachedTotal.value = params.total
+    if (params.totalPages !== undefined) cachedTotalPages.value = params.totalPages
     hasLoaded.value = true
   }
 
@@ -50,9 +62,12 @@ export const useHomeStore = defineStore('home', () => {
     recommendPage.value = 1
     scrollPosition.value = 0
     hasLoaded.value = false
+    cachedContents.value = []
+    cachedTotal.value = 0
+    cachedTotalPages.value = 1
   }
 
-  // 恢复滚动位置
+  // 恢复滚动位置（需在 DOM 渲染后调用）
   function restoreScroll() {
     if (scrollPosition.value > 0) {
       window.scrollTo(0, scrollPosition.value)
@@ -67,6 +82,9 @@ export const useHomeStore = defineStore('home', () => {
     recommendPage,
     scrollPosition,
     hasLoaded,
+    cachedContents,
+    cachedTotal,
+    cachedTotalPages,
     searchTrigger,
     triggerSearch,
     saveState,

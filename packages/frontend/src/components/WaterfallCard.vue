@@ -7,14 +7,18 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-const emit = defineEmits<{ click: [content: Content] }>()
+const emit = defineEmits<{ click: [content: Content]; imageLoaded: [id: string | number] }>()
+
+function onImgLoad() {
+  emit('imageLoaded', props.item.id)
+}
 </script>
 
 <template>
   <div class="wf-card" @click="emit('click', props.item)" @keydown.enter="emit('click', props.item)" tabindex="0">
     <template v-if="props.item.type !== 'text'">
       <div class="wf-card-media">
-        <img :src="getImageUrl(props.item.thumb)" :alt="props.item.title" loading="lazy" decoding="async" />
+        <img :src="getImageUrl(props.item.thumb)" :alt="props.item.title" loading="lazy" decoding="async" @load="onImgLoad" />
         <div v-if="props.item.tags?.some(t => /ai/i.test(t))" class="wf-badge-ai">AI</div>
       </div>
     </template>
@@ -41,7 +45,6 @@ const emit = defineEmits<{ click: [content: Content] }>()
 
 <style scoped>
 .wf-card {
-  break-inside: avoid;
   margin-bottom: 10px;
   border-radius: 0.625rem;
   overflow: hidden;
@@ -50,7 +53,6 @@ const emit = defineEmits<{ click: [content: Content] }>()
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   box-sizing: border-box;
-  contain: layout style paint;
 }
 .wf-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
 .wf-card:focus-visible { outline: 2px solid var(--theme-primary); outline-offset: 2px; }

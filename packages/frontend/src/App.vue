@@ -250,7 +250,7 @@ onMounted(() => {
   <main :class="route.path.startsWith('/admin') ? 'admin-main' : ''" role="main">
     <ErrorBoundary>
       <RouterView v-slot="{ Component }">
-        <Transition name="route-fade" mode="out-in">
+        <KeepAlive :include="['HomeView']">
           <Suspense>
             <component :is="Component" />
             <template #fallback>
@@ -266,7 +266,7 @@ onMounted(() => {
               </output>
             </template>
           </Suspense>
-        </Transition>
+        </KeepAlive>
       </RouterView>
     </ErrorBoundary>
   </main>
