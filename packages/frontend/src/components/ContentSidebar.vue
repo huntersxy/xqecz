@@ -12,7 +12,7 @@ interface Props {
 
 const props = defineProps<Props>()
 const emit = defineEmits<{
-  message: [text: string]
+  'open-claim': []
   'report-comment': [comment: Comment]
 }>()
 
@@ -64,7 +64,7 @@ defineExpose({ commentRef })
         </div>
       </div>
       <div class="cd-author-actions">
-        <button class="cd-claim-btn" type="button" @click="userStore.isLoggedIn ? $emit('message', 'claim') : router.push('/login')">认领</button>
+        <button class="cd-claim-btn" type="button" @click="userStore.isLoggedIn ? $emit('open-claim') : router.push('/login')">认领</button>
         <button class="cd-follow-btn" type="button">+ 关注</button>
       </div>
     </div>
@@ -107,7 +107,6 @@ defineExpose({ commentRef })
       ref="commentRef"
       :content-id="content?.id || 0"
       :is-logged-in="userStore.isLoggedIn"
-      @message="emit('message', $event)"
       @report-comment="emit('report-comment', $event)"
     />
   </aside>

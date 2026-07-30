@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { RouterLink } from 'vue-router'
+import { message } from 'ant-design-vue'
 import { commentApi } from '@/api'
 import { useConfirm } from '@/composables/useToast'
 import CommentItem from '@/components/CommentItem.vue'
@@ -9,7 +10,6 @@ import type { Comment } from '@/types'
 
 const props = defineProps<{ contentId: number; isLoggedIn: boolean }>()
 const emit = defineEmits<{
-  message: [msg: string]
   'report-comment': [comment: Comment]
 }>()
 
@@ -52,7 +52,7 @@ async function goToNextPage() {
 
 async function submitComment() {
   if (!commentText.value.trim()) {
-    emit('message', '请输入评论内容')
+    message.warning('请输入评论内容')
     return
   }
   try {
@@ -65,13 +65,13 @@ async function submitComment() {
     if (res.code === 200) {
       commentText.value = ''
       replyTarget.value = null
-      emit('message', '评论成功')
+      message.success('评论成功')
       await loadComments(1)
     } else {
-      emit('message', res.message || '评论失败')
+      message.error(res.message || '评论失败')
     }
   } catch {
-    emit('message', '评论失败')
+    message.error('评论失败')
   }
 }
 
@@ -86,13 +86,13 @@ async function deleteComment(commentId: number) {
   try {
     const res = await commentApi.delete(commentId)
     if (res.code === 200) {
-      emit('message', '删除成功')
+      message.success('删除成功')
       await loadComments(currentPage.value)
     } else {
-      emit('message', res.message || '删除失败')
+      message.error(res.message || '删除失败')
     }
   } catch {
-    emit('message', '删除失败')
+    message.error('删除失败')
   }
 }
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { message } from 'ant-design-vue'
 import { useUserStore } from '@/stores/user'
 import { authApi } from '@/api'
 
@@ -10,8 +11,6 @@ const isLoginMode = ref(true)
 const username = ref('')
 const email = ref('')
 const password = ref('')
-const message = ref('')
-const messageType = ref<'error' | 'success'>('error')
 const isLoading = ref(false)
 
 // 缺邮箱弹窗
@@ -23,7 +22,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 async function handleSubmit() {
   isLoading.value = true
-  message.value = ''
 
   try {
     if (isLoginMode.value) {
@@ -35,32 +33,27 @@ async function handleSubmit() {
           router.push('/')
         }
       } else {
-        message.value = '用户名或密码错误'
-        messageType.value = 'error'
+        message.error('用户名或密码错误')
       }
     } else {
       if (!email.value.trim() || !EMAIL_RE.test(email.value.trim())) {
-        message.value = '请输入有效的邮箱地址'
-        messageType.value = 'error'
+        message.error('请输入有效的邮箱地址')
         isLoading.value = false
         return
       }
       const res = await authApi.register(username.value, email.value.trim(), password.value)
       if (res.code === 200) {
-        message.value = '注册成功，请登录'
-        messageType.value = 'success'
+        message.success('注册成功，请登录')
         isLoginMode.value = true
         username.value = ''
         email.value = ''
         password.value = ''
       } else {
-        message.value = res.message || '注册失败'
-        messageType.value = 'error'
+        message.error(res.message || '注册失败')
       }
     }
   } catch {
-    message.value = '网络错误，请稍后重试'
-    messageType.value = 'error'
+    message.error('网络错误，请稍后重试')
   } finally {
     isLoading.value = false
   }
@@ -90,7 +83,6 @@ async function submitEmail() {
 
 function switchMode() {
   isLoginMode.value = !isLoginMode.value
-  message.value = ''
   username.value = ''
   email.value = ''
   password.value = ''
@@ -114,16 +106,6 @@ function switchMode() {
       </div>
 
       <div class="theme-card rounded-xl p-6 shadow-sm theme-border">
-        <div
-          v-if="message"
-          class="flex items-center gap-2 px-3 py-2.5 mb-4 rounded-lg text-sm"
-          :class="messageType === 'error'
-            ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
-            : 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400'"
-        >
-          <span>{{ message }}</span>
-        </div>
-
         <form @submit.prevent="handleSubmit" class="space-y-4">
           <div>
             <label class="block text-sm font-medium theme-text-secondary mb-1.5">用户名</label>

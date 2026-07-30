@@ -621,6 +621,7 @@ onMounted(() => {
 
   main {
     min-height: calc(100vh - 180px);
+    padding-top: 48px;
   }
 
   main.admin-main {

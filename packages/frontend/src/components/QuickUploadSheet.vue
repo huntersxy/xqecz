@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '@/composables/useToast'
 import { contentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
-import { CloudUploadOutlined, CloseOutlined } from '@ant-design/icons-vue'
+import { CloudUploadOutlined } from '@ant-design/icons-vue'
 
 interface Props {
   open: boolean
@@ -111,270 +111,54 @@ function loadGuestInfo() {
 }
 
 watch(() => props.open, (val) => {
-  if (val) loadGuestInfo()
+  if (val) {
+    loadGuestInfo()
+    form.value.title = ''
+    form.value.content = ''
+    file.value = undefined
+    filePreview.value = ''
+  }
 })
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="sheet">
-      <div v-if="open" class="upload-sheet-mask" @click.self="emit('close')">
-        <div class="upload-sheet">
-          <div class="upload-sheet-header">
-            <span class="upload-sheet-title">快速上传</span>
-            <button class="upload-sheet-close" @click="emit('close')">
-              <CloseOutlined />
-            </button>
-          </div>
+  <a-drawer
+    :open="open"
+    title="快速上传"
+    placement="bottom"
+    :height="'auto'"
+    :body-style="{ padding: '16px 20px' }"
+    @close="emit('close')"
+    :z-index="2000"
+  >
+    <div style="display: flex; flex-direction: column; gap: 12px; max-width: 480px; margin: 0 auto;">
+      <div v-if="!isLoggedIn" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <a-input v-model:value="form.nickname" placeholder="昵称" :maxlength="50" />
+        <a-input v-model:value="form.email" placeholder="邮箱" :maxlength="254" />
+      </div>
 
-          <div class="upload-sheet-body">
-            <div v-if="!isLoggedIn" class="upload-row-2">
-              <input v-model="form.nickname" placeholder="昵称" :maxlength="50" class="upload-input" />
-              <input v-model="form.email" placeholder="邮箱" :maxlength="254" class="upload-input" />
-            </div>
+      <a-input v-model:value="form.title" placeholder="标题" :maxlength="200" />
 
-            <input v-model="form.title" placeholder="标题" :maxlength="200" class="upload-input" />
+      <a-textarea v-model:value="form.content" placeholder="描述（可选）" :rows="3" />
 
-            <textarea v-model="form.content" placeholder="描述（可选）" :rows="3" class="upload-textarea" />
-
-            <div class="upload-file-area">
-              <label v-if="!file" class="upload-file-label">
-                <input type="file" accept="image/*,video/*" class="upload-file-input" @change="onFileChange" />
-                <CloudUploadOutlined />
-                <span>选择图片/视频</span>
-              </label>
-              <div v-else class="upload-file-preview">
-                <img v-if="file.type.startsWith('image/')" :src="filePreview" alt="预览" />
-                <video v-else :src="filePreview" controls />
-                <button class="upload-file-remove" @click="removeFile">移除</button>
-              </div>
-            </div>
-
-            <div v-if="uploading" class="upload-progress">
-              <div class="upload-progress-bar" :style="{ width: progress + '%' }"></div>
-            </div>
-
-            <button class="upload-submit" :disabled="uploading" @click="handleSubmit">
-              {{ uploading ? '上传中...' : '上传' }}
-            </button>
-          </div>
+      <div>
+        <div v-if="!file" style="border: 2px dashed var(--theme-card-border); border-radius: 12px; padding: 24px; text-align: center; cursor: pointer; transition: border-color 0.2s;" @click="($refs.fileInput as HTMLInputElement).click()">
+          <input ref="fileInput" type="file" accept="image/*,video/*" style="display: none;" @change="onFileChange" />
+          <CloudUploadOutlined style="font-size: 28px; color: var(--theme-text-secondary);" />
+          <div style="font-size: 14px; color: var(--theme-text-secondary); margin-top: 8px;">选择图片/视频</div>
+        </div>
+        <div v-else style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+          <img v-if="file.type.startsWith('image/')" :src="filePreview" alt="预览" style="max-height: 180px; border-radius: 8px; object-fit: contain;" />
+          <video v-else :src="filePreview" controls style="max-height: 180px; border-radius: 8px;" />
+          <a-button size="small" danger @click="removeFile">移除文件</a-button>
         </div>
       </div>
-    </Transition>
-  </Teleport>
+
+      <a-progress v-if="uploading" :percent="progress" status="active" :stroke-width="10" />
+
+      <a-button type="primary" size="large" block :loading="uploading" @click="handleSubmit">
+        {{ uploading ? '上传中...' : '上传' }}
+      </a-button>
+    </div>
+  </a-drawer>
 </template>
-
-<style scoped>
-.upload-sheet-mask {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.upload-sheet {
-  width: 100%;
-  max-width: 480px;
-  max-height: 85vh;
-  background: var(--theme-surface);
-  border-radius: 16px 16px 0 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.upload-sheet-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--theme-card-border);
-}
-
-.upload-sheet-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--theme-text);
-}
-
-.upload-sheet-close {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  color: var(--theme-text-secondary);
-  cursor: pointer;
-  border-radius: 50%;
-  font-size: 16px;
-}
-
-.upload-sheet-close:hover {
-  background: var(--theme-hover-bg);
-}
-
-.upload-sheet-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.upload-row-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.upload-input {
-  width: 100%;
-  padding: 10px 12px;
-  font-size: 14px;
-  border: 1px solid var(--theme-card-border);
-  border-radius: 8px;
-  background: var(--theme-bg);
-  color: var(--theme-text);
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.upload-input:focus {
-  border-color: var(--theme-primary);
-}
-
-.upload-textarea {
-  width: 100%;
-  padding: 10px 12px;
-  font-size: 14px;
-  border: 1px solid var(--theme-card-border);
-  border-radius: 8px;
-  background: var(--theme-bg);
-  color: var(--theme-text);
-  outline: none;
-  resize: vertical;
-  min-height: 60px;
-  transition: border-color 0.2s;
-}
-
-.upload-textarea:focus {
-  border-color: var(--theme-primary);
-}
-
-.upload-file-area {
-  width: 100%;
-}
-
-.upload-file-label {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 24px;
-  border: 2px dashed var(--theme-card-border);
-  border-radius: 12px;
-  cursor: pointer;
-  color: var(--theme-text-secondary);
-  font-size: 14px;
-  transition: border-color 0.2s, color 0.2s;
-}
-
-.upload-file-label:hover {
-  border-color: var(--theme-primary);
-  color: var(--theme-primary);
-}
-
-.upload-file-label :deep(.anticon) {
-  font-size: 28px;
-}
-
-.upload-file-input {
-  display: none;
-}
-
-.upload-file-preview {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.upload-file-preview img,
-.upload-file-preview video {
-  max-height: 180px;
-  border-radius: 8px;
-  object-fit: contain;
-}
-
-.upload-file-remove {
-  padding: 4px 12px;
-  font-size: 12px;
-  color: var(--theme-danger);
-  background: transparent;
-  border: 1px solid var(--theme-danger);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.upload-progress {
-  width: 100%;
-  height: 6px;
-  background: var(--theme-card-border);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.upload-progress-bar {
-  height: 100%;
-  background: var(--theme-primary);
-  border-radius: 3px;
-  transition: width 0.2s;
-}
-
-.upload-submit {
-  width: 100%;
-  padding: 12px;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--theme-on-primary);
-  background: var(--theme-primary);
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: filter 0.2s;
-}
-
-.upload-submit:hover {
-  filter: brightness(0.92);
-}
-
-.upload-submit:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* 入场/退场动画 */
-.sheet-enter-active,
-.sheet-leave-active {
-  transition: opacity 0.25s ease;
-}
-.sheet-enter-active .upload-sheet,
-.sheet-leave-active .upload-sheet {
-  transition: transform 0.25s ease;
-}
-.sheet-enter-from,
-.sheet-leave-to {
-  opacity: 0;
-}
-.sheet-enter-from .upload-sheet,
-.sheet-leave-to .upload-sheet {
-  transform: translateY(100%);
-}
-</style>

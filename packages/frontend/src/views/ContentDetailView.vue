@@ -1,6 +1,7 @@
 ﻿<script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { message } from 'ant-design-vue'
 import { contentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { useListCache } from '@/composables/useListCache'
@@ -17,7 +18,6 @@ const userStore = useUserStore()
 const listCache = useListCache()
 
 const content = ref<Content | null>(null)
-const message = ref('')
 const reportTarget = ref<Comment | null>(null)
 const showClaimModal = ref(false)
 
@@ -178,10 +178,10 @@ async function loadContent() {
       content.value = res.data
       loadInteractionStatus()
     } else {
-      message.value = res.message
+      message.error(res.message)
     }
   } catch {
-    message.value = '加载内容失败'
+    message.error('加载内容失败')
   }
 }
 
@@ -265,18 +265,12 @@ watch(() => route.params.id, (newId) => {
         </div>
       </header>
 
-      <!-- 消息条 -->
-      <div v-if="message" class="cd-message" :class="{ 'cd-msg-error': message.includes('失败') || message.includes('请'), 'cd-msg-success': message.includes('成功') }">
-        <span>{{ message }}</span>
-        <button type="button" class="cd-msg-close" @click="message = ''">×</button>
-      </div>
-
       <!-- 主体 -->
       <div v-if="content" class="cd-body">
         <!-- 中间主体 -->
         <div class="cd-main">
           <ContentMedia :content="content" />
-          <ContentSidebar :content="content" @message="message = $event" @report-comment="reportTarget = $event" />
+          <ContentSidebar :content="content" @open-claim="showClaimModal = true" @report-comment="reportTarget = $event" />
         </div>
       </div>
 
@@ -344,9 +338,9 @@ watch(() => route.params.id, (newId) => {
     </div>
 
     <!-- 举报弹窗 -->
-    <ReportModal :target="reportTarget" @close="reportTarget = null" @success="message = $event" />
+    <ReportModal :target="reportTarget" @close="reportTarget = null" />
     <!-- 认领弹窗 -->
-    <ClaimModal :open="showClaimModal" :content-id="content?.id || 0" @close="showClaimModal = false" @success="message = $event" />
+    <ClaimModal :open="showClaimModal" :content-id="content?.id || 0" @close="showClaimModal = false" />
   </div>
 </template>
 
@@ -384,19 +378,6 @@ watch(() => route.params.id, (newId) => {
   from { opacity: 0; transform: scale(0.98); }
   to { opacity: 1; transform: scale(1); }
 }
-
-/* ── 消息条 ── */
-.cd-message {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 1rem;
-  font-size: 0.8125rem;
-}
-.cd-msg-error { color: var(--theme-danger); background: color-mix(in srgb, var(--theme-danger) 10%, transparent); }
-.cd-msg-success { color: var(--theme-success); background: color-mix(in srgb, var(--theme-success) 10%, transparent); }
-.cd-msg-close { background: none; border: none; color: inherit; font-size: 1.125rem; cursor: pointer; line-height: 1; }
 
 /* ── 顶部条 ── */
 .cd-topbar {
