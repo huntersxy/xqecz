@@ -41,3 +41,4 @@ proto/gen/
 _tmp_*
 NOT
 /.qoder
+packages/worker/xqecz-worker
