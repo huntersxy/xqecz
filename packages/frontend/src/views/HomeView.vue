@@ -12,6 +12,7 @@ import { useRecommendLoader } from '@/composables/useRecommendLoader'
 import { useSearchFilter } from '@/composables/useSearchFilter'
 import { watchGlobalSearch } from '@/composables/useGlobalSearch'
 import { useWaterfallLayout } from '@/composables/useWaterfallLayout'
+import { useListCache, diffLists } from '@/composables/useListCache'
 import { ContentSchema } from '@/types/schemas'
 import WaterfallCard from '@/components/WaterfallCard.vue'
 import RecommendSection from '@/components/RecommendSection.vue'
@@ -21,6 +22,7 @@ const router = useRouter()
 const homeStore = useHomeStore()
 const recommendLoader = useRecommendLoader()
 const searchFilter = useSearchFilter()
+const listCache = useListCache()
 
 const swapSections = computed(
   () =>
@@ -51,7 +53,6 @@ watch(
       waterfall.containerHeight.value = 0
       return
     }
-    // 全量替换（非追加）
     if (oldLen === 0 || newLen < oldLen) {
       nextTick(() => waterfall.relayout())
     }
@@ -104,28 +105,75 @@ async function fetchPage(page: number, append = false) {
       if (append) {
         const oldLen = allContents.value.length
         allContents.value.push(...parsed)
-        // 增量追加新卡片位置
         nextTick(() => waterfall.appendNewItems(allContents.value.slice(oldLen)))
       } else {
         allContents.value = parsed
+      }
+      // 更新缓存
+      if (!homeStore.searchKeyword) {
+        listCache.save(allContents.value, total.value, totalPages.value)
       }
     }
   } catch (e) { console.error('加载失败:', e) }
   finally { isLoading.value = false; isLoadingMore.value = false }
 }
 
-function resetAndLoad() { currentPage.value = 1; allContents.value = []; fetchPage(1) }
+function resetAndLoad() {
+  currentPage.value = 1
+  allContents.value = []
+  listCache.clear()
+  fetchPage(1)
+}
 
 watchGlobalSearch(() => resetAndLoad())
 
+// 增量加载更多时也更新缓存
+async function fetchMore() {
+  if (!hasMore.value || isLoading.value || isLoadingMore.value) return
+  await fetchPage(currentPage.value + 1, true)
+}
+
+// 异步 diff：拿最新数据与缓存对比，更新列表
+async function diffAndUpdate() {
+  try {
+    const res = await contentApi.list({ page: 1, page_size: 100, sort_by: 'created_at', order: 'desc' })
+    if (res.code !== 200) return
+
+    const freshList = res.data.list.map((item: unknown) => ContentSchema.parse(item))
+    const { merged, removed } = diffLists(allContents.value, freshList)
+
+    allContents.value = merged.filter((item) => !removed.has(item.id))
+    total.value = res.data.total
+    totalPages.value = res.data.total_page
+
+    listCache.save(allContents.value, total.value, totalPages.value)
+    nextTick(() => waterfall.relayout())
+  } catch (e) {
+    console.warn('diff 更新失败:', e)
+  }
+}
+
+// 监听 sentinel 进入视口
 useIntersectionObserver(sentinelRef, ([{ isIntersecting }]) => {
-  if (isIntersecting && hasMore.value && !isLoading.value && !isLoadingMore.value) fetchPage(currentPage.value + 1, true)
-}, { rootMargin: '200px' })
+  if (isIntersecting && hasMore.value && !isLoading.value && !isLoadingMore.value) {
+    fetchMore()
+  }
+}, { rootMargin: '1000px' })
 
 onMounted(() => {
   const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[]
-  if (navEntries.length > 0 && navEntries[0].type === 'reload') homeStore.clearState()
+  if (navEntries.length > 0 && navEntries[0].type === 'reload') {
+    homeStore.clearState()
+    listCache.clear()
+  }
 
+  // 搜索模式不使用缓存
+  if (homeStore.searchKeyword) {
+    fetchPage(1)
+    return
+  }
+
+  // 恢复路由缓存（keep-alive）
   if (homeStore.hasLoaded && homeStore.cachedContents.length > 0) {
     allContents.value = homeStore.cachedContents
     currentPage.value = homeStore.page
@@ -133,10 +181,23 @@ onMounted(() => {
     totalPages.value = homeStore.cachedTotalPages
     recommendLoader.recommendPage.value = homeStore.recommendPage
     nextTick(() => requestAnimationFrame(() => homeStore.restoreScroll()))
+    return
+  }
+
+  // 尝试从 localStorage 加载缓存
+  const cached = listCache.load()
+  if (cached && cached.list.length > 0) {
+    allContents.value = cached.list
+    total.value = cached.total
+    totalPages.value = cached.totalPages
+    currentPage.value = 1
+    // 异步 diff，不阻塞渲染
+    diffAndUpdate()
   } else {
     fetchPage(1)
-    recommendLoader.loadRecommendContents(recommendLoader.recommendPage.value)
   }
+
+  recommendLoader.loadRecommendContents(recommendLoader.recommendPage.value)
   searchFilter.loadTags()
 })
 

@@ -1,9 +1,10 @@
 ﻿<script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { contentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
-import { formatTime } from '@/utils'
+import { useListCache } from '@/composables/useListCache'
+import { getImageUrl, formatTime } from '@/utils'
 import ContentMedia from '@/components/ContentMedia.vue'
 import ContentSidebar from '@/components/ContentSidebar.vue'
 import ReportModal from '@/components/ReportModal.vue'
@@ -13,11 +14,102 @@ import type { Content, Comment } from '@/types'
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const listCache = useListCache()
 
 const content = ref<Content | null>(null)
 const message = ref('')
 const reportTarget = ref<Comment | null>(null)
 const showClaimModal = ref(false)
+
+// ── 列表上下文 ──
+const cachedList = ref<Content[]>([])
+const currentId = ref(Number(route.params.id))
+const currentIndex = computed(() => cachedList.value.findIndex((c) => c.id === currentId.value))
+const hasPrev = computed(() => currentIndex.value > 0)
+const hasNext = computed(() => currentIndex.value >= 0)
+const isFetchingMore = ref(false)
+const listPage = ref(1)
+const listTotalPages = ref(1)
+
+const THUMB_H = 64
+const THUMB_GAP = 6
+const previewCount = ref(5)
+const previewRef = ref<HTMLElement | null>(null)
+
+function calcPreviewCount() {
+  const h = window.innerHeight
+  previewCount.value = Math.max(3, Math.floor((h - 120) / (THUMB_H + THUMB_GAP)))
+}
+
+const previewItems = computed(() => {
+  if (currentIndex.value < 0) return []
+  const total = cachedList.value.length
+  const count = previewCount.value
+  const half = Math.floor(count / 2)
+  let start = currentIndex.value - half
+  let end = start + count
+  if (start < 0) { start = 0; end = Math.min(count, total) }
+  if (end > total) { end = total; start = Math.max(0, end - count) }
+  return cachedList.value.slice(start, end).map((item) => ({
+    ...item,
+    isCurrent: item.id === currentId.value,
+  }))
+})
+
+function scrollThumbIntoView() {
+  nextTick(() => {
+    const el = previewRef.value?.querySelector('.cd-thumb-current')
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  })
+}
+
+async function fetchMore(): Promise<boolean> {
+  if (isFetchingMore.value || listPage.value >= listTotalPages.value) return false
+  isFetchingMore.value = true
+  try {
+    const nextPage = listPage.value + 1
+    const res = await contentApi.list({ page: nextPage, page_size: 20, sort_by: 'created_at', order: 'desc' })
+    if (res.code === 200) {
+      const newItems = res.data.list as Content[]
+      const existingIds = new Set(cachedList.value.map((c) => c.id))
+      const fresh = newItems.filter((item) => !existingIds.has(item.id))
+      cachedList.value.push(...fresh)
+      listPage.value = nextPage
+      listTotalPages.value = res.data.total_page
+      listCache.save(cachedList.value, res.data.total, listTotalPages.value)
+      return fresh.length > 0
+    }
+  } catch (e) {
+    console.warn('加载更多失败:', e)
+  } finally {
+    isFetchingMore.value = false
+  }
+  return false
+}
+
+async function navigateTo(id: number) {
+  currentId.value = id
+  history.replaceState(null, '', `/#/content/${id}`)
+  loadContent()
+  scrollThumbIntoView()
+  // 接近末尾时预加载更多
+  const idx = currentIndex.value
+  if (idx >= 0 && idx >= cachedList.value.length - 3) {
+    await fetchMore()
+  }
+}
+
+function goToPrev() {
+  if (!hasPrev.value) return
+  navigateTo(cachedList.value[currentIndex.value - 1].id)
+}
+
+async function goToNext() {
+  const idx = currentIndex.value
+  if (idx < 0) return
+  const next = cachedList.value[idx + 1]
+  if (next) await navigateTo(next.id)
+}
 
 // ── 交互 ──
 const likeCount = ref(0)
@@ -81,8 +173,7 @@ function downloadMedia() {
 // ── 加载内容 ──
 async function loadContent() {
   try {
-    const id = Number(route.params.id)
-    const res = await contentApi.detail(id)
+    const res = await contentApi.detail(currentId.value)
     if (res.code === 200) {
       content.value = res.data
       loadInteractionStatus()
@@ -99,13 +190,39 @@ function goBack() {
   if (window.history.length > 1) router.back()
   else router.push('/')
 }
-function onKeyDown(e: KeyboardEvent) { if (e.key === 'Escape') goBack() }
+
+function onKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Escape') goBack()
+  if (e.key === 'ArrowLeft') goToPrev()
+  if (e.key === 'ArrowRight') void goToNext()
+}
+
+// ── 触摸滑动 ──
+let touchStartX = 0
+function onTouchStart(e: TouchEvent) {
+  touchStartX = e.touches[0].clientX
+}
+function onTouchEnd(e: TouchEvent) {
+  const dx = e.changedTouches[0].clientX - touchStartX
+  if (Math.abs(dx) < 80) return
+  if (dx > 0) goToPrev()
+  else void goToNext()
+}
 
 // ── 生命周期 ──
 onMounted(() => {
   userStore.checkAuth()
   loadContent()
+  const cached = listCache.load()
+  cachedList.value = cached?.list || []
+  // 根据缓存数据量估算当前页数
+  listPage.value = Math.ceil(cachedList.value.length / 20) || 1
+  listTotalPages.value = cached?.totalPages || 1
+  calcPreviewCount()
   document.addEventListener('keydown', onKeyDown)
+  document.addEventListener('touchstart', onTouchStart)
+  document.addEventListener('touchend', onTouchEnd)
+  window.addEventListener('resize', calcPreviewCount)
   const scrollBarW = window.innerWidth - document.documentElement.clientWidth
   const prevOverflow = document.body.style.overflow
   const prevPadding = document.body.style.paddingRight
@@ -119,15 +236,16 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeyDown)
+  document.removeEventListener('touchstart', onTouchStart)
+  document.removeEventListener('touchend', onTouchEnd)
+  window.removeEventListener('resize', calcPreviewCount)
 })
 
 watch(() => route.params.id, (newId) => {
-  if (newId) {
-    content.value = null
-    likeCount.value = 0
-    isLiked.value = false
-    isFavorited.value = false
+  if (newId && Number(newId) !== currentId.value) {
+    currentId.value = Number(newId)
     loadContent()
+    scrollThumbIntoView()
   }
 })
 </script>
@@ -156,6 +274,9 @@ watch(() => route.params.id, (newId) => {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
               {{ content.view_count }} 浏览
             </span>
+            <span v-if="currentIndex >= 0" class="cd-meta-item cd-meta-index">
+              {{ currentIndex + 1 }} / {{ cachedList.length }}
+            </span>
           </div>
         </div>
       </header>
@@ -168,8 +289,23 @@ watch(() => route.params.id, (newId) => {
 
       <!-- 主体 -->
       <div v-if="content" class="cd-body">
-        <ContentMedia :content="content" />
-        <ContentSidebar :content="content" @message="message = $event" @report-comment="reportTarget = $event" />
+        <!-- 中间主体 -->
+        <div class="cd-main">
+          <ContentMedia :content="content" />
+          <ContentSidebar :content="content" @message="message = $event" @report-comment="reportTarget = $event" />
+        </div>
+
+        <!-- 右侧预览区 -->
+        <div v-if="previewItems.length > 0" ref="previewRef" class="cd-side-preview">
+          <button
+            v-for="item in previewItems"
+            :key="item.id"
+            :class="['cd-side-thumb', { 'cd-thumb-current': item.isCurrent }]"
+            @click="navigateTo(item.id)"
+          >
+            <img :src="getImageUrl(item.thumb)" :alt="item.title" loading="lazy" />
+          </button>
+        </div>
       </div>
 
       <!-- 加载中 -->
@@ -177,6 +313,30 @@ watch(() => route.params.id, (newId) => {
         <div class="cd-spinner"></div>
         <p>加载中...</p>
       </div>
+
+      <!-- 左右切换按钮 -->
+      <button
+        v-if="hasPrev"
+        class="cd-nav-btn cd-nav-prev"
+        type="button"
+        aria-label="上一个"
+        @click="goToPrev"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
+      <button
+        v-if="hasNext"
+        class="cd-nav-btn cd-nav-next"
+        type="button"
+        aria-label="下一个"
+        @click="goToNext"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <polyline points="9 6 15 12 9 18"></polyline>
+        </svg>
+      </button>
 
       <!-- 底部交互栏 -->
       <footer v-if="content" class="cd-bottombar">
@@ -303,9 +463,68 @@ watch(() => route.params.id, (newId) => {
 }
 .cd-meta-item { display: inline-flex; align-items: center; gap: 4px; }
 .cd-meta-item svg { width: 13px; height: 13px; flex-shrink: 0; }
+.cd-meta-index { color: var(--theme-primary); font-weight: 600; }
 
 /* ── 主体 ── */
 .cd-body { flex: 1; min-height: 0; display: flex; gap: 0; }
+
+/* ── 侧边预览 ── */
+.cd-side-preview {
+  width: 76px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 6px;
+  overflow-y: auto;
+  background: var(--theme-header-bg);
+  border-left: 1px solid var(--theme-card-border);
+  scroll-behavior: smooth;
+}
+.cd-side-thumb {
+  width: 100%;
+  height: 64px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  background: var(--theme-card-border);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.cd-side-thumb:hover { border-color: var(--theme-primary); }
+.cd-thumb-current {
+  border-color: var(--theme-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-primary) 30%, transparent);
+}
+.cd-side-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ── 中间主体 ── */
+.cd-main { flex: 1; min-width: 0; display: flex; }
+
+/* ── 左右切换按钮 ── */
+.cd-nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 40px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.cd-root:hover .cd-nav-btn { opacity: 1; }
+.cd-nav-btn:hover { background: rgba(0, 0, 0, 0.6); }
+.cd-nav-btn svg { width: 20px; height: 20px; }
+.cd-nav-prev { left: 0; border-radius: 0 6px 6px 0; }
+.cd-nav-next { right: 76px; border-radius: 6px 0 0 6px; }
 
 /* ── 加载中 ── */
 .cd-loading {
@@ -347,6 +566,8 @@ watch(() => route.params.id, (newId) => {
 /* ── 窄屏 ── */
 @media (max-width: 768px) {
   .cd-body { flex-direction: column; overflow-y: auto; }
+  .cd-side-preview { display: none; }
+  .cd-nav-btn { display: none; }
   .cd-bottombar { padding: 0.5rem 0.75rem; gap: 0.375rem; }
   .cd-action { padding: 0.4375rem 0.625rem; font-size: 0.75rem; }
 }
