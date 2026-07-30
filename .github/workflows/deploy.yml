@@ -67,6 +67,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: deploy/packages/worker/
           server-dir: packages/worker/
+          dangerous-clean-slate: true
 
       - name: Deploy Frontend
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
