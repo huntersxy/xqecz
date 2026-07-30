@@ -16,13 +16,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: pnpm
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: latest
-          run_install: false
+        run: corepack enable && corepack prepare pnpm@latest --activate
 
       - name: Setup Go
         uses: actions/setup-go@v5
