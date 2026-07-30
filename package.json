@@ -12,7 +12,7 @@
     "start:backend": "concurrently -n api,worker -c blue,green \"pnpm --filter ./packages/api run start:prod\" \"pnpm run worker:start\"",
     "worker:build": "cd packages/worker && go build -o xqecz-worker ./cmd/server/",
     "worker:run": "node scripts/run-worker.mjs",
-    "worker:start": "cd packages/worker && ./xqecz-worker",
+    "worker:start": "packages/worker/xqecz-worker",
     "proto:generate": "pnpm --filter @xqecz/proto run generate"
   },
   "devDependencies": {
