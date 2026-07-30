@@ -40,8 +40,6 @@ jobs:
           pnpm --filter ./packages/frontend run build
           cd packages/worker && go build -o xqecz-worker ./cmd/server/ && cd ../..
 
-      # ── 打包 ──
-
       - name: Prepare deploy
         run: |
           mkdir -p deploy/packages/api
@@ -50,6 +48,15 @@ jobs:
           cp -r packages/api/dist deploy/packages/api/
           cp packages/worker/xqecz-worker deploy/packages/worker/
           cp -r packages/frontend/dist deploy/packages/frontend/
+
+      # ── 恢复部署状态（增量上传） ──
+
+      - name: Restore deploy state
+        uses: actions/cache/restore@v4
+        with:
+          path: .ftp-state-*.json
+          key: ftp-state-${{ github.run_id }}
+          restore-keys: ftp-state-
 
       # ── FTP 上传 ──
 
@@ -61,7 +68,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: deploy/packages/api/dist/
           server-dir: packages/api/dist/
-          md5-file: .ftp-md5-api.json
+          state-name: .ftp-state-api.json
 
       - name: Deploy Worker
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
@@ -71,7 +78,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: deploy/packages/worker/
           server-dir: packages/worker/
-          md5-file: .ftp-md5-worker.json
+          state-name: .ftp-state-worker.json
 
       - name: Deploy Frontend
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
@@ -81,4 +88,12 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: deploy/packages/frontend/dist/
           server-dir: ./
-          md5-file: .ftp-md5-frontend.json
+          state-name: .ftp-state-frontend.json
+
+      # ── 保存部署状态 ──
+
+      - name: Save deploy state
+        uses: actions/cache/save@v4
+        with:
+          path: .ftp-state-*.json
+          key: ftp-state-${{ github.run_id }}
