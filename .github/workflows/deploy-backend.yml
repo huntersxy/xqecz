@@ -43,19 +43,24 @@ jobs:
           cd packages/worker
           go build -o xqecz-worker ./cmd/server/
 
-      - name: Transfer files to server
-        uses: appleboy/scp-action@v0
+      - name: Prepare deploy files
+        run: |
+          mkdir -p deploy/packages/api
+          mkdir -p deploy/packages/worker
+          cp -r packages/api/dist deploy/packages/api/
+          cp packages/worker/xqecz-worker deploy/packages/worker/
+
+      - name: FTP upload
+        uses: SamKirkland/FTP-Deploy-Action@v4
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          source: |
-            packages/api/dist
-            packages/worker/xqecz-worker
-          target: /www/wwwroot/xqecz
-          strip_components: 0
-          overwrite: true
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: deploy/
+          server-dir: /www/wwwroot/xqecz/
+          exclude: |
+            **/.DS_Store
+            **/Thumbs.db
 
       - name: Restart services
         uses: appleboy/ssh-action@v1
