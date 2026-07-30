@@ -17,7 +17,7 @@ import { join } from 'path'
           options: {
             package: 'xqecz',
             protoPath: join(__dirname, '../../../../proto/xqecz.proto'),
-            url: cfg.get('WORKER_URL', 'localhost:50051'),
+            url: cfg.get('WORKER_URL', '127.0.0.1:50051'),
             // 使用 snake_case 字段名（与 proto 定义、Go worker、worker.service.ts 映射一致）。
             // longs: Number —— proto 的 uint64（如 content_id）默认反序列化成 Long 对象
             // {low, high, unsigned}，会导致写 Redis ZSet 的 member 变成 "[object Object]"。
