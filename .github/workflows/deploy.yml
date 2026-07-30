@@ -45,6 +45,16 @@ jobs:
           cp packages/worker/xqecz-worker deploy/packages/worker/
           cp -r packages/frontend/dist deploy/packages/frontend/
 
+      # ── 停服务 ──
+
+      - name: Stop project
+        run: |
+          BT_URL="http://8.134.190.23:13634"
+          BT_T=$(date +%s)
+          BT_TK=$(echo -n "${BT_T}$(echo -n "${{ secrets.BT_API_TOKEN }}" | md5sum | awk '{print $1}')" | md5sum | awk '{print $1}')
+          curl -s -X POST "${BT_URL}/project/nodejs/stop_project" \
+            -d "request_time=${BT_T}&request_token=${BT_TK}&project_name=xqecz2"
+
       # ── FTP 上传 ──
 
       - name: Deploy API
@@ -77,12 +87,12 @@ jobs:
           server-dir: ./
           state-name: .ftp-state-frontend.json
 
-      # ── 重启服务 ──
+      # ── 启动服务 ──
 
-      - name: Restart Node project
+      - name: Start project
         run: |
           BT_URL="http://8.134.190.23:13634"
           BT_T=$(date +%s)
           BT_TK=$(echo -n "${BT_T}$(echo -n "${{ secrets.BT_API_TOKEN }}" | md5sum | awk '{print $1}')" | md5sum | awk '{print $1}')
-          curl -s -X POST "${BT_URL}/project/nodejs/restart_project" \
+          curl -s -X POST "${BT_URL}/project/nodejs/start_project" \
             -d "request_time=${BT_T}&request_token=${BT_TK}&project_name=xqecz2"
