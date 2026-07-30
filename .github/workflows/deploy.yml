@@ -49,12 +49,12 @@ jobs:
 
       # ── FTP 上传 ──
 
-      - name: Deploy API + Worker
+      - name: Deploy API
         uses: SamKirkland/FTP-Deploy-Action@v4
         with:
           server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
+          username: ${{ secrets.FTP_USERNAME_BACKEND }}
+          password: ${{ secrets.FTP_PASSWORD_BACKEND }}
           local-dir: deploy/packages/api/
           server-dir: ${{ secrets.API_REMOTE_DIR }}
           dangerous-clean-slate: true
@@ -63,8 +63,8 @@ jobs:
         uses: SamKirkland/FTP-Deploy-Action@v4
         with:
           server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
+          username: ${{ secrets.FTP_USERNAME_BACKEND }}
+          password: ${{ secrets.FTP_PASSWORD_BACKEND }}
           local-dir: deploy/packages/worker/
           server-dir: ${{ secrets.WORKER_REMOTE_DIR }}
 
@@ -72,8 +72,8 @@ jobs:
         uses: SamKirkland/FTP-Deploy-Action@v4
         with:
           server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
+          username: ${{ secrets.FTP_USERNAME_FRONTEND }}
+          password: ${{ secrets.FTP_PASSWORD_FRONTEND }}
           local-dir: deploy/packages/frontend/dist/
           server-dir: ${{ secrets.FRONTEND_REMOTE_DIR }}
           dangerous-clean-slate: true
