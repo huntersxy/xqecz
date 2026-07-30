@@ -49,15 +49,6 @@ jobs:
           cp packages/worker/xqecz-worker deploy/packages/worker/
           cp -r packages/frontend/dist deploy/packages/frontend/
 
-      # ── 恢复部署状态（增量上传） ──
-
-      - name: Restore deploy state
-        uses: actions/cache/restore@v4
-        with:
-          path: .ftp-state-*.json
-          key: ftp-state-${{ github.run_id }}
-          restore-keys: ftp-state-
-
       # ── FTP 上传 ──
 
       - name: Deploy API
@@ -89,11 +80,3 @@ jobs:
           local-dir: deploy/packages/frontend/dist/
           server-dir: ./
           state-name: .ftp-state-frontend.json
-
-      # ── 保存部署状态 ──
-
-      - name: Save deploy state
-        uses: actions/cache/save@v4
-        with:
-          path: .ftp-state-*.json
-          key: ftp-state-${{ github.run_id }}
