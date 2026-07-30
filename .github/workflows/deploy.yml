@@ -51,15 +51,6 @@ jobs:
           cp packages/worker/xqecz-worker deploy/packages/worker/
           cp -r packages/frontend/dist deploy/packages/frontend/
 
-      # ── 恢复 MD5 缓存 ──
-
-      - name: Restore FTP md5 cache
-        uses: actions/cache/restore@v4
-        with:
-          path: .ftp-md5-*.json
-          key: ftp-md5-${{ github.run_id }}
-          restore-keys: ftp-md5-
-
       # ── FTP 上传 ──
 
       - name: Deploy API
@@ -91,11 +82,3 @@ jobs:
           local-dir: deploy/packages/frontend/dist/
           server-dir: ./
           md5-file: .ftp-md5-frontend.json
-
-      # ── 保存 MD5 缓存 ──
-
-      - name: Save FTP md5 cache
-        uses: actions/cache/save@v4
-        with:
-          path: .ftp-md5-*.json
-          key: ftp-md5-${{ github.run_id }}
