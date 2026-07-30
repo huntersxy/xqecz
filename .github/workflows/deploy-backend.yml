@@ -4,20 +4,60 @@ on:
   push:
     branches: ["master"]
     paths:
-      - "packages/api/**"
+      - "packages/api/src/**"
       - "packages/worker/**"
       - "proto/**"
-      - ".env"
       - "package.json"
       - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
   workflow_dispatch:
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to server
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/worker/go.mod
+
+      - name: Build NestJS API
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter ./packages/api run build
+
+      - name: Build Go Worker
+        run: |
+          cd packages/worker
+          go build -o xqecz-worker ./cmd/server/
+
+      - name: Transfer files to server
+        uses: appleboy/scp-action@v0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: |
+            packages/api/dist
+            packages/worker/xqecz-worker
+          target: /www/wwwroot/xqecz
+          strip_components: 0
+          overwrite: true
+
+      - name: Restart services
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -26,11 +66,8 @@ jobs:
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
             cd /www/wwwroot/xqecz
-            git config --global --add safe.directory /www/wwwroot/xqecz
-
             pkill -f "node dist/main" 2>/dev/null || true
             pkill -f "xqecz-worker"    2>/dev/null || true
             sleep 1
-
             nohup pnpm start:backend > /www/wwwroot/xqecz/backend.log 2>&1 &
-            echo "Deploy started, check: tail -f /www/wwwroot/xqecz/backend.log"
+            echo "Backend restarted"
