@@ -40,7 +40,7 @@ jobs:
           pnpm --filter ./packages/frontend run build
           cd packages/worker && go build -o xqecz-worker ./cmd/server/ && cd ../..
 
-      # ── 打包到统一目录 ──
+      # ── 打包 ──
 
       - name: Prepare deploy
         run: |
@@ -50,6 +50,15 @@ jobs:
           cp -r packages/api/dist deploy/packages/api/
           cp packages/worker/xqecz-worker deploy/packages/worker/
           cp -r packages/frontend/dist deploy/packages/frontend/
+
+      # ── 恢复 MD5 缓存 ──
+
+      - name: Restore FTP md5 cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .ftp-md5-*.json
+          key: ftp-md5-${{ github.run_id }}
+          restore-keys: ftp-md5-
 
       # ── FTP 上传 ──
 
@@ -61,7 +70,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: deploy/packages/api/dist/
           server-dir: packages/api/dist/
-          dangerous-clean-slate: true
+          md5-file: .ftp-md5-api.json
 
       - name: Deploy Worker
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
@@ -71,6 +80,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: deploy/packages/worker/
           server-dir: packages/worker/
+          md5-file: .ftp-md5-worker.json
 
       - name: Deploy Frontend
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
@@ -80,4 +90,12 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: deploy/packages/frontend/dist/
           server-dir: ./
-          dangerous-clean-slate: true
+          md5-file: .ftp-md5-frontend.json
+
+      # ── 保存 MD5 缓存 ──
+
+      - name: Save FTP md5 cache
+        uses: actions/cache/save@v4
+        with:
+          path: .ftp-md5-*.json
+          key: ftp-md5-${{ github.run_id }}
