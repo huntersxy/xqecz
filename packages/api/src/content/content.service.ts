@@ -319,7 +319,7 @@ export class ContentService implements OnModuleInit {
   }
 
   /** 异步媒体处理：缩略图 → (图片)压缩，逐步回写数据库。任一步失败仅告警不影响其他步骤。 */
-  private async processMedia(id: number, absPath: string, type: string) {
+  async processMedia(id: number, absPath: string, type: string) {
     try {
       const t = await this.worker.generateThumbnail(absPath, type)
       if (t?.success && t.thumb_path) {

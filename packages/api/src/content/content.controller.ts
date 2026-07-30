@@ -196,12 +196,27 @@ export class ContentController {
   @Put(':id')
   @UseGuards(AuthGuard)
   @UseInterceptors(FileInterceptor('file', { storage: uploadStorage() }))
-  async update(@Param('id') id: string, @Body() dto: UpdateContentDto, @CurrentUser('uid') uid: number, @CurrentUser('is_admin') isAdmin: boolean) {
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateContentDto,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @CurrentUser('uid') uid: number,
+    @CurrentUser('is_admin') isAdmin: boolean,
+  ) {
     const row = await this.svc.getContentRow(Number(id))
     if (!row) throw new NotFoundException('内容不存在')
     if (uid !== row.user_id && !isAdmin) throw new ForbiddenException('无权修改该内容')
     const tags = Array.isArray(dto.tags) ? dto.tags : typeof dto.tags === 'string' ? dto.tags.split(',').map(s => s.trim()).filter(Boolean) : undefined
-    const data = await this.svc.update(Number(id), { title: dto.title, content: dto.content, url: dto.url, tags })
+    const filePath = file ? relPath(file) : undefined
+    const data = await this.svc.update(Number(id), {
+      title: dto.title, content: dto.content, url: dto.url, tags,
+      filePath,
+      fileSize: file?.size,
+    })
+    // 替换了文件则异步重建缩略图与压缩图
+    if (file && filePath && (row.type === 'image' || row.type === 'video')) {
+      void this.svc.processMedia(Number(id), file.path, row.type)
+    }
     return { code: 200, message: '更新成功', data }
   }
 
