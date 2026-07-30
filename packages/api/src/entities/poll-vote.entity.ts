@@ -1,6 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm'
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Unique } from 'typeorm'
 
 @Entity('poll_votes')
+@Unique(['poll_id', 'user_id'])
+@Unique(['poll_id', 'visitor_id'])
 export class PollVote {
   @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true })
   id!: number

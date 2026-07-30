@@ -143,7 +143,7 @@ function addNewTag() {
         <a-tab-pane key="edit" tab="编辑">
           <a-form layout="vertical">
             <a-form-item label="标题"><a-input v-model:value="editTitle" /></a-form-item>
-            <a-form-item v-if="admin.drawerContent.type === 'link'" label="链接"><a-input v-model:value="editUrl" /></a-form-item>
+            <a-form-item v-if="(admin.drawerContent.type as string) === 'link'" label="链接"><a-input v-model:value="editUrl" /></a-form-item>
             <a-form-item label="标签">
               <div class="flex flex-wrap gap-1.5 mb-2">
                 <Tag v-for="tag in editTags" :key="tag" color="blue" closable @close="editTags = editTags.filter(t => t !== tag)">{{ tag }}</Tag>

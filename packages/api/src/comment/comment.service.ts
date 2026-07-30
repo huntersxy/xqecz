@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository, IsNull } from 'typeorm'
+import { Repository, IsNull, In } from 'typeorm'
 import { Comment, CommentReport, User } from '../entities'
 import { RedisService } from '../redis/redis.service'
 
@@ -13,8 +13,19 @@ export class CommentService {
     private redis: RedisService,
   ) {}
 
-  private async decorateComment(row: Comment) {
-    const user = await this.userRepo.findOne({ where: { id: row.user_id } })
+  private async decorateComment(row: Comment, userMap?: Map<number, User>) {
+    const user = userMap?.get(row.user_id) ?? await this.userRepo.findOne({ where: { id: row.user_id } })
+    return {
+      id: row.id, content_id: row.content_id, user_id: row.user_id, text: row.text,
+      parent_id: row.parent_id ?? null, is_banned: !!row.is_banned,
+      created_at: row.created_at, updated_at: row.updated_at,
+      user: user ? { id: user.id, username: user.username } : { id: row.user_id, username: 'unknown' },
+    }
+  }
+
+  /** 同步版本，用于 userMap 已预加载的场景（回复列表），避免不必要的 async 开销。 */
+  private decorateCommentSync(row: Comment, userMap: Map<number, User>) {
+    const user = userMap.get(row.user_id)
     return {
       id: row.id, content_id: row.content_id, user_id: row.user_id, text: row.text,
       parent_id: row.parent_id ?? null, is_banned: !!row.is_banned,
@@ -43,6 +54,14 @@ export class CommentService {
         .getMany()
     }
 
+    // 批量查询用户，消除 N+1 查询
+    const allUserIds = [...new Set([
+      ...tops.map((t) => t.user_id),
+      ...replies.map((r) => r.user_id),
+    ].filter((id) => id > 0))]
+    const users = allUserIds.length ? await this.userRepo.find({ where: { id: In(allUserIds) } }) : []
+    const userMap = new Map(users.map((u) => [u.id, u]))
+
     const replyMap = new Map<number, Comment[]>()
     for (const r of replies) {
       if (!replyMap.has(r.parent_id!)) replyMap.set(r.parent_id!, [])
@@ -50,9 +69,9 @@ export class CommentService {
     }
 
     const list = await Promise.all(tops.map(async (t) => {
-      const base = await this.decorateComment(t)
+      const base = await this.decorateComment(t, userMap)
       const childReplies = replyMap.get(t.id) || []
-      ;(base as any).replies = await Promise.all(childReplies.map((r) => this.decorateComment(r)))
+      ;(base as any).replies = childReplies.map((r) => this.decorateCommentSync(r, userMap))
       return base
     }))
 

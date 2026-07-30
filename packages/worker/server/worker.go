@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"log"
+	"log/slog"
 
 	pb "xqecz-worker/proto"
 
@@ -28,9 +28,9 @@ func (s *WorkerServer) Health(_ context.Context, _ *pb.HealthRequest) (*pb.Healt
 }
 
 // GenerateThumbnail 用 ffmpeg 为图片/视频生成 800px 宽 webp 缩略图。
-func (s *WorkerServer) GenerateThumbnail(_ context.Context, req *pb.ThumbnailRequest) (*pb.ThumbnailResponse, error) {
-	log.Printf("[worker] GenerateThumbnail: %s (%s)", req.FilePath, req.ContentType)
-	thumbPath, err := media.GenerateThumbnail(req.FilePath, req.ContentType, s.cfg.Server.ThumbDir)
+func (s *WorkerServer) GenerateThumbnail(ctx context.Context, req *pb.ThumbnailRequest) (*pb.ThumbnailResponse, error) {
+	slog.Info("GenerateThumbnail", "file", req.FilePath, "type", req.ContentType)
+	thumbPath, err := media.GenerateThumbnail(ctx, req.FilePath, req.ContentType, s.cfg.Server.ThumbDir)
 	if err != nil {
 		return &pb.ThumbnailResponse{Success: false, Error: err.Error()}, nil
 	}
@@ -38,8 +38,8 @@ func (s *WorkerServer) GenerateThumbnail(_ context.Context, req *pb.ThumbnailReq
 }
 
 // CompressImage 用 Tinify API 压缩图片，输出 webp 到 images 目录。
-func (s *WorkerServer) CompressImage(_ context.Context, req *pb.CompressRequest) (*pb.CompressResponse, error) {
-	log.Printf("[worker] CompressImage: %s", req.FilePath)
+func (s *WorkerServer) CompressImage(ctx context.Context, req *pb.CompressRequest) (*pb.CompressResponse, error) {
+	slog.Info("CompressImage", "file", req.FilePath)
 	compressed, err := media.TinifyCompress(req.FilePath, s.cfg.Server.ImagesDir, s.cfg.Tinify.APIKey)
 	if err != nil {
 		return &pb.CompressResponse{Success: false, Error: err.Error()}, nil
@@ -48,9 +48,9 @@ func (s *WorkerServer) CompressImage(_ context.Context, req *pb.CompressRequest)
 }
 
 // FetchLinkPreview 抓取外部链接的 OG/Twitter Card 元数据。
-func (s *WorkerServer) FetchLinkPreview(_ context.Context, req *pb.LinkPreviewRequest) (*pb.LinkPreviewResponse, error) {
-	log.Printf("[worker] FetchLinkPreview: %s", req.Url)
-	res, ok := linkpreview.Fetch(req.Url)
+func (s *WorkerServer) FetchLinkPreview(ctx context.Context, req *pb.LinkPreviewRequest) (*pb.LinkPreviewResponse, error) {
+	slog.Info("FetchLinkPreview", "url", req.Url)
+	res, ok := linkpreview.Fetch(ctx, req.Url)
 	if !ok {
 		return &pb.LinkPreviewResponse{Success: false}, nil
 	}

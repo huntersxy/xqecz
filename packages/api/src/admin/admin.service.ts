@@ -76,7 +76,7 @@ export class AdminService {
     if (operatorId === id) throw new ForbiddenException('不能删除自己')
     const u = await this.userRepo.findOne({ where: { id } })
     if (!u) throw new NotFoundException('用户不存在')
-    await this.userRepo.update(id, { is_banned: 1 })
+    await this.userRepo.softDelete(id)
   }
 
   async listClaims(page = 1, pageSize = 20, status?: string) {

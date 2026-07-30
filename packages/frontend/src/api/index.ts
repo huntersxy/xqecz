@@ -316,6 +316,19 @@ export const contentApi = {
       method: 'POST',
       body: { reason },
     }),
+
+  toggleLike: (contentId: number) =>
+    request<{ liked: boolean }>(`/content/${contentId}/like`, {
+      method: 'POST',
+    }),
+
+  likeStatus: (contentId: number) =>
+    request<{ liked: boolean; favorited: boolean; like_count: number }>(`/content/${contentId}/like-status`),
+
+  toggleFavorite: (contentId: number) =>
+    request<{ favorited: boolean }>(`/content/${contentId}/favorite`, {
+      method: 'POST',
+    }),
 }
 
 export const commentApi = {

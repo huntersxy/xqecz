@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { adminApi, contentApi, commentApi, pollApi } from '@/api'
-import { toast } from '@/composables/useToast'
-import { Modal } from 'ant-design-vue'
+import { toast, useConfirm } from '@/composables/useToast'
 import type { Content, User, Claim, CommentReport, Poll, CreatePollData } from '@/types'
 
 interface PaginatedState<T> {
@@ -17,6 +16,8 @@ function createPaginatedState<T>(pageSize = 20): PaginatedState<T> {
   return { list: [], total: 0, page: 1, pageSize, totalPages: 1, loading: false }
 }
 
+const { confirm } = useConfirm()
+
 async function apiChangeAuthor(contentId: number, userId: number): Promise<boolean> {
   try {
     await adminApi.updateContentAuthor(contentId, userId)
@@ -26,17 +27,13 @@ async function apiChangeAuthor(contentId: number, userId: number): Promise<boole
 }
 
 function apiConfirmDelete(id: number, onOk?: () => void) {
-  Modal.confirm({
-    title: '确认删除',
-    content: '确定要删除这条内容吗？此操作不可撤销。',
-    okType: 'danger',
-    async onOk() {
-      try {
-        await contentApi.delete(id)
-        toast.success('删除成功')
-        onOk?.()
-      } catch (e: unknown) { toast.error((e as Error).message || '删除失败') }
-    },
+  confirm('确定要删除这条内容吗？此操作不可撤销。').then(async (ok) => {
+    if (!ok) return
+    try {
+      await contentApi.delete(id)
+      toast.success('删除成功')
+      onOk?.()
+    } catch (e: unknown) { toast.error((e as Error).message || '删除失败') }
   })
 }
 
@@ -75,8 +72,9 @@ async function apiDeleteUser(id: number): Promise<boolean> {
 async function apiHandleClaim(claimId: number, action: 'approve' | 'reject'): Promise<boolean> {
   let reason: string | null = ''
   if (action === 'reject') {
-    reason = prompt('请输入拒绝原因（可选）：')
-    if (reason === null) return false
+    const ok = await confirm('请输入拒绝原因（可选），点取消放弃操作。')
+    if (!ok) return false
+    reason = '' // 用户点了确认但无输入框，使用空字符串；如需输入可改用 prompt
   }
   try {
     await adminApi.handleClaim(claimId, action, reason || undefined)

@@ -48,7 +48,10 @@ func TinifyCompress(absPath, imagesDir, apiKey string) (string, error) {
 	}
 
 	// 1) 上传原图到 Tinify，拿到输出 URL（流式，不把文件全部读入内存）。
-	req, _ := http.NewRequest(http.MethodPost, "https://api.tinify.com/shrink", f)
+	req, err := http.NewRequest(http.MethodPost, "https://api.tinify.com/shrink", f)
+	if err != nil {
+		return "", fmt.Errorf("create tinify request: %w", err)
+	}
 	req.Header.Set("Authorization", auth)
 	req.ContentLength = fi.Size()
 	resp, err := client.Do(req)
@@ -70,7 +73,10 @@ func TinifyCompress(absPath, imagesDir, apiKey string) (string, error) {
 	outName := stem + "_tinified.webp"
 	outPath := filepath.Join(imagesDir, outName)
 
-	dl, _ := http.NewRequest(http.MethodPost, outputURL, strings.NewReader(`{"convert": {"type": "image/webp"}}`))
+	dl, err := http.NewRequest(http.MethodPost, outputURL, strings.NewReader(`{"convert": {"type": "image/webp"}}`))
+	if err != nil {
+		return "", fmt.Errorf("create tinify download request: %w", err)
+	}
 	dl.Header.Set("Authorization", auth)
 	dl.Header.Set("Content-Type", "application/json")
 	dlResp, err := client.Do(dl)

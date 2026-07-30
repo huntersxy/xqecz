@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Inject, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { Cron } from '@nestjs/schedule'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository, Like, In, IsNull, Not } from 'typeorm'
 import { join } from 'path'
@@ -12,9 +13,8 @@ import { Claim } from '../entities'
 import { UPLOAD_DIR } from '../paths'
 
 @Injectable()
-export class ContentService implements OnModuleInit, OnModuleDestroy {
+export class ContentService implements OnModuleInit {
   private readonly log = new Logger(ContentService.name)
-  private recommendTimer?: NodeJS.Timeout
   constructor(
     @InjectRepository(Content) private contentRepo: Repository<Content>,
     @InjectRepository(User) private userRepo: Repository<User>,
@@ -29,13 +29,11 @@ export class ContentService implements OnModuleInit, OnModuleDestroy {
   onModuleInit() {
     void this.runStartupMigration().catch((e) => this.log.warn('Startup migration failed (non-fatal):', (e as Error)?.message))
     void this.refreshRecommend().catch((e) => console.warn('[recommend] initial refresh failed:', (e as Error)?.message))
-    this.recommendTimer = setInterval(() => {
-      void this.refreshRecommend().catch((e) => console.warn('[recommend] scheduled refresh failed:', (e as Error)?.message))
-    }, 10 * 60 * 1000)
   }
 
-  onModuleDestroy() {
-    if (this.recommendTimer) clearInterval(this.recommendTimer)
+  @Cron('*/10 * * * *')
+  handleRecommendRefresh() {
+    void this.refreshRecommend().catch((e) => console.warn('[recommend] scheduled refresh failed:', (e as Error)?.message))
   }
 
   /**
@@ -122,12 +120,12 @@ export class ContentService implements OnModuleInit, OnModuleDestroy {
     return `/uploads/${rel}`
   }
 
-  private async decorateContent(row: Content) {
+  private async decorateContent(row: Content, userMap?: Map<number, User>) {
     // 游客快速上传：user_id=0，以留档昵称对外展示（邮箱不外露）。
     const guestUser = row.guest_nickname
       ? { id: 0, username: row.guest_nickname }
       : null
-    const user = guestUser ? null : await this.userRepo.findOne({ where: { id: row.user_id } })
+    const user = guestUser ? null : (userMap?.get(row.user_id) ?? await this.userRepo.findOne({ where: { id: row.user_id } }))
     const imgUrl = row.type === 'image'
       ? ContentService.fileUrl(row.compressed_path || row.file_path)
       : ''
@@ -182,7 +180,12 @@ export class ContentService implements OnModuleInit, OnModuleDestroy {
       where, order: { [sortBy]: order }, skip: (page - 1) * pageSize, take: pageSize,
     })
 
-    const list = await Promise.all(rows.map((r) => this.decorateContent(r)))
+    // 批量查询用户，消除 N+1 查询
+    const userIds = [...new Set(rows.map((r) => r.user_id).filter((id) => id > 0))]
+    const users = userIds.length ? await this.userRepo.find({ where: { id: In(userIds) } }) : []
+    const userMap = new Map(users.map((u) => [u.id, u]))
+
+    const list = await Promise.all(rows.map((r) => this.decorateContent(r, userMap)))
     return { list, total, page, page_size: pageSize, total_page: Math.ceil(total / pageSize) }
   }
 
@@ -210,7 +213,13 @@ export class ContentService implements OnModuleInit, OnModuleDestroy {
         // TypeORM 将 bigint 主键返回为字符串，而 ZSet 读出的是数字，需统一为字符串再查表。
         const byId = new Map(rows.map((r) => [String(r.id), r]))
         const ordered = ids.map((id) => byId.get(String(id))).filter((r): r is Content => !!r)
-        const list = await Promise.all(ordered.map((r) => this.decorateContent(r)))
+
+        // 批量查询用户，消除 N+1 查询
+        const userIds = [...new Set(ordered.map((r) => r.user_id).filter((id) => id > 0))]
+        const users = userIds.length ? await this.userRepo.find({ where: { id: In(userIds) } }) : []
+        const userMap = new Map(users.map((u) => [u.id, u]))
+
+        const list = await Promise.all(ordered.map((r) => this.decorateContent(r, userMap)))
         const total = await this.redis.getRecommendTotal()
         return { list, count: total }
       }
@@ -226,7 +235,13 @@ export class ContentService implements OnModuleInit, OnModuleDestroy {
       skip: offset, take: limit,
     })
     const total = await this.contentRepo.count({ where: { audit_status: 'approved' } })
-    const list = await Promise.all(rows.map((r) => this.decorateContent(r)))
+
+    // 批量查询用户，消除 N+1 查询
+    const userIds = [...new Set(rows.map((r) => r.user_id).filter((id) => id > 0))]
+    const users = userIds.length ? await this.userRepo.find({ where: { id: In(userIds) } }) : []
+    const userMap = new Map(users.map((u) => [u.id, u]))
+
+    const list = await Promise.all(rows.map((r) => this.decorateContent(r, userMap)))
     return { list, count: total }
   }
 

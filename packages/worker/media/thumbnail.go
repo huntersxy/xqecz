@@ -1,6 +1,7 @@
 package media
 
 import (
+	"context"
 	"fmt"
 	"image"
 	"image/color"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	// 额外图像解码器（标准库不含 WebP/BMP/TIFF）。均为纯 Go，无 CGO 依赖。
 	_ "golang.org/x/image/bmp"
@@ -34,7 +36,7 @@ var ffmpegAvailable = sync.OnceValue(func() bool {
 // 视频：必须使用 ffmpeg（缺失即返回错误，由调用方降级）。
 //
 // 返回：相对 data 目录的缩略图路径（如 "thumbs/xxx_thumb.jpg"），供 api 映射为 /thumbs/ URL。
-func GenerateThumbnail(absPath, contentType, thumbDir string) (string, error) {
+func GenerateThumbnail(ctx context.Context, absPath, contentType, thumbDir string) (string, error) {
 	if err := os.MkdirAll(thumbDir, 0o755); err != nil {
 		return "", fmt.Errorf("create thumb dir: %w", err)
 	}
@@ -45,7 +47,7 @@ func GenerateThumbnail(absPath, contentType, thumbDir string) (string, error) {
 			return "", fmt.Errorf("ffmpeg not found in PATH; cannot generate video thumbnail")
 		}
 		outPath := filepath.Join(thumbDir, thumbName(absPath, "jpg"))
-		if err := runFFmpeg(absPath, outPath); err != nil {
+		if err := runFFmpeg(ctx, absPath, outPath); err != nil {
 			return "", err
 		}
 		return relThumb(thumbDir, outPath)
@@ -54,7 +56,7 @@ func GenerateThumbnail(absPath, contentType, thumbDir string) (string, error) {
 	// 图片：ffmpeg 优先（统一缩放），失败/缺失则纯 Go 兜底。
 	if ffmpegAvailable() {
 		outPath := filepath.Join(thumbDir, thumbName(absPath, "jpg"))
-		if err := runFFmpeg(absPath, outPath); err == nil {
+		if err := runFFmpeg(ctx, absPath, outPath); err == nil {
 			return relThumb(thumbDir, outPath)
 		}
 		// ffmpeg 失败不致命，继续走纯 Go 路径。
@@ -74,11 +76,19 @@ func thumbName(absPath, ext string) string {
 }
 
 // runFFmpeg 用 ffmpeg 把源文件缩放到宽 800（高度按比例）输出为 jpg。
-func runFFmpeg(absPath, outPath string) error {
+// 支持 context 传入的 deadline，超时自动终止 ffmpeg 进程。
+func runFFmpeg(ctx context.Context, absPath, outPath string) error {
+	// 默认 5 分钟超时（视频抽帧可能较慢），如果 context 已有更短的 deadline 则尊重它。
+	ffmpegCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
 	args := []string{"-y", "-i", absPath, "-vf", "scale=800:-1", outPath}
-	cmd := exec.Command("ffmpeg", args...)
+	cmd := exec.CommandContext(ffmpegCtx, "ffmpeg", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		if ffmpegCtx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("ffmpeg timed out after 5 minutes")
+		}
 		return fmt.Errorf("ffmpeg failed: %v: %s", err, string(out))
 	}
 	if _, statErr := os.Stat(outPath); statErr != nil {

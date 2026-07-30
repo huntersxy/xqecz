@@ -37,14 +37,14 @@ const ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 
 // Fetch 抓取目标 URL 的 OG / Twitter Card 元数据。
 // 任何失败（超时、非 HTML、解析无果）都返回 ok=false，调用方保留用户原值。
-func Fetch(raw string) (r Result, ok bool) {
+func Fetch(outer context.Context, raw string) (r Result, ok bool) {
 	parsed, err := url.Parse(raw)
 	if err != nil {
 		return Result{}, false
 	}
 	host := parsed.Hostname()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+	ctx, cancel := context.WithTimeout(outer, 6*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
@@ -126,15 +126,15 @@ func equalProp(a, b string) bool {
 func detectPlatform(hostname string) string {
 	h := strings.ToLower(hostname)
 	switch {
-	case strings.Contains(h, "bilibili.com"):
+	case strings.HasSuffix(h, "bilibili.com"):
 		return "bilibili"
-	case strings.Contains(h, "youtube.com"), strings.Contains(h, "youtu.be"):
+	case strings.HasSuffix(h, "youtube.com"), strings.HasSuffix(h, "youtu.be"):
 		return "youtube"
-	case strings.Contains(h, "twitter.com"), strings.Contains(h, "x.com"):
+	case strings.HasSuffix(h, "twitter.com"), strings.HasSuffix(h, "x.com"):
 		return "twitter"
-	case strings.Contains(h, "douyin.com"), strings.Contains(h, "tiktok.com"):
+	case strings.HasSuffix(h, "douyin.com"), strings.HasSuffix(h, "tiktok.com"):
 		return "douyin"
-	case strings.Contains(h, "weibo.com"):
+	case strings.HasSuffix(h, "weibo.com"):
 		return "weibo"
 	default:
 		return "generic"

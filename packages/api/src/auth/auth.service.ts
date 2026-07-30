@@ -89,7 +89,7 @@ export class AuthService implements OnModuleInit {
     return { message: '邮箱更新成功' }
   }
 
-  /** 修改密码（需验证旧密码），新密码打印到日志。 */
+  /** 修改密码（需验证旧密码）。 */
   async changePassword(uid: number, oldPassword: string, newPassword: string) {
     const user = await this.userRepo.findOne({ where: { id: uid }, select: ['id', 'username', 'password'] })
     if (!user) throw new UnauthorizedException('用户不存在')
@@ -98,7 +98,7 @@ export class AuthService implements OnModuleInit {
 
     const hash = await bcrypt.hash(newPassword, 10)
     await this.userRepo.update(uid, { password: hash })
-    this.logger.warn(`用户 [${user.username}] 修改了密码，新密码: ${newPassword}`)
+    this.logger.log(`用户 [${user.username}] 修改了密码`)
     return { message: '密码修改成功' }
   }
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Query, Body, Req, Res, UseGuards, UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/common'
+import { Controller, Get, Post, Put, Delete, Param, Query, Body, Req, Res, UseGuards, UploadedFile, UseInterceptors, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { diskStorage } from 'multer'
 import { basename, extname, relative } from 'path'
@@ -11,7 +11,7 @@ import { CurrentUser } from '../decorators/current-user.decorator'
 import { UploadContentDto, UpdateContentDto, ListContentDto, ClaimDto, QuickUploadDto } from './dto'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
-import { Claim } from '../entities'
+import { Claim, ContentLike, ContentFavorite } from '../entities'
 import { RedisService } from '../redis/redis.service'
 import { UPLOAD_DIR } from '../paths'
 
@@ -54,6 +54,8 @@ export class ContentController {
     private svc: ContentService,
     private redis: RedisService,
     @InjectRepository(Claim) private claimRepo: Repository<Claim>,
+    @InjectRepository(ContentLike) private likeRepo: Repository<ContentLike>,
+    @InjectRepository(ContentFavorite) private favRepo: Repository<ContentFavorite>,
   ) {}
 
   @Get('list')
@@ -135,7 +137,12 @@ export class ContentController {
     const sessionID = req.cookies?.['session_id'] || ''
     const uid = await this.svc.resolveUserId(sessionID)
 
-    const ip = req.ip || req.socket?.remoteAddress || 'unknown'
+    // 反向代理后 req.ip 可能是代理 IP；优先取 X-Forwarded-For 最左段（真实客户端 IP）。
+    const forwarded = req.headers['x-forwarded-for']
+    const ip = (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : null)
+      || req.ip
+      || req.socket?.remoteAddress
+      || 'unknown'
     // 仅在有文件时按 IP 限频（纯描述没有占用带宽的风控必要）
     if (file) {
       const count = await this.redis.incrWithTTL(`quick_upload:ip:${ip}`, 3600)
@@ -147,7 +154,8 @@ export class ContentController {
     }
 
     const tags = Array.isArray(dto.tags) ? dto.tags : typeof dto.tags === 'string' ? dto.tags.split(',').map(s => s.trim()).filter(Boolean) : []
-    const type = file ? 'image' : 'text'
+    // 按 mimetype 自动推导类型：video/* → video，image/* → image，无文件 → text
+    const type = !file ? 'text' : file.mimetype?.startsWith('video/') ? 'video' : 'image'
     const result = await this.svc.create(
       {
         title: dto.title, type, content: dto.content,
@@ -190,8 +198,8 @@ export class ContentController {
   @UseInterceptors(FileInterceptor('file', { storage: uploadStorage() }))
   async update(@Param('id') id: string, @Body() dto: UpdateContentDto, @CurrentUser('uid') uid: number, @CurrentUser('is_admin') isAdmin: boolean) {
     const row = await this.svc.getContentRow(Number(id))
-    if (!row) return { code: 404, message: '内容不存在' }
-    if (uid !== row.user_id && !isAdmin) return { code: 403, message: '无权修改该内容' }
+    if (!row) throw new NotFoundException('内容不存在')
+    if (uid !== row.user_id && !isAdmin) throw new ForbiddenException('无权修改该内容')
     const tags = Array.isArray(dto.tags) ? dto.tags : typeof dto.tags === 'string' ? dto.tags.split(',').map(s => s.trim()).filter(Boolean) : undefined
     const data = await this.svc.update(Number(id), { title: dto.title, content: dto.content, url: dto.url, tags })
     return { code: 200, message: '更新成功', data }
@@ -201,8 +209,8 @@ export class ContentController {
   @UseGuards(AuthGuard)
   async delete(@Param('id') id: string, @CurrentUser('uid') uid: number, @CurrentUser('is_admin') isAdmin: boolean) {
     const row = await this.svc.getContentRow(Number(id))
-    if (!row) return { code: 404, message: '内容不存在' }
-    if (uid !== row.user_id && !isAdmin) return { code: 403, message: '无权删除该内容' }
+    if (!row) throw new NotFoundException('内容不存在')
+    if (uid !== row.user_id && !isAdmin) throw new ForbiddenException('无权删除该内容')
     await this.svc.softDelete(Number(id))
     return { code: 200, message: '已删除', data: null }
   }
@@ -214,5 +222,47 @@ export class ContentController {
     const claim = this.claimRepo.create({ content_id: Number(contentId), user_id: uid, reason: dto.reason || '', status: 'pending' })
     const saved = await this.claimRepo.save(claim)
     return { code: 200, message: '认领申请已提交', data: { id: saved.id } }
+  }
+
+  // ── 点赞 ──
+  @Post(':content_id/like')
+  @UseGuards(AuthGuard)
+  async toggleLike(@Param('content_id') contentId: string, @CurrentUser('uid') uid: number) {
+    const cid = Number(contentId)
+    const existing = await this.likeRepo.findOne({ where: { content_id: cid, user_id: uid } })
+    if (existing) {
+      await this.likeRepo.remove(existing)
+      return { code: 200, message: '已取消点赞', data: { liked: false } }
+    }
+    const row = this.likeRepo.create({ content_id: cid, user_id: uid })
+    await this.likeRepo.save(row)
+    return { code: 200, message: '已点赞', data: { liked: true } }
+  }
+
+  @Get(':content_id/like-status')
+  @UseGuards(AuthGuard)
+  async likeStatus(@Param('content_id') contentId: string, @CurrentUser('uid') uid: number) {
+    const cid = Number(contentId)
+    const [liked, favorited, likeCount] = await Promise.all([
+      this.likeRepo.findOne({ where: { content_id: cid, user_id: uid } }).then(Boolean),
+      this.favRepo.findOne({ where: { content_id: cid, user_id: uid } }).then(Boolean),
+      this.likeRepo.count({ where: { content_id: cid } }),
+    ])
+    return { code: 200, message: 'ok', data: { liked, favorited, like_count: likeCount } }
+  }
+
+  // ── 收藏 ──
+  @Post(':content_id/favorite')
+  @UseGuards(AuthGuard)
+  async toggleFavorite(@Param('content_id') contentId: string, @CurrentUser('uid') uid: number) {
+    const cid = Number(contentId)
+    const existing = await this.favRepo.findOne({ where: { content_id: cid, user_id: uid } })
+    if (existing) {
+      await this.favRepo.remove(existing)
+      return { code: 200, message: '已取消收藏', data: { favorited: false } }
+    }
+    const row = this.favRepo.create({ content_id: cid, user_id: uid })
+    await this.favRepo.save(row)
+    return { code: 200, message: '已收藏', data: { favorited: true } }
   }
 }

@@ -58,11 +58,15 @@ declare module 'vue' {
     CommentItem: typeof import('./components/CommentItem.vue')['default']
     CommentSections: typeof import('./components/CommentSections.vue')['default']
     ConfirmDialog: typeof import('./components/ConfirmDialog.vue')['default']
+    ContentMedia: typeof import('./components/ContentMedia.vue')['default']
+    ContentSidebar: typeof import('./components/ContentSidebar.vue')['default']
     ErrorBoundary: typeof import('./components/ErrorBoundary.vue')['default']
     MarkdownToolbar: typeof import('./components/MarkdownToolbar.vue')['default']
+    RecommendSection: typeof import('./components/RecommendSection.vue')['default']
     ReportModal: typeof import('./components/ReportModal.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     TagCloud: typeof import('./components/admin/TagCloud.vue')['default']
+    WaterfallCard: typeof import('./components/WaterfallCard.vue')['default']
   }
 }
