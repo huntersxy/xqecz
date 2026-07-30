@@ -62,6 +62,7 @@ declare module 'vue' {
     ContentSidebar: typeof import('./components/ContentSidebar.vue')['default']
     ErrorBoundary: typeof import('./components/ErrorBoundary.vue')['default']
     MarkdownToolbar: typeof import('./components/MarkdownToolbar.vue')['default']
+    QuickUploadSheet: typeof import('./components/QuickUploadSheet.vue')['default']
     RecommendSection: typeof import('./components/RecommendSection.vue')['default']
     ReportModal: typeof import('./components/ReportModal.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

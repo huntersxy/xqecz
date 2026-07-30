@@ -59,7 +59,7 @@ const previewItems = computed(() => {
 function scrollThumbIntoView() {
   nextTick(() => {
     const el = previewRef.value?.querySelector('.cd-thumb-current')
-    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
   })
 }
 
@@ -197,18 +197,6 @@ function onKeyDown(e: KeyboardEvent) {
   if (e.key === 'ArrowRight') void goToNext()
 }
 
-// ── 触摸滑动 ──
-let touchStartX = 0
-function onTouchStart(e: TouchEvent) {
-  touchStartX = e.touches[0].clientX
-}
-function onTouchEnd(e: TouchEvent) {
-  const dx = e.changedTouches[0].clientX - touchStartX
-  if (Math.abs(dx) < 80) return
-  if (dx > 0) goToPrev()
-  else void goToNext()
-}
-
 // ── 生命周期 ──
 onMounted(() => {
   userStore.checkAuth()
@@ -220,8 +208,6 @@ onMounted(() => {
   listTotalPages.value = cached?.totalPages || 1
   calcPreviewCount()
   document.addEventListener('keydown', onKeyDown)
-  document.addEventListener('touchstart', onTouchStart)
-  document.addEventListener('touchend', onTouchEnd)
   window.addEventListener('resize', calcPreviewCount)
   const scrollBarW = window.innerWidth - document.documentElement.clientWidth
   const prevOverflow = document.body.style.overflow
@@ -236,8 +222,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeyDown)
-  document.removeEventListener('touchstart', onTouchStart)
-  document.removeEventListener('touchend', onTouchEnd)
   window.removeEventListener('resize', calcPreviewCount)
 })
 
@@ -294,18 +278,18 @@ watch(() => route.params.id, (newId) => {
           <ContentMedia :content="content" />
           <ContentSidebar :content="content" @message="message = $event" @report-comment="reportTarget = $event" />
         </div>
+      </div>
 
-        <!-- 右侧预览区 -->
-        <div v-if="previewItems.length > 0" ref="previewRef" class="cd-side-preview">
-          <button
-            v-for="item in previewItems"
-            :key="item.id"
-            :class="['cd-side-thumb', { 'cd-thumb-current': item.isCurrent }]"
-            @click="navigateTo(item.id)"
-          >
-            <img :src="getImageUrl(item.thumb)" :alt="item.title" loading="lazy" />
-          </button>
-        </div>
+      <!-- 底部预览走马灯 -->
+      <div v-if="content && previewItems.length > 0" ref="previewRef" class="cd-carousel">
+        <button
+          v-for="item in previewItems"
+          :key="item.id"
+          :class="['cd-carousel-thumb', { 'cd-thumb-current': item.isCurrent }]"
+          @click="navigateTo(item.id)"
+        >
+          <img :src="getImageUrl(item.thumb)" :alt="item.title" loading="lazy" />
+        </button>
       </div>
 
       <!-- 加载中 -->
@@ -468,22 +452,24 @@ watch(() => route.params.id, (newId) => {
 /* ── 主体 ── */
 .cd-body { flex: 1; min-height: 0; display: flex; gap: 0; }
 
-/* ── 侧边预览 ── */
-.cd-side-preview {
-  width: 76px;
+/* ── 底部预览走马灯 ── */
+.cd-carousel {
   flex-shrink: 0;
   display: flex;
-  flex-direction: column;
   gap: 6px;
-  padding: 8px 6px;
-  overflow-y: auto;
+  padding: 8px 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
   background: var(--theme-header-bg);
-  border-left: 1px solid var(--theme-card-border);
+  border-top: 1px solid var(--theme-card-border);
   scroll-behavior: smooth;
+  scrollbar-width: none;
 }
-.cd-side-thumb {
-  width: 100%;
-  height: 64px;
+.cd-carousel::-webkit-scrollbar { display: none; }
+.cd-carousel-thumb {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
   border-radius: 6px;
   overflow: hidden;
   border: 2px solid transparent;
@@ -492,12 +478,12 @@ watch(() => route.params.id, (newId) => {
   background: var(--theme-card-border);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
-.cd-side-thumb:hover { border-color: var(--theme-primary); }
+.cd-carousel-thumb:hover { border-color: var(--theme-primary); }
 .cd-thumb-current {
   border-color: var(--theme-primary);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-primary) 30%, transparent);
 }
-.cd-side-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cd-carousel-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 /* ── 中间主体 ── */
 .cd-main { flex: 1; min-width: 0; display: flex; }
@@ -566,9 +552,11 @@ watch(() => route.params.id, (newId) => {
 /* ── 窄屏 ── */
 @media (max-width: 768px) {
   .cd-body { flex-direction: column; overflow-y: auto; }
-  .cd-side-preview { display: none; }
+  .cd-main { flex-direction: column; }
   .cd-nav-btn { display: none; }
   .cd-bottombar { padding: 0.5rem 0.75rem; gap: 0.375rem; }
   .cd-action { padding: 0.4375rem 0.625rem; font-size: 0.75rem; }
+  :deep(.cd-media-wrap) { flex: 1 1 100%; max-height: 50vh; }
+  :deep(.cd-side) { flex: 1 1 100%; max-width: 100%; border-left: none; border-top: 1px solid var(--theme-card-border); }
 }
 </style>

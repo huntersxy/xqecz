@@ -16,6 +16,8 @@ import { useListCache, diffLists } from '@/composables/useListCache'
 import { ContentSchema } from '@/types/schemas'
 import WaterfallCard from '@/components/WaterfallCard.vue'
 import RecommendSection from '@/components/RecommendSection.vue'
+import QuickUploadSheet from '@/components/QuickUploadSheet.vue'
+import { CloudUploadOutlined } from '@ant-design/icons-vue'
 import type { Content, ListParams } from '@/types'
 
 const router = useRouter()
@@ -23,6 +25,7 @@ const homeStore = useHomeStore()
 const recommendLoader = useRecommendLoader()
 const searchFilter = useSearchFilter()
 const listCache = useListCache()
+const showUploadSheet = ref(false)
 
 const swapSections = computed(
   () =>
@@ -56,6 +59,8 @@ watch(
     if (oldLen === 0 || newLen < oldLen) {
       nextTick(() => waterfall.relayout())
     }
+    // 数据变化后检查是否需要加载更多
+    checkAndLoadMore()
   },
 )
 
@@ -131,6 +136,19 @@ watchGlobalSearch(() => resetAndLoad())
 async function fetchMore() {
   if (!hasMore.value || isLoading.value || isLoadingMore.value) return
   await fetchPage(currentPage.value + 1, true)
+}
+
+// 备用触发：列表高度不够时自动加载更多
+function checkAndLoadMore() {
+  nextTick(() => {
+    if (!hasMore.value || isLoading.value || isLoadingMore.value) return
+    const el = masonryRef.value
+    if (!el) return
+    // 列表高度小于视口高度的 1.5 倍时，自动加载更多
+    if (el.scrollHeight < window.innerHeight * 1.5) {
+      fetchMore()
+    }
+  })
 }
 
 // 异步 diff：拿最新数据与缓存对比，更新列表
@@ -247,6 +265,14 @@ onActivated(() => {
       <div ref="sentinelRef" class="wf-sentinel"></div>
       <div v-if="!hasMore && allContents.length > 0" class="wf-end"><span>— 到底啦 —</span></div>
     </div>
+
+    <!-- 移动端悬浮上传按钮 -->
+    <button class="wf-fab" @click="showUploadSheet = true">
+      <CloudUploadOutlined />
+    </button>
+
+    <!-- 快速上传弹窗 -->
+    <QuickUploadSheet :open="showUploadSheet" @close="showUploadSheet = false" />
   </div>
 </template>
 
@@ -281,6 +307,40 @@ onActivated(() => {
 }
 .wf-sentinel { height: 1px; }
 .wf-end { text-align: center; padding: 2rem; font-size: 0.75rem; color: var(--theme-text-secondary); opacity: 0.6; }
+
+/* 悬浮上传按钮 */
+.wf-fab {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .wf-fab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--theme-primary);
+    color: var(--theme-on-primary);
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    z-index: 100;
+    font-size: 22px;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .wf-fab:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+  }
+  .wf-fab:active {
+    transform: scale(0.95);
+  }
+}
 
 @keyframes wf-spin { to { transform: rotate(360deg); } }
 </style>
