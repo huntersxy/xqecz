@@ -54,7 +54,7 @@ jobs:
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME_BACKEND }}
-          password: ${{ secrets.FTP_PASSWORD_BACKEND }}
+          password: ${{ secrets.FTP_PASSWORD }}
           local-dir: deploy/packages/api/
           server-dir: ${{ secrets.API_REMOTE_DIR }}
           dangerous-clean-slate: true
@@ -64,7 +64,7 @@ jobs:
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME_BACKEND }}
-          password: ${{ secrets.FTP_PASSWORD_BACKEND }}
+          password: ${{ secrets.FTP_PASSWORD }}
           local-dir: deploy/packages/worker/
           server-dir: ${{ secrets.WORKER_REMOTE_DIR }}
 
@@ -73,7 +73,7 @@ jobs:
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME_FRONTEND }}
-          password: ${{ secrets.FTP_PASSWORD_FRONTEND }}
+          password: ${{ secrets.FTP_PASSWORD }}
           local-dir: deploy/packages/frontend/dist/
           server-dir: ${{ secrets.FRONTEND_REMOTE_DIR }}
           dangerous-clean-slate: true
