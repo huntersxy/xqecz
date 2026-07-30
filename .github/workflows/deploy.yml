@@ -34,7 +34,7 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm --filter ./packages/api run build
           pnpm --filter ./packages/frontend run build
-          cd packages/worker && go build -o xqecz-worker ./cmd/server/ && cd ../..
+          cd packages/worker && CGO_ENABLED=0 go build -o xqecz-worker ./cmd/server/ && cd ../..
 
       - name: Prepare deploy
         run: |
