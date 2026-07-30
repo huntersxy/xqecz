@@ -55,8 +55,9 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME_BACKEND }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: deploy/packages/api/
-          server-dir: packages/api/
+          local-dir: deploy/packages/api/dist/
+          server-dir: packages/api/dist/
+          dangerous-clean-slate: true
 
       - name: Deploy Worker
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
