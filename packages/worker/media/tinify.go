@@ -34,7 +34,7 @@ func TinifyCompress(absPath, imagesDir, apiKey string) (string, error) {
 	}
 
 	client := &http.Client{Timeout: 60 * time.Second}
-	auth := "Basic " + basicAuth(apiKey)
+	auth := basicAuth(apiKey)
 
 	f, err := os.Open(absPath)
 	if err != nil {
