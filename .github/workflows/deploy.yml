@@ -1,0 +1,79 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: ["master"]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/worker/go.mod
+
+      # ── 构建 ──
+
+      - name: Build
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter ./packages/api run build
+          pnpm --filter ./packages/frontend run build
+          cd packages/worker && go build -o xqecz-worker ./cmd/server/ && cd ../..
+
+      # ── 打包到统一目录 ──
+
+      - name: Prepare deploy
+        run: |
+          mkdir -p deploy/packages/api
+          mkdir -p deploy/packages/worker
+          mkdir -p deploy/packages/frontend
+          cp -r packages/api/dist deploy/packages/api/
+          cp packages/worker/xqecz-worker deploy/packages/worker/
+          cp -r packages/frontend/dist deploy/packages/frontend/
+
+      # ── FTP 上传 ──
+
+      - name: Deploy API + Worker
+        uses: SamKirkland/FTP-Deploy-Action@v4
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: deploy/packages/api/
+          server-dir: ${{ secrets.API_REMOTE_DIR }}
+          dangerous-clean-slate: true
+
+      - name: Deploy Worker
+        uses: SamKirkland/FTP-Deploy-Action@v4
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: deploy/packages/worker/
+          server-dir: ${{ secrets.WORKER_REMOTE_DIR }}
+
+      - name: Deploy Frontend
+        uses: SamKirkland/FTP-Deploy-Action@v4
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: deploy/packages/frontend/dist/
+          server-dir: ${{ secrets.FRONTEND_REMOTE_DIR }}
+          dangerous-clean-slate: true
