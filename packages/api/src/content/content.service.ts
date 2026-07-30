@@ -163,6 +163,11 @@ export class ContentService implements OnModuleInit {
     return `https://www.gravatar.com/avatar/${hash}?d=identicon&s=${size}`
   }
 
+  /** 公开版 decorateContent，供 AdminService 等内部服务复用格式化逻辑 */
+  async decorateContentPublic(row: Content) {
+    return this.decorateContent(row)
+  }
+
   async list(opts: { page?: number; pageSize?: number; tag?: string; type?: string; auditStatus?: string; keyword?: string; sortBy?: string; order?: string; userId?: number }) {
     const page = Math.max(1, opts.page || 1)
     const pageSize = Math.min(Math.max(1, opts.pageSize || 20), 100)

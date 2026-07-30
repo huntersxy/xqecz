@@ -1,4 +1,4 @@
-import { ref, onMounted, onUnmounted, nextTick, type Ref } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, type Ref } from 'vue'
 
 export interface WaterfallItem {
   id: string | number
@@ -107,19 +107,41 @@ export function useWaterfallLayout(
     nextTick(() => relayout())
   }
 
-  let resizeTimer: ReturnType<typeof setTimeout> | null = null
-  function handleResize() {
-    if (resizeTimer) clearTimeout(resizeTimer)
-    resizeTimer = setTimeout(() => relayout(), 150)
+  let resizeRaf: number | null = null
+  let resizeObserver: ResizeObserver | null = null
+
+  function scheduleRelayout() {
+    if (resizeRaf) cancelAnimationFrame(resizeRaf)
+    resizeRaf = requestAnimationFrame(() => {
+      relayout()
+      resizeRaf = null
+    })
   }
 
+  function setupResizeObserver(el: HTMLElement) {
+    resizeObserver?.disconnect()
+    resizeObserver = new ResizeObserver(scheduleRelayout)
+    resizeObserver.observe(el)
+  }
+
+  // 容器可能在 v-else 上，初始时不存在，需要 watch 等它出现
+  watch(containerRef, (el) => {
+    if (el) {
+      setupResizeObserver(el)
+      nextTick(() => relayout())
+    }
+  }, { immediate: true })
+
   onMounted(() => {
-    window.addEventListener('resize', handleResize)
+    // 如果 watch immediate 已经挂上就不需要再处理
+    if (containerRef.value && !resizeObserver) {
+      setupResizeObserver(containerRef.value)
+    }
   })
 
   onUnmounted(() => {
-    window.removeEventListener('resize', handleResize)
-    if (resizeTimer) clearTimeout(resizeTimer)
+    resizeObserver?.disconnect()
+    if (resizeRaf) cancelAnimationFrame(resizeRaf)
   })
 
   return {

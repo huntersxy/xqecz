@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository, Like } from 'typeorm'
+import { Repository, Like, In } from 'typeorm'
 import { Content, User, Claim, CommentReport, Comment } from '../entities'
 import { ContentService } from '../content/content.service'
 import { CommentService } from '../comment/comment.service'
@@ -85,8 +85,28 @@ export class AdminService {
     const [rows, total] = await this.claimRepo.findAndCount({
       where, order: { created_at: 'DESC' }, skip: (page - 1) * pageSize, take: pageSize,
     })
+    // 批量关联 content + user，前端需要展示缩略图/标题/认领人
+    const contentIds = [...new Set(rows.map((r) => Number(r.content_id)))]
+    const userIds = [...new Set(rows.map((r) => Number(r.user_id)))]
+    const contents = contentIds.length
+      ? await this.contentRepo.find({ where: { id: In(contentIds) } })
+      : []
+    const users = userIds.length
+      ? await this.userRepo.find({ where: { id: In(userIds) } })
+      : []
+    const contentMap = new Map(contents.map((c) => [Number(c.id), c]))
+    const userMap = new Map(users.map((u) => [Number(u.id), u]))
+    const list = await Promise.all(rows.map(async (r) => {
+      const c = contentMap.get(Number(r.content_id))
+      const u = userMap.get(Number(r.user_id))
+      return {
+        ...r,
+        content: c ? await this.contentSvc.decorateContentPublic(c) : null,
+        user: u ? { id: u.id, username: u.username } : { id: Number(r.user_id), username: 'unknown' },
+      }
+    }))
     const totalPage = pageSize > 0 ? Math.ceil(total / pageSize) : 1
-    return { list: rows, total, page, page_size: pageSize, total_page: totalPage }
+    return { list, total, page, page_size: pageSize, total_page: totalPage }
   }
 
   async handleClaim(id: number, action: 'approve' | 'reject', remark: string, operatorId: number) {

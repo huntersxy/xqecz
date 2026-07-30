@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, nextTick } from 'vue'
 import { getImageUrl, renderMarkdown } from '@/utils'
+import SafeImage from '@/components/SafeImage.vue'
 import Viewer from 'viewerjs'
 import 'viewerjs/dist/viewer.css'
 import type { Content } from '@/types'
@@ -62,7 +63,7 @@ defineExpose({ mediaKind, mediaUrl })
 <template>
   <section class="cd-media-wrap">
     <div v-if="mediaKind === 'image'" class="cd-media-image" @click="openViewerInline">
-      <img :src="mediaUrl" :alt="content.title" class="cd-image" draggable="false" />
+      <SafeImage :src="mediaUrl" :alt="content.title" class="cd-image" draggable="false" />
     </div>
     <video v-else-if="mediaKind === 'video'" :src="mediaUrl" controls playsinline class="cd-video">
       您的浏览器不支持视频播放。

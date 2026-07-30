@@ -67,6 +67,7 @@ declare module 'vue' {
     ReportModal: typeof import('./components/ReportModal.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SafeImage: typeof import('./components/SafeImage.vue')['default']
     TagCloud: typeof import('./components/admin/TagCloud.vue')['default']
     WaterfallCard: typeof import('./components/WaterfallCard.vue')['default']
   }

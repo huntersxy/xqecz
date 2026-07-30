@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { getImageUrl } from '@/utils'
+import SafeImage from '@/components/SafeImage.vue'
 import type { Content } from '@/types'
 
 interface Props {
@@ -18,7 +19,7 @@ function onImgLoad() {
   <div class="wf-card" @click="emit('click', props.item)" @keydown.enter="emit('click', props.item)" tabindex="0">
     <template v-if="props.item.type !== 'text'">
       <div class="wf-card-media">
-        <img :src="getImageUrl(props.item.thumb)" :alt="props.item.title" loading="lazy" decoding="async" @load="onImgLoad" />
+        <SafeImage :src="getImageUrl(props.item.thumb)" :alt="props.item.title" loading="lazy" decoding="async" @load="onImgLoad" />
         <div v-if="props.item.tags?.some(t => /ai/i.test(t))" class="wf-badge-ai">AI</div>
       </div>
     </template>

@@ -47,6 +47,9 @@ const masonryRef = ref<HTMLElement | null>(null)
 
 const waterfall = useWaterfallLayout(masonryRef, allContents)
 
+// 是否需要在布局完成后恢复滚动位置
+const pendingScrollRestore = ref(false)
+
 // 首次加载或重置时全量布局
 watch(
   () => allContents.value.length,
@@ -66,19 +69,34 @@ watch(
 
 function onImageLoaded(id: string | number) {
   waterfall.onImageLoaded(id)
+  // 如果有待恢复的滚动位置，在图片加载后尝试恢复
+  if (pendingScrollRestore.value) {
+    requestAnimationFrame(() => {
+      const target = homeStore.scrollPosition
+      // 只有当容器高度足够时才恢复
+      if (document.documentElement.scrollHeight > target + 100) {
+        homeStore.restoreScroll()
+        pendingScrollRestore.value = false
+      }
+    })
+  }
 }
 
 function openContent(content: Content) {
+  const pos = globalThis.scrollY
+  console.log('[Scroll] 点击时位置:', pos)
   homeStore.saveState({
     searchKeyword: homeStore.searchKeyword,
     selectedTags: searchFilter.selectedTags.value,
     selectedTypes: searchFilter.selectedTypes.value,
     page: currentPage.value,
     recommendPage: recommendLoader.recommendPage.value,
-    scrollPosition: globalThis.scrollY,
+    scrollPosition: pos,
     contents: allContents.value,
     total: total.value,
     totalPages: totalPages.value,
+    positions: new Map(waterfall.positions.value),
+    containerHeight: waterfall.containerHeight.value,
   })
   router.push(`/content/${content.id}`)
 }
@@ -179,6 +197,7 @@ useIntersectionObserver(sentinelRef, ([{ isIntersecting }]) => {
 }, { rootMargin: '1000px' })
 
 onMounted(() => {
+  console.log('[HomeView] onMounted 触发')
   const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[]
   if (navEntries.length > 0 && navEntries[0].type === 'reload') {
     homeStore.clearState()
@@ -198,6 +217,12 @@ onMounted(() => {
     total.value = homeStore.cachedTotal
     totalPages.value = homeStore.cachedTotalPages
     recommendLoader.recommendPage.value = homeStore.recommendPage
+    // 恢复瀑布流布局缓存
+    if (homeStore.cachedPositions.size > 0) {
+      waterfall.positions.value = new Map(homeStore.cachedPositions)
+      waterfall.containerHeight.value = homeStore.cachedContainerHeight
+      waterfall.isLayoutReady.value = true
+    }
     nextTick(() => requestAnimationFrame(() => homeStore.restoreScroll()))
     return
   }
@@ -221,7 +246,26 @@ onMounted(() => {
 
 // keep-alive 激活时恢复滚动位置
 onActivated(() => {
-  nextTick(() => requestAnimationFrame(() => homeStore.restoreScroll()))
+  console.log('[HomeView] onActivated 触发')
+  const savedPos = homeStore.scrollPosition
+  console.log('[Scroll] 返回时保存的位置:', savedPos)
+
+  // 恢复瀑布流布局缓存
+  if (homeStore.cachedPositions.size > 0) {
+    waterfall.positions.value = new Map(homeStore.cachedPositions)
+    waterfall.containerHeight.value = homeStore.cachedContainerHeight
+    waterfall.isLayoutReady.value = true
+  }
+
+  // 标记需要在图片加载后恢复滚动
+  pendingScrollRestore.value = true
+
+  // 延迟恢复，等待 DOM 就绪
+  setTimeout(() => {
+    pendingScrollRestore.value = false
+    homeStore.restoreScroll()
+    console.log('[Scroll] 延迟恢复后实际位置:', globalThis.scrollY)
+  }, 300)
 })
 </script>
 

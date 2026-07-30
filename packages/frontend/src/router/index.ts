@@ -1,6 +1,5 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { createAsyncComponent } from '@/utils/asyncComponent'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -12,27 +11,27 @@ export const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'home',
-    component: createAsyncComponent(() => import('../views/HomeView.vue')),
+    component: () => import('../views/HomeView.vue'),
   },
   {
     path: '/quick-upload',
     name: 'quick-upload',
-    component: createAsyncComponent(() => import('../views/QuickUploadView.vue')),
+    component: () => import('../views/QuickUploadView.vue'),
   },
   {
     path: '/login',
     name: 'login',
-    component: createAsyncComponent(() => import('../views/LoginView.vue')),
+    component: () => import('../views/LoginView.vue'),
   },
   {
     path: '/content/:id',
     name: 'content-detail',
-    component: createAsyncComponent(() => import('../views/ContentDetailView.vue')),
+    component: () => import('../views/ContentDetailView.vue'),
   },
   {
     path: '/admin',
     name: 'admin',
-    component: createAsyncComponent(() => import('../views/AdminView.vue')),
+    component: () => import('../views/AdminView.vue'),
     meta: { requiresAuth: true },
   },
 ]

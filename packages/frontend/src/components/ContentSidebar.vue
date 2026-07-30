@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { renderMarkdown } from '@/utils'
+import SafeImage from '@/components/SafeImage.vue'
 import { useUserStore } from '@/stores/user'
 import CommentSections from '@/components/CommentSections.vue'
 import type { Content, Comment } from '@/types'
@@ -56,7 +57,7 @@ defineExpose({ commentRef })
   <aside class="cd-side">
     <div v-if="content.user" class="cd-author">
       <div class="cd-author-left">
-        <img v-if="content.avatar_url" :src="content.avatar_url" class="cd-avatar-img" :alt="content.user.username" />
+        <SafeImage v-if="content.avatar_url" :src="content.avatar_url" class="cd-avatar-img" :alt="content.user.username" />
         <div v-else class="cd-avatar">{{ (content.user.username || '?').slice(0, 1).toUpperCase() }}</div>
         <div class="cd-author-info">
           <span class="cd-author-name">{{ content.user.username }}</span>
@@ -88,7 +89,7 @@ defineExpose({ commentRef })
       <div class="cd-section-head"><span class="cd-section-title">参考图片</span></div>
       <div class="cd-ref-grid">
         <a v-for="(img, i) in refImages" :key="i" :href="img.url" target="_blank" rel="noopener" class="cd-ref-thumb">
-          <img :src="img.url" :alt="img.alt" loading="lazy" />
+          <SafeImage :src="img.url" :alt="img.alt" loading="lazy" />
         </a>
       </div>
     </div>
@@ -105,7 +106,7 @@ defineExpose({ commentRef })
 
     <CommentSections
       ref="commentRef"
-      :content-id="content?.id || 0"
+      :content-id="Number(content?.id) || 0"
       :is-logged-in="userStore.isLoggedIn"
       @report-comment="emit('report-comment', $event)"
     />

@@ -2,6 +2,7 @@
 import { useAdminStore } from '@/stores/admin'
 import { adminApi } from '@/api'
 import { getImageUrl, renderMarkdown } from '@/utils'
+import SafeImage from '@/components/SafeImage.vue'
 import { Tag } from 'ant-design-vue'
 import { useConfirm } from '@/composables/useToast'
 import type { User } from '@/types'
@@ -126,14 +127,14 @@ function addNewTag() {
             <Tag v-for="tag in admin.drawerContent.tags" :key="tag">{{ tag }}</Tag>
           </div>
           <div v-if="admin.drawerContent.type === 'image'" class="preview-media-wrap">
-            <img :src="getImageUrl(admin.drawerContent.img)" class="preview-media" alt="" />
+            <SafeImage :src="getImageUrl(admin.drawerContent.img)" class="preview-media" alt="" />
           </div>
           <div v-else-if="drawerTypeStr === 'video'" class="preview-media-wrap">
             <video controls class="preview-media"><source :src="getImageUrl(admin.drawerContent.video)" /><track kind="captions" /></video>
           </div>
           <div v-else-if="drawerTypeStr === 'link'" class="preview-media-wrap">
             <a :href="admin.drawerContent.url" target="_blank" rel="noopener">
-              <img v-if="admin.drawerContent.thumb" :src="getImageUrl(admin.drawerContent.thumb)" class="preview-media" alt="" />
+              <SafeImage v-if="admin.drawerContent.thumb" :src="getImageUrl(admin.drawerContent.thumb)" class="preview-media" alt="" />
               <div v-else class="link-box">{{ admin.drawerContent.url }}</div>
             </a>
           </div>

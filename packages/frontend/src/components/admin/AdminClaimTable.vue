@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAdminStore } from '@/stores/admin'
 import { getImageUrl } from '@/utils'
+import SafeImage from '@/components/SafeImage.vue'
 import { ACTION_COL, CONTENT_COL, STATUS_COL, CLAIMER_COL, REASON_COL, SECONDARY_STYLE } from './adminColumns'
 import { Tag, Tooltip, type TableColumnsType } from 'ant-design-vue'
 import type { SelectValue } from 'ant-design-vue/es/select'
@@ -56,7 +57,7 @@ onMounted(load)
             <template v-if="column.key === 'content'">
               <div class="flex items-center gap-3">
                 <div v-if="record.content?.type !== 'text'" class="flex-shrink-0 w-12 h-9 rounded overflow-hidden bg-gray-100">
-                  <img :src="getImageUrl(record.content?.thumb)" class="w-full h-full object-cover" loading="lazy" alt="" />
+                  <SafeImage :src="getImageUrl(record.content?.thumb)" class="w-full h-full object-cover" loading="lazy" alt="" />
                 </div>
                 <Tooltip :title="record.content?.title || '未知内容'">
                   <span class="claim-title">{{ record.content?.title || '未知内容' }}</span>

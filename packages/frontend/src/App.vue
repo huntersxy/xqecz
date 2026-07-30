@@ -251,21 +251,7 @@ onMounted(() => {
     <ErrorBoundary>
       <RouterView v-slot="{ Component }">
         <KeepAlive :include="['HomeView']">
-          <Suspense>
-            <component :is="Component" />
-            <template #fallback>
-              <output
-                class="flex flex-col items-center justify-center py-[60px] px-5"
-                aria-live="polite"
-              >
-                <div
-                  class="w-10 h-10 border-3 border-[color-mix(in_srgb,var(--theme-primary)_20%,transparent)] border-t-[var(--theme-primary)] rounded-full animate-spin"
-                  aria-hidden="true"
-                ></div>
-                <p class="mt-4 text-[var(--theme-text-secondary)] text-[14px]">加载中...</p>
-              </output>
-            </template>
-          </Suspense>
+          <component :is="Component" />
         </KeepAlive>
       </RouterView>
     </ErrorBoundary>

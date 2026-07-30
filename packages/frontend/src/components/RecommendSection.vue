@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { getImageUrl } from '@/utils'
+import SafeImage from '@/components/SafeImage.vue'
 import type { Content } from '@/types'
 
 interface Props {
@@ -23,7 +24,7 @@ const emit = defineEmits<{ click: [item: Content] }>()
         class="wf-recommend-card"
         @click="emit('click', item as Content)"
       >
-        <img
+        <SafeImage
           v-if="(item as Content).type !== 'text'"
           :src="getImageUrl((item as Content).thumb)"
           :alt="(item as Content).title"

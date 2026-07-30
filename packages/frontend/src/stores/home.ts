@@ -2,6 +2,12 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Content } from '@/types'
 
+export interface CachedPosition {
+  x: number
+  y: number
+  w: number
+}
+
 export const useHomeStore = defineStore('home', () => {
   // 搜索和筛选状态
   const searchKeyword = ref('')
@@ -23,6 +29,10 @@ export const useHomeStore = defineStore('home', () => {
   const cachedTotal = ref(0)
   const cachedTotalPages = ref(1)
 
+  // 缓存瀑布流布局（避免返回时重新计算）
+  const cachedPositions = ref<Map<string | number, CachedPosition>>(new Map())
+  const cachedContainerHeight = ref(0)
+
   // 搜索触发器（每次 +1 通知订阅者重新查询）
   const searchTrigger = ref(0)
   function triggerSearch() {
@@ -40,6 +50,8 @@ export const useHomeStore = defineStore('home', () => {
     contents?: Content[]
     total?: number
     totalPages?: number
+    positions?: Map<string | number, CachedPosition>
+    containerHeight?: number
   }) {
     searchKeyword.value = params.searchKeyword
     selectedTags.value = params.selectedTags
@@ -50,6 +62,8 @@ export const useHomeStore = defineStore('home', () => {
     if (params.contents) cachedContents.value = params.contents
     if (params.total !== undefined) cachedTotal.value = params.total
     if (params.totalPages !== undefined) cachedTotalPages.value = params.totalPages
+    if (params.positions) cachedPositions.value = params.positions
+    if (params.containerHeight !== undefined) cachedContainerHeight.value = params.containerHeight
     hasLoaded.value = true
   }
 
@@ -65,12 +79,15 @@ export const useHomeStore = defineStore('home', () => {
     cachedContents.value = []
     cachedTotal.value = 0
     cachedTotalPages.value = 1
+    cachedPositions.value = new Map()
+    cachedContainerHeight.value = 0
   }
 
   // 恢复滚动位置（需在 DOM 渲染后调用）
   function restoreScroll() {
     if (scrollPosition.value > 0) {
-      window.scrollTo(0, scrollPosition.value)
+      console.log('[Scroll] restoreScroll 被调用, 目标位置:', scrollPosition.value)
+      window.scrollTo({ top: scrollPosition.value, behavior: 'instant' })
     }
   }
 
@@ -85,6 +102,8 @@ export const useHomeStore = defineStore('home', () => {
     cachedContents,
     cachedTotal,
     cachedTotalPages,
+    cachedPositions,
+    cachedContainerHeight,
     searchTrigger,
     triggerSearch,
     saveState,

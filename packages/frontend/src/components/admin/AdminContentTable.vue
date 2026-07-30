@@ -2,6 +2,7 @@
 import { useUserStore } from '@/stores/user'
 import { useAdminStore } from '@/stores/admin'
 import { getImageUrl } from '@/utils'
+import SafeImage from '@/components/SafeImage.vue'
 import { ACTION_COL, SECONDARY_STYLE } from './adminColumns'
 import { Tag, Tooltip, type TableColumnsType } from 'ant-design-vue'
 import { useMediaQuery } from '@vueuse/core'
@@ -71,7 +72,7 @@ onMounted(load)
             <template v-if="column.key === 'content'">
               <div class="flex items-center gap-3">
                 <div v-if="record.type !== 'text'" class="flex-shrink-0 w-12 h-9 rounded overflow-hidden bg-gray-100">
-                  <img :src="getImageUrl(record.thumb)" class="w-full h-full object-cover" loading="lazy" alt="" />
+                  <SafeImage :src="getImageUrl(record.thumb)" class="w-full h-full object-cover" loading="lazy" alt="" />
                 </div>
                 <Tooltip :title="record.title || '无标题'"><span class="content-title">{{ record.title || '无标题' }}</span></Tooltip>
               </div>
@@ -100,7 +101,7 @@ onMounted(load)
         <div class="mobile-list">
           <div v-for="record in data.list" :key="record.id" class="mobile-card" @click="admin.openDrawer(record, 'view')">
             <div class="flex gap-2.5 items-start">
-              <div v-if="record.type !== 'text'" class="flex-shrink-0 w-14 h-10.5 rounded overflow-hidden bg-gray-100"><img :src="getImageUrl(record.thumb)" class="w-full h-full object-cover" loading="lazy" alt="" /></div>
+              <div v-if="record.type !== 'text'" class="flex-shrink-0 w-14 h-10.5 rounded overflow-hidden bg-gray-100"><SafeImage :src="getImageUrl(record.thumb)" class="w-full h-full object-cover" loading="lazy" alt="" /></div>
               <div class="flex-1 min-w-0">
                 <div class="mobile-title">{{ record.title || '无标题' }}</div>
                 <div class="flex items-center gap-1.5 flex-wrap">

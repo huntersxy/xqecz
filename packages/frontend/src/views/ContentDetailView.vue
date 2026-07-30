@@ -6,6 +6,7 @@ import { contentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { useListCache } from '@/composables/useListCache'
 import { getImageUrl, formatTime } from '@/utils'
+import SafeImage from '@/components/SafeImage.vue'
 import ContentMedia from '@/components/ContentMedia.vue'
 import ContentSidebar from '@/components/ContentSidebar.vue'
 import ReportModal from '@/components/ReportModal.vue'
@@ -282,7 +283,7 @@ watch(() => route.params.id, (newId) => {
           :class="['cd-carousel-thumb', { 'cd-thumb-current': item.isCurrent }]"
           @click="navigateTo(item.id)"
         >
-          <img :src="getImageUrl(item.thumb)" :alt="item.title" loading="lazy" />
+          <SafeImage :src="getImageUrl(item.thumb)" :alt="item.title" loading="lazy" />
         </button>
       </div>
 
@@ -340,7 +341,7 @@ watch(() => route.params.id, (newId) => {
     <!-- 举报弹窗 -->
     <ReportModal :target="reportTarget" @close="reportTarget = null" />
     <!-- 认领弹窗 -->
-    <ClaimModal :open="showClaimModal" :content-id="content?.id || 0" @close="showClaimModal = false" />
+    <ClaimModal :open="showClaimModal" :content-id="Number(content?.id) || 0" @close="showClaimModal = false" />
   </div>
 </template>
 
