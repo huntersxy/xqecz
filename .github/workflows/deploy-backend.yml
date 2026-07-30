@@ -1,0 +1,36 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: ["master"]
+    paths:
+      - "packages/api/**"
+      - "packages/worker/**"
+      - "proto/**"
+      - ".env"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            cd /www/wwwroot/xqecz
+            git config --global --add safe.directory /www/wwwroot/xqecz
+
+            pkill -f "node dist/main" 2>/dev/null || true
+            pkill -f "xqecz-worker"    2>/dev/null || true
+            sleep 1
+
+            nohup pnpm start:backend > /www/wwwroot/xqecz/backend.log 2>&1 &
+            echo "Deploy started, check: tail -f /www/wwwroot/xqecz/backend.log"
