@@ -53,6 +53,20 @@ export function useWaterfallLayout(
     positions.value = newPositions
     containerHeight.value = Math.max(...colHeights, 0)
     isLayoutReady.value = true
+
+    // 宽度变化后图片高度会变，等图片加载完再算一次
+    const imgs = el.querySelectorAll('img')
+    let pending = 0
+    const onDone = () => {
+      if (--pending <= 0) relayout()
+    }
+    for (const img of imgs) {
+      if (!img.complete) {
+        pending++
+        img.addEventListener('load', onDone, { once: true })
+        img.addEventListener('error', onDone, { once: true })
+      }
+    }
   }
 
   function appendNewItems(newItems: WaterfallItem[]) {
