@@ -132,7 +132,7 @@ function onRefresh() {
   transition: color 0.2s, background 0.2s, border-color 0.2s;
 }
 .wf-rec-refresh:hover:not(:disabled) {
-  color: var(--primary-6); border-color: var(--primary-6);
+  color: rgb(var(--primary-6)); border-color: rgb(var(--primary-6));
 }
 .wf-rec-refresh:disabled { opacity: 0.6; cursor: default; }
 .wf-rec-refresh :deep(svg) { width: 16px; height: 16px; }

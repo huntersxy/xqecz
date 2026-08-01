@@ -180,3 +180,40 @@ export interface ClaimListResponse {
   page_size: number
   total_page: number
 }
+
+// ── 仪表盘统计 ──
+
+export interface DashboardContentStats {
+  total: number
+  pending: number
+  approved: number
+  rejected: number
+  image: number
+  text: number
+  today: number
+}
+
+export interface DashboardUsersStats {
+  total: number
+  admins: number
+  banned: number
+  today: number
+}
+
+export interface DashboardTagCount {
+  tag: string
+  count: number
+}
+
+export interface DashboardStats {
+  content: DashboardContentStats
+  users: DashboardUsersStats
+  comments: { total: number; today: number }
+  claims: { total: number; pending: number; approved: number; rejected: number }
+  reports: { total: number; unhandled: number; handled: number }
+  polls: { total: number; votes: number }
+  views: number
+  topTags: DashboardTagCount[]
+  recentContents: Content[]
+  recentUsers: User[]
+}

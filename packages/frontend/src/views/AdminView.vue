@@ -3,24 +3,32 @@ import { useUserStore } from '@/stores/user'
 import { useAdminStore } from '@/stores/admin'
 import type { AdminNavGroup } from '@/components/admin/AdminNav.vue'
 import {
-  IconFile, IconEye, IconHome, IconUserGroup, IconBarChart,
+  IconDashboard, IconFile, IconEye, IconHome, IconUserGroup, IconBarChart,
   IconLink, IconExclamationCircle, IconUpload, IconLock, IconMenu,
 } from '@arco-design/web-vue/es/icon'
+import AdminDashboard from '@/components/admin/AdminDashboard.vue'
 
 const userStore = useUserStore()
 const admin = useAdminStore()
 const mobileMenuOpen = ref(false)
 
 const navGroups = computed<AdminNavGroup[]>(() => {
-  const groups: AdminNavGroup[] = [
-    {
+  const groups: AdminNavGroup[] = []
+  if (userStore.user?.is_admin) {
+    groups.push({
+      label: '总览',
+      items: [
+        { key: 'dashboard', title: '仪表盘', icon: IconDashboard },
+      ],
+    })
+  }
+  groups.push({
       label: '内容',
       items: [
         { key: 'my', title: '我的内容', icon: IconFile },
         { key: 'upload', title: '上传内容', icon: IconUpload },
       ],
-    },
-  ]
+    })
   if (userStore.user?.is_admin) {
     groups.push({
       label: '管理',
@@ -61,7 +69,10 @@ watch(() => admin.activeTab, () => {
 
 onMounted(() => {
   admin.loadTags()
-  if (userStore.user?.is_admin) admin.loadPendingCounts()
+  if (userStore.user?.is_admin) {
+    admin.activeTab = 'dashboard'
+    admin.loadPendingCounts()
+  }
 })
 </script>
 
@@ -72,6 +83,7 @@ onMounted(() => {
         :groups="navGroups"
         :active="admin.activeTab"
         :username="userStore.user?.username"
+        :email="userStore.user?.email"
         :is-admin="!!userStore.user?.is_admin"
         @select="onMenuSelect"
       />
@@ -92,7 +104,8 @@ onMounted(() => {
       <main class="admin-content">
         <transition name="admin-page" mode="out-in">
           <div :key="admin.activeTab" class="admin-page">
-            <AdminContentTable v-if="admin.activeTab === 'my'" mode="my" />
+            <AdminDashboard v-if="admin.activeTab === 'dashboard'" @select="onMenuSelect" />
+            <AdminContentTable v-else-if="admin.activeTab === 'my'" mode="my" />
             <AdminUploadPanel v-else-if="admin.activeTab === 'upload'" />
             <AdminContentTable v-else-if="admin.activeTab === 'pending' && userStore.user?.is_admin" mode="pending" />
             <AdminContentTable v-else-if="admin.activeTab === 'all' && userStore.user?.is_admin" mode="all" />
@@ -123,6 +136,7 @@ onMounted(() => {
         :groups="navGroups"
         :active="admin.activeTab"
         :username="userStore.user?.username"
+        :email="userStore.user?.email"
         :is-admin="!!userStore.user?.is_admin"
         @select="onMenuSelect"
       />
@@ -143,17 +157,17 @@ onMounted(() => {
   --admin-border-soft: var(--color-border-1);
   --admin-fill: var(--color-fill-2);
   --admin-surface: var(--color-bg-2);
-  --admin-primary: var(--primary-6);
-  --admin-primary-soft: color-mix(in srgb, var(--primary-6) 10%, transparent);
-  --admin-danger: var(--danger-6);
-  --admin-danger-soft: color-mix(in srgb, var(--danger-6) 10%, transparent);
+  --admin-primary: rgb(var(--primary-6));
+  --admin-primary-soft: color-mix(in srgb, rgb(var(--primary-6)) 10%, transparent);
+  --admin-danger: rgb(var(--danger-6));
+  --admin-danger-soft: color-mix(in srgb, rgb(var(--danger-6)) 10%, transparent);
   --admin-radius: 14px;
   --admin-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -12px rgba(15, 23, 42, 0.08);
 }
 
 body[arco-theme='dark'] .admin-theme {
-  --admin-primary-soft: color-mix(in srgb, var(--primary-6) 22%, transparent);
-  --admin-danger-soft: color-mix(in srgb, var(--danger-6) 20%, transparent);
+  --admin-primary-soft: color-mix(in srgb, rgb(var(--primary-6)) 22%, transparent);
+  --admin-danger-soft: color-mix(in srgb, rgb(var(--danger-6)) 20%, transparent);
   --admin-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
 }
 

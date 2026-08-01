@@ -5,8 +5,8 @@
 }
 
 /* ── 主题系统已移除：颜色全部由 Arco 驱动 ──
-   原项目的自定义调色板（:root / html.dark 中的 hex 值）已删除。
-   下方 --color-* / --theme-* 仅作为指向 Arco token 的别名层，
+   原项目的自定义调色板与 --theme-* 别名层已删除。
+   下方 --color-* 仅作为指向 Arco token 的语义别名，
    颜色值完全来自 Arco（arco.css），随 <body arco-theme="dark"> 自动翻日/夜。
    非 antd 组件（本项目自定义 UI）统一随 Arco 暗色覆盖；antd 组件走自身 ConfigProvider。 */
 
@@ -14,8 +14,8 @@ body {
   /* 语义别名 → Arco token（直接挂在 body 作用域，与 Arco 的 token 同层。
      之前写在 :root 时，子组件解析 var(--color-bg-2) 等 Arco token 会因不在该层而失败、
      背景计算为透明——这是“很多组件背景变透明”的根因） */
-  --color-primary: var(--primary-6);
-  --color-primary-hover: var(--primary-5);
+  --color-primary: rgb(var(--primary-6));
+  --color-primary-hover: rgb(var(--primary-5));
   --color-on-primary: var(--color-white);
 
   --color-bg: transparent;            /* 保留透明，露出 body::before 固定背景图 */
@@ -30,34 +30,13 @@ body {
   --color-text-secondary: var(--color-text-2);
   --color-text-tertiary: var(--color-text-3);
 
-  --color-success: var(--success-6);
-  --color-warning: var(--warning-6);
-  --color-danger: var(--danger-6);
+  --color-success: rgb(var(--success-6));
+  --color-warning: rgb(var(--warning-6));
+  --color-danger: rgb(var(--danger-6));
 
   --color-header-bg: var(--color-bg-2);
   --color-overlay-bg: rgba(255, 255, 255, 0.5);
 
-  /* 旧代码 --theme-* 别名（指向上述语义变量，待各组件逐个转 Arco 后整体删除） */
-  --theme-primary: var(--color-primary);
-  --theme-secondary: var(--color-primary);
-  --theme-accent: var(--color-primary);
-  --theme-text: var(--color-text);
-  --theme-text-secondary: var(--color-text-secondary);
-  --theme-surface: var(--color-surface);
-  --theme-card-bg: var(--color-card);
-  --theme-card-border: var(--color-border);
-  --theme-header-bg: var(--color-header-bg);
-  --theme-hover-bg: var(--color-hover);
-  --theme-placeholder-bg: var(--color-placeholder);
-  --theme-overlay-bg: var(--color-overlay-bg);
-  --theme-bg-color: var(--color-bg);
-  --theme-bg: var(--color-bg);
-  --theme-success: var(--color-success);
-  --theme-warning: var(--color-warning);
-  --theme-danger: var(--color-danger);
-  --theme-on-primary: var(--color-on-primary);
-  --admin-bg: var(--color-surface);
-  --admin-text-tertiary: var(--color-text-tertiary);
 }
 
 /* 暗色：页面背景同样保持透明，露出 body::before 固定壁纸（其余 token 由 Arco 的 body[arco-theme='dark'] 处理） */
@@ -108,61 +87,6 @@ body[arco-theme='dark'] {
   #app {
     min-height: 100vh;
     background-color: var(--color-bg);
-  }
-}
-
-@layer utilities {
-  .theme-card {
-    background-color: var(--color-card);
-    border-color: var(--color-border);
-  }
-
-  .theme-text {
-    color: var(--color-text);
-  }
-
-  .theme-primary {
-    color: var(--color-primary);
-  }
-
-  .theme-bg-primary {
-    background-color: var(--color-primary);
-  }
-
-  .theme-success {
-    color: var(--color-success);
-  }
-
-  .theme-warning {
-    color: var(--color-warning);
-  }
-
-  .theme-danger {
-    color: var(--color-danger);
-  }
-
-  .theme-surface {
-    background-color: var(--color-surface);
-  }
-
-  .theme-text-secondary {
-    color: var(--color-text-secondary);
-  }
-
-  .theme-border {
-    border-color: var(--color-border);
-  }
-
-  .theme-header-bg {
-    background: var(--color-header-bg);
-  }
-
-  .theme-placeholder-bg {
-    background-color: var(--color-placeholder);
-  }
-
-  .theme-overlay-bg {
-    background-color: var(--color-overlay-bg);
   }
 }
 

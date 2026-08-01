@@ -35,7 +35,7 @@ import { WorkerModule } from './worker/worker.module'
         charset: 'utf8mb4',
         // 远程 MySQL 连接池显式配置：防网络波动导致连接泄漏或池爆炸。
         extra: {
-          connectionLimit: cfg.get<number>('MYSQL_POOL_SIZE', 15),
+          connectionLimit: cfg.get<number>('MYSQL_POOL_SIZE', 5),
           connectTimeout: cfg.get<number>('MYSQL_CONNECT_TIMEOUT', 10000),
           acquireTimeout: cfg.get<number>('MYSQL_ACQUIRE_TIMEOUT', 30000),
           waitForConnections: true,

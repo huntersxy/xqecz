@@ -1,158 +1,98 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { formatTime } from '@/utils'
+import {
+  IconUser, IconMore, IconReply, IconDelete, IconExclamationCircle,
+} from '@arco-design/web-vue/es/icon'
 import type { Comment } from '@/types'
 
 interface Props {
   comment: Comment
   replyTarget: Comment | null
-  menuTarget: number | null
   level?: number
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   level: 0,
 })
 
 const emit = defineEmits<{
   'select-reply': [comment: Comment]
-  'toggle-menu': [id: number | null]
   'delete-comment': [id: number]
   'report-comment': [comment: Comment]
 }>()
 
 const userStore = useUserStore()
+
+// 仅本人或管理员可删除/举报
+const canManage = computed(() =>
+  userStore.isLoggedIn &&
+  (userStore.user?.is_admin || props.comment.user_id === userStore.user?.id),
+)
+
+function onMenuSelect(value: string | number | Record<string, unknown> | undefined) {
+  if (value === 'delete') emit('delete-comment', props.comment.id)
+  if (value === 'report') emit('report-comment', props.comment)
+}
 </script>
 
 <template>
-  <div
-    class="flex gap-2 sm:gap-3 p-2 sm:p-3 bg-[var(--theme-card-bg)] rounded-lg border border-[var(--theme-card-border)]"
-  >
-    <div
-      class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--theme-primary)]/10 flex items-center justify-center shrink-0"
-    >
-      <svg
-        class="w-4 h-4 sm:w-5 sm:h-5 text-[var(--theme-primary)]"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-      >
-        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-        <circle cx="12" cy="7" r="4" />
-      </svg>
-    </div>
-    <div class="flex-1 relative">
-      <div class="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
-        <span class="font-semibold text-sm theme-text">{{ comment.user?.username }}</span>
-        <span class="text-xs theme-text-secondary">{{ formatTime(comment.created_at) }}</span>
-        <button
-          v-if="
-            userStore.isLoggedIn &&
-            (userStore.user?.is_admin || comment.user_id === userStore.user?.id)
-          "
-          class="ml-auto p-1 theme-text-secondary hover:theme-text transition-colors"
-          @click.stop="emit('toggle-menu', comment.id)"
-        >
-          <svg
-            class="w-4 h-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <circle cx="12" cy="12" r="1" />
-            <circle cx="19" cy="12" r="1" />
-            <circle cx="5" cy="12" r="1" />
-          </svg>
-        </button>
+  <div class="cd-comment">
+    <a-avatar :size="36" class="cd-comment-avatar">
+      <IconUser />
+    </a-avatar>
+
+    <div class="cd-comment-main">
+      <div class="cd-comment-head">
+        <span class="cd-comment-username">{{ comment.user?.username }}</span>
+        <span class="cd-comment-time">{{ formatTime(comment.created_at) }}</span>
+
+        <a-dropdown v-if="canManage" trigger="click" position="br" @select="onMenuSelect">
+          <a-button type="text" size="small" class="cd-comment-more" aria-label="更多操作">
+            <IconMore />
+          </a-button>
+          <template #content>
+            <a-doption value="delete">
+              <template #icon><IconDelete /></template>
+              删除
+            </a-doption>
+            <a-doption value="report">
+              <template #icon><IconExclamationCircle /></template>
+              举报
+            </a-doption>
+          </template>
+        </a-dropdown>
       </div>
 
-      <div class="text-xs sm:text-sm theme-text leading-relaxed">
-        <div
-          v-if="comment.parent"
-          class="mb-1 p-1.5 bg-[var(--theme-hover-bg)] rounded text-xs theme-text-secondary border-l-2 border-[var(--theme-primary)]"
-        >
-          <span class="font-medium theme-text-secondary">{{ comment.parent.user?.username }}: </span
-          >{{ comment.parent.text }}
+      <div class="cd-comment-body">
+        <div v-if="comment.parent" class="cd-comment-quote">
+          <span class="cd-comment-quote-user">{{ comment.parent.user?.username }}: </span>{{ comment.parent.text }}
         </div>
         <span>{{ comment.text }}</span>
       </div>
 
-      <div class="mt-1 sm:mt-2">
-        <button
+      <div class="cd-comment-actions">
+        <a-button
           v-if="userStore.isLoggedIn"
-          class="flex items-center gap-1 text-xs theme-text-secondary hover:text-[var(--theme-primary)] transition-colors"
+          type="text"
+          size="small"
+          class="cd-comment-reply"
           @click="emit('select-reply', comment)"
         >
-          <svg
-            class="w-3.5 h-3.5"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path
-              d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-            />
-          </svg>
-          <span>回复</span>
-        </button>
+          <IconReply />
+          回复
+        </a-button>
       </div>
 
-      <div
-        v-if="menuTarget === comment.id"
-        class="absolute right-0 top-0 bg-[var(--theme-surface)] rounded-lg shadow-lg shadow-black/12 p-1 min-w-[120px] z-10"
-      >
-        <button
-          class="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--theme-danger)] hover:bg-[var(--theme-danger)]/5 rounded"
-          @click="emit('delete-comment', comment.id); emit('toggle-menu', null)"
-        >
-          <svg
-            class="w-4 h-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path d="M3 6h18" />
-            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-          </svg>
-          删除
-        </button>
-        <button
-          class="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--theme-warning)] hover:bg-[var(--theme-warning)]/5 rounded"
-          @click="emit('report-comment', comment); emit('toggle-menu', null)"
-        >
-          <svg
-            class="w-4 h-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path
-              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-            />
-          </svg>
-          举报
-        </button>
-      </div>
-
-      <div
-        v-if="comment.replies && comment.replies.length > 0"
-        class="mt-2 sm:mt-3 pl-3 sm:pl-4 border-l-2 border-[var(--theme-primary)]/20"
-      >
+      <div v-if="comment.replies && comment.replies.length > 0" class="cd-comment-replies">
         <CommentItem
           v-for="reply in comment.replies"
           :key="reply.id"
           :comment="reply"
           :reply-target="replyTarget"
-          :menu-target="menuTarget"
           :level="level + 1"
           @select-reply="(c) => emit('select-reply', c)"
-          @toggle-menu="(id) => emit('toggle-menu', id)"
           @delete-comment="(id) => emit('delete-comment', id)"
           @report-comment="(c) => emit('report-comment', c)"
         />
@@ -160,3 +100,82 @@ const userStore = useUserStore()
     </div>
   </div>
 </template>
+
+<style scoped>
+.cd-comment {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+}
+
+.cd-comment-avatar {
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
+}
+
+.cd-comment-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.cd-comment-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.cd-comment-username {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.cd-comment-time {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.cd-comment-more {
+  margin-left: auto;
+  color: var(--color-text-secondary);
+}
+
+.cd-comment-body {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-text);
+}
+
+.cd-comment-quote {
+  margin-bottom: 4px;
+  padding: 6px 8px;
+  border-left: 2px solid var(--color-primary);
+  border-radius: 6px;
+  background: var(--color-hover);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.cd-comment-quote-user {
+  font-weight: 500;
+}
+
+.cd-comment-reply {
+  color: var(--color-text-secondary);
+}
+
+.cd-comment-reply:hover {
+  color: var(--color-primary);
+}
+
+.cd-comment-replies {
+  margin-top: 8px;
+  padding-left: 10px;
+  border-left: 2px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+</style>

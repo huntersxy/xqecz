@@ -337,12 +337,12 @@ onActivated(() => {
 
 .wf-spinner-lg {
   width: 2rem; height: 2rem; border: 3px solid var(--color-border-2);
-  border-top-color: var(--primary-6); border-radius: 50%;
+  border-top-color: rgb(var(--primary-6)); border-radius: 50%;
   animation: wf-spin 0.7s linear infinite;
 }
 .wf-spinner-sm {
   width: 1.25rem; height: 1.25rem; border: 2px solid var(--color-border-2);
-  border-top-color: var(--primary-6); border-radius: 50%;
+  border-top-color: rgb(var(--primary-6)); border-radius: 50%;
   animation: wf-spin 0.7s linear infinite;
 }
 .wf-loadmore {
@@ -368,7 +368,7 @@ onActivated(() => {
     width: 56px;
     height: 56px;
     border-radius: 50%;
-    background: var(--primary-6);
+    background: rgb(var(--primary-6));
     color: var(--color-white);
     border: none;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);

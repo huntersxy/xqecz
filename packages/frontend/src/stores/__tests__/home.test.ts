@@ -76,7 +76,7 @@ describe('useHomeStore', () => {
     store.scrollPosition = 500
     store.restoreScroll()
 
-    expect(mockScrollTo).toHaveBeenCalledWith(0, 500)
+    expect(mockScrollTo).toHaveBeenCalledWith({ top: 500, behavior: 'instant' })
   })
 
   it('should not restore scroll position when position is 0', () => {

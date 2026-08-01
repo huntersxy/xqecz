@@ -46,18 +46,18 @@ function toggleCustomInput() {
 
 // 预定义渐变色彩方案
 const colorSchemes = [
-  { bg: 'rgba(99, 102, 241, 0.1)', border: 'rgba(99, 102, 241, 0.3)', text: '#6366f1', hover: 'rgba(99, 102, 241, 0.2)' },
-  { bg: 'rgba(236, 72, 153, 0.1)', border: 'rgba(236, 72, 153, 0.3)', text: '#ec4899', hover: 'rgba(236, 72, 153, 0.2)' },
-  { bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 0.3)', text: '#3b82f6', hover: 'rgba(59, 130, 246, 0.2)' },
-  { bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.3)', text: '#10b981', hover: 'rgba(16, 185, 129, 0.2)' },
-  { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)', text: '#f59e0b', hover: 'rgba(245, 158, 11, 0.2)' },
-  { bg: 'rgba(139, 92, 246, 0.1)', border: 'rgba(139, 92, 246, 0.3)', text: '#8b5cf6', hover: 'rgba(139, 92, 246, 0.2)' },
-  { bg: 'rgba(20, 184, 166, 0.1)', border: 'rgba(20, 184, 166, 0.3)', text: '#14b8a6', hover: 'rgba(20, 184, 166, 0.2)' },
-  { bg: 'rgba(249, 115, 22, 0.1)', border: 'rgba(249, 115, 22, 0.3)', text: '#f97316', hover: 'rgba(249, 115, 22, 0.2)' },
+  { bg: 'rgba(var(--arcoblue-6), 0.1)', border: 'rgba(var(--arcoblue-6), 0.3)', text: 'rgb(var(--arcoblue-6))', hover: 'rgba(var(--arcoblue-6), 0.2)' },
+  { bg: 'rgba(var(--magenta-6), 0.1)', border: 'rgba(var(--magenta-6), 0.3)', text: 'rgb(var(--magenta-6))', hover: 'rgba(var(--magenta-6), 0.2)' },
+  { bg: 'rgba(var(--purple-6), 0.1)', border: 'rgba(var(--purple-6), 0.3)', text: 'rgb(var(--purple-6))', hover: 'rgba(var(--purple-6), 0.2)' },
+  { bg: 'rgba(var(--green-6), 0.1)', border: 'rgba(var(--green-6), 0.3)', text: 'rgb(var(--green-6))', hover: 'rgba(var(--green-6), 0.2)' },
+  { bg: 'rgba(var(--gold-6), 0.1)', border: 'rgba(var(--gold-6), 0.3)', text: 'rgb(var(--gold-6))', hover: 'rgba(var(--gold-6), 0.2)' },
+  { bg: 'rgba(var(--pinkpurple-6), 0.1)', border: 'rgba(var(--pinkpurple-6), 0.3)', text: 'rgb(var(--pinkpurple-6))', hover: 'rgba(var(--pinkpurple-6), 0.2)' },
+  { bg: 'rgba(var(--cyan-6), 0.1)', border: 'rgba(var(--cyan-6), 0.3)', text: 'rgb(var(--cyan-6))', hover: 'rgba(var(--cyan-6), 0.2)' },
+  { bg: 'rgba(var(--orangered-6), 0.1)', border: 'rgba(var(--orangered-6), 0.3)', text: 'rgb(var(--orangered-6))', hover: 'rgba(var(--orangered-6), 0.2)' },
 ]
 
 // 选中状态的颜色
-const selectedScheme = { bg: 'var(--admin-primary, #6366f1)', border: 'var(--admin-primary, #6366f1)', text: '#ffffff', hover: 'var(--admin-primary, #6366f1)' }
+const selectedScheme = { bg: 'var(--admin-primary, rgb(var(--primary-6)))', border: 'var(--admin-primary, rgb(var(--primary-6)))', text: '#ffffff', hover: 'var(--admin-primary, rgb(var(--primary-6)))' }
 
 // 根据标签名称生成稳定的哈希值，用于确定大小和颜色
 function getTagHash(tag: string): number {
@@ -161,7 +161,7 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
       </button>
     </template>
 
-    <div v-if="tags.length > maxTags" class="flex items-center px-3.5 py-1.5 text-xs text-[var(--theme-text-secondary)] opacity-70">
+    <div v-if="tags.length > maxTags" class="flex items-center px-3.5 py-1.5 text-xs text-[var(--color-text-secondary)] opacity-70">
       +{{ tags.length - maxTags }} 更多标签...
     </div>
   </div>
@@ -272,20 +272,20 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
   width: 120px;
   padding: 5px 12px;
   font-size: 0.875rem;
-  border: 1.5px solid var(--theme-card-border);
+  border: 1.5px solid var(--color-border);
   border-radius: 20px;
-  background: var(--theme-card-bg);
-  color: var(--theme-text);
+  background: var(--color-card);
+  color: var(--color-text);
   outline: none;
   transition: all 0.2s;
 
   &:focus {
-    border-color: var(--admin-primary, #6366f1);
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    border-color: var(--admin-primary, rgb(var(--primary-6)));
+    box-shadow: 0 0 0 2px rgba(var(--primary-6), 0.2);
   }
 
   &::placeholder {
-    color: var(--theme-text-secondary);
+    color: var(--color-text-secondary);
     opacity: 0.5;
   }
 }
@@ -297,15 +297,15 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
   padding: 5px 12px;
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--admin-primary, #6366f1);
+  color: var(--admin-primary, rgb(var(--primary-6)));
   background: transparent;
-  border: 1.5px dashed var(--admin-primary, #6366f1);
+  border: 1.5px dashed var(--admin-primary, rgb(var(--primary-6)));
   border-radius: 20px;
   cursor: pointer;
   transition: all 0.2s;
 
   &:hover {
-    background: rgba(99, 102, 241, 0.1);
+    background: rgba(var(--primary-6), 0.1);
     transform: translateY(-1px);
   }
 

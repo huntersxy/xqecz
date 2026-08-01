@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// 后台面板容器：统一页头（标�?描述/操作位）+ 集中式内容样�?// 表格、图标按钮、移动端卡片等共享样式经 :deep 在此定义一次，子面板零样式即可复用
+// 后台面板容器：统一页头（标�?描述/操作位）+ 集中式内容样�?// 表格、图标按钮、移动端卡片等共享样式经 :deep 在此定义一次，子面板零样式即可复用
 interface Props {
   title: string
   desc?: string
@@ -69,7 +69,12 @@ defineProps<Props>()
 .admin-panel-body {
   min-height: 200px;
 
-  // ── 表格现代化：�?Arco 默认外框、宽松行距、悬浮填�?──
+  // 确保 spin 容器撑满
+  :deep(.arco-spin) {
+    width: 100%;
+  }
+
+  // ── 表格现代化：�?Arco 默认外框、宽松行距、悬浮填�?──
   :deep(.arco-table) {
     background: transparent;
     width: 100%;
@@ -79,7 +84,18 @@ defineProps<Props>()
     width: 100% !important;
   }
 
-  // �?Arco 默认外边框（border:true 会给 container �?top/left/right 框线�?  // �?panel 自身边框叠成“框中框”，造成表格与面板宽度割裂）
+  // 强制表格内部容器撑满
+  :deep(.arco-table-header),
+  :deep(.arco-table-body) {
+    width: 100% !important;
+  }
+
+  :deep(.arco-table-header table),
+  :deep(.arco-table-body table) {
+    width: 100% !important;
+  }
+
+  // �?Arco 默认外边框（border:true 会给 container �?top/left/right 框线�?  // �?panel 自身边框叠成“框中框”，造成表格与面板宽度割裂）
   :deep(.arco-table-border .arco-table-container) {
     border: none;
     width: 100%;
@@ -102,7 +118,7 @@ defineProps<Props>()
     border-bottom: 1px solid var(--admin-border-soft);
   }
 
-  // 首尾单元格与页头 24px padding 对齐，消除内容左右错�?  :deep(.arco-table-th:first-child),
+  // 首尾单元格与页头 24px padding 对齐，消除内容左右错�?  :deep(.arco-table-th:first-child),
   :deep(.arco-table-td:first-child) {
     padding-left: 24px;
   }
@@ -157,7 +173,7 @@ defineProps<Props>()
     gap: 4px;
   }
 
-  // ── 单元格文本层�?──
+  // ── 单元格文本层�?──
   :deep(.admin-cell-2) {
     font-size: 13px;
     color: var(--admin-text-2);
@@ -183,7 +199,7 @@ defineProps<Props>()
     color: var(--admin-text-2);
   }
 
-  // ── 移动端卡�?──
+  // ── 移动端卡�?──
   :deep(.admin-mobile-list) {
     display: flex;
     flex-direction: column;

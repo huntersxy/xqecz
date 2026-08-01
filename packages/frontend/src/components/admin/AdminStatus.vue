@@ -8,10 +8,10 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), { type: 'neutral' })
 
 const colorMap: Record<NonNullable<Props['type']>, string> = {
-  success: 'var(--success-6)',
-  warning: 'var(--warning-6)',
-  danger: 'var(--danger-6)',
-  info: 'var(--primary-6)',
+  success: 'rgb(var(--success-6))',
+  warning: 'rgb(var(--warning-6))',
+  danger: 'rgb(var(--danger-6))',
+  info: 'rgb(var(--primary-6))',
   neutral: 'var(--color-text-4)',
 }
 

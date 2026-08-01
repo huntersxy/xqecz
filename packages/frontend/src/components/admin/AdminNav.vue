@@ -18,11 +18,13 @@ export interface AdminNavGroup {
 // 同时用于桌面侧边栏与移动端抽屉
 import type { Component } from 'vue'
 import { IconUser, IconLeft, IconDashboard } from '@arco-design/web-vue/es/icon'
+import { getAvatarUrl } from '@/utils'
 
 interface Props {
   groups: AdminNavGroup[]
   active: string
   username?: string
+  email?: string
   isAdmin?: boolean
 }
 
@@ -65,8 +67,8 @@ const emit = defineEmits<{
 
     <div class="admin-nav-foot">
       <div class="admin-nav-user">
-        <a-avatar :size="32" class="admin-nav-avatar">
-          <template #icon><IconUser /></template>
+        <a-avatar :size="32" class="admin-nav-avatar" :image-url="email ? getAvatarUrl(email) : ''">
+          <IconUser v-if="!email" />
         </a-avatar>
         <div class="admin-nav-user-meta">
           <span class="admin-nav-username">{{ username || '未登录' }}</span>
@@ -106,8 +108,8 @@ const emit = defineEmits<{
   border-radius: 10px;
   font-size: 18px;
   color: #fff;
-  background: linear-gradient(135deg, var(--primary-5), var(--primary-7));
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-6) 35%, transparent);
+  background: linear-gradient(135deg, rgb(var(--primary-5)), rgb(var(--primary-7)));
+  box-shadow: 0 4px 12px color-mix(in srgb, rgb(var(--primary-6)) 35%, transparent);
   flex-shrink: 0;
 }
 

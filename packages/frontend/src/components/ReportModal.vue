@@ -47,17 +47,40 @@ async function handleOk(): Promise<boolean> {
     cancel-text="取消"
     :z-index="10000"
   >
-    <div style="display: flex; flex-direction: column; gap: 12px;">
+    <div class="rm-stack">
       <div>
-        <div style="font-size: 13px; color: var(--theme-text-secondary); margin-bottom: 4px;">您正在举报以下评论：</div>
-        <div style="padding: 8px 10px; background: var(--theme-hover-bg); border-radius: 6px; font-size: 13px; color: var(--theme-text-secondary); font-style: italic;">
+        <div class="rm-label">您正在举报以下评论：</div>
+        <div class="rm-quote">
           {{ target?.text }}
         </div>
       </div>
       <div>
-        <div style="font-size: 13px; color: var(--theme-text-secondary); margin-bottom: 4px;">举报原因（可选）</div>
+        <div class="rm-label">举报原因（可选）</div>
         <a-input v-model="reportReason" placeholder="请输入举报原因" />
       </div>
     </div>
   </a-modal>
 </template>
+
+<style scoped>
+.rm-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rm-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.rm-quote {
+  padding: 8px 10px;
+  background: var(--color-hover);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+</style>

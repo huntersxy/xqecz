@@ -142,8 +142,8 @@ watch(() => props.open, (val) => {
     @close="emit('close')"
     :z-index="2000"
   >
-    <div style="display: flex; flex-direction: column; gap: 12px; max-width: 480px; margin: 0 auto; padding: 16px 20px; max-height: 80vh; overflow-y: auto;">
-      <div v-if="!isLoggedIn" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+    <div class="qus-stack">
+      <div v-if="!isLoggedIn" class="qus-grid">
         <a-input v-model="form.nickname" placeholder="昵称" :maxlength="50" />
         <a-input v-model="form.email" placeholder="邮箱" :maxlength="254" />
       </div>
@@ -153,14 +153,14 @@ watch(() => props.open, (val) => {
       <a-textarea v-model="form.content" placeholder="描述（可选）" :auto-size="{ minRows: 3, maxRows: 6 }" />
 
       <div>
-        <div v-if="!file" style="border: 2px dashed var(--theme-card-border); border-radius: 12px; padding: 24px; text-align: center; cursor: pointer; transition: border-color 0.2s;" @click="($refs.fileInput as HTMLInputElement).click()">
-          <input ref="fileInput" type="file" accept="image/*,video/*" style="display: none;" @change="onFileChange" />
-          <IconUpload style="font-size: 28px; color: var(--theme-text-secondary);" />
-          <div style="font-size: 14px; color: var(--theme-text-secondary); margin-top: 8px;">选择图片/视频</div>
+        <div v-if="!file" class="qus-dropzone" @click="($refs.fileInput as HTMLInputElement).click()">
+          <input ref="fileInput" type="file" accept="image/*,video/*" class="qus-hidden" @change="onFileChange" />
+          <IconUpload class="qus-upload-icon" />
+          <div class="qus-dropzone-hint">选择图片/视频</div>
         </div>
-        <div v-else style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
-          <img v-if="file.type.startsWith('image/')" :src="filePreview" alt="预览" style="max-height: 180px; border-radius: 8px; object-fit: contain;" />
-          <video v-else :src="filePreview" controls style="max-height: 180px; border-radius: 8px;" />
+        <div v-else class="qus-preview">
+          <img v-if="file.type.startsWith('image/')" :src="filePreview" alt="预览" class="qus-preview-img" />
+          <video v-else :src="filePreview" controls class="qus-preview-video" />
           <a-button size="small" status="danger" @click="removeFile">移除文件</a-button>
         </div>
       </div>
@@ -177,5 +177,68 @@ watch(() => props.open, (val) => {
 <style scoped>
 .qu-sheet :deep(.arco-drawer-body) {
   padding: 0;
+}
+
+.qus-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px 20px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.qus-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.qus-dropzone {
+  border: 2px dashed var(--color-border);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+
+  &:hover {
+    border-color: var(--color-primary);
+  }
+}
+
+.qus-hidden {
+  display: none;
+}
+
+.qus-upload-icon {
+  font-size: 28px;
+  color: var(--color-text-secondary);
+}
+
+.qus-dropzone-hint {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin-top: 8px;
+}
+
+.qus-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.qus-preview-img {
+  max-height: 180px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+.qus-preview-video {
+  max-height: 180px;
+  border-radius: 8px;
 }
 </style>

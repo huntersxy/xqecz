@@ -2,6 +2,7 @@
 import { useUserStore } from '@/stores/user'
 import { useAdminStore } from '@/stores/admin'
 import { ACTION_COL } from './adminColumns'
+import { getAvatarUrl } from '@/utils'
 import { IconUser, IconDelete, IconUserGroup, IconLock, IconUnlock, IconRefresh } from '@arco-design/web-vue/es/icon'
 import { Tag, Tooltip, type TableColumnData } from '@arco-design/web-vue'
 import { useMediaQuery } from '@vueuse/core'
@@ -61,14 +62,15 @@ onMounted(() => admin.loadUsers())
         <a-table :columns="columns" :data="admin.users.list" :pagination="{ current: admin.users.page, pageSize: admin.users.pageSize, total: admin.users.total }" row-key="id" @page-change="onTableChange">
           <template #username="{ record }">
             <div class="flex items-center gap-2.5">
-              <a-avatar :size="28" class="user-avatar">
-                <template #icon><IconUser /></template>
+              <a-avatar :size="28" class="user-avatar" :image-url="record.email ? getAvatarUrl(record.email) : ''">
+                <IconUser v-if="!record.email" />
+                <template #error><IconUser /></template>
               </a-avatar>
               <span class="admin-cell-title">{{ record.username }}</span>
             </div>
           </template>
           <template #role="{ record }">
-            <Tag :color="record.is_admin ? 'arcoblue' : 'gray'" :bordered="false" style="margin: 0">{{ record.is_admin ? '管理员' : '普通用户' }}</Tag>
+            <Tag :color="record.is_admin ? 'arcoblue' : 'gray'" :bordered="false" class="admin-tag-inline">{{ record.is_admin ? '管理员' : '普通用户' }}</Tag>
           </template>
           <template #status="{ record }">
             <AdminStatus :type="record.is_banned ? 'danger' : 'success'" :label="record.is_banned ? '已封禁' : '正常'" />
@@ -98,11 +100,12 @@ onMounted(() => admin.loadUsers())
         <div class="admin-mobile-list">
           <div v-for="record in admin.users.list" :key="record.id" class="admin-mobile-card">
             <div class="flex items-center gap-2 flex-wrap">
-              <a-avatar :size="24" class="user-avatar">
-                <template #icon><IconUser /></template>
+              <a-avatar :size="24" class="user-avatar" :image-url="record.email ? getAvatarUrl(record.email) : ''">
+                <IconUser v-if="!record.email" />
+                <template #error><IconUser /></template>
               </a-avatar>
               <span class="admin-cell-title">{{ record.username }}</span>
-              <Tag :color="record.is_admin ? 'arcoblue' : 'gray'" size="small" :bordered="false" style="margin: 0">{{ record.is_admin ? '管理员' : '普通用户' }}</Tag>
+              <Tag :color="record.is_admin ? 'arcoblue' : 'gray'" size="small" :bordered="false" class="admin-tag-inline">{{ record.is_admin ? '管理员' : '普通用户' }}</Tag>
               <AdminStatus v-if="record.is_banned" type="danger" label="已封禁" />
             </div>
             <div v-if="record.id !== userStore.user?.id" class="admin-mobile-actions">

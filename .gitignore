@@ -13,6 +13,7 @@ packages/worker/server.exe
 .env
 .env.*
 !.env.example
+.npmrc
 
 # ── 运行时数据（共享卷内容不入库）──
 data/uploads/

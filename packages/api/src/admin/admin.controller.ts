@@ -47,6 +47,11 @@ export class AdminController {
     return { code: 200, message: 'ok', data: await this.svc.listUsers(Number(page) || 1, Number(pageSize) || 20, keyword) }
   }
 
+  @Get('dashboard')
+  async dashboard(@Query('fresh') fresh?: string) {
+    return { code: 200, message: 'ok', data: await this.svc.getDashboard(fresh === '1') }
+  }
+
   @Put('users/:id/role')
   async updateRole(@Param('id') id: string, @Body() dto: RoleDto) {
     return { code: 200, message: 'ok', data: await this.svc.updateRole(Number(id), dto.is_admin) }

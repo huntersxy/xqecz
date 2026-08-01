@@ -1,77 +1,74 @@
 <script setup lang="ts">
+import {
+  IconH2, IconBold, IconItalic, IconStrikethrough, IconCode,
+  IconQuote, IconList, IconOrderedList, IconLink, IconImage,
+} from '@arco-design/web-vue/es/icon'
+
 defineEmits<{
   insert: [prefix: string, suffix: string]
   uploadImage: []
 }>()
+
+const tools = [
+  { title: '标题', icon: IconH2, prefix: '## ', suffix: '' },
+  { title: '粗体', icon: IconBold, prefix: '**', suffix: '**' },
+  { title: '斜体', icon: IconItalic, prefix: '*', suffix: '*' },
+  { title: '删除线', icon: IconStrikethrough, prefix: '~~', suffix: '~~' },
+  { title: '行内代码', icon: IconCode, prefix: '`', suffix: '`' },
+  { title: '引用', icon: IconQuote, prefix: '> ', suffix: '' },
+  { title: '无序列表', icon: IconList, prefix: '- ', suffix: '' },
+  { title: '有序列表', icon: IconOrderedList, prefix: '1. ', suffix: '' },
+  { title: '链接', icon: IconLink, prefix: '[', suffix: '](url)' },
+] as const
 </script>
 
 <template>
-  <div class="flex gap-1.5 mb-2 p-2 bg-[var(--theme-hover-bg)] rounded-md">
-    <button
-      type="button"
-      @click="$emit('insert', '## ', '')"
-      class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-[var(--theme-surface)] border border-[var(--theme-card-border)] rounded-md theme-text-secondary hover:text-[var(--theme-primary)] hover:border-blue-300 transition-all active:bg-[var(--theme-primary)]/10 active:shadow-inner active:ring-1 active:ring-[var(--theme-primary)]/30"
-      title="标题"
-    >
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M4 12h16M4 6h16M4 18h10" />
-      </svg>
-    </button>
-    <button
-      type="button"
-      @click="$emit('insert', '**', '**')"
-      class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-[var(--theme-surface)] border border-[var(--theme-card-border)] rounded-md theme-text-secondary hover:text-[var(--theme-primary)] hover:border-blue-300 transition-all active:bg-[var(--theme-primary)]/10 active:shadow-inner active:ring-1 active:ring-[var(--theme-primary)]/30"
-      title="粗体"
-    >
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
-        <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
-      </svg>
-    </button>
-    <button
-      type="button"
-      @click="$emit('insert', '*', '*')"
-      class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-[var(--theme-surface)] border border-[var(--theme-card-border)] rounded-md theme-text-secondary hover:text-[var(--theme-primary)] hover:border-blue-300 transition-all active:bg-[var(--theme-primary)]/10 active:shadow-inner active:ring-1 active:ring-[var(--theme-primary)]/30"
-      title="斜体"
-    >
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <line x1="19" y1="4" x2="10" y2="4" />
-        <line x1="14" y1="20" x2="5" y2="20" />
-        <line x1="15" y1="4" x2="9" y2="20" />
-      </svg>
-    </button>
-    <button
-      type="button"
-      @click="$emit('insert', '- ', '')"
-      class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-[var(--theme-surface)] border border-[var(--theme-card-border)] rounded-md theme-text-secondary hover:text-[var(--theme-primary)] hover:border-blue-300 transition-all active:bg-[var(--theme-primary)]/10 active:shadow-inner active:ring-1 active:ring-[var(--theme-primary)]/30"
-      title="列表"
-    >
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
-        <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
-      </svg>
-    </button>
-    <button
-      type="button"
-      @click="$emit('insert', '`', '`')"
-      class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-[var(--theme-surface)] border border-[var(--theme-card-border)] rounded-md theme-text-secondary hover:text-[var(--theme-primary)] hover:border-blue-300 transition-all active:bg-[var(--theme-primary)]/10 active:shadow-inner active:ring-1 active:ring-[var(--theme-primary)]/30"
-      title="代码"
-    >
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
-      </svg>
-    </button>
-    <button
-      type="button"
-      @click="$emit('uploadImage')"
-      class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-[var(--theme-surface)] border border-[var(--theme-card-border)] rounded-md theme-text-secondary hover:text-[var(--theme-primary)] hover:border-blue-300 transition-all active:bg-[var(--theme-primary)]/10 active:shadow-inner active:ring-1 active:ring-[var(--theme-primary)]/30"
-      title="上传图片"
-    >
-      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-        <circle cx="8.5" cy="8.5" r="1.5" />
-        <polyline points="21 15 16 10 5 21" />
-      </svg>
-    </button>
+  <div class="md-toolbar">
+    <a-space :size="2" wrap>
+      <a-tooltip v-for="tool in tools" :key="tool.title" :content="tool.title">
+        <a-button
+          type="text"
+          size="small"
+          class="md-btn"
+          @click="$emit('insert', tool.prefix, tool.suffix)"
+        >
+          <component :is="tool.icon" />
+        </a-button>
+      </a-tooltip>
+
+      <a-tooltip content="上传图片">
+        <a-button
+          type="text"
+          size="small"
+          class="md-btn"
+          @click="$emit('uploadImage')"
+        >
+          <IconImage />
+        </a-button>
+      </a-tooltip>
+    </a-space>
   </div>
 </template>
+
+<style lang="scss" scoped>
+.md-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 6px 8px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  background: rgb(var(--color-fill-2));
+}
+
+.md-btn {
+  color: var(--color-text-2);
+  border-radius: 6px;
+
+  &:hover {
+    color: rgb(var(--primary-6));
+    background: rgb(var(--color-fill-3));
+  }
+}
+</style>

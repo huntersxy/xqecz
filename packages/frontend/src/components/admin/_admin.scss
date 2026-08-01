@@ -18,6 +18,11 @@ $admin-danger: var(--admin-danger);
 $admin-radius: var(--admin-radius);
 $admin-shadow: var(--admin-shadow);
 
+// ── 通用工具类（随 @use 注入各 admin 组件）──
+.admin-tag-inline {
+  margin: 0;
+}
+
 // ── 间距 ──
 $admin-gap-xs: 4px;
 $admin-gap-sm: 8px;

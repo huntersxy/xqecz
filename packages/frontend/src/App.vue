@@ -195,7 +195,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
                   @keydown.enter.prevent
                   @keydown.space.prevent
                 >
-                  <Avatar :size="28" :image-url="userAvatarUrl" style="background-color: var(--primary-6)">
+                  <Avatar :size="28" :image-url="userAvatarUrl" class="app-avatar-primary">
                     <IconUser v-if="!userAvatarUrl" />
                   </Avatar>
                   <span class="app-username">{{ userStore.user?.username }}</span>
@@ -203,7 +203,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
                     v-if="userStore.user?.is_admin"
                     color="red"
                     :bordered="false"
-                    style="font-size: 11px; padding: 0 4px; margin-left: 2px"
+                    class="app-admin-tag"
                     >管理员</Tag
                   >
                 </div>
@@ -263,7 +263,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
             <span class="app-footer-badge">CC BY-NC 4.0 非商业使用</span>
             <span v-if="showICP" class="app-footer-text">桂 ICP 备 2024031550 号</span>
           </div>
-          <div class="app-footer-text" style="font-family: monospace">构建时间：{{ buildDate }}</div>
+          <div class="app-footer-text app-footer-mono">构建时间：{{ buildDate }}</div>
         </div>
       </footer>
     </Layout>
@@ -283,7 +283,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
       <!-- 用户区 -->
       <div v-if="userStore.isLoggedIn" class="drawer-user">
         <Space :size="12" align="center">
-          <Avatar :size="44" :image-url="userAvatarUrl" style="background-color: var(--primary-6)">
+          <Avatar :size="44" :image-url="userAvatarUrl" class="app-avatar-primary">
             <IconUser v-if="!userAvatarUrl" />
           </Avatar>
           <div class="drawer-user-meta">
@@ -308,7 +308,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
         :selected-keys="selectedKeys"
         @menu-item-click="onNavClick"
         :accordion="false"
-        style="border: none"
+        class="app-menu-flat"
       >
         <MenuItem v-for="item in navItems" :key="item.key">
           <template #icon><component :is="item.icon" /></template>
@@ -383,21 +383,21 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
   white-space: nowrap;
 }
 .app-nav-item:hover {
-  color: var(--primary-6) !important;
+  color: rgb(var(--primary-6)) !important;
   background: var(--color-fill-2) !important;
 }
 /* 激活高亮态：浅主色背景胶囊 + 主色文字 + 加粗，确保清晰可辨 */
 .app-nav-item.app-nav-item-active,
 .app-nav-item.app-nav-item-active:hover {
-  color: var(--primary-6) !important;
-  background: var(--primary-1) !important;
+  color: rgb(var(--primary-6)) !important;
+  background: rgb(var(--primary-1)) !important;
   font-weight: 600;
 }
 /* 暗色下浅蓝底在深色导航栏上对比偏弱，改用主色发光块 */
 body[arco-theme='dark'] .app-nav-item.app-nav-item-active,
 body[arco-theme='dark'] .app-nav-item.app-nav-item-active:hover {
-  background: rgba(22, 93, 255, 0.18) !important;
-  color: #6ea8ff !important;
+  background: rgba(var(--primary-6), 0.18) !important;
+  color: rgb(var(--primary-4)) !important;
 }
 
 .app-header-right {
@@ -447,7 +447,7 @@ body[arco-theme='dark'] .app-nav-item.app-nav-item-active:hover {
 }
 
 .app-theme-btn:hover {
-  color: var(--primary-6);
+  color: rgb(var(--primary-6));
   background: var(--color-fill-2);
 }
 
@@ -575,6 +575,24 @@ body[arco-theme='dark'] .app-nav-item.app-nav-item-active:hover {
 .app-footer-text {
   font-size: 13px;
   color: var(--color-text-2);
+}
+
+.app-footer-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.app-avatar-primary {
+  background-color: rgb(var(--primary-6));
+}
+
+.app-admin-tag {
+  font-size: 11px;
+  padding: 0 4px;
+  margin-left: 2px;
+}
+
+.app-menu-flat {
+  border: none;
 }
 
 .app-footer-badge {

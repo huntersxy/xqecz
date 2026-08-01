@@ -48,13 +48,13 @@ async function handleOk(): Promise<boolean> {
     cancel-text="取消"
     :z-index="10000"
   >
-    <div style="display: flex; flex-direction: column; gap: 12px;">
-      <p style="font-size: 13px; color: var(--theme-text-secondary); line-height: 1.5; margin: 0;">
+    <div class="cm-stack">
+      <p class="cm-desc">
         请提供认领理由，管理员将在审核后决定是否将此内容转移给您。
       </p>
       <div>
-        <div style="font-size: 13px; color: var(--theme-text-secondary); margin-bottom: 4px;">
-          认领理由 <span style="color: var(--theme-danger);">*</span>
+        <div class="cm-label">
+          认领理由 <span class="cm-required">*</span>
         </div>
         <a-textarea
           v-model="claimReason"
@@ -65,3 +65,28 @@ async function handleOk(): Promise<boolean> {
     </div>
   </a-modal>
 </template>
+
+<style scoped>
+.cm-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cm-desc {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.cm-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.cm-required {
+  color: var(--color-danger);
+}
+</style>

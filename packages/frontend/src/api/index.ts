@@ -30,6 +30,7 @@ import type {
   ApiKeyCreated,
   CreateApiKeyData,
   UpdateApiKeyData,
+  DashboardStats,
 } from '@/types'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -392,6 +393,11 @@ export const adminApi = {
     request<Content>(`/admin/audit/${id}`, {
       method: 'POST',
       body: data,
+    }),
+
+  getDashboard: (fresh = false) =>
+    request<DashboardStats>('/admin/dashboard', {
+      query: fresh ? { fresh: 1 } : undefined,
     }),
 
   pending: (params?: Pick<ListParams, 'page' | 'page_size'>) => {

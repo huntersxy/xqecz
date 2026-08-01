@@ -130,7 +130,7 @@ onMounted(loadKeys)
           <code class="admin-mono">{{ record.key_prefix }}…</code>
         </template>
         <template #permissions="{ record }">
-          <a-tag v-for="p in record.permissions" :key="p" :color="permColor(p)" :bordered="false" size="small" style="margin: 0">
+          <a-tag v-for="p in record.permissions" :key="p" :color="permColor(p)" :bordered="false" size="small" class="admin-tag-inline">
             {{ permLabel(p) }}
           </a-tag>
         </template>

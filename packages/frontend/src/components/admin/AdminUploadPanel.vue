@@ -123,12 +123,17 @@ async function handleSubmit() {
         <a-form-item label="描述正文（可选，与媒体二选一或都填）">
           <div class="w-full upload-textarea">
             <MarkdownToolbar @insert="insertMd" @upload-image="() => {}" />
-            <a-textarea v-model="form.content" :auto-size="{ minRows: 8, maxRows: 8 }" placeholder="支持Markdown" />
+
+            <a-textarea
+              v-model="form.content"
+              :auto-size="{ minRows: 8, maxRows: 8 }"
+              placeholder="支持 Markdown"
+            />
           </div>
         </a-form-item>
 
         <a-form-item label="媒体文件（可选，与正文二选一或都填）">
-          <input ref="fileInput" type="file" style="display:none" accept="image/*,video/*" @change="onFileChange" />
+          <input ref="fileInput" type="file" class="upload-input-hidden" accept="image/*,video/*" @change="onFileChange" />
           <div
             v-if="!form.file"
             class="upload-area"
@@ -202,8 +207,12 @@ async function handleSubmit() {
 @use './admin' as *;
 
 .upload-wrap {
-  max-width: 720px;
+  width: 100%;
   padding: 24px;
+}
+
+.upload-input-hidden {
+  display: none;
 }
 
 .upload-area {

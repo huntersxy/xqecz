@@ -20,8 +20,16 @@ watch(pendingConfirm, v => {
     cancel-text="取消"
     :z-index="10001"
   >
-    <p style="font-size: 14px; color: var(--theme-text); margin: 0;">
+    <p class="cd-message">
       {{ pendingConfirm?.message }}
     </p>
   </a-modal>
 </template>
+
+<style scoped>
+.cd-message {
+  font-size: 14px;
+  color: var(--color-text);
+  margin: 0;
+}
+</style>

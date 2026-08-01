@@ -40,7 +40,7 @@ function reloadPage() {
     <div class="error-boundary-content">
       <div class="error-boundary-icon">
         <svg
-          class="w-16 h-16 text-[var(--theme-danger)]"
+          class="w-16 h-16 text-[var(--color-danger)]"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -111,13 +111,13 @@ function reloadPage() {
 .error-boundary-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--color-text);
   margin-bottom: 0.5rem;
 }
 
 .error-boundary-message {
   font-size: 0.875rem;
-  color: var(--theme-text-secondary);
+  color: var(--color-text-secondary);
   margin-bottom: 1rem;
 }
 
@@ -129,14 +129,14 @@ function reloadPage() {
 .error-boundary-details-summary {
   cursor: pointer;
   font-size: 0.875rem;
-  color: var(--theme-text-secondary);
+  color: var(--color-text-secondary);
   margin-bottom: 0.5rem;
 }
 
 .error-boundary-details-content {
   font-size: 0.75rem;
-  color: var(--theme-text-secondary);
-  background: var(--theme-hover-bg);
+  color: var(--color-text-secondary);
+  background: var(--color-hover);
   padding: 1rem;
   border-radius: 0.5rem;
   overflow-x: auto;
@@ -161,8 +161,8 @@ function reloadPage() {
 }
 
 .error-boundary-btn-primary {
-  background: var(--theme-primary);
-  color: var(--theme-on-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
 }
 
 .error-boundary-btn-primary:hover {
@@ -170,16 +170,16 @@ function reloadPage() {
 }
 
 .error-boundary-btn-secondary {
-  background: var(--theme-hover-bg);
-  color: var(--theme-text);
+  background: var(--color-hover);
+  color: var(--color-text);
 }
 
 .error-boundary-btn-secondary:hover {
-  background: var(--theme-card-border);
+  background: var(--color-border);
 }
 
 .error-boundary-contact {
   font-size: 0.75rem;
-  color: var(--theme-text-secondary);
+  color: var(--color-text-secondary);
 }
 </style>

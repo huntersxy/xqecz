@@ -34,7 +34,7 @@ onMounted(load)
 <template>
   <AdminPanel title="认领管理" :desc="`共 ${admin.claims.total} 条认领申请`">
     <template #actions>
-      <a-select v-model="statusFilter" size="small" style="width: 120px" @change="load">
+      <a-select v-model="statusFilter" size="small" class="claim-status-select" @change="load">
         <a-option value="">全部状态</a-option>
         <a-option value="pending">待处理</a-option>
         <a-option value="approved">已通过</a-option>
@@ -114,5 +114,9 @@ onMounted(load)
   @include ellipsis;
   max-width: 200px;
   display: inline-block;
+}
+
+.claim-status-select {
+  width: 120px;
 }
 </style>

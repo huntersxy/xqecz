@@ -91,7 +91,7 @@ defineExpose({ mediaKind, mediaUrl })
 <style scoped>
 .cd-media-wrap {
   flex: 1 1 60%; min-width: 0; display: flex; align-items: center; justify-content: center;
-  background: var(--theme-bg-color); padding: 1rem; overflow: hidden;
+  background: var(--color-bg); padding: 1rem; overflow: hidden;
 }
 .cd-media-image { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: zoom-in; min-height: 0; }
 /* Arco <Image> 的 .arco-image 包裹层：填满媒体区并居中，作为内部 .arco-image-img 的百分比高度基准 */
@@ -119,29 +119,29 @@ defineExpose({ mediaKind, mediaUrl })
 
 .cd-link-card {
   display: flex; align-items: center; gap: 1rem; width: min(100%, 560px);
-  padding: 1.25rem 1.5rem; background: var(--theme-surface);
-  border: 1px solid var(--theme-card-border); border-radius: 12px;
+  padding: 1.25rem 1.5rem; background: var(--color-surface);
+  border: 1px solid var(--color-border); border-radius: 12px;
 }
 .cd-link-icon {
-  width: 48px; height: 48px; border-radius: 50%; background: var(--theme-hover-bg);
+  width: 48px; height: 48px; border-radius: 50%; background: var(--color-hover);
   display: flex; align-items: center; justify-content: center;
-  color: var(--theme-primary); flex-shrink: 0;
+  color: var(--color-primary); flex-shrink: 0;
 }
 .cd-link-icon svg { width: 22px; height: 22px; }
 .cd-link-text { flex: 1; min-width: 0; }
-.cd-link-label { font-size: 0.875rem; font-weight: 600; color: var(--theme-text); margin-bottom: 4px; }
-.cd-link-url { font-size: 0.8125rem; color: var(--theme-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cd-link-label { font-size: 0.875rem; font-weight: 600; color: var(--color-text); margin-bottom: 4px; }
+.cd-link-url { font-size: 0.8125rem; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cd-link-open {
   padding: 0.5rem 1rem; font-size: 0.8125rem; font-weight: 600;
-  color: var(--theme-on-primary); background: var(--theme-primary);
+  color: var(--color-on-primary); background: var(--color-primary);
   border: none; border-radius: 6px; cursor: pointer; flex-shrink: 0;
 }
 .cd-link-open:hover { filter: brightness(0.92); }
 
-.cd-text-only { padding: 2rem; text-align: center; font-size: 1.125rem; color: var(--theme-text-secondary); max-width: 600px; }
+.cd-text-only { padding: 2rem; text-align: center; font-size: 1.125rem; color: var(--color-text-secondary); max-width: 600px; }
 .cd-no-media-reason {
-  padding: 3rem 1rem; font-size: 0.875rem; color: var(--theme-text-tertiary);
-  background: var(--theme-placeholder-bg); border-radius: 0.5rem; border: 1px dashed var(--theme-card-border);
+  padding: 3rem 1rem; font-size: 0.875rem; color: var(--color-text-tertiary);
+  background: var(--color-placeholder); border-radius: 0.5rem; border: 1px dashed var(--color-border);
 }
 .cd-text-content { text-align: left; line-height: 1.7; }
 </style>

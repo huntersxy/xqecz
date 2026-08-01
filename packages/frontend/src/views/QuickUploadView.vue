@@ -142,7 +142,7 @@ onMounted(async () => {
 
 <template>
   <div class="max-w-[640px] mx-auto px-4 py-8">
-    <div class="theme-card rounded-xl p-6 shadow-sm theme-border">
+    <div class="bg-[var(--color-card)] rounded-xl p-6 shadow-sm border-[var(--color-border)]">
       <a-form layout="vertical" :model="form">
         <div v-if="!isLoggedIn" class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
           <a-form-item label="昵称" required>
@@ -175,6 +175,7 @@ onMounted(async () => {
         <a-form-item label="描述正文（可选）">
           <div class="w-full quick-upload-textarea">
             <MarkdownToolbar @insert="insertMd" @upload-image="() => {}" />
+
             <a-textarea
               v-model="form.content"
               :auto-size="{ minRows: 6, maxRows: 12 }"
@@ -192,9 +193,9 @@ onMounted(async () => {
             :show-file-list="false"
             :disabled="uploading"
           >
-            <IconUpload style="font-size: 40px; color: var(--theme-primary)" />
-            <a-typography-text type="secondary" style="display: block; margin: 6px 0">点击或拖拽文件到此区域</a-typography-text>
-            <a-typography-text type="secondary" style="display: block; margin: 0; font-size: 12px">图片或视频，最大 20MB</a-typography-text>
+            <IconUpload class="qu-upload-icon" />
+            <a-typography-text type="secondary" class="qu-upload-hint">点击或拖拽文件到此区域</a-typography-text>
+            <a-typography-text type="secondary" class="qu-upload-sub">图片或视频，最大 20MB</a-typography-text>
           </a-upload>
           <div v-else>
             <a-image
@@ -208,7 +209,7 @@ onMounted(async () => {
               v-else
               :src="filePreview"
               controls
-              style="max-height: 240px; max-width: 100%; border-radius: 8px"
+              class="qu-preview-video"
             />
             <a-button
               size="small"
@@ -221,7 +222,7 @@ onMounted(async () => {
         </a-form-item>
 
         <a-form-item label="标签（可选）">
-          <div class="theme-card rounded-lg p-3 theme-border">
+          <div class="bg-[var(--color-card)] rounded-lg p-3 border-[var(--color-border)]">
             <TagCloud
               :tags="availableTags"
               :selected-tags="form.tags"
@@ -233,11 +234,7 @@ onMounted(async () => {
           </div>
         </a-form-item>
 
-        <div
-          class="border-t pt-2 mb-4 text-xs theme-text-secondary"
-          style="border-color: var(--theme-card-border)"
-          v-html="CC_LICENSE_TEXT"
-        ></div>
+        <div class="qu-license" v-html="CC_LICENSE_TEXT"></div>
 
         <a-form-item v-if="uploading">
           <a-progress :percent="progress" status="normal" :stroke-width="18" />
@@ -263,5 +260,35 @@ onMounted(async () => {
   border-radius: 8px;
   display: block;
   object-fit: contain;
+}
+
+.qu-upload-icon {
+  font-size: 40px;
+  color: var(--color-primary);
+}
+
+.qu-upload-hint {
+  display: block;
+  margin: 6px 0;
+}
+
+.qu-upload-sub {
+  display: block;
+  margin: 0;
+  font-size: 12px;
+}
+
+.qu-preview-video {
+  max-height: 240px;
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+.qu-license {
+  padding-top: 8px;
+  margin-bottom: 16px;
+  border-top: 1px solid var(--color-border);
+  font-size: 12px;
+  color: var(--color-text-secondary);
 }
 </style>
