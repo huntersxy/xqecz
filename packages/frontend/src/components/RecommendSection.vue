@@ -187,6 +187,15 @@ onBeforeUnmount(() => {
   overflow: hidden; position: relative; cursor: pointer;
   background: var(--color-fill-2);
 }
+/* 暗色下给推荐缩略图叠一层灰色半透明遮罩，与壁纸/瀑布流卡片压暗保持一致 */
+body[arco-theme='dark'] .wf-recommend-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
 /* 暗色下 --color-fill-2 为 rgba(255,255,255,0.08) 半透明，卡片会透出壁纸 → 改用实色深色 token */
 body[arco-theme='dark'] .wf-recommend-card { background: var(--color-bg-3); }
 /* Arco <Image> 包裹层需填满卡片，内层 .arco-image-img 的 cover 才生效 */

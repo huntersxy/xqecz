@@ -44,6 +44,13 @@ body[arco-theme='dark'] {
   --color-overlay-bg: rgba(0, 0, 0, 0.4);
 }
 
+/* 暗色下压暗壁纸：在背景图上叠加一层灰色半透明遮罩，降低图片亮度 */
+body[arco-theme='dark']::before {
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.35)),
+    url('./bg.webp') center / cover no-repeat;
+}
+
 @layer base {
   * {
     margin: 0;

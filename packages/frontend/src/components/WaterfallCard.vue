@@ -83,11 +83,22 @@ onBeforeUnmount(() => ro?.disconnect())
 .wf-card-media :deep(.arco-image) { display: block; width: 100%; min-height: 80px; border-radius: 0; }
 .wf-card-media :deep(.arco-image-img) { width: 100%; height: auto; display: block; vertical-align: top; }
 
+/* 暗色下给卡片图片叠一层灰色半透明遮罩，与壁纸压暗保持一致 */
+body[arco-theme='dark'] .wf-card-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
 .wf-badge-ai {
   position: absolute; top: 0.375rem; left: 0.375rem;
   padding: 0.0625rem 0.375rem; font-size: 0.5625rem; font-weight: 700;
   letter-spacing: 0.04em; color: #fff;
   background: rgba(var(--purple-6), 0.85); border-radius: 0.25rem;
+  z-index: 2; /* 保持在遮罩之上 */
 }
 
 .wf-card-text-body {
