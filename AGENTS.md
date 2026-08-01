@@ -118,6 +118,7 @@ pnpm proto:generate                        # 生成 ts/go stub
 
 - **前端是契约** — `packages/frontend/src/api/index.ts` 是唯一接口定义（前端已并入本仓 `packages/frontend`，不再独立仓库）
 - **NestJS 独占 DB/Redis** — Go worker 不访问 MySQL/Redis，也不含 cron 调度；它只做 gRPC 无状态计算，数据经 gRPC 从 NestJS 传入、结果回传 NestJS 落库/写缓存
+- **API 密钥认证** — `AuthGuard` 双模式：请求头 `X-API-Key`（sha256 比对 `api_keys.key_hash`，`req.user.api_key` 携带权限）或 Session Cookie；`ApiKeyPermissionGuard` + `@RequireApiKeyPermission('upload'|'delete'|'read')` 仅约束密钥调用，Session 用户不受限。新增受保护接口时按此模式挂守卫
 - **共享上传目录** — 文件处理路径通过 gRPC 传入绝对路径，NestJS 与 Go 必须指向同一 `UPLOAD_DIR`；单一配置源为 `packages/api/.env`，worker 由 `scripts/run-worker.mjs` 启动时自动读取该 .env 注入 `UPLOAD_DIR/THUMB_DIR/IMAGES_DIR`
 - **统一响应** — `{ code, message, data }` 包装格式
 - **内容类型已缩窄** — `content.type` 值域仅 `image` / `text`（按“是否有 file”自动推导）；存量 `video` / `link` 记录走一次性迁移归并为 `text`（`POST /admin/content/migrate-old-types`）

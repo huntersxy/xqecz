@@ -7,7 +7,9 @@ import { mkdirSync, unlink } from 'fs'
 import type { Request, Response } from 'express'
 import { ContentService } from './content.service'
 import { AuthGuard } from '../guards/auth.guard'
+import { ApiKeyPermissionGuard } from '../guards/api-key-permission.guard'
 import { CurrentUser } from '../decorators/current-user.decorator'
+import { RequireApiKeyPermission } from '../decorators/require-api-key-permission.decorator'
 import { UploadContentDto, UpdateContentDto, ListContentDto, ClaimDto, QuickUploadDto } from './dto'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
@@ -96,7 +98,8 @@ export class ContentController {
   }
 
   @Post('upload')
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, ApiKeyPermissionGuard)
+  @RequireApiKeyPermission('upload')
   @UseInterceptors(FileInterceptor('file', { storage: uploadStorage() }))
   async upload(@UploadedFile() file: Express.Multer.File | undefined, @Body() dto: UploadContentDto, @CurrentUser('uid') uid: number) {
     const filePath = file ? relPath(file) : undefined
@@ -171,7 +174,8 @@ export class ContentController {
 
   // 富文本图片上传（前端 Markdown 编辑器的图片插入）。返回 image_url 供插入。
   @Post('upload-image')
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, ApiKeyPermissionGuard)
+  @RequireApiKeyPermission('upload')
   @UseInterceptors(FileInterceptor('file', { storage: uploadStorage() }))
   async uploadImage(@UploadedFile() file: Express.Multer.File | undefined, @CurrentUser('uid') uid: number) {
     if (!file) return { code: 400, message: '未收到文件', data: null }
@@ -194,7 +198,8 @@ export class ContentController {
   }
 
   @Put(':id')
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, ApiKeyPermissionGuard)
+  @RequireApiKeyPermission('upload')
   @UseInterceptors(FileInterceptor('file', { storage: uploadStorage() }))
   async update(
     @Param('id') id: string,
@@ -221,7 +226,8 @@ export class ContentController {
   }
 
   @Delete(':id')
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, ApiKeyPermissionGuard)
+  @RequireApiKeyPermission('delete')
   async delete(@Param('id') id: string, @CurrentUser('uid') uid: number, @CurrentUser('is_admin') isAdmin: boolean) {
     const row = await this.svc.getContentRow(Number(id))
     if (!row) throw new NotFoundException('内容不存在')

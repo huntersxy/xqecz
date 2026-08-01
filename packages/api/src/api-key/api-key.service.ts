@@ -10,7 +10,8 @@ export class ApiKeyService {
 
   private generate() {
     const raw = 'xq_' + randomBytes(24).toString('hex')
-    return { raw, prefix: raw.slice(0, 12), hash: createHash('sha256').update(raw).digest('hex') }
+    // key_prefix 列为 varchar(10)，前缀取 10 位（如 xq_abcd1234）
+    return { raw, prefix: raw.slice(0, 10), hash: createHash('sha256').update(raw).digest('hex') }
   }
 
   private decorate(row: ApiKey) {

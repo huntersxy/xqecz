@@ -5,6 +5,7 @@ import { apiKeyApi } from '@/api'
 import type { ApiKey, ApiKeyCreated } from '@/types'
 import { Tooltip, type TableColumnData } from '@arco-design/web-vue'
 import { IconDelete, IconPlus, IconRefresh } from '@arco-design/web-vue/es/icon'
+import AdminApiKeysDocs from './AdminApiKeysDocs.vue'
 
 const loading = ref(false)
 const keys = ref<ApiKey[]>([])
@@ -159,6 +160,9 @@ onMounted(loadKeys)
         </template>
       </a-table>
     </a-spin>
+
+    <!-- API 使用说明与多语言示例 -->
+    <AdminApiKeysDocs />
 
     <!-- 新建弹窗 -->
     <a-modal v-model:visible="showCreateModal" title="新建 API 密钥" @ok="handleCreate" ok-text="创建" cancel-text="取消">

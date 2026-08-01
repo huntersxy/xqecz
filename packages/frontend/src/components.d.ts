@@ -11,13 +11,16 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AAlert: typeof import('@arco-design/web-vue')['Alert']
     AAvatar: typeof import('@arco-design/web-vue')['Avatar']
     AButton: typeof import('@arco-design/web-vue')['Button']
     ACard: typeof import('@arco-design/web-vue')['Card']
     ACheckbox: typeof import('@arco-design/web-vue')['Checkbox']
     ACheckboxGroup: typeof import('@arco-design/web-vue')['CheckboxGroup']
     ACol: typeof import('@arco-design/web-vue')['Col']
+    ADivider: typeof import('@arco-design/web-vue')['Divider']
     AdminApiKeys: typeof import('./components/admin/AdminApiKeys.vue')['default']
+    AdminApiKeysDocs: typeof import('./components/admin/AdminApiKeysDocs.vue')['default']
     AdminClaimTable: typeof import('./components/admin/AdminClaimTable.vue')['default']
     AdminContentDrawer: typeof import('./components/admin/AdminContentDrawer.vue')['default']
     AdminContentTable: typeof import('./components/admin/AdminContentTable.vue')['default']
