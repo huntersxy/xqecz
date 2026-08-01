@@ -5,7 +5,7 @@ import { CC_LICENSE_TEXT, VIDEO_TERMS_TEXT } from '@/utils/constants'
 import { Tag } from '@arco-design/web-vue'
 import { IconUpload, IconClose } from '@arco-design/web-vue/es/icon'
 import TagCloud from './TagCloud.vue'
-import MarkdownToolbar from '@/components/MarkdownToolbar.vue'
+import MarkdownEditor from '@/components/MarkdownEditor.vue'
 
 const userStore = useUserStore()
 const admin = useAdminStore()
@@ -68,18 +68,6 @@ function clearForm() {
   agreeUpload.value = false
 }
 
-function insertMd(prefix: string, suffix: string) {
-  const ta = document.querySelector('.upload-textarea textarea') as HTMLTextAreaElement
-  if (!ta) return
-  const s = ta.selectionStart, e = ta.selectionEnd, t = form.value.content || ''
-  form.value.content = t.substring(0, s) + prefix + t.substring(s, e) + suffix + t.substring(e)
-  ta.focus()
-  setTimeout(
-    () => ta.setSelectionRange(s + prefix.length + (e - s) + suffix.length, s + prefix.length + (e - s) + suffix.length),
-    0,
-  )
-}
-
 // 视频阈值保持原 15MB
 const VIDEO_SIZE_LIMIT = 15 * 1024 * 1024
 
@@ -121,15 +109,11 @@ async function handleSubmit() {
         </a-form-item>
 
         <a-form-item label="描述正文（可选，与媒体二选一或都填）">
-          <div class="w-full upload-textarea">
-            <MarkdownToolbar @insert="insertMd" @upload-image="() => {}" />
-
-            <a-textarea
-              v-model="form.content"
-              :auto-size="{ minRows: 8, maxRows: 8 }"
-              placeholder="支持 Markdown"
-            />
-          </div>
+          <MarkdownEditor
+            v-model="form.content"
+            placeholder="支持 Markdown，描述、提示词、灵感…"
+            :height="360"
+          />
         </a-form-item>
 
         <a-form-item label="媒体文件（可选，与正文二选一或都填）">

@@ -3,6 +3,7 @@ import { useAdminStore } from '@/stores/admin'
 import { adminApi } from '@/api'
 import { getAvatarUrl, getImageUrl, renderMarkdown } from '@/utils'
 import MediaImage from '@/components/MediaImage.vue'
+import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import { Tag, type FileItem } from '@arco-design/web-vue'
 import { useConfirm } from '@/composables/useToast'
 import type { User } from '@/types'
@@ -58,15 +59,6 @@ async function loadUsers() {
     const r = await adminApi.getUsers({ page_size: 200 })
     if (r.code === 200) allUsers.value = r.data.list
   } catch { /* */ } finally { usersLoading.value = false }
-}
-
-function insertMarkdown(prefix: string, suffix: string) {
-  const ta = document.querySelector('.drawer-edit-textarea textarea') as HTMLTextAreaElement
-  if (!ta) return
-  const s = ta.selectionStart, e = ta.selectionEnd, t = editContent.value || ''
-  editContent.value = t.substring(0, s) + prefix + t.substring(s, e) + suffix + t.substring(e)
-  ta.focus()
-  setTimeout(() => ta.setSelectionRange(s + prefix.length + (e - s) + suffix.length, s + prefix.length + (e - s) + suffix.length), 0)
 }
 
 async function handleSave() {
@@ -170,17 +162,12 @@ function onFileChange(_fileList: FileItem[], fileItem: FileItem) {
               <a-input v-model="editUrl" placeholder="https://…" />
             </a-form-item>
 
-            <a-form-item label="描述（Markdown）">
-              <div class="drawer-md-editor">
-                <MarkdownToolbar @insert="insertMarkdown" @upload-image="() => {}" />
-
-                <a-textarea
-                  v-model="editContent"
-                  class="drawer-edit-textarea"
-                  :auto-size="{ minRows: 8, maxRows: 8 }"
-                  placeholder="支持 Markdown，可留空（纯媒体内容）"
-                />
-              </div>
+            <a-form-item label="描述（Markdown，可留空为纯媒体内容）">
+              <MarkdownEditor
+                v-model="editContent"
+                placeholder="支持 Markdown，可留空（纯媒体内容）"
+                :height="360"
+              />
             </a-form-item>
 
             <a-form-item label="媒体文件">
@@ -337,16 +324,6 @@ body[arco-theme='dark'] .preview-text :deep(pre) {
 .drawer-field-stack {
   display: block;
   width: 100%;
-}
-
-.drawer-md-editor {
-  display: block;
-  width: 100%;
-
-  :deep(.arco-textarea),
-  :deep(.arco-textarea-wrapper) {
-    width: 100%;
-  }
 }
 
 .drawer-tags-input {

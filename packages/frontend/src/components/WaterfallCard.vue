@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import MediaImage from '@/components/MediaImage.vue'
+import { getPreviewText } from '@/utils'
 import type { Content } from '@/types'
 
 interface Props {
@@ -9,6 +10,12 @@ interface Props {
 
 const props = defineProps<Props>()
 const emit = defineEmits<{ click: [content: Content]; imageLoaded: [id: string | number] }>()
+
+// 纯文本卡：从正文提炼一段摘要（去 Markdown），无正文时回退到标题
+const previewText = computed(() => {
+  const source = props.item.text || props.item.title || ''
+  return getPreviewText(source, 96)
+})
 
 // Arco <Image> 不对外 emit load 事件（内部吞掉了原生 img 的 onLoad），
 // 而瀑布流 masonry 依赖 imageLoaded 触发重排，故用 ResizeObserver 监听媒体区高度变化来替代。
@@ -33,7 +40,9 @@ onBeforeUnmount(() => ro?.disconnect())
     </template>
     <template v-else>
       <div class="wf-card-text-body">
-        <p>{{ props.item.title }}</p>
+        <span class="wf-card-text-mark" aria-hidden="true">&ldquo;</span>
+        <p class="wf-card-text-excerpt">{{ previewText }}</p>
+        <span class="wf-card-text-more">阅读全文</span>
       </div>
     </template>
     <div class="wf-card-info">
@@ -82,12 +91,48 @@ onBeforeUnmount(() => ro?.disconnect())
 }
 
 .wf-card-text-body {
-  padding: 1rem; display: flex; align-items: center; justify-content: center;
-  min-height: 80px; background: var(--color-hover);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 150px;
+  padding: 1rem 0.875rem 0.75rem;
+  background: linear-gradient(165deg, var(--color-fill-2), var(--color-bg-2));
 }
-.wf-card-text-body p {
-  font-size: 0.8125rem; line-height: 1.5; color: var(--color-text); margin: 0;
+
+.wf-card-text-mark {
+  position: absolute;
+  top: 0.25rem;
+  left: 0.625rem;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 2.25rem;
+  line-height: 1;
+  color: rgb(var(--primary-3));
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.wf-card-text-excerpt {
+  margin: 1.375rem 0 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  color: var(--color-text-2);
   display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
+  word-break: break-word;
+}
+
+.wf-card-text-more {
+  margin-top: auto;
+  align-self: flex-end;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: rgb(var(--primary-6));
+  opacity: 0.75;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.wf-card:hover .wf-card-text-more {
+  opacity: 1;
+  transform: translateX(2px);
 }
 
 .wf-card-info { padding: 0.5rem 0.625rem 0.625rem; }

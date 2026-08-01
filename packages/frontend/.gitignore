@@ -11,6 +11,10 @@ node_modules
 .DS_Store
 dist
 dist-ssr
+
+# vditor 本地运行资源（编辑器经 /vditor/dist 加载，必须随仓库提交）
+!public/vditor/
+!public/vditor/dist/
 coverage
 *.local
 

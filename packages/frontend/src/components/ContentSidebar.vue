@@ -169,13 +169,57 @@ defineExpose({ commentRef })
   border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent); border-radius: 999px;
 }
 
-.cd-prompt { font-size: 0.8125rem; line-height: 1.65; color: var(--color-text); max-height: 220px; overflow-y: auto; word-break: break-word; }
+.cd-prompt {
+  font-size: 0.8125rem;
+  line-height: 1.75;
+  color: var(--color-text);
+  max-height: 260px;
+  overflow-y: auto;
+  word-break: break-word;
+}
 .cd-prompt :deep(p) { margin: 0 0 0.5em; }
 .cd-prompt :deep(p:last-child) { margin-bottom: 0; }
+.cd-prompt :deep(h1),
+.cd-prompt :deep(h2),
+.cd-prompt :deep(h3),
+.cd-prompt :deep(h4) {
+  margin: 0.9em 0 0.45em;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--color-text);
+}
+.cd-prompt :deep(h1) { font-size: 1.05rem; }
+.cd-prompt :deep(h2) { font-size: 0.975rem; }
+.cd-prompt :deep(h3) { font-size: 0.9rem; }
+.cd-prompt :deep(h4) { font-size: 0.85rem; }
+.cd-prompt :deep(h1:first-child),
+.cd-prompt :deep(h2:first-child) { margin-top: 0; }
 .cd-prompt :deep(pre) { background: var(--color-hover); padding: 0.5rem 0.625rem; border-radius: 6px; overflow-x: auto; font-size: 0.75rem; }
 .cd-prompt :deep(code) { background: var(--color-hover); padding: 1px 4px; border-radius: 3px; font-size: 0.75em; }
-.cd-prompt :deep(ul), .cd-prompt :deep(ol) { padding-left: 1.25em; margin: 0.25em 0; }
+.cd-prompt :deep(pre code) { background: none; padding: 0; }
+.cd-prompt :deep(ul), .cd-prompt :deep(ol) { padding-left: 1.25em; margin: 0.25em 0 0.5em; }
+.cd-prompt :deep(li) { margin: 0.2em 0; }
+.cd-prompt :deep(blockquote) {
+  margin: 0.5em 0;
+  padding: 0.4em 0.75em;
+  border-left: 3px solid rgb(var(--primary-6));
+  background: var(--color-fill-1);
+  border-radius: 0 6px 6px 0;
+  color: var(--color-text-2);
+}
+.cd-prompt :deep(img) {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0.5em auto;
+  border-radius: 6px;
+}
+.cd-prompt :deep(table) { border-collapse: collapse; margin: 0.5em 0; width: 100%; font-size: 0.75rem; }
+.cd-prompt :deep(th),
+.cd-prompt :deep(td) { border: 1px solid var(--color-border-2); padding: 0.35em 0.5em; text-align: left; }
+.cd-prompt :deep(th) { background: var(--color-fill-2); font-weight: 600; }
 .cd-prompt :deep(a) { color: var(--color-primary); }
+.cd-prompt :deep(hr) { border: none; border-top: 1px solid var(--color-border-2); margin: 1em 0; }
 
 .cd-ref-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 0.375rem; }
 .cd-ref-thumb { aspect-ratio: 1; border-radius: 6px; overflow: hidden; background: var(--color-placeholder); display: block; }

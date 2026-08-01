@@ -5,7 +5,7 @@ import { contentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { CC_LICENSE_TEXT } from '@/utils/constants'
 import { IconUpload } from '@arco-design/web-vue/es/icon'
-import MarkdownToolbar from '@/components/MarkdownToolbar.vue'
+import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import TagCloud from '@/components/admin/TagCloud.vue'
 
 const router = useRouter()
@@ -63,18 +63,6 @@ function removeFile() {
   file.value = undefined
   filePreview.value = ''
   fileKind.value = ''
-}
-
-function insertMd(prefix: string, suffix: string) {
-  const ta = document.querySelector('.quick-upload-textarea textarea') as HTMLTextAreaElement
-  if (!ta) return
-  const s = ta.selectionStart, e = ta.selectionEnd, t = form.value.content || ''
-  form.value.content = t.substring(0, s) + prefix + t.substring(s, e) + suffix + t.substring(e)
-  ta.focus()
-  setTimeout(
-    () => ta.setSelectionRange(s + prefix.length + (e - s) + suffix.length, s + prefix.length + (e - s) + suffix.length),
-    0,
-  )
 }
 
 function validate(): string | null {
@@ -173,16 +161,12 @@ onMounted(async () => {
         </a-form-item>
 
         <a-form-item label="描述正文（可选）">
-          <div class="w-full quick-upload-textarea">
-            <MarkdownToolbar @insert="insertMd" @upload-image="() => {}" />
-
-            <a-textarea
-              v-model="form.content"
-              :auto-size="{ minRows: 6, maxRows: 12 }"
-              placeholder="支持 Markdown，描述、提示词、灵感…"
-              :disabled="uploading"
-            />
-          </div>
+          <MarkdownEditor
+            v-model="form.content"
+            placeholder="支持 Markdown，描述、提示词、灵感…"
+            :height="320"
+            :disabled="uploading"
+          />
         </a-form-item>
 
         <a-form-item label="媒体文件（可选）">
