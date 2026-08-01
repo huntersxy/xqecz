@@ -1,44 +1,49 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { message } from 'ant-design-vue'
+import { ref, watch } from 'vue'
+import { Message } from '@arco-design/web-vue'
 import { contentApi } from '@/api'
 
 const props = defineProps<{ open: boolean; contentId: number }>()
 const emit = defineEmits<{ close: [] }>()
 
 const claimReason = ref('')
-const isSubmitting = ref(false)
+const visible = ref(props.open)
+watch(
+  () => props.open,
+  v => {
+    if (v !== visible.value) visible.value = v
+  },
+)
+watch(visible, v => {
+  if (!v) emit('close')
+})
 
-async function submitClaim() {
+async function handleOk(): Promise<boolean> {
   if (!claimReason.value.trim()) {
-    message.warning('请输入认领理由')
-    return
+    Message.warning('请输入认领理由')
+    return false
   }
   try {
-    isSubmitting.value = true
     const res = await contentApi.submitClaim(props.contentId, claimReason.value.trim())
     if (res.code === 200) {
-      message.success('认领申请已提交，请等待管理员审核')
+      Message.success('认领申请已提交，请等待管理员审核')
       claimReason.value = ''
-      emit('close')
-    } else {
-      message.error(res.message || '认领申请提交失败')
+      return true
     }
+    Message.error(res.message || '认领申请提交失败')
+    return false
   } catch {
-    message.error('认领申请提交失败')
-  } finally {
-    isSubmitting.value = false
+    Message.error('认领申请提交失败')
+    return false
   }
 }
 </script>
 
 <template>
   <a-modal
-    :open="open"
+    v-model:visible="visible"
     title="认领此内容"
-    @cancel="emit('close')"
-    :confirm-loading="isSubmitting"
-    @ok="submitClaim"
+    :on-before-ok="handleOk"
     ok-text="提交申请"
     cancel-text="取消"
     :z-index="10000"
@@ -52,10 +57,9 @@ async function submitClaim() {
           认领理由 <span style="color: var(--theme-danger);">*</span>
         </div>
         <a-textarea
-          v-model:value="claimReason"
+          v-model="claimReason"
           placeholder="请详细说明您认为此内容应归属于您的原因..."
-          :rows="4"
-          :disabled="isSubmitting"
+          :auto-size="{ minRows: 4, maxRows: 8 }"
         />
       </div>
     </div>

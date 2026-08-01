@@ -4,61 +4,40 @@
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
-/* ── 日间（默认） ── */
-:root {
-  --color-primary: #6366f1;
-  --color-primary-hover: #4f46e5;
-  --color-on-primary: #ffffff;
+/* ── 主题系统已移除：颜色全部由 Arco 驱动 ──
+   原项目的自定义调色板（:root / html.dark 中的 hex 值）已删除。
+   下方 --color-* / --theme-* 仅作为指向 Arco token 的别名层，
+   颜色值完全来自 Arco（arco.css），随 <body arco-theme="dark"> 自动翻日/夜。
+   非 antd 组件（本项目自定义 UI）统一随 Arco 暗色覆盖；antd 组件走自身 ConfigProvider。 */
 
-  --color-bg: transparent;
-  --color-surface: #ffffff;
-  --color-card: #ffffff;
-  --color-card-hover: #fafafa;
-  --color-border: #e5e7eb;
-  --color-hover: #f3f4f6;
-  --color-placeholder: #f3f4f6;
+body {
+  /* 语义别名 → Arco token（直接挂在 body 作用域，与 Arco 的 token 同层。
+     之前写在 :root 时，子组件解析 var(--color-bg-2) 等 Arco token 会因不在该层而失败、
+     背景计算为透明——这是“很多组件背景变透明”的根因） */
+  --color-primary: var(--primary-6);
+  --color-primary-hover: var(--primary-5);
+  --color-on-primary: var(--color-white);
 
-  --color-text: #111827;
-  --color-text-secondary: #6b7280;
-  --color-text-tertiary: #9ca3af;
+  --color-bg: transparent;            /* 保留透明，露出 body::before 固定背景图 */
+  --color-surface: var(--color-bg-2);
+  --color-card: var(--color-bg-2);
+  --color-card-hover: var(--color-bg-3);
+  --color-border: var(--color-border-2);
+  --color-hover: var(--color-fill-2);
+  --color-placeholder: var(--color-fill-2);
 
-  --color-success: #22c55e;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
+  --color-text: var(--color-text-1);
+  --color-text-secondary: var(--color-text-2);
+  --color-text-tertiary: var(--color-text-3);
 
-  --color-header-bg: #ffffff;
+  --color-success: var(--success-6);
+  --color-warning: var(--warning-6);
+  --color-danger: var(--danger-6);
+
+  --color-header-bg: var(--color-bg-2);
   --color-overlay-bg: rgba(255, 255, 255, 0.5);
-}
 
-/* ── 暗色 ── */
-html.dark {
-  --color-primary: #818cf8;
-  --color-primary-hover: #6366f1;
-  --color-on-primary: #ffffff;
-
-  --color-bg: #0a0a0a;
-  --color-surface: #141414;
-  --color-card: #1a1a1a;
-  --color-card-hover: #222222;
-  --color-border: #2a2a2a;
-  --color-hover: #1f1f1f;
-  --color-placeholder: #1e1e1e;
-
-  --color-text: #f5f5f5;
-  --color-text-secondary: #a3a3a3;
-  --color-text-tertiary: #737373;
-
-  --color-success: #4ade80;
-  --color-warning: #fbbf24;
-  --color-danger: #f87171;
-
-  --color-header-bg: #141414;
-  --color-overlay-bg: rgba(0, 0, 0, 0.4);
-}
-
-/* ── 兼容别名（旧代码用 --theme-xxx，新代码统一用 --color-xxx） ── */
-:root,
-html.dark {
+  /* 旧代码 --theme-* 别名（指向上述语义变量，待各组件逐个转 Arco 后整体删除） */
   --theme-primary: var(--color-primary);
   --theme-secondary: var(--color-primary);
   --theme-accent: var(--color-primary);
@@ -72,12 +51,18 @@ html.dark {
   --theme-placeholder-bg: var(--color-placeholder);
   --theme-overlay-bg: var(--color-overlay-bg);
   --theme-bg-color: var(--color-bg);
+  --theme-bg: var(--color-bg);
   --theme-success: var(--color-success);
   --theme-warning: var(--color-warning);
   --theme-danger: var(--color-danger);
   --theme-on-primary: var(--color-on-primary);
   --admin-bg: var(--color-surface);
   --admin-text-tertiary: var(--color-text-tertiary);
+}
+
+/* 暗色：页面背景同样保持透明，露出 body::before 固定壁纸（其余 token 由 Arco 的 body[arco-theme='dark'] 处理） */
+body[arco-theme='dark'] {
+  --color-overlay-bg: rgba(0, 0, 0, 0.4);
 }
 
 @layer base {
@@ -185,4 +170,12 @@ html.dark {
   html {
     font-size: 13px;
   }
+}
+
+/* ── Arco Image 错误态：只显示图标，不显示 alt / description 文字 ──
+   用 .arco-image 前缀提升特异性，确保压过后加载的 arco.css（main.ts 中 arco.css 在 main.css 之后引入）。
+   结构见 @arco-design/web-vue/es/image/image.js：isError 时渲染
+   .arco-image-error > .arco-image-error-icon（图标）+ .arco-image-error-alt（alt||description 文字）。 */
+.arco-image .arco-image-error-alt {
+  display: none;
 }

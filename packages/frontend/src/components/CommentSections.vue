@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { RouterLink } from 'vue-router'
-import { message } from 'ant-design-vue'
+import { Message } from '@arco-design/web-vue'
 import { commentApi } from '@/api'
 import { useConfirm } from '@/composables/useToast'
 import CommentItem from '@/components/CommentItem.vue'
@@ -52,7 +52,7 @@ async function goToNextPage() {
 
 async function submitComment() {
   if (!commentText.value.trim()) {
-    message.warning('请输入评论内容')
+    Message.warning('请输入评论内容')
     return
   }
   try {
@@ -65,13 +65,13 @@ async function submitComment() {
     if (res.code === 200) {
       commentText.value = ''
       replyTarget.value = null
-      message.success('评论成功')
+      Message.success('评论成功')
       await loadComments(1)
     } else {
-      message.error(res.message || '评论失败')
+      Message.error(res.message || '评论失败')
     }
   } catch {
-    message.error('评论失败')
+    Message.error('评论失败')
   }
 }
 
@@ -86,13 +86,13 @@ async function deleteComment(commentId: number) {
   try {
     const res = await commentApi.delete(commentId)
     if (res.code === 200) {
-      message.success('删除成功')
+      Message.success('删除成功')
       await loadComments(currentPage.value)
     } else {
-      message.error(res.message || '删除失败')
+      Message.error(res.message || '删除失败')
     }
   } catch {
-    message.error('删除失败')
+    Message.error('删除失败')
   }
 }
 

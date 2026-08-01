@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, nextTick } from 'vue'
 import { getImageUrl, renderMarkdown } from '@/utils'
-import SafeImage from '@/components/SafeImage.vue'
 import Viewer from 'viewerjs'
 import 'viewerjs/dist/viewer.css'
 import type { Content } from '@/types'
@@ -63,7 +62,7 @@ defineExpose({ mediaKind, mediaUrl })
 <template>
   <section class="cd-media-wrap">
     <div v-if="mediaKind === 'image'" class="cd-media-image" @click="openViewerInline">
-      <SafeImage :src="mediaUrl" :alt="content.title" class="cd-image" draggable="false" />
+      <a-image :src="mediaUrl" :alt="content.title" class="cd-image" :preview="false" draggable="false" />
     </div>
     <video v-else-if="mediaKind === 'video'" :src="mediaUrl" controls playsinline class="cd-video">
       您的浏览器不支持视频播放。
@@ -94,8 +93,28 @@ defineExpose({ mediaKind, mediaUrl })
   flex: 1 1 60%; min-width: 0; display: flex; align-items: center; justify-content: center;
   background: var(--theme-bg-color); padding: 1rem; overflow: hidden;
 }
-.cd-media-image { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: zoom-in; }
-.cd-image { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px; user-select: none; }
+.cd-media-image { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: zoom-in; min-height: 0; }
+/* Arco <Image> 的 .arco-image 包裹层：填满媒体区并居中，作为内部 .arco-image-img 的百分比高度基准 */
+.cd-image {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* 关键：约束内部真实 .arco-image-img，等比缩放至完整可见（适应/contain），不裁切、不溢出 */
+.cd-image :deep(.arco-image-img) {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 6px;
+  user-select: none;
+}
 .cd-video { width: 100%; max-height: 100%; border-radius: 8px; background: #000; }
 
 .cd-link-card {

@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { renderMarkdown } from '@/utils'
-import SafeImage from '@/components/SafeImage.vue'
 import { useUserStore } from '@/stores/user'
 import CommentSections from '@/components/CommentSections.vue'
 import type { Content, Comment } from '@/types'
@@ -57,7 +56,7 @@ defineExpose({ commentRef })
   <aside class="cd-side">
     <div v-if="content.user" class="cd-author">
       <div class="cd-author-left">
-        <SafeImage v-if="content.avatar_url" :src="content.avatar_url" class="cd-avatar-img" :alt="content.user.username" />
+        <a-image v-if="content.avatar_url" :src="content.avatar_url" class="cd-avatar-img" :preview="false" :alt="content.user.username" />
         <div v-else class="cd-avatar">{{ (content.user.username || '?').slice(0, 1).toUpperCase() }}</div>
         <div class="cd-author-info">
           <span class="cd-author-name">{{ content.user.username }}</span>
@@ -89,7 +88,7 @@ defineExpose({ commentRef })
       <div class="cd-section-head"><span class="cd-section-title">参考图片</span></div>
       <div class="cd-ref-grid">
         <a v-for="(img, i) in refImages" :key="i" :href="img.url" target="_blank" rel="noopener" class="cd-ref-thumb">
-          <SafeImage :src="img.url" :alt="img.alt" loading="lazy" />
+          <a-image :src="img.url" :alt="img.alt" :preview="false" />
         </a>
       </div>
     </div>
@@ -132,7 +131,8 @@ defineExpose({ commentRef })
   color: var(--theme-on-primary); display: flex; align-items: center; justify-content: center;
   font-size: 1rem; font-weight: 700; flex-shrink: 0;
 }
-.cd-avatar-img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.cd-avatar-img { width: 38px; height: 38px; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
+.cd-avatar-img :deep(.arco-image-img) { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cd-author-info { display: flex; flex-direction: column; min-width: 0; }
 .cd-author-name { font-size: 0.875rem; font-weight: 600; color: var(--theme-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cd-author-id { font-size: 0.6875rem; color: var(--theme-text-secondary); }
@@ -179,8 +179,9 @@ defineExpose({ commentRef })
 
 .cd-ref-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 0.375rem; }
 .cd-ref-thumb { aspect-ratio: 1; border-radius: 6px; overflow: hidden; background: var(--theme-placeholder-bg); display: block; }
-.cd-ref-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.2s; }
-.cd-ref-thumb:hover img { transform: scale(1.06); }
+.cd-ref-thumb :deep(.arco-image) { display: block; width: 100%; height: 100%; }
+.cd-ref-thumb :deep(.arco-image-img) { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.2s; }
+.cd-ref-thumb:hover :deep(.arco-image-img) { transform: scale(1.06); }
 
 .cd-gen-params { display: flex; flex-wrap: wrap; gap: 0.375rem; }
 .cd-gen-chip {

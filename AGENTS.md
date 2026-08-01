@@ -130,7 +130,7 @@ pnpm proto:generate                        # 生成 ts/go stub
 |----|------|
 | API 后端 | NestJS 11 + TypeORM + MySQL + ioredis + @nestjs/microservices(gRPC) |
 | Worker | Go 1.25 + gRPC + FFmpeg（**无** DB/Redis/cron 依赖） |
-| 前端 | Vue 3.5 + TypeScript + Vite + Tailwind CSS |
+| 前端 | Vue 3.5 + TypeScript + Vite + Tailwind CSS + Arco Design Vue |
 | 通信 | gRPC（NestJS → Worker，snake_case via keepCase） |
 | 数据库 | MySQL + Redis |
 | 运行方式 | pnpm 脚本本地直启（concurrently 并发三端，无 Docker） |

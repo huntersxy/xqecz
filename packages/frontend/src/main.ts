@@ -1,5 +1,5 @@
 import './assets/main.css'
-import 'ant-design-vue/dist/reset.css'
+import '@arco-design/web-vue/dist/arco.css'
 
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'

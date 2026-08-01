@@ -147,6 +147,22 @@ export const useAdminStore = defineStore('admin', () => {
   const uploadProgress = ref(0)
   const uploading = ref(false)
 
+  // 侧边导航待办角标：独立于各列表分页状态，不随筛选/翻页漂移
+  const pendingCounts = reactive({ content: 0, claims: 0, reports: 0 })
+
+  async function loadPendingCounts() {
+    try {
+      const [c, cl, r] = await Promise.all([
+        adminApi.pending({ page: 1, page_size: 1 }),
+        adminApi.getClaims({ page: 1, page_size: 1, status: 'pending' }),
+        commentApi.getReports(),
+      ])
+      pendingCounts.content = c.data.total
+      pendingCounts.claims = cl.data.total
+      pendingCounts.reports = r.data.filter((x) => !x.handled).length
+    } catch { /* 角标加载失败静默降级 */ }
+  }
+
   async function loadTags() {
     tagsLoading.value = true
     try {
@@ -305,6 +321,7 @@ export const useAdminStore = defineStore('admin', () => {
     showCreatePollModal, createPollForm,
     drawerOpen, drawerMode, drawerContent, drawerSaving,
     uploadProgress, uploading,
+    pendingCounts, loadPendingCounts,
     loadTags,
     loadMyContent, loadAllContent, loadPendingContent, loadUsers, loadClaims, loadPolls, loadReports,
     openDrawer, closeDrawer, fetchContentDetail, saveContent,

@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { useAdminStore } from '@/stores/admin'
-import { ACTION_COL, STATUS_COL, TIME_COL, SECONDARY_STYLE } from './adminColumns'
-import { Tag, Tooltip, type TableColumnsType } from 'ant-design-vue'
+import { ACTION_COL, STATUS_COL, TIME_COL } from './adminColumns'
+import { Tooltip, type TableColumnData } from '@arco-design/web-vue'
 import { useMediaQuery } from '@vueuse/core'
-import { CheckOutlined, DeleteOutlined } from '@ant-design/icons-vue'
+import { IconCheck, IconDelete, IconRefresh } from '@arco-design/web-vue/es/icon'
 import { useConfirm } from '@/composables/useToast'
 
 const admin = useAdminStore()
 const isMobile = useMediaQuery('(max-width: 768px)')
 
-const columns: TableColumnsType = [
-  { title: 'ID', dataIndex: 'id', key: 'id', width: 60, align: 'center' },
-  { title: '举报原因', key: 'reason', minWidth: 140 },
-  { title: '被举报内容', key: 'content', minWidth: 160 },
-  { title: '举报人', key: 'reporter', width: 100 },
+const columns: TableColumnData[] = [
+  { title: 'ID', dataIndex: 'id', width: 64, align: 'center' },
+  { title: '举报原因', slotName: 'reason', minWidth: 140 },
+  { title: '被举报内容', slotName: 'content', minWidth: 180 },
+  { title: '举报人', slotName: 'reporter', width: 110 },
   { ...STATUS_COL },
   { ...TIME_COL },
   { ...ACTION_COL },
@@ -34,61 +34,73 @@ onMounted(() => admin.loadReports())
 </script>
 
 <template>
-  <a-card :bordered="false" :body-style="{ padding: 0 }">
-    <template #title>
-      <div class="flex items-center justify-between">
-        <span>举报管理</span>
-        <span class="text-xs font-normal" :style="{ color: SECONDARY_STYLE.split(': ')[1] }">共 {{ admin.reports.length }} 条</span>
-      </div>
+  <AdminPanel title="举报管理" :desc="`共 ${admin.reports.length} 条举报`">
+    <template #actions>
+      <Tooltip title="刷新">
+        <a-button class="admin-icon-btn" type="text" size="small" :loading="admin.reportsLoading" @click="admin.loadReports()">
+          <IconRefresh />
+        </a-button>
+      </Tooltip>
     </template>
 
-    <a-spin :spinning="admin.reportsLoading">
-      <template v-if="admin.reports.length === 0"><div style="padding: 24px"><a-empty description="暂无举报" /></div></template>
+    <a-spin :loading="admin.reportsLoading">
+      <a-empty v-if="admin.reports.length === 0" description="暂无举报" />
       <template v-else-if="!isMobile">
-        <a-table :columns="columns" :data-source="admin.reports" :pagination="false" row-key="id" size="middle">
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'reason'"><span class="text-sm" :style="{ color: SECONDARY_STYLE.split(': ')[1] }">{{ record.reason || '其他' }}</span></template>
-            <template v-if="column.key === 'content'"><span class="text-sm italic" :style="{ color: SECONDARY_STYLE.split(': ')[1] }">{{ record.Comment?.text }}</span></template>
-            <template v-if="column.key === 'reporter'"><span class="text-sm" :style="{ color: SECONDARY_STYLE.split(': ')[1] }">{{ record.User?.username }}</span></template>
-            <template v-if="column.key === 'status'"><Tag :color="record.handled ? 'success' : 'warning'">{{ record.handled ? '已处理' : '待处理' }}</Tag></template>
-            <template v-if="column.key === 'time'"><span class="text-sm" :style="{ color: SECONDARY_STYLE.split(': ')[1] }">{{ record.created_at }}</span></template>
-            <template v-if="column.key === 'actions'">
-              <div class="action-group">
-                <Tooltip v-if="!record.handled" title="标记已处理"><a-button class="action-btn" type="primary" size="small" @click="doHandle(record.id)"><CheckOutlined /></a-button></Tooltip>
-                <Tooltip title="删除评论"><a-button class="action-btn" danger size="small" @click="doDelete(record.comment_id, record.id)"><DeleteOutlined /></a-button></Tooltip>
-              </div>
-            </template>
+        <a-table :columns="columns" :data="admin.reports" :pagination="false" row-key="id">
+          <template #reason="{ record }"><span class="admin-cell-2">{{ record.reason || '其他' }}</span></template>
+          <template #content="{ record }">
+            <span class="report-quote">{{ record.Comment?.text }}</span>
+          </template>
+          <template #reporter="{ record }"><span class="admin-cell-2">{{ record.User?.username }}</span></template>
+          <template #status="{ record }">
+            <AdminStatus :type="record.handled ? 'success' : 'warning'" :label="record.handled ? '已处理' : '待处理'" />
+          </template>
+          <template #time="{ record }"><span class="admin-cell-3">{{ record.created_at }}</span></template>
+          <template #actions="{ record }">
+            <div class="admin-action-group">
+              <Tooltip v-if="!record.handled" title="标记已处理">
+                <a-button class="admin-icon-btn is-primary" type="text" size="small" @click="doHandle(record.id)"><IconCheck /></a-button>
+              </Tooltip>
+              <Tooltip title="删除评论">
+                <a-button class="admin-icon-btn is-danger" type="text" size="small" @click="doDelete(record.comment_id, record.id)"><IconDelete /></a-button>
+              </Tooltip>
+            </div>
           </template>
         </a-table>
       </template>
 
       <template v-else>
-        <div class="mobile-list">
-          <div v-for="record in admin.reports" :key="record.id" class="mobile-card">
-            <div class="text-sm font-medium" style="color: var(--theme-text); margin-bottom: 4px">{{ record.reason || '其他' }}</div>
-            <div class="text-sm italic mb-1.5" :style="{ color: SECONDARY_STYLE.split(': ')[1] }">{{ record.Comment?.text }}</div>
-            <div class="flex items-center gap-2 flex-wrap" :style="{ color: SECONDARY_STYLE.split(': ')[1] }">
-              <span>{{ record.User?.username }}</span>
-              <Tag :color="record.handled ? 'success' : 'warning'" size="small">{{ record.handled ? '已处理' : '待处理' }}</Tag>
-              <span>{{ record.created_at }}</span>
+        <div class="admin-mobile-list">
+          <div v-for="record in admin.reports" :key="record.id" class="admin-mobile-card">
+            <div class="admin-cell-title mb-1">{{ record.reason || '其他' }}</div>
+            <div class="report-quote mb-1.5">{{ record.Comment?.text }}</div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="admin-cell-3">{{ record.User?.username }}</span>
+              <AdminStatus :type="record.handled ? 'success' : 'warning'" :label="record.handled ? '已处理' : '待处理'" />
+              <span class="admin-cell-3">{{ record.created_at }}</span>
             </div>
-            <div class="mobile-actions">
-              <Tooltip v-if="!record.handled" title="标记已处理"><a-button class="action-btn" type="primary" size="small" @click="doHandle(record.id)"><CheckOutlined /></a-button></Tooltip>
-              <Tooltip title="删除评论"><a-button class="action-btn" danger size="small" @click="doDelete(record.comment_id, record.id)"><DeleteOutlined /></a-button></Tooltip>
+            <div class="admin-mobile-actions">
+              <a-button v-if="!record.handled" class="admin-icon-btn is-primary" type="text" size="small" @click="doHandle(record.id)"><IconCheck /></a-button>
+              <a-button class="admin-icon-btn is-danger" type="text" size="small" @click="doDelete(record.comment_id, record.id)"><IconDelete /></a-button>
             </div>
           </div>
         </div>
       </template>
     </a-spin>
-  </a-card>
+  </AdminPanel>
 </template>
 
 <style lang="scss" scoped>
 @use './admin' as *;
 
-.action-btn { @include action-btn; }
-.action-group { @include action-group; }
-.mobile-list { @include mobile-list; }
-.mobile-card { @include mobile-card; }
-.mobile-actions { @include mobile-actions; }
+// 被举报评论：引用样式（左侧细条 + 斜体）
+.report-quote {
+  display: inline-block;
+  padding-left: 10px;
+  border-left: 2px solid $admin-border;
+  font-size: 13px;
+  font-style: italic;
+  color: $admin-text-2;
+  line-height: 1.5;
+}
 </style>

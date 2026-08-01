@@ -1,12 +1,11 @@
 ﻿<script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+import { Message } from '@arco-design/web-vue'
 import { contentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { useListCache } from '@/composables/useListCache'
 import { getImageUrl, formatTime } from '@/utils'
-import SafeImage from '@/components/SafeImage.vue'
 import ContentMedia from '@/components/ContentMedia.vue'
 import ContentSidebar from '@/components/ContentSidebar.vue'
 import ReportModal from '@/components/ReportModal.vue'
@@ -179,10 +178,10 @@ async function loadContent() {
       content.value = res.data
       loadInteractionStatus()
     } else {
-      message.error(res.message)
+      Message.error(res.message)
     }
   } catch {
-    message.error('加载内容失败')
+    Message.error('加载内容失败')
   }
 }
 
@@ -283,7 +282,7 @@ watch(() => route.params.id, (newId) => {
           :class="['cd-carousel-thumb', { 'cd-thumb-current': item.isCurrent }]"
           @click="navigateTo(item.id)"
         >
-          <SafeImage :src="getImageUrl(item.thumb)" :alt="item.title" loading="lazy" />
+          <a-image :src="getImageUrl(item.thumb)" :alt="item.title" :preview="false" loading="lazy" />
         </button>
       </div>
 
@@ -465,7 +464,8 @@ watch(() => route.params.id, (newId) => {
   border-color: var(--theme-primary);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-primary) 30%, transparent);
 }
-.cd-carousel-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cd-carousel-thumb :deep(.arco-image) { display: block; width: 100%; height: 100%; }
+.cd-carousel-thumb :deep(.arco-image-img) { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 /* ── 中间主体 ── */
 .cd-main { flex: 1; min-width: 0; display: flex; }

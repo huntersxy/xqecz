@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { getImageUrl } from '@/utils'
-import SafeImage from '@/components/SafeImage.vue'
 import type { Content } from '@/types'
 
 interface Props {
@@ -10,16 +10,24 @@ interface Props {
 const props = defineProps<Props>()
 const emit = defineEmits<{ click: [content: Content]; imageLoaded: [id: string | number] }>()
 
-function onImgLoad() {
-  emit('imageLoaded', props.item.id)
-}
+// Arco <Image> 不对外 emit load 事件（内部吞掉了原生 img 的 onLoad），
+// 而瀑布流 masonry 依赖 imageLoaded 触发重排，故用 ResizeObserver 监听媒体区高度变化来替代。
+const mediaRef = ref<HTMLElement | null>(null)
+let ro: ResizeObserver | null = null
+onMounted(() => {
+  if (mediaRef.value) {
+    ro = new ResizeObserver(() => emit('imageLoaded', props.item.id))
+    ro.observe(mediaRef.value)
+  }
+})
+onBeforeUnmount(() => ro?.disconnect())
 </script>
 
 <template>
   <div class="wf-card" @click="emit('click', props.item)" @keydown.enter="emit('click', props.item)" tabindex="0">
     <template v-if="props.item.type !== 'text'">
-      <div class="wf-card-media">
-        <SafeImage :src="getImageUrl(props.item.thumb)" :alt="props.item.title" loading="lazy" decoding="async" @load="onImgLoad" />
+      <div class="wf-card-media" ref="mediaRef">
+        <a-image :src="getImageUrl(props.item.thumb)" :alt="props.item.title" :preview="false" loading="lazy" decoding="async" />
         <div v-if="props.item.tags?.some(t => /ai/i.test(t))" class="wf-badge-ai">AI</div>
       </div>
     </template>
@@ -62,7 +70,9 @@ function onImgLoad() {
   position: relative; width: 100%; overflow: hidden; line-height: 0;
   min-height: 80px; background: var(--theme-placeholder-bg);
 }
-.wf-card-media img { width: 100%; height: auto; display: block; }
+/* Arco <Image> 包裹层默认 inline-block，需改为块级填满卡片宽度；破图时 wrapper 不能塌成 0，否则 .arco-image-error 绝对定位 overlay 无高度可显示 */
+.wf-card-media :deep(.arco-image) { display: block; width: 100%; min-height: 80px; border-radius: 0; }
+.wf-card-media :deep(.arco-image-img) { width: 100%; height: auto; display: block; vertical-align: top; }
 
 .wf-badge-ai {
   position: absolute; top: 0.375rem; left: 0.375rem;

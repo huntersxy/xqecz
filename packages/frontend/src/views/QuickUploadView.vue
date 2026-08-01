@@ -4,7 +4,7 @@ import { toast } from '@/composables/useToast'
 import { contentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { CC_LICENSE_TEXT } from '@/utils/constants'
-import { CloudUploadOutlined } from '@ant-design/icons-vue'
+import { IconUpload } from '@arco-design/web-vue/es/icon'
 import MarkdownToolbar from '@/components/MarkdownToolbar.vue'
 import TagCloud from '@/components/admin/TagCloud.vue'
 
@@ -143,11 +143,11 @@ onMounted(async () => {
 <template>
   <div class="max-w-[640px] mx-auto px-4 py-8">
     <div class="theme-card rounded-xl p-6 shadow-sm theme-border">
-      <a-form layout="vertical">
+      <a-form layout="vertical" :model="form">
         <div v-if="!isLoggedIn" class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
           <a-form-item label="昵称" required>
             <a-input
-              v-model:value="form.nickname"
+              v-model="form.nickname"
               placeholder="用于展示的昵称"
               :maxlength="50"
               :disabled="uploading"
@@ -155,7 +155,7 @@ onMounted(async () => {
           </a-form-item>
           <a-form-item label="邮箱" required>
             <a-input
-              v-model:value="form.email"
+              v-model="form.email"
               placeholder="仅用于标识身份，不会公开"
               :maxlength="254"
               :disabled="uploading"
@@ -165,7 +165,7 @@ onMounted(async () => {
 
         <a-form-item label="标题" required>
           <a-input
-            v-model:value="form.title"
+            v-model="form.title"
             placeholder="给作品起个标题"
             :maxlength="200"
             :disabled="uploading"
@@ -176,8 +176,8 @@ onMounted(async () => {
           <div class="w-full quick-upload-textarea">
             <MarkdownToolbar @insert="insertMd" @upload-image="() => {}" />
             <a-textarea
-              v-model:value="form.content"
-              :rows="6"
+              v-model="form.content"
+              :auto-size="{ minRows: 6, maxRows: 12 }"
               placeholder="支持 Markdown，描述、提示词、灵感…"
               :disabled="uploading"
             />
@@ -185,24 +185,23 @@ onMounted(async () => {
         </a-form-item>
 
         <a-form-item label="媒体文件（可选）">
-          <a-upload-dragger
+          <a-upload drag
             v-if="!file"
             :before-upload="beforeUpload"
             accept="image/*,video/*"
-            :show-upload-list="false"
+            :show-file-list="false"
             :disabled="uploading"
           >
-            <p class="ant-upload-drag-icon">
-              <CloudUploadOutlined />
-            </p>
-            <p class="ant-upload-text">点击或拖拽文件到此区域</p>
-            <p class="ant-upload-hint">图片或视频，最大 20MB</p>
-          </a-upload-dragger>
+            <IconUpload style="font-size: 40px; color: var(--theme-primary)" />
+            <a-typography-text type="secondary" style="display: block; margin: 6px 0">点击或拖拽文件到此区域</a-typography-text>
+            <a-typography-text type="secondary" style="display: block; margin: 0; font-size: 12px">图片或视频，最大 20MB</a-typography-text>
+          </a-upload>
           <div v-else>
-            <img
+            <a-image
               v-if="fileKind === 'image'"
               :src="filePreview"
-              style="max-height: 240px; border-radius: 8px; display: block"
+              :preview="false"
+              class="qu-preview-img"
               alt="预览"
             />
             <video
@@ -213,7 +212,7 @@ onMounted(async () => {
             />
             <a-button
               size="small"
-              danger
+              status="danger"
               class="mt-2"
               :disabled="uploading"
               @click="removeFile"
@@ -241,12 +240,12 @@ onMounted(async () => {
         ></div>
 
         <a-form-item v-if="uploading">
-          <a-progress :percent="progress" status="active" :stroke-width="18" />
+          <a-progress :percent="progress" status="normal" :stroke-width="18" />
         </a-form-item>
 
         <a-button
           type="primary"
-          block
+          long
           size="large"
           :loading="uploading"
           @click="handleSubmit"
@@ -257,3 +256,12 @@ onMounted(async () => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.qu-preview-img :deep(.arco-image-img) {
+  max-height: 240px;
+  border-radius: 8px;
+  display: block;
+  object-fit: contain;
+}
+</style>

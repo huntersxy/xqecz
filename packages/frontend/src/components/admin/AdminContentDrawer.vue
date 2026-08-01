@@ -2,11 +2,10 @@
 import { useAdminStore } from '@/stores/admin'
 import { adminApi } from '@/api'
 import { getImageUrl, renderMarkdown } from '@/utils'
-import SafeImage from '@/components/SafeImage.vue'
-import { Tag } from 'ant-design-vue'
+import { Tag } from '@arco-design/web-vue'
 import { useConfirm } from '@/composables/useToast'
 import type { User } from '@/types'
-import { PlusOutlined } from '@ant-design/icons-vue'
+import { IconPlus } from '@arco-design/web-vue/es/icon'
 
 const admin = useAdminStore()
 
@@ -103,23 +102,25 @@ function addNewTag() {
 
 <template>
   <a-drawer
-    :open="admin.drawerOpen"
+    class="content-drawer admin-theme"
+    v-model:visible="admin.drawerOpen"
     :title="admin.drawerContent?.title || '内容详情'"
     :width="720"
     @close="admin.closeDrawer"
-    :body-style="{ padding: '16px 24px' }"
   >
     <template v-if="admin.drawerContent">
-      <a-tabs v-model:activeKey="tabKey">
-        <a-tab-pane key="preview" tab="预览">
+      <a-tabs v-model:active-key="tabKey">
+        <a-tab-pane key="preview" title="预览">
           <div class="preview-meta">
-            <Tag :color="drawerTypeStr === 'video' ? 'red' : drawerTypeStr === 'image' ? 'green' : drawerTypeStr === 'link' ? 'orange' : 'blue'">
+            <Tag :color="drawerTypeStr === 'video' ? 'red' : drawerTypeStr === 'image' ? 'green' : drawerTypeStr === 'link' ? 'orange' : 'arcoblue'" :bordered="false" style="margin: 0">
               {{ { video: '视频', image: '图片', link: '链接', text: '文字' }[drawerTypeStr] }}
             </Tag>
-            <Tag v-if="admin.drawerContent.audit_status" :color="admin.drawerContent.audit_status === 'approved' ? 'success' : admin.drawerContent.audit_status === 'pending' ? 'warning' : 'error'">
-              {{ { approved: '已通过', pending: '审核中', rejected: '已拒绝' }[admin.drawerContent.audit_status] }}
-            </Tag>
-            <span style="font-size: 13px; color: var(--admin-text-tertiary)">
+            <AdminStatus
+              v-if="admin.drawerContent.audit_status"
+              :type="admin.drawerContent.audit_status === 'approved' ? 'success' : admin.drawerContent.audit_status === 'pending' ? 'warning' : 'danger'"
+              :label="{ approved: '已通过', pending: '审核中', rejected: '已拒绝' }[admin.drawerContent.audit_status]"
+            />
+            <span class="preview-meta-info">
               {{ admin.drawerContent.view_count }} 次浏览 · {{ admin.drawerContent.user?.username }}
             </span>
           </div>
@@ -127,39 +128,39 @@ function addNewTag() {
             <Tag v-for="tag in admin.drawerContent.tags" :key="tag">{{ tag }}</Tag>
           </div>
           <div v-if="admin.drawerContent.type === 'image'" class="preview-media-wrap">
-            <SafeImage :src="getImageUrl(admin.drawerContent.img)" class="preview-media" alt="" />
+            <a-image :src="getImageUrl(admin.drawerContent.img)" class="preview-media" :preview="false" alt="" />
           </div>
           <div v-else-if="drawerTypeStr === 'video'" class="preview-media-wrap">
             <video controls class="preview-media"><source :src="getImageUrl(admin.drawerContent.video)" /><track kind="captions" /></video>
           </div>
           <div v-else-if="drawerTypeStr === 'link'" class="preview-media-wrap">
             <a :href="admin.drawerContent.url" target="_blank" rel="noopener">
-              <SafeImage v-if="admin.drawerContent.thumb" :src="getImageUrl(admin.drawerContent.thumb)" class="preview-media" alt="" />
+              <a-image v-if="admin.drawerContent.thumb" :src="getImageUrl(admin.drawerContent.thumb)" class="preview-media" :preview="false" alt="" />
               <div v-else class="link-box">{{ admin.drawerContent.url }}</div>
             </a>
           </div>
           <div v-else class="preview-text" v-html="renderedContent"></div>
         </a-tab-pane>
 
-        <a-tab-pane key="edit" tab="编辑">
-          <a-form layout="vertical">
-            <a-form-item label="标题"><a-input v-model:value="editTitle" /></a-form-item>
-            <a-form-item v-if="(admin.drawerContent.type as string) === 'link'" label="链接"><a-input v-model:value="editUrl" /></a-form-item>
+        <a-tab-pane key="edit" title="编辑">
+          <a-form layout="vertical" :model="{}">
+            <a-form-item label="标题"><a-input v-model="editTitle" /></a-form-item>
+            <a-form-item v-if="(admin.drawerContent.type as string) === 'link'" label="链接"><a-input v-model="editUrl" /></a-form-item>
             <a-form-item label="标签">
               <div class="flex flex-wrap gap-1.5 mb-2">
-                <Tag v-for="tag in editTags" :key="tag" color="blue" closable @close="editTags = editTags.filter(t => t !== tag)">{{ tag }}</Tag>
+                <Tag v-for="tag in editTags" :key="tag" color="arcoblue" closable @close="editTags = editTags.filter(t => t !== tag)">{{ tag }}</Tag>
               </div>
               <div class="flex gap-2 mb-2">
-                <a-input v-model:value="newTagInput" placeholder="输入标签后回车" @keyup.enter="addNewTag" style="flex:1" />
-                <a-button @click="addNewTag"><PlusOutlined /></a-button>
+                <a-input v-model="newTagInput" placeholder="输入标签后回车" @keyup.enter="addNewTag" style="flex:1" />
+                <a-button @click="addNewTag"><IconPlus /></a-button>
               </div>
-              <div v-if="admin.tags.length" class="flex flex-wrap gap-1 p-2 rounded" style="background: var(--theme-hover-bg)">
-                <Tag v-for="tag in admin.tags" :key="tag" :color="editTags.includes(tag) ? 'blue' : 'default'" style="cursor:pointer" @click="toggleTag(tag)">{{ tag }}</Tag>
+              <div v-if="admin.tags.length" class="tag-pool flex flex-wrap gap-1 p-2 rounded">
+                <Tag v-for="tag in admin.tags" :key="tag" :color="editTags.includes(tag) ? 'arcoblue' : 'gray'" :bordered="false" style="cursor:pointer" @click="toggleTag(tag)">{{ tag }}</Tag>
               </div>
             </a-form-item>
             <a-form-item v-if="admin.drawerContent.type === 'text'" label="内容 (Markdown)">
               <MarkdownToolbar @insert="insertMarkdown" @upload-image="() => {}" />
-              <a-textarea v-model:value="editContent" :rows="8" class="drawer-edit-textarea" />
+              <a-textarea v-model="editContent" :auto-size="{ minRows: 8, maxRows: 8 }" class="drawer-edit-textarea" />
             </a-form-item>
             <a-form-item v-if="admin.drawerContent.type !== 'text'" label="替换文件">
               <input type="file" :accept="admin.drawerContent.type === 'image' ? 'image/*' : 'video/*'" @change="(e: Event) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) { editFile = f; editFileName = f.name } }" />
@@ -168,13 +169,13 @@ function addNewTag() {
           </a-form>
         </a-tab-pane>
 
-        <a-tab-pane key="author" tab="修改作者">
-          <div style="margin-bottom: 12px">
-            <span style="font-size: 13px; color: var(--admin-text-tertiary)">当前作者：</span>
-            <Tag color="blue">{{ admin.drawerContent.user?.username }}</Tag>
+        <a-tab-pane key="author" title="修改作者">
+          <div class="author-current">
+            <span class="author-current-label">当前作者：</span>
+            <Tag color="arcoblue" :bordered="false" style="margin: 0">{{ admin.drawerContent.user?.username }}</Tag>
           </div>
-          <a-input v-model:value="authorKeyword" placeholder="搜索用户名..." allow-clear style="margin-bottom: 12px" />
-          <a-spin :spinning="usersLoading">
+          <a-input v-model="authorKeyword" placeholder="搜索用户名..." allow-clear style="margin-bottom: 12px" />
+          <a-spin :loading="usersLoading">
             <div class="user-list">
               <div v-for="user in filteredUsers" :key="user.id" class="user-item" @click="handleChangeAuthor(user.id, user.username)">
                 <span>{{ user.username }}</span>
@@ -198,23 +199,29 @@ function addNewTag() {
 <style lang="scss" scoped>
 @use './admin' as *;
 
-.preview-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.content-drawer :deep(.arco-drawer-body) { padding: 16px 24px; }
+.preview-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.preview-meta-info { font-size: 13px; color: $admin-text-3; font-variant-numeric: tabular-nums; }
 .preview-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; }
 .preview-media-wrap { display: flex; justify-content: center; margin-bottom: 16px; }
-.preview-media { max-width: 100%; border-radius: 8px; }
-.link-box { padding: 16px; background: var(--theme-hover-bg); border-radius: 8px; text-align: center; color: var(--admin-text-tertiary); }
+.preview-media { display: block; max-width: 100%; border-radius: 10px; }
+.preview-media :deep(.arco-image-img) { max-width: 100%; height: auto; display: block; }
+.link-box { padding: 16px; background: $admin-fill; border-radius: 10px; text-align: center; color: $admin-text-3; }
 .preview-text { line-height: 1.8; }
 .preview-text :deep(h1), .preview-text :deep(h2), .preview-text :deep(h3) { margin: 16px 0 8px; color: $admin-text; }
 .preview-text :deep(h1) { font-size: 24px; }
 .preview-text :deep(h2) { font-size: 20px; }
 .preview-text :deep(h3) { font-size: 16px; }
-.preview-text :deep(p) { margin-bottom: 12px; color: $admin-text-secondary; }
+.preview-text :deep(p) { margin-bottom: 12px; color: $admin-text-2; }
 .preview-text :deep(ul), .preview-text :deep(ol) { margin-bottom: 12px; padding-left: 24px; }
-.preview-text :deep(blockquote) { border-left: 4px solid var(--theme-primary); padding-left: 12px; margin: 12px 0; color: var(--admin-text-tertiary); font-style: italic; }
-.preview-text :deep(code) { background: var(--theme-hover-bg); padding: 2px 6px; border-radius: 4px; font-family: monospace; }
-.preview-text :deep(pre) { background: #1a1a1a; color: #e0e0e0; padding: 12px; border-radius: 8px; overflow-x: auto; margin: 12px 0; }
+.preview-text :deep(blockquote) { border-left: 3px solid $admin-primary; padding-left: 12px; margin: 12px 0; color: $admin-text-3; font-style: italic; }
+.preview-text :deep(code) { background: $admin-fill; padding: 2px 6px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.preview-text :deep(pre) { background: #1a1a1a; color: #e0e0e0; padding: 12px; border-radius: 10px; overflow-x: auto; margin: 12px 0; }
 .preview-text :deep(pre code) { background: none; padding: 0; color: inherit; }
+.tag-pool { background: $admin-fill; }
+.author-current { margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+.author-current-label { font-size: 13px; color: $admin-text-3; }
 .user-list { max-height: 320px; overflow-y: auto; }
-.user-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
-.user-item:hover { background: var(--theme-hover-bg); }
+.user-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; cursor: pointer; transition: background 0.2s; }
+.user-item:hover { background: $admin-fill; }
 </style>

@@ -31,6 +31,7 @@ pnpm --filter ./packages/frontend run test
 | 框架 | Vue | ^3.5 | Composition API + `<script setup>` |
 | 语言 | TypeScript | ~6.0 | strict 模式，全量类型覆盖 |
 | 构建 | Vite | ^8.0 | 开发/构建，插件生态 |
+| 组件库 | Arco Design Vue | ^2.58 | `@arco-design/web-vue`，按需自动引入（ArcoResolver），图标用 `@arco-design/web-vue/es/icon` |
 | 路由 | vue-router | ^5.0 | hash 模式，懒加载，路由守卫 |
 | 状态 | Pinia | ^3.0 | Setup Store 语法 |
 | CSS | Tailwind CSS | ^4.3 | 原子类优先，`@theme` 自定义变量 |
@@ -56,7 +57,7 @@ src/
 ├── assets/
 │   └── main.css      # Tailwind 入口 + CSS 变量（:root / html.dark）
 ├── components/
-│   ├── admin/        # 后台管理组件（Sass + antd）
+│   ├── admin/        # 后台管理组件（Arco + Sass 控制台设计系统，见「后台设计系统」节）
 │   └── *.vue         # 通用 UI 组件
 ├── composables/      # 组合式函数
 │   ├── useGlobalSearch.ts   # 全局搜索单例
@@ -84,7 +85,7 @@ src/
 │   ├── ContentDetailView.vue # 全屏覆盖式详情页（两栏布局 + 评论 + 认领）
 │   ├── QuickUploadView.vue  # 游客快速上传
 │   ├── LoginView.vue        # 登录页
-│   └── AdminView.vue        # 后台管理
+│   └── AdminView.vue        # 后台管理（控制台外壳：AdminNav 侧栏 + AdminPanel 面板）
 ├── App.vue           # 根组件：导航栏/页脚/Toast/Confirm/路由过渡
 └── main.ts           # 入口：createApp → Pinia → Router → mount
 ```
@@ -108,7 +109,7 @@ View（薄层，组装组件）
 明暗模式通过 `stores/theme.ts` 管理，仅操作 `document.documentElement` 的 `dark` class。CSS 变量值由 `main.css` 中的 `:root` / `html.dark` 控制，纯 CSS 切换，不通过 JS 逐个 setProperty。
 
 - `App.vue` header 下拉切换日间/暗色
-- antd 通过 `ConfigProvider` + `darkAlgorithm` 自动适配暗色
+- Arco 暗色通过 `<body arco-theme="dark">` 属性驱动，Arco token（`--color-bg-*` / `--color-text-*` / `--primary-*` 等）自动切换，组件无需逐个适配
 - Tailwind 组件可用 `dark:` 前缀或 `var(--theme-*)` / `var(--color-*)` CSS 变量
 
 ### 路由
@@ -216,6 +217,22 @@ const emit = defineEmits<{
 新代码推荐用 `--color-*` 命名（如 `var(--color-primary)`），旧代码兼容别名 `--theme-*`（如 `var(--theme-primary)`）。
 
 常用变量：`--color-text`、`--color-text-secondary`、`--color-primary`、`--color-surface`、`--color-card`、`--color-border`、`--color-hover`、`--color-bg`（兼容别名 `--theme-*` 同名映射）
+
+#### 2.3 后台设计系统（/admin）
+
+后台为独立控制台设计语言（2026-08 重设计），与其他页面互不干扰：
+
+- **作用域令牌**：运行时令牌定义在 `AdminView.vue` 非 scoped 样式的 `.admin-theme` 类上（`--admin-text/-2/-3`、`--admin-border(-soft)`、`--admin-fill`、`--admin-surface`、`--admin-primary(-soft)`、`--admin-danger(-soft)`、`--admin-radius`、`--admin-shadow`），亮/暗双套。teleport 到 body 的抽屉/弹层（`AdminContentDrawer`、移动端导航抽屉）必须带 `admin-theme` 类才能解析这些变量；弹窗内的局部样式只用全局 Arco token
+- **编译期层**：`components/admin/_admin.scss` 提供 `$admin-*` 别名与 mixin（`content-thumb` / `mobile-card` / `ellipsis` 等），仅编译期，不含运行时输出
+- **面板模式**：所有页签面板套 `<AdminPanel title desc>`（`#actions` 放筛选/主操作/刷新），表格、幽灵图标按钮（`.admin-icon-btn` + `.is-primary/.is-danger`）、单元格文本（`.admin-cell-2/-3/-title`、`.admin-mono`）、移动端卡片（`.admin-mobile-*`）样式集中在 AdminPanel 的 `:deep` 里，子面板不写重复 CSS
+- **状态展示**：一律用 `<AdminStatus type label>` 状态点（成功/警告/危险/信息/中性），不用高饱和填充 Tag；类型/角色等分类仍可用 Arco Tag（`:bordered="false"`）
+- **侧边导航**：`AdminNav`（分组 + 待办角标 + 用户卡），角标数据来自 store 的 `pendingCounts`（`loadPendingCounts()`，独立于列表分页状态，切页签自动刷新）
+- **Arco 与 antd 的 API 差异**（迁移教训，Arco 对不认识的属性**静默忽略**）：
+  - Menu 无 `:items`，必须 `<a-menu-item>` 子组件；无 `mode="inline"`（用 vertical）
+  - Table 列定义无 `key`（用 `dataIndex`/`slotName`）；分页无 `showSizeChanger`
+  - Form 的 `model` 为类型必填（无校验也传 `:model="{}"`）；Progress 无 `status="active"`
+  - Button 危险态用 `status="danger"`（无 `danger` prop）；图标一律 `@arco-design/web-vue/es/icon`
+
 
 ### 三、TypeScript
 
@@ -351,7 +368,7 @@ async function load() {
 - **后台预加载**：首页渲染后，低优先级 view 通过 `requestIdleCallback` 按延迟队列预加载
 - **标签缓存**：标签列表用 `localStorage` 按天缓存，减少 API 请求
 - **图片懒加载**：`<img loading="lazy">`（已默认）
-- **构建分包**：vite config 中 `manualChunks` 分离 vue-vendor / antd-vendor / utils-vendor / motion-vendor
+- **构建分包**：vite config 中 `manualChunks` 分离 vue-vendor / arco-vendor / utils-vendor / motion-vendor
 
 ### 十一、分析规范
 

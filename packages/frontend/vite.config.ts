@@ -5,7 +5,7 @@ import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
-import { AntDesignVueResolver } from 'unplugin-vue-components/resolvers'
+import { ArcoResolver } from 'unplugin-vue-components/resolvers'
 import { ViteImageOptimizer } from 'vite-plugin-image-optimizer'
 
 const buildDate = new Date().toISOString().split('T')[0]
@@ -24,7 +24,8 @@ export default defineConfig(async ({ mode }) => {
     }),
     Components({
       dts: 'src/components.d.ts',
-      resolvers: [AntDesignVueResolver({ importStyle: false })],
+      // a- 前缀组件由 Arco 按需解析（组件库已全量迁移至 @arco-design/web-vue）
+      resolvers: [ArcoResolver({ importStyle: false })],
     }),
   ]
 
@@ -83,8 +84,7 @@ export default defineConfig(async ({ mode }) => {
           manualChunks(id: string) {
             if (id.includes('node_modules')) {
               if (id.includes('vue') || id.includes('pinia')) return 'vue-vendor'
-              if (id.includes('ant-design-vue') || id.includes('@ant-design'))
-                return 'antd-vendor'
+              if (id.includes('@arco-design')) return 'arco-vendor'
               if (id.includes('marked') || id.includes('dompurify') || id.includes('ofetch'))
                 return 'utils-vendor'
               if (id.includes('motion-v')) return 'motion-vendor'

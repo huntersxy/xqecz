@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+import { Message } from '@arco-design/web-vue'
 import { useUserStore } from '@/stores/user'
 import { authApi } from '@/api'
 
@@ -33,27 +33,27 @@ async function handleSubmit() {
           router.push('/')
         }
       } else {
-        message.error('用户名或密码错误')
+        Message.error('用户名或密码错误')
       }
     } else {
       if (!email.value.trim() || !EMAIL_RE.test(email.value.trim())) {
-        message.error('请输入有效的邮箱地址')
+        Message.error('请输入有效的邮箱地址')
         isLoading.value = false
         return
       }
       const res = await authApi.register(username.value, email.value.trim(), password.value)
       if (res.code === 200) {
-        message.success('注册成功，请登录')
+        Message.success('注册成功，请登录')
         isLoginMode.value = true
         username.value = ''
         email.value = ''
         password.value = ''
       } else {
-        message.error(res.message || '注册失败')
+        Message.error(res.message || '注册失败')
       }
     }
   } catch {
-    message.error('网络错误，请稍后重试')
+    Message.error('网络错误，请稍后重试')
   } finally {
     isLoading.value = false
   }

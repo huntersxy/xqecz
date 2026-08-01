@@ -17,8 +17,8 @@ import { ContentSchema } from '@/types/schemas'
 import WaterfallCard from '@/components/WaterfallCard.vue'
 import RecommendSection from '@/components/RecommendSection.vue'
 import QuickUploadSheet from '@/components/QuickUploadSheet.vue'
-import { CloudUploadOutlined } from '@ant-design/icons-vue'
-import type { Content, ListParams } from '@/types'
+import { IconUpload } from '@arco-design/web-vue/es/icon'
+import type { Content, ListParams, RecommendContent } from '@/types'
 
 const router = useRouter()
 const homeStore = useHomeStore()
@@ -82,7 +82,7 @@ function onImageLoaded(id: string | number) {
   }
 }
 
-function openContent(content: Content) {
+function openContent(content: Content | RecommendContent) {
   const pos = globalThis.scrollY
   console.log('[Scroll] 点击时位置:', pos)
   homeStore.saveState({
@@ -90,7 +90,7 @@ function openContent(content: Content) {
     selectedTags: searchFilter.selectedTags.value,
     selectedTypes: searchFilter.selectedTypes.value,
     page: currentPage.value,
-    recommendPage: recommendLoader.recommendPage.value,
+    recommendPage: recommendLoader.loadedPage.value,
     scrollPosition: pos,
     contents: allContents.value,
     total: total.value,
@@ -216,7 +216,7 @@ onMounted(() => {
     currentPage.value = homeStore.page
     total.value = homeStore.cachedTotal
     totalPages.value = homeStore.cachedTotalPages
-    recommendLoader.recommendPage.value = homeStore.recommendPage
+    recommendLoader.loadedPage.value = homeStore.recommendPage
     // 恢复瀑布流布局缓存
     if (homeStore.cachedPositions.size > 0) {
       waterfall.positions.value = new Map(homeStore.cachedPositions)
@@ -240,7 +240,7 @@ onMounted(() => {
     fetchPage(1)
   }
 
-  recommendLoader.loadRecommendContents(recommendLoader.recommendPage.value)
+  recommendLoader.loadRecommendContents()
   searchFilter.loadTags()
 })
 
@@ -273,7 +273,7 @@ onActivated(() => {
   <div class="wf-root">
     <RecommendSection
       v-if="!swapSections && recommendLoader.recommendContents.value.length > 0"
-      :contents="recommendLoader.recommendContents.value"
+      :loader="recommendLoader"
       @click="openContent"
     />
 
@@ -312,7 +312,7 @@ onActivated(() => {
 
     <!-- 移动端悬浮上传按钮 -->
     <button class="wf-fab" @click="showUploadSheet = true">
-      <CloudUploadOutlined />
+      <IconUpload />
     </button>
 
     <!-- 快速上传弹窗 -->
@@ -321,7 +321,7 @@ onActivated(() => {
 </template>
 
 <style lang="scss" scoped>
-.wf-root { min-height: 100vh; background: transparent; color: var(--theme-text); }
+.wf-root { min-height: 100vh; background: transparent; color: var(--color-text-1); }
 
 .wf-masonry-wrap {
   max-width: 1600px; margin: 0 auto; padding: 0.75rem 0.75rem 3rem;
@@ -331,26 +331,26 @@ onActivated(() => {
 
 .wf-center-state {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 4rem 1rem; color: var(--theme-text-secondary);
+  padding: 4rem 1rem; color: var(--color-text-2);
 }
 .wf-center-state p { font-size: 0.875rem; margin-top: 1rem; }
 
 .wf-spinner-lg {
-  width: 2rem; height: 2rem; border: 3px solid var(--theme-card-border);
-  border-top-color: var(--theme-primary); border-radius: 50%;
+  width: 2rem; height: 2rem; border: 3px solid var(--color-border-2);
+  border-top-color: var(--primary-6); border-radius: 50%;
   animation: wf-spin 0.7s linear infinite;
 }
 .wf-spinner-sm {
-  width: 1.25rem; height: 1.25rem; border: 2px solid var(--theme-card-border);
-  border-top-color: var(--theme-primary); border-radius: 50%;
+  width: 1.25rem; height: 1.25rem; border: 2px solid var(--color-border-2);
+  border-top-color: var(--primary-6); border-radius: 50%;
   animation: wf-spin 0.7s linear infinite;
 }
 .wf-loadmore {
   display: flex; align-items: center; justify-content: center;
-  gap: 0.5rem; padding: 1.5rem; font-size: 0.8125rem; color: var(--theme-text-secondary);
+  gap: 0.5rem; padding: 1.5rem; font-size: 0.8125rem; color: var(--color-text-2);
 }
 .wf-sentinel { height: 1px; }
-.wf-end { text-align: center; padding: 2rem; font-size: 0.75rem; color: var(--theme-text-secondary); opacity: 0.6; }
+.wf-end { text-align: center; padding: 2rem; font-size: 0.75rem; color: var(--color-text-2); opacity: 0.6; }
 
 /* 悬浮上传按钮 */
 .wf-fab {
@@ -368,8 +368,8 @@ onActivated(() => {
     width: 56px;
     height: 56px;
     border-radius: 50%;
-    background: var(--theme-primary);
-    color: var(--theme-on-primary);
+    background: var(--primary-6);
+    color: var(--color-white);
     border: none;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     cursor: pointer;

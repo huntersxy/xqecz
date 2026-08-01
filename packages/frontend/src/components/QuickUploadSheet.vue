@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { toast } from '@/composables/useToast'
 import { contentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
-import { CloudUploadOutlined } from '@ant-design/icons-vue'
+import { IconUpload } from '@arco-design/web-vue/es/icon'
 
 interface Props {
   open: boolean
@@ -16,6 +16,17 @@ const emit = defineEmits<{ close: [] }>()
 const router = useRouter()
 const userStore = useUserStore()
 const isLoggedIn = computed(() => userStore.isLoggedIn)
+
+const visible = ref(props.open)
+watch(
+  () => props.open,
+  v => {
+    if (v !== visible.value) visible.value = v
+  },
+)
+watch(visible, v => {
+  if (!v) emit('close')
+})
 
 const GUEST_STORAGE_KEY = 'xqecz_guest_identity'
 
@@ -123,42 +134,48 @@ watch(() => props.open, (val) => {
 
 <template>
   <a-drawer
-    :open="open"
+    v-model:visible="visible"
     title="快速上传"
     placement="bottom"
     :height="'auto'"
-    :body-style="{ padding: '16px 20px' }"
+    class="qu-sheet"
     @close="emit('close')"
     :z-index="2000"
   >
-    <div style="display: flex; flex-direction: column; gap: 12px; max-width: 480px; margin: 0 auto;">
+    <div style="display: flex; flex-direction: column; gap: 12px; max-width: 480px; margin: 0 auto; padding: 16px 20px; max-height: 80vh; overflow-y: auto;">
       <div v-if="!isLoggedIn" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-        <a-input v-model:value="form.nickname" placeholder="昵称" :maxlength="50" />
-        <a-input v-model:value="form.email" placeholder="邮箱" :maxlength="254" />
+        <a-input v-model="form.nickname" placeholder="昵称" :maxlength="50" />
+        <a-input v-model="form.email" placeholder="邮箱" :maxlength="254" />
       </div>
 
-      <a-input v-model:value="form.title" placeholder="标题" :maxlength="200" />
+      <a-input v-model="form.title" placeholder="标题" :maxlength="200" />
 
-      <a-textarea v-model:value="form.content" placeholder="描述（可选）" :rows="3" />
+      <a-textarea v-model="form.content" placeholder="描述（可选）" :auto-size="{ minRows: 3, maxRows: 6 }" />
 
       <div>
         <div v-if="!file" style="border: 2px dashed var(--theme-card-border); border-radius: 12px; padding: 24px; text-align: center; cursor: pointer; transition: border-color 0.2s;" @click="($refs.fileInput as HTMLInputElement).click()">
           <input ref="fileInput" type="file" accept="image/*,video/*" style="display: none;" @change="onFileChange" />
-          <CloudUploadOutlined style="font-size: 28px; color: var(--theme-text-secondary);" />
+          <IconUpload style="font-size: 28px; color: var(--theme-text-secondary);" />
           <div style="font-size: 14px; color: var(--theme-text-secondary); margin-top: 8px;">选择图片/视频</div>
         </div>
         <div v-else style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
           <img v-if="file.type.startsWith('image/')" :src="filePreview" alt="预览" style="max-height: 180px; border-radius: 8px; object-fit: contain;" />
           <video v-else :src="filePreview" controls style="max-height: 180px; border-radius: 8px;" />
-          <a-button size="small" danger @click="removeFile">移除文件</a-button>
+          <a-button size="small" status="danger" @click="removeFile">移除文件</a-button>
         </div>
       </div>
 
-      <a-progress v-if="uploading" :percent="progress" status="active" :stroke-width="10" />
+      <a-progress v-if="uploading" :percent="progress" :stroke-width="10" />
 
-      <a-button type="primary" size="large" block :loading="uploading" @click="handleSubmit">
+      <a-button type="primary" size="large" long :loading="uploading" @click="handleSubmit">
         {{ uploading ? '上传中...' : '上传' }}
       </a-button>
     </div>
   </a-drawer>
 </template>
+
+<style scoped>
+.qu-sheet :deep(.arco-drawer-body) {
+  padding: 0;
+}
+</style>

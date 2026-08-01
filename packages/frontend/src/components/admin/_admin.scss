@@ -1,116 +1,98 @@
-// Admin 颜色变量 - 使用主题 CSS 变量
-$admin-text: var(--theme-text);
-$admin-text-secondary: var(--theme-text-secondary);
-$admin-text-tertiary: var(--admin-text-tertiary);
-$admin-border: var(--theme-card-border);
-$admin-bg: var(--admin-bg);
-$admin-card-bg: var(--theme-surface);
-$admin-primary: var(--theme-primary);
-$admin-success: var(--theme-success);
-$admin-warning: var(--theme-warning);
-$admin-danger: var(--theme-danger);
+// ============================================================
+// Admin 控制台设计系统（compile-time 层）
+// 运行时令牌定义在 AdminView.vue 的 `.admin-theme` 作用域内
+// （亮/暗双套，经 Arco token 派生），此处仅做编译期别名与混入。
+// ============================================================
 
-// Admin 间距
+// ── 颜色别名（→ 运行时 .admin-theme 作用域变量）──
+$admin-text: var(--admin-text);
+$admin-text-2: var(--admin-text-2);
+$admin-text-3: var(--admin-text-3);
+$admin-border: var(--admin-border);
+$admin-border-soft: var(--admin-border-soft);
+$admin-fill: var(--admin-fill);
+$admin-surface: var(--admin-surface);
+$admin-primary: var(--admin-primary);
+$admin-primary-soft: var(--admin-primary-soft);
+$admin-danger: var(--admin-danger);
+$admin-radius: var(--admin-radius);
+$admin-shadow: var(--admin-shadow);
+
+// ── 间距 ──
 $admin-gap-xs: 4px;
 $admin-gap-sm: 8px;
 $admin-gap-md: 12px;
 $admin-gap-lg: 16px;
 $admin-gap-xl: 24px;
 
-// Admin 字体
-$admin-font-sm: 12px;
-$admin-font-base: 13px;
-$admin-font-md: 14px;
-$admin-font-lg: 15px;
-$admin-font-xl: 16px;
+// ── 字号 ──
+$admin-font-xs: 12px;
+$admin-font-sm: 13px;
+$admin-font-base: 14px;
+$admin-font-md: 15px;
+$admin-font-lg: 17px;
 
-// Action button mixin
-@mixin action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
+// ── 单行截断 ──
+@mixin ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-  .anticon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-    font-size: 14px;
+// ── 内容缩略图 ──
+@mixin content-thumb($w: 48px, $h: 36px) {
+  width: $w;
+  height: $h;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: $admin-fill;
+  border: 1px solid $admin-border-soft;
+
+  :deep(.arco-image) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  :deep(.arco-image-img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
 }
 
-// Action group mixin
-@mixin action-group {
-  display: inline-flex;
-  gap: $admin-gap-xs;
-  align-items: center;
+// ── 移动端卡片 ──
+@mixin mobile-card {
+  border: 1px solid $admin-border;
+  border-radius: $admin-radius;
+  padding: $admin-gap-md $admin-gap-lg;
+  background: $admin-surface;
+  transition: border-color 0.2s ease;
 }
 
-// Section header mixin
-@mixin section-header {
-  display: flex;
-  align-items: center;
-  gap: $admin-gap-sm;
-  font-size: $admin-font-md;
-  font-weight: 500;
-  color: $admin-text;
-  margin-bottom: $admin-gap-lg;
-}
-
-// Card header mixin
-@mixin card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-// Text styles
-@mixin text-primary {
-  font-size: $admin-font-base;
-  color: $admin-text;
-}
-
-@mixin text-secondary {
-  font-size: $admin-font-base;
-  color: $admin-text-secondary;
-}
-
-@mixin text-tertiary {
-  font-size: $admin-font-base;
-  color: $admin-text-tertiary;
-}
-
-// Mobile list
+// ── 移动端列表 ──
 @mixin mobile-list {
   display: flex;
   flex-direction: column;
-  gap: $admin-gap-sm;
-  padding: $admin-gap-md $admin-gap-lg;
+  gap: $admin-gap-md;
+  padding: $admin-gap-lg;
 }
 
-// Mobile card
-@mixin mobile-card {
-  border: 1px solid $admin-border;
-  border-radius: 8px;
-  padding: $admin-gap-md;
-}
-
-// Mobile actions
+// ── 移动端操作行 ──
 @mixin mobile-actions {
   display: flex;
-  gap: $admin-gap-xs;
-  margin-top: $admin-gap-sm;
-  padding-top: $admin-gap-sm;
-  border-top: 1px solid $admin-border;
+  gap: $admin-gap-sm;
+  margin-top: $admin-gap-md;
+  padding-top: $admin-gap-md;
+  border-top: 1px solid $admin-border-soft;
 }
 
-// Mobile pagination
+// ── 移动端分页 ──
 @mixin mobile-pagination {
   display: flex;
   justify-content: center;
-  padding: $admin-gap-md $admin-gap-lg;
-  border-top: 1px solid $admin-border;
+  padding: $admin-gap-lg;
+  border-top: 1px solid $admin-border-soft;
 }

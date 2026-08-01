@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { useUserStore } from '@/stores/user'
 import { useAdminStore } from '@/stores/admin'
-import { ACTION_COL, SECONDARY_STYLE } from './adminColumns'
-import { UserOutlined, DeleteOutlined, TeamOutlined, StopOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons-vue'
-import { Tag, Tooltip, type TableColumnsType } from 'ant-design-vue'
+import { ACTION_COL } from './adminColumns'
+import { IconUser, IconDelete, IconUserGroup, IconLock, IconUnlock, IconRefresh } from '@arco-design/web-vue/es/icon'
+import { Tag, Tooltip, type TableColumnData } from '@arco-design/web-vue'
 import { useMediaQuery } from '@vueuse/core'
 import { useConfirm } from '@/composables/useToast'
 
@@ -11,15 +11,15 @@ const userStore = useUserStore()
 const admin = useAdminStore()
 const isMobile = useMediaQuery('(max-width: 768px)')
 
-const columns: TableColumnsType = [
-  { title: '用户名', key: 'username', minWidth: 140 },
-  { title: '角色', key: 'role', width: 100, align: 'center' },
-  { title: '状态', key: 'status', width: 100, align: 'center' },
+const columns: TableColumnData[] = [
+  { title: '用户名', slotName: 'username', minWidth: 160 },
+  { title: '角色', slotName: 'role', width: 110, align: 'center' },
+  { title: '状态', slotName: 'status', width: 110, align: 'center' },
   { ...ACTION_COL },
 ]
 
-function onTableChange(p: { current?: number }) {
-  if (p.current) admin.loadUsers(p.current)
+function onTableChange(current: number) {
+  admin.loadUsers(current)
 }
 
 async function doRole(id: number, isAdmin: boolean) {
@@ -47,83 +47,95 @@ onMounted(() => admin.loadUsers())
 </script>
 
 <template>
-  <a-card :bordered="false" :body-style="{ padding: 0 }">
-    <template #title>
-      <div class="flex items-center justify-between">
-        <span>用户管理</span>
-        <span class="text-xs font-normal" :style="{ color: SECONDARY_STYLE.split(': ')[1] }">共 {{ admin.users.total }} 位用户</span>
-      </div>
+  <AdminPanel title="用户管理" :desc="`共 ${admin.users.total} 位用户`">
+    <template #actions>
+      <Tooltip title="刷新">
+        <a-button class="admin-icon-btn" type="text" size="small" :loading="admin.users.loading" @click="admin.loadUsers(admin.users.page)">
+          <IconRefresh />
+        </a-button>
+      </Tooltip>
     </template>
 
-    <a-spin :spinning="admin.users.loading">
+    <a-spin :loading="admin.users.loading">
       <template v-if="!isMobile">
-        <a-table :columns="columns" :data-source="admin.users.list" :pagination="{ current: admin.users.page, pageSize: admin.users.pageSize, total: admin.users.total, showSizeChanger: false }" row-key="id" size="middle" @change="onTableChange">
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'username'">
-              <div class="flex items-center gap-2">
-                <a-avatar size="small" :style="{ backgroundColor: 'var(--theme-primary)' }"><template #icon><UserOutlined /></template></a-avatar>
-                <span class="font-medium">{{ record.username }}</span>
-              </div>
-            </template>
-            <template v-if="column.key === 'role'">
-              <Tag :color="record.is_admin ? 'blue' : 'default'">{{ record.is_admin ? '管理员' : '普通用户' }}</Tag>
-            </template>
-            <template v-if="column.key === 'status'">
-              <Tag :color="record.is_banned ? 'red' : 'green'">{{ record.is_banned ? '已封禁' : '正常' }}</Tag>
-            </template>
-            <template v-if="column.key === 'actions'">
-              <div v-if="record.id !== userStore.user?.id" class="action-group">
-                <Tooltip :title="record.is_admin ? '取消管理员' : '设为管理员'"><a-button class="action-btn" size="small" @click="doRole(record.id, record.is_admin)"><TeamOutlined /></a-button></Tooltip>
-                <template v-if="!record.is_admin">
-                  <Tooltip :title="record.is_banned ? '解封' : '封禁'"><a-button class="action-btn" size="small" @click="doBan(record.id, record.is_banned)"><LockOutlined v-if="!record.is_banned" /><UnlockOutlined v-else /></a-button></Tooltip>
-                  <Tooltip title="删除"><a-button class="action-btn" danger size="small" @click="doDelete(record.id)"><DeleteOutlined /></a-button></Tooltip>
-                </template>
-              </div>
-              <span v-else class="text-xs" :style="{ color: SECONDARY_STYLE.split(': ')[1] }">当前用户</span>
-            </template>
+        <a-table :columns="columns" :data="admin.users.list" :pagination="{ current: admin.users.page, pageSize: admin.users.pageSize, total: admin.users.total }" row-key="id" @page-change="onTableChange">
+          <template #username="{ record }">
+            <div class="flex items-center gap-2.5">
+              <a-avatar :size="28" class="user-avatar">
+                <template #icon><IconUser /></template>
+              </a-avatar>
+              <span class="admin-cell-title">{{ record.username }}</span>
+            </div>
+          </template>
+          <template #role="{ record }">
+            <Tag :color="record.is_admin ? 'arcoblue' : 'gray'" :bordered="false" style="margin: 0">{{ record.is_admin ? '管理员' : '普通用户' }}</Tag>
+          </template>
+          <template #status="{ record }">
+            <AdminStatus :type="record.is_banned ? 'danger' : 'success'" :label="record.is_banned ? '已封禁' : '正常'" />
+          </template>
+          <template #actions="{ record }">
+            <div v-if="record.id !== userStore.user?.id" class="admin-action-group">
+              <Tooltip :title="record.is_admin ? '取消管理员' : '设为管理员'">
+                <a-button class="admin-icon-btn" type="text" size="small" @click="doRole(record.id, record.is_admin)"><IconUserGroup /></a-button>
+              </Tooltip>
+              <template v-if="!record.is_admin">
+                <Tooltip :title="record.is_banned ? '解封' : '封禁'">
+                  <a-button class="admin-icon-btn" type="text" size="small" @click="doBan(record.id, record.is_banned)">
+                    <IconLock v-if="!record.is_banned" /><IconUnlock v-else />
+                  </a-button>
+                </Tooltip>
+                <Tooltip title="删除">
+                  <a-button class="admin-icon-btn is-danger" type="text" size="small" @click="doDelete(record.id)"><IconDelete /></a-button>
+                </Tooltip>
+              </template>
+            </div>
+            <span v-else class="admin-cell-3">当前用户</span>
           </template>
         </a-table>
       </template>
 
       <template v-else>
-        <div class="mobile-list">
-          <div v-for="record in admin.users.list" :key="record.id" class="mobile-card">
+        <div class="admin-mobile-list">
+          <div v-for="record in admin.users.list" :key="record.id" class="admin-mobile-card">
             <div class="flex items-center gap-2 flex-wrap">
-              <a-avatar size="small" :style="{ backgroundColor: 'var(--theme-primary)' }"><template #icon><UserOutlined /></template></a-avatar>
-              <span class="text-sm font-medium">{{ record.username }}</span>
-              <Tag :color="record.is_admin ? 'blue' : 'default'" size="small">{{ record.is_admin ? '管理员' : '普通用户' }}</Tag>
-              <Tag v-if="record.is_banned" color="red" size="small">已封禁</Tag>
+              <a-avatar :size="24" class="user-avatar">
+                <template #icon><IconUser /></template>
+              </a-avatar>
+              <span class="admin-cell-title">{{ record.username }}</span>
+              <Tag :color="record.is_admin ? 'arcoblue' : 'gray'" size="small" :bordered="false" style="margin: 0">{{ record.is_admin ? '管理员' : '普通用户' }}</Tag>
+              <AdminStatus v-if="record.is_banned" type="danger" label="已封禁" />
             </div>
-            <div v-if="record.id !== userStore.user?.id" class="mobile-actions">
+            <div v-if="record.id !== userStore.user?.id" class="admin-mobile-actions">
               <Tooltip :title="record.is_admin ? '取消管理员' : '设为管理员'">
-                <a-button class="action-btn" size="small" @click="doRole(record.id, !!record.is_admin)"><TeamOutlined /></a-button>
+                <a-button class="admin-icon-btn" type="text" size="small" @click="doRole(record.id, !!record.is_admin)"><IconUserGroup /></a-button>
               </Tooltip>
               <template v-if="!record.is_admin">
                 <Tooltip :title="record.is_banned ? '解封' : '封禁'">
-                  <a-button class="action-btn" size="small" @click="doBan(record.id, !!record.is_banned)"><StopOutlined /></a-button>
+                  <a-button class="admin-icon-btn" type="text" size="small" @click="doBan(record.id, !!record.is_banned)">
+                    <IconLock v-if="!record.is_banned" /><IconUnlock v-else />
+                  </a-button>
                 </Tooltip>
-                <Tooltip title="删除"><a-button class="action-btn" danger size="small" @click="doDelete(record.id)"><DeleteOutlined /></a-button></Tooltip>
+                <a-button class="admin-icon-btn is-danger" type="text" size="small" @click="doDelete(record.id)"><IconDelete /></a-button>
               </template>
             </div>
-            <span v-else class="text-xs mt-2 block" :style="{ color: SECONDARY_STYLE.split(': ')[1] }">当前用户</span>
+            <span v-else class="admin-cell-3 mt-2 block">当前用户</span>
           </div>
           <a-empty v-if="admin.users.list.length === 0" description="暂无用户" />
         </div>
-        <div v-if="admin.users.totalPages > 1" class="mobile-pagination">
-          <a-pagination :current="admin.users.page" :total="admin.users.total" :page-size="admin.users.pageSize" :show-size-changer="false" size="small" @change="(p: number) => admin.loadUsers(p)" />
+        <div v-if="admin.users.totalPages > 1" class="admin-mobile-pagination">
+          <a-pagination :current="admin.users.page" :total="admin.users.total" :page-size="admin.users.pageSize" size="small" @change="(current: number) => admin.loadUsers(current)" />
         </div>
       </template>
     </a-spin>
-  </a-card>
+  </AdminPanel>
 </template>
 
 <style lang="scss" scoped>
 @use './admin' as *;
 
-.action-btn { @include action-btn; }
-.action-group { @include action-group; }
-.mobile-list { @include mobile-list; }
-.mobile-card { @include mobile-card; }
-.mobile-actions { @include mobile-actions; }
-.mobile-pagination { @include mobile-pagination; }
+.user-avatar {
+  background: $admin-primary-soft;
+  color: $admin-primary;
+  flex-shrink: 0;
+}
 </style>
