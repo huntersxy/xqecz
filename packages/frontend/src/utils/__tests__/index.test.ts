@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { getImageUrl, formatTime, formatRelativeTime, renderMarkdown, getPreviewText } from '@/utils'
+import {
+  getImageUrl,
+  getRemoteFallbackUrl,
+  formatTime,
+  formatRelativeTime,
+  renderMarkdown,
+  getPreviewText,
+} from '@/utils'
 
 describe('getImageUrl', () => {
   it('returns empty string for undefined', () => {
@@ -16,6 +23,45 @@ describe('getImageUrl', () => {
 
   it('returns http URL as-is', () => {
     expect(getImageUrl('http://example.com/img.png')).toBe('http://example.com/img.png')
+  })
+})
+
+describe('getRemoteFallbackUrl', () => {
+  const origin = 'http://localhost:5173'
+
+  it('returns empty string for empty input', () => {
+    expect(getRemoteFallbackUrl('', origin)).toBe('')
+  })
+
+  it('maps a relative media path to the production host', () => {
+    expect(getRemoteFallbackUrl('/thumbs/14_thumb.webp', origin)).toBe(
+      'https://xq.xiey.work/thumbs/14_thumb.webp'
+    )
+  })
+
+  it('maps a localhost absolute URL to the production host', () => {
+    expect(getRemoteFallbackUrl('http://localhost:3000/thumbs/a.jpg', origin)).toBe(
+      'https://xq.xiey.work/thumbs/a.jpg'
+    )
+  })
+
+  it('keeps the query string', () => {
+    expect(getRemoteFallbackUrl('/images/a.webp?v=2', origin)).toBe(
+      'https://xq.xiey.work/images/a.webp?v=2'
+    )
+  })
+
+  it('returns empty string when the URL is already on the production host', () => {
+    expect(getRemoteFallbackUrl('https://xq.xiey.work/thumbs/a.jpg', origin)).toBe('')
+  })
+
+  it('returns empty string for external hosts (avatars / image hosts)', () => {
+    expect(getRemoteFallbackUrl('https://q.qlogo.cn/headimg.png', origin)).toBe('')
+    expect(getRemoteFallbackUrl('https://example.com/img.png', origin)).toBe('')
+  })
+
+  it('returns empty string when no origin is available', () => {
+    expect(getRemoteFallbackUrl('/thumbs/a.jpg', '')).toBe('')
   })
 })
 

@@ -8,7 +8,7 @@ import type { Content } from '@/types'
 const props = defineProps<{ content: Content }>()
 const userStore = useUserStore()
 
-const likeCount = ref(0)
+const likeCount = ref(props.content.like_count || 0)
 const isLiked = ref(false)
 const isFavorited = ref(false)
 
@@ -29,7 +29,7 @@ watch(
   () => {
     isLiked.value = false
     isFavorited.value = false
-    likeCount.value = 0
+    likeCount.value = props.content.like_count || 0
     loadInteractionStatus()
   },
   { immediate: true },
@@ -41,7 +41,7 @@ async function toggleLike() {
     const res = await contentApi.toggleLike(props.content.id)
     if (res.code === 200) {
       isLiked.value = res.data.liked
-      likeCount.value += isLiked.value ? 1 : -1
+      likeCount.value = res.data.like_count
     }
   } catch { /* 忽略 */ }
 }

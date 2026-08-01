@@ -1,4 +1,4 @@
-import { ref, nextTick } from 'vue'
+import { ref } from 'vue'
 import { contentApi } from '@/api'
 import { RecommendContentSchema, type RecommendContent } from '@/types'
 
@@ -10,6 +10,7 @@ export function useRecommendLoader() {
   const loadedPage = ref(0) // 已并入池中的最大页码（0 = 尚未加载）
   const poolGeneration = ref(0) // 整池替换次数（刷新 / 初始加载 +1），供组件重置破图记录
   const isRecommendLoading = ref(false)
+  const displayStart = ref(0) // 展示窗口起点（按可见好图计数）
 
   function parse(list: unknown[]): RecommendContent[] {
     return list.map((item) => RecommendContentSchema.parse(item))
@@ -55,15 +56,13 @@ export function useRecommendLoader() {
     }
   }
 
-  // 刷新：跳到下一页（循环），替换整池
+  // 刷新：展示窗口前进一整批（16 张好图）。
+  // 窗口进入"剩余的"池内容；剩余不足时由 RecommendSection 的 ensureFilled
+  // 自动拉"更下一页"垫补；池耗尽且窗口越界时由 ensureFilled 回卷到 0。
+  // 不滚动页面。
   async function refreshRecommend() {
     if (isRecommendLoading.value) return
-    const page = loadedPage.value >= TOTAL_PAGES ? 1 : loadedPage.value + 1
-    await loadRecommendContents(page)
-    await nextTick()
-    document
-      .getElementById('recommend-section')
-      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    displayStart.value += PER_PAGE
   }
 
   return {
@@ -72,6 +71,8 @@ export function useRecommendLoader() {
     poolGeneration,
     isRecommendLoading,
     maxRecommendPages: TOTAL_PAGES,
+    pageSize: PER_PAGE,
+    displayStart,
     loadRecommendContents,
     loadNextPageIntoPool,
     refreshRecommend,

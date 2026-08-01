@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { adminApi } from '@/api'
-import { getAvatarUrl, getImageUrl, formatTime } from '@/utils'
+import { getAvatarUrl, formatTime } from '@/utils'
+import MediaImage from '@/components/MediaImage.vue'
 import { useAdminStore } from '@/stores/admin'
 import AdminPanel from './AdminPanel.vue'
 import type { DashboardStats } from '@/types'
@@ -187,7 +188,7 @@ const maxTag = computed(() => Math.max(1, ...(stats.value?.topTags.map((t) => t.
                   @click="admin.openDrawer(item, 'view')"
                 >
                   <div v-if="item.type !== 'text'" class="content-thumb">
-                    <a-image :src="getImageUrl(item.thumb)" :preview="false" alt="" />
+                    <MediaImage :src="item.thumb" :preview="false" alt="" />
                   </div>
                   <div v-else class="content-thumb content-thumb-text">
                     <IconFile />

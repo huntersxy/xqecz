@@ -6,7 +6,7 @@ import { Repository, Like, In, IsNull, Not } from 'typeorm'
 import { join } from 'path'
 import { createHash } from 'crypto'
 import { existsSync } from 'fs'
-import { Content, User } from '../entities'
+import { Content, User, ContentLike } from '../entities'
 import { WorkerService } from '../worker/worker.service'
 import { RedisService } from '../redis/redis.service'
 import { Claim } from '../entities'
@@ -19,6 +19,7 @@ export class ContentService implements OnModuleInit {
     @InjectRepository(Content) private contentRepo: Repository<Content>,
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(Claim) private claimRepo: Repository<Claim>,
+    @InjectRepository(ContentLike) private likeRepo: Repository<ContentLike>,
     private worker: WorkerService,
     private redis: RedisService,
     @Inject(ConfigService) private cfg: ConfigService,
@@ -120,7 +121,11 @@ export class ContentService implements OnModuleInit {
     return `/uploads/${rel}`
   }
 
-  private async decorateContent(row: Content, userMap?: Map<number, User>) {
+  private async decorateContent(
+    row: Content,
+    userMap?: Map<number, User>,
+    opts: { includeViewCount?: boolean; likeCount?: number } = {},
+  ) {
     // 游客快速上传：user_id=0，以留档昵称对外展示（邮箱不外露）。
     const guestUser = row.guest_nickname
       ? { id: 0, username: row.guest_nickname }
@@ -146,9 +151,27 @@ export class ContentService implements OnModuleInit {
       ogTitle: row.og_title || undefined, ogImage: row.og_image ? ContentService.fileUrl(row.og_image) : undefined,
       user: guestUser || (user ? { id: user.id, username: user.username } : { id: row.user_id, username: 'unknown' }),
       avatar_url: avatarUrl,
-      tags: this.parseTags(row.tags), view_count: row.view_count || 0,
+      tags: this.parseTags(row.tags),
+      // 点赞为公开指标；浏览量不对外展示，仅内部（admin/推荐）使用
+      like_count: opts.likeCount ?? 0,
+      ...(opts.includeViewCount ? { view_count: row.view_count || 0 } : {}),
       audit_status: row.audit_status, created_at: row.created_at, updated_at: row.updated_at,
     }
+  }
+
+  /** 批量统计点赞数（按内容分组，避免 N+1）。key 统一用字符串：TypeORM bigint 主键返回字符串。 */
+  private async getLikeCountMap(ids: number[]): Promise<Map<string, number>> {
+    const map = new Map<string, number>()
+    if (!ids.length) return map
+    const rows = await this.likeRepo
+      .createQueryBuilder('l')
+      .select('l.content_id', 'cid')
+      .addSelect('COUNT(*)', 'cnt')
+      .where('l.content_id IN (:...ids)', { ids })
+      .groupBy('l.content_id')
+      .getRawMany<{ cid: string; cnt: string }>()
+    for (const r of rows) map.set(String(r.cid), Number(r.cnt))
+    return map
   }
 
   /** 根据邮箱生成头像 URL（不暴露原始邮箱），QQ 邮箱 → QQ 头像接口，其余 → Gravatar */
@@ -164,8 +187,8 @@ export class ContentService implements OnModuleInit {
   }
 
   /** 公开版 decorateContent，供 AdminService 等内部服务复用格式化逻辑 */
-  async decorateContentPublic(row: Content) {
-    return this.decorateContent(row)
+  async decorateContentPublic(row: Content, opts?: { includeViewCount?: boolean; likeCount?: number }) {
+    return this.decorateContent(row, undefined, opts)
   }
 
   async list(opts: { page?: number; pageSize?: number; tag?: string; type?: string; auditStatus?: string; keyword?: string; sortBy?: string; order?: string; userId?: number }) {
@@ -190,7 +213,8 @@ export class ContentService implements OnModuleInit {
     const users = userIds.length ? await this.userRepo.find({ where: { id: In(userIds) } }) : []
     const userMap = new Map(users.map((u) => [u.id, u]))
 
-    const list = await Promise.all(rows.map((r) => this.decorateContent(r, userMap)))
+    const likeMap = await this.getLikeCountMap(rows.map((r) => r.id))
+    const list = await Promise.all(rows.map((r) => this.decorateContent(r, userMap, { likeCount: likeMap.get(String(r.id)) })))
     return { list, total, page, page_size: pageSize, total_page: Math.ceil(total / pageSize) }
   }
 
@@ -201,7 +225,8 @@ export class ContentService implements OnModuleInit {
       await this.contentRepo.increment({ id }, 'view_count', 1)
       await this.redis.incrementView(id)
     }
-    return this.decorateContent(row)
+    const likeCount = await this.likeRepo.count({ where: { content_id: id } })
+    return this.decorateContent(row, undefined, { likeCount })
   }
 
   async recommend(count: number, page: number) {
@@ -224,7 +249,8 @@ export class ContentService implements OnModuleInit {
         const users = userIds.length ? await this.userRepo.find({ where: { id: In(userIds) } }) : []
         const userMap = new Map(users.map((u) => [u.id, u]))
 
-        const list = await Promise.all(ordered.map((r) => this.decorateContent(r, userMap)))
+        const likeMap = await this.getLikeCountMap(ordered.map((r) => r.id))
+        const list = await Promise.all(ordered.map((r) => this.decorateContent(r, userMap, { likeCount: likeMap.get(String(r.id)) })))
         const total = await this.redis.getRecommendTotal()
         return { list, count: total }
       }
@@ -246,7 +272,8 @@ export class ContentService implements OnModuleInit {
     const users = userIds.length ? await this.userRepo.find({ where: { id: In(userIds) } }) : []
     const userMap = new Map(users.map((u) => [u.id, u]))
 
-    const list = await Promise.all(rows.map((r) => this.decorateContent(r, userMap)))
+    const likeMap = await this.getLikeCountMap(rows.map((r) => r.id))
+    const list = await Promise.all(rows.map((r) => this.decorateContent(r, userMap, { likeCount: likeMap.get(String(r.id)) })))
     return { list, count: total }
   }
 
@@ -276,10 +303,12 @@ export class ContentService implements OnModuleInit {
         console.log('[recommend] no approved contents, skip refresh')
         return
       }
+      const likeMap = await this.getLikeCountMap(rows.map((r) => r.id))
       const items = rows.map((r) => ({
         contentId: r.id,
         createdAtUnix: Math.floor(new Date(r.created_at).getTime() / 1000),
         viewCount: r.view_count || 0,
+        likeCount: likeMap.get(String(r.id)) || 0,
       }))
       const scored = await this.worker.refreshRecommend(items)
       await this.redis.writeRecommendList(scored)

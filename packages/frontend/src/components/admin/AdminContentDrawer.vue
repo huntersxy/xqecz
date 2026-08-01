@@ -2,6 +2,7 @@
 import { useAdminStore } from '@/stores/admin'
 import { adminApi } from '@/api'
 import { getAvatarUrl, getImageUrl, renderMarkdown } from '@/utils'
+import MediaImage from '@/components/MediaImage.vue'
 import { Tag, type FileItem } from '@arco-design/web-vue'
 import { useConfirm } from '@/composables/useToast'
 import type { User } from '@/types'
@@ -126,14 +127,14 @@ function onFileChange(_fileList: FileItem[], fileItem: FileItem) {
               :label="{ approved: '已通过', pending: '审核中', rejected: '已拒绝' }[admin.drawerContent.audit_status]"
             />
             <span class="preview-meta-info">
-              {{ admin.drawerContent.view_count }} 次浏览 · {{ admin.drawerContent.user?.username }}
+              {{ admin.drawerContent.like_count || 0 }} 点赞 · {{ admin.drawerContent.user?.username }}
             </span>
           </div>
           <div class="preview-tags">
             <Tag v-for="tag in admin.drawerContent.tags" :key="tag">{{ tag }}</Tag>
           </div>
           <div v-if="admin.drawerContent.type === 'image'" class="preview-media-wrap">
-            <a-image :src="getImageUrl(admin.drawerContent.img)" class="preview-media" :preview="false" alt="" />
+            <MediaImage :src="admin.drawerContent.img" class="preview-media" :preview="false" alt="" />
           </div>
 
           <div v-else-if="drawerTypeStr === 'video'" class="preview-media-wrap">
@@ -145,9 +146,9 @@ function onFileChange(_fileList: FileItem[], fileItem: FileItem) {
 
           <div v-else-if="drawerTypeStr === 'link'" class="preview-media-wrap">
             <a :href="admin.drawerContent.url" target="_blank" rel="noopener">
-              <a-image
+              <MediaImage
                 v-if="admin.drawerContent.thumb"
-                :src="getImageUrl(admin.drawerContent.thumb)"
+                :src="admin.drawerContent.thumb"
                 class="preview-media"
                 :preview="false"
                 alt=""

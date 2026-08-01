@@ -13,7 +13,7 @@ interface WorkerGrpcService {
   generateThumbnail(data: { file_path: string; content_type: string }): any
   compressImage(data: { file_path: string }): any
   fetchLinkPreview(data: { url: string }): any
-  refreshRecommend(data: { items: { content_id: number; created_at_unix: number; view_count: number }[] }): any
+  refreshRecommend(data: { items: { content_id: number; created_at_unix: number; view_count: number; like_count: number }[] }): any
 }
 
 /** 判断 gRPC 错误是否为连接不可用（Worker 未就绪或暂时断连）。 */
@@ -90,10 +90,10 @@ export class WorkerService implements OnModuleInit {
    * 让无状态 worker 对给定内容打分（纯计算，不碰 DB/Redis）。
    * 返回 { contentId, score }[]，由调用方（ContentService）写入 Redis ZSet。
    */
-  async refreshRecommend(items: { contentId: number; createdAtUnix: number; viewCount: number }[]): Promise<{ contentId: number; score: number }[]> {
+  async refreshRecommend(items: { contentId: number; createdAtUnix: number; viewCount: number; likeCount: number }[]): Promise<{ contentId: number; score: number }[]> {
     const resp: any = await this.callWithRetry(() =>
       this.svc.refreshRecommend({
-        items: items.map((i) => ({ content_id: i.contentId, created_at_unix: i.createdAtUnix, view_count: i.viewCount })),
+        items: items.map((i) => ({ content_id: i.contentId, created_at_unix: i.createdAtUnix, view_count: i.viewCount, like_count: i.likeCount })),
       }),
     )
     const results = (resp?.results || []) as { content_id: unknown; score: number }[]

@@ -121,6 +121,7 @@ func TestRefreshRecommendComputesScores(t *testing.T) {
 		{ContentId: 1, CreatedAtUnix: now, ViewCount: 10},          // 新鲜 + 少量浏览
 		{ContentId: 2, CreatedAtUnix: now - 8 * 86400, ViewCount: 0}, // 超过 7 天，分数应很低
 		{ContentId: 3, CreatedAtUnix: now, ViewCount: 2000},        // 新鲜 + 高浏览，应最高
+		{ContentId: 4, CreatedAtUnix: now, ViewCount: 10, LikeCount: 500}, // 新鲜 + 高点赞，应超过高浏览
 	}
 	resp, err := client.RefreshRecommend(context.Background(), &pb.RefreshRecommendRequest{Items: items})
 	if err != nil {
@@ -129,16 +130,16 @@ func TestRefreshRecommendComputesScores(t *testing.T) {
 	if !resp.Success {
 		t.Fatalf("expected success, got error: %s", resp.Error)
 	}
-	if len(resp.Results) != 3 {
-		t.Fatalf("expected 3 results, got %d", len(resp.Results))
+	if len(resp.Results) != 4 {
+		t.Fatalf("expected 4 results, got %d", len(resp.Results))
 	}
 
 	byId := map[uint64]float64{}
 	for _, r := range resp.Results {
 		byId[r.ContentId] = r.Score
 	}
-	// 期望分数降序：content 3（新鲜+高浏览）> content 1（新鲜）> content 2（过期）。
-	if !(byId[3] > byId[1] && byId[1] > byId[2]) {
+	// 期望分数降序：content 4（高点赞，权重更高）> content 3（高浏览）> content 1（新鲜）> content 2（过期）。
+	if !(byId[4] > byId[3] && byId[3] > byId[1] && byId[1] > byId[2]) {
 		t.Fatalf("unexpected score order: %v", byId)
 	}
 	t.Logf("RefreshRecommend scored: %v", byId)

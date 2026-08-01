@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { IconRefresh } from '@arco-design/web-vue/es/icon'
-import { getImageUrl } from '@/utils'
+import MediaImage from '@/components/MediaImage.vue'
 import type { RecommendContent } from '@/types'
 import type { RecommendLoader } from '@/composables/useRecommendLoader'
 
 const props = defineProps<{ loader: RecommendLoader }>()
 const emit = defineEmits<{ click: [item: RecommendContent] }>()
+const scrollRef = ref<HTMLElement | null>(null)
 
 // 解构出 loader 中的原始 ref（props.loader 是普通对象，解构得到共享的 ref 实例）
 const {
@@ -15,6 +16,8 @@ const {
   loadedPage,
   poolGeneration,
   maxRecommendPages,
+  pageSize,
+  displayStart,
   loadNextPageIntoPool,
   refreshRecommend,
 } = props.loader
@@ -32,20 +35,40 @@ const visibleContents = computed(() =>
   )
 )
 
-// 卡片数量不足时，从下一页拉取垫补（破图 / 文字类导致不足都覆盖）
-const DESIRED_MIN = 8
+// 展示窗口：从可见池中取一整批（坏图 / 文字类已剔除，不占名额）。
+const displayList = computed(() =>
+  visibleContents.value.slice(displayStart.value, displayStart.value + pageSize)
+)
+
 const filling = ref(false)
+const fillQueued = ref(false)
 async function ensureFilled() {
-  if (filling.value || isRecommendLoading.value) return
+  // 加载中或已在填充：标记排队，待当前批次结束后再次补偿，
+  // 保证"坏几张就补几张"（坏图 / 文字类一律不算进可见数量）。
+  if (isRecommendLoading.value) {
+    fillQueued.value = true
+    return
+  }
+  if (filling.value) {
+    fillQueued.value = true
+    return
+  }
   filling.value = true
   try {
-    while (
-      visibleContents.value.length < DESIRED_MIN &&
-      loadedPage.value < maxRecommendPages
-    ) {
-      const added = await loadNextPageIntoPool()
-      if (!added) break
-    }
+    do {
+      fillQueued.value = false
+      while (
+        visibleContents.value.length < displayStart.value + pageSize &&
+        loadedPage.value < maxRecommendPages
+      ) {
+        const added = await loadNextPageIntoPool()
+        if (!added) break
+      }
+      // 池已全部加载且窗口已越过末尾 → 回卷从头循环（"换一批"仍可见变化）
+      if (loadedPage.value >= maxRecommendPages && visibleContents.value.length <= displayStart.value) {
+        displayStart.value = 0
+      }
+    } while (fillQueued.value)
   } finally {
     filling.value = false
   }
@@ -53,7 +76,7 @@ async function ensureFilled() {
 
 // 初始加载完成 / 内容变化 / 破图登记后，尝试补齐数量
 watch(
-  () => [recommendContents.value.length, brokenIds.value.length],
+  () => [recommendContents.value.length, brokenIds.value.length, displayStart.value],
   () => {
     if (loadedPage.value > 0) ensureFilled()
   }
@@ -70,6 +93,24 @@ watch(
 function onRefresh() {
   refreshRecommend()
 }
+
+// 电脑端：推荐条可横向滚动时，滚轮纵向位移转为横向滚动；放得下时正常滚页面。
+function onWheel(e: WheelEvent) {
+  const el = scrollRef.value
+  if (!el) return
+  if (el.scrollWidth > el.clientWidth && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+    e.preventDefault()
+    el.scrollLeft += e.deltaY
+  }
+}
+
+onMounted(() => {
+  scrollRef.value?.addEventListener('wheel', onWheel, { passive: false })
+})
+
+onBeforeUnmount(() => {
+  scrollRef.value?.removeEventListener('wheel', onWheel)
+})
 </script>
 
 <template>
@@ -86,26 +127,24 @@ function onRefresh() {
         <IconRefresh :spin="isRecommendLoading" />
       </button>
     </div>
-    <div class="wf-recommend-scroll">
+    <div ref="scrollRef" class="wf-recommend-scroll">
       <div
-        v-for="item in visibleContents"
+        v-for="item in displayList"
         :key="item.id"
         class="wf-recommend-card"
         @click="emit('click', item)"
       >
-        <a-image
-          :src="getImageUrl(item.thumb)"
+        <MediaImage
+          :src="item.thumb"
           :alt="item.title"
           :preview="false"
           footer-position="inner"
+          @error="markBroken(item.id)"
         >
           <template #extra>
             <span class="wf-rec-caption">{{ item.title }}</span>
           </template>
-          <template #error>
-            <span :ref="el => el && markBroken(item.id)" />
-          </template>
-        </a-image>
+        </MediaImage>
       </div>
     </div>
   </section>

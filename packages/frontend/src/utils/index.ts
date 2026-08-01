@@ -20,6 +20,36 @@ export function getImageUrl(image?: string): string {
   return image
 }
 
+/** 生产服务器远程媒体兜底地址：开发环境图片 404 时，回退到该域名同路径重试。 */
+export const REMOTE_MEDIA_BASE = 'https://xq.xiey.work'
+
+/**
+ * 生成本站媒体在生产服务器的同路径兜底 URL。
+ * 仅对本站（相对路径 / localhost / 生产域名）生效；外部图床、头像等远程 URL 返回空串。
+ * 已是生产地址或无法解析时同样返回空串，表示“没有可兜底的地址”。
+ */
+export function getRemoteFallbackUrl(url: string, origin?: string): string {
+  if (!url) return ''
+  const baseOrigin =
+    origin ?? (typeof window !== 'undefined' ? window.location.origin : '')
+  if (!baseOrigin) return ''
+  let u: URL
+  try {
+    u = new URL(url, baseOrigin)
+  } catch {
+    return ''
+  }
+  const remoteHost = new URL(REMOTE_MEDIA_BASE).hostname
+  const isOwnHost =
+    u.hostname === 'localhost' ||
+    u.hostname === '127.0.0.1' ||
+    u.hostname === remoteHost ||
+    u.origin === baseOrigin
+  if (!isOwnHost) return ''
+  const target = `${REMOTE_MEDIA_BASE}${u.pathname}${u.search}`
+  return target === url ? '' : target
+}
+
 /**
  * 根据邮箱生成头像 URL：QQ 邮箱用 QQ 头像接口，其余回退 Gravatar。
  * @param email 用户邮箱

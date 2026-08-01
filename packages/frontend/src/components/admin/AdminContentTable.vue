@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useUserStore } from '@/stores/user'
 import { useAdminStore } from '@/stores/admin'
-import { getImageUrl } from '@/utils'
+import MediaImage from '@/components/MediaImage.vue'
 import { ACTION_COL } from './adminColumns'
 import { Tag, Tooltip, type TableColumnData } from '@arco-design/web-vue'
 import { useMediaQuery } from '@vueuse/core'
@@ -81,7 +81,7 @@ onMounted(load)
           <template #content="{ record }">
             <div class="flex items-center gap-3">
               <div v-if="record.type !== 'text'" class="content-thumb">
-                <a-image :src="getImageUrl(record.thumb)" :preview="false" alt="" />
+                <MediaImage :src="record.thumb" :preview="false" alt="" />
               </div>
               <Tooltip :title="record.title || '无标题'">
                 <span class="content-title admin-cell-title">{{ record.title || '无标题' }}</span>
@@ -123,7 +123,7 @@ onMounted(load)
           <div v-for="record in data.list" :key="record.id" class="admin-mobile-card" @click="admin.openDrawer(record, 'view')">
             <div class="flex gap-2.5 items-start">
               <div v-if="record.type !== 'text'" class="content-thumb content-thumb-lg">
-                <a-image :src="getImageUrl(record.thumb)" :preview="false" alt="" />
+                <MediaImage :src="record.thumb" :preview="false" alt="" />
               </div>
               <div class="flex-1 min-w-0">
                 <div class="mobile-title admin-cell-title">{{ record.title || '无标题' }}</div>

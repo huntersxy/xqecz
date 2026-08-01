@@ -247,11 +247,17 @@ export class ContentController {
     const existing = await this.likeRepo.findOne({ where: { content_id: cid, user_id: uid } })
     if (existing) {
       await this.likeRepo.remove(existing)
-      return { code: 200, message: '已取消点赞', data: { liked: false } }
+      const likeCount = await this.likeRepo.count({ where: { content_id: cid } })
+      // 点赞变化影响推荐打分（like 权重高），立即刷新推荐位（Redis 分布式锁防抖）
+      void this.svc.refreshRecommend().catch((e) => console.warn('[recommend] refresh after unlike failed:', (e as Error)?.message))
+      return { code: 200, message: '已取消点赞', data: { liked: false, like_count: likeCount } }
     }
     const row = this.likeRepo.create({ content_id: cid, user_id: uid })
     await this.likeRepo.save(row)
-    return { code: 200, message: '已点赞', data: { liked: true } }
+    const likeCount = await this.likeRepo.count({ where: { content_id: cid } })
+    // 点赞变化影响推荐打分（like 权重高），立即刷新推荐位（Redis 分布式锁防抖）
+    void this.svc.refreshRecommend().catch((e) => console.warn('[recommend] refresh after like failed:', (e as Error)?.message))
+    return { code: 200, message: '已点赞', data: { liked: true, like_count: likeCount } }
   }
 
   @Get(':content_id/like-status')

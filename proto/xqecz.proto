@@ -48,7 +48,8 @@ message LinkPreviewResponse {
 message RecommendItem {
   uint64 content_id = 1;
   int64 created_at_unix = 2;  // 内容创建时间（Unix 秒）
-  uint64 view_count = 3;       // 浏览量信号
+  uint64 view_count = 3;       // 浏览量信号（内部使用，不对外展示）
+  uint64 like_count = 4;       // 点赞数信号（公开指标，推荐权重更高）
 }
 
 // 推荐输出：worker 计算出的评分，返回给 NestJS 由其写入 Redis。

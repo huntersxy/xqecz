@@ -237,118 +237,6 @@ func (x *CompressResponse) GetError() string {
 	return ""
 }
 
-type UploadToS3Request struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	FilePath      string                 `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
-	ContentType   string                 `protobuf:"bytes,2,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UploadToS3Request) Reset() {
-	*x = UploadToS3Request{}
-	mi := &file_xqecz_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UploadToS3Request) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UploadToS3Request) ProtoMessage() {}
-
-func (x *UploadToS3Request) ProtoReflect() protoreflect.Message {
-	mi := &file_xqecz_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UploadToS3Request.ProtoReflect.Descriptor instead.
-func (*UploadToS3Request) Descriptor() ([]byte, []int) {
-	return file_xqecz_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *UploadToS3Request) GetFilePath() string {
-	if x != nil {
-		return x.FilePath
-	}
-	return ""
-}
-
-func (x *UploadToS3Request) GetContentType() string {
-	if x != nil {
-		return x.ContentType
-	}
-	return ""
-}
-
-type UploadToS3Response struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	CdnUrl        string                 `protobuf:"bytes,1,opt,name=cdn_url,json=cdnUrl,proto3" json:"cdn_url,omitempty"`
-	Success       bool                   `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
-	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UploadToS3Response) Reset() {
-	*x = UploadToS3Response{}
-	mi := &file_xqecz_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UploadToS3Response) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UploadToS3Response) ProtoMessage() {}
-
-func (x *UploadToS3Response) ProtoReflect() protoreflect.Message {
-	mi := &file_xqecz_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UploadToS3Response.ProtoReflect.Descriptor instead.
-func (*UploadToS3Response) Descriptor() ([]byte, []int) {
-	return file_xqecz_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *UploadToS3Response) GetCdnUrl() string {
-	if x != nil {
-		return x.CdnUrl
-	}
-	return ""
-}
-
-func (x *UploadToS3Response) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-func (x *UploadToS3Response) GetError() string {
-	if x != nil {
-		return x.Error
-	}
-	return ""
-}
-
 type LinkPreviewRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Url           string                 `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
@@ -358,7 +246,7 @@ type LinkPreviewRequest struct {
 
 func (x *LinkPreviewRequest) Reset() {
 	*x = LinkPreviewRequest{}
-	mi := &file_xqecz_proto_msgTypes[6]
+	mi := &file_xqecz_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -370,7 +258,7 @@ func (x *LinkPreviewRequest) String() string {
 func (*LinkPreviewRequest) ProtoMessage() {}
 
 func (x *LinkPreviewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xqecz_proto_msgTypes[6]
+	mi := &file_xqecz_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -383,7 +271,7 @@ func (x *LinkPreviewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkPreviewRequest.ProtoReflect.Descriptor instead.
 func (*LinkPreviewRequest) Descriptor() ([]byte, []int) {
-	return file_xqecz_proto_rawDescGZIP(), []int{6}
+	return file_xqecz_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *LinkPreviewRequest) GetUrl() string {
@@ -406,7 +294,7 @@ type LinkPreviewResponse struct {
 
 func (x *LinkPreviewResponse) Reset() {
 	*x = LinkPreviewResponse{}
-	mi := &file_xqecz_proto_msgTypes[7]
+	mi := &file_xqecz_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -418,7 +306,7 @@ func (x *LinkPreviewResponse) String() string {
 func (*LinkPreviewResponse) ProtoMessage() {}
 
 func (x *LinkPreviewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xqecz_proto_msgTypes[7]
+	mi := &file_xqecz_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -431,7 +319,7 @@ func (x *LinkPreviewResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkPreviewResponse.ProtoReflect.Descriptor instead.
 func (*LinkPreviewResponse) Descriptor() ([]byte, []int) {
-	return file_xqecz_proto_rawDescGZIP(), []int{7}
+	return file_xqecz_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *LinkPreviewResponse) GetTitle() string {
@@ -474,14 +362,15 @@ type RecommendItem struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ContentId     uint64                 `protobuf:"varint,1,opt,name=content_id,json=contentId,proto3" json:"content_id,omitempty"`
 	CreatedAtUnix int64                  `protobuf:"varint,2,opt,name=created_at_unix,json=createdAtUnix,proto3" json:"created_at_unix,omitempty"` // 内容创建时间（Unix 秒）
-	ViewCount     uint64                 `protobuf:"varint,3,opt,name=view_count,json=viewCount,proto3" json:"view_count,omitempty"`               // 浏览量信号
+	ViewCount     uint64                 `protobuf:"varint,3,opt,name=view_count,json=viewCount,proto3" json:"view_count,omitempty"`               // 浏览量信号（内部使用，不对外展示）
+	LikeCount     uint64                 `protobuf:"varint,4,opt,name=like_count,json=likeCount,proto3" json:"like_count,omitempty"`               // 点赞数信号（公开指标，推荐权重更高）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RecommendItem) Reset() {
 	*x = RecommendItem{}
-	mi := &file_xqecz_proto_msgTypes[8]
+	mi := &file_xqecz_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -493,7 +382,7 @@ func (x *RecommendItem) String() string {
 func (*RecommendItem) ProtoMessage() {}
 
 func (x *RecommendItem) ProtoReflect() protoreflect.Message {
-	mi := &file_xqecz_proto_msgTypes[8]
+	mi := &file_xqecz_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -506,7 +395,7 @@ func (x *RecommendItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecommendItem.ProtoReflect.Descriptor instead.
 func (*RecommendItem) Descriptor() ([]byte, []int) {
-	return file_xqecz_proto_rawDescGZIP(), []int{8}
+	return file_xqecz_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RecommendItem) GetContentId() uint64 {
@@ -530,6 +419,13 @@ func (x *RecommendItem) GetViewCount() uint64 {
 	return 0
 }
 
+func (x *RecommendItem) GetLikeCount() uint64 {
+	if x != nil {
+		return x.LikeCount
+	}
+	return 0
+}
+
 // 推荐输出：worker 计算出的评分，返回给 NestJS 由其写入 Redis。
 type ScoredItem struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -541,7 +437,7 @@ type ScoredItem struct {
 
 func (x *ScoredItem) Reset() {
 	*x = ScoredItem{}
-	mi := &file_xqecz_proto_msgTypes[9]
+	mi := &file_xqecz_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -553,7 +449,7 @@ func (x *ScoredItem) String() string {
 func (*ScoredItem) ProtoMessage() {}
 
 func (x *ScoredItem) ProtoReflect() protoreflect.Message {
-	mi := &file_xqecz_proto_msgTypes[9]
+	mi := &file_xqecz_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -566,7 +462,7 @@ func (x *ScoredItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScoredItem.ProtoReflect.Descriptor instead.
 func (*ScoredItem) Descriptor() ([]byte, []int) {
-	return file_xqecz_proto_rawDescGZIP(), []int{9}
+	return file_xqecz_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ScoredItem) GetContentId() uint64 {
@@ -593,7 +489,7 @@ type RefreshRecommendRequest struct {
 
 func (x *RefreshRecommendRequest) Reset() {
 	*x = RefreshRecommendRequest{}
-	mi := &file_xqecz_proto_msgTypes[10]
+	mi := &file_xqecz_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -605,7 +501,7 @@ func (x *RefreshRecommendRequest) String() string {
 func (*RefreshRecommendRequest) ProtoMessage() {}
 
 func (x *RefreshRecommendRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xqecz_proto_msgTypes[10]
+	mi := &file_xqecz_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -618,7 +514,7 @@ func (x *RefreshRecommendRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefreshRecommendRequest.ProtoReflect.Descriptor instead.
 func (*RefreshRecommendRequest) Descriptor() ([]byte, []int) {
-	return file_xqecz_proto_rawDescGZIP(), []int{10}
+	return file_xqecz_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *RefreshRecommendRequest) GetItems() []*RecommendItem {
@@ -640,7 +536,7 @@ type RefreshRecommendResponse struct {
 
 func (x *RefreshRecommendResponse) Reset() {
 	*x = RefreshRecommendResponse{}
-	mi := &file_xqecz_proto_msgTypes[11]
+	mi := &file_xqecz_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -652,7 +548,7 @@ func (x *RefreshRecommendResponse) String() string {
 func (*RefreshRecommendResponse) ProtoMessage() {}
 
 func (x *RefreshRecommendResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xqecz_proto_msgTypes[11]
+	mi := &file_xqecz_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -665,7 +561,7 @@ func (x *RefreshRecommendResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefreshRecommendResponse.ProtoReflect.Descriptor instead.
 func (*RefreshRecommendResponse) Descriptor() ([]byte, []int) {
-	return file_xqecz_proto_rawDescGZIP(), []int{11}
+	return file_xqecz_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *RefreshRecommendResponse) GetSuccess() bool {
@@ -697,7 +593,7 @@ type HealthRequest struct {
 
 func (x *HealthRequest) Reset() {
 	*x = HealthRequest{}
-	mi := &file_xqecz_proto_msgTypes[12]
+	mi := &file_xqecz_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -709,7 +605,7 @@ func (x *HealthRequest) String() string {
 func (*HealthRequest) ProtoMessage() {}
 
 func (x *HealthRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_xqecz_proto_msgTypes[12]
+	mi := &file_xqecz_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -722,7 +618,7 @@ func (x *HealthRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthRequest.ProtoReflect.Descriptor instead.
 func (*HealthRequest) Descriptor() ([]byte, []int) {
-	return file_xqecz_proto_rawDescGZIP(), []int{12}
+	return file_xqecz_proto_rawDescGZIP(), []int{10}
 }
 
 type HealthResponse struct {
@@ -735,7 +631,7 @@ type HealthResponse struct {
 
 func (x *HealthResponse) Reset() {
 	*x = HealthResponse{}
-	mi := &file_xqecz_proto_msgTypes[13]
+	mi := &file_xqecz_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -747,7 +643,7 @@ func (x *HealthResponse) String() string {
 func (*HealthResponse) ProtoMessage() {}
 
 func (x *HealthResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_xqecz_proto_msgTypes[13]
+	mi := &file_xqecz_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -760,7 +656,7 @@ func (x *HealthResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthResponse.ProtoReflect.Descriptor instead.
 func (*HealthResponse) Descriptor() ([]byte, []int) {
-	return file_xqecz_proto_rawDescGZIP(), []int{13}
+	return file_xqecz_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *HealthResponse) GetStatus() string {
@@ -795,13 +691,6 @@ const file_xqecz_proto_rawDesc = "" +
 	"\x10CompressResponse\x12'\n" +
 	"\x0fcompressed_path\x18\x01 \x01(\tR\x0ecompressedPath\x12\x18\n" +
 	"\asuccess\x18\x02 \x01(\bR\asuccess\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\"S\n" +
-	"\x11UploadToS3Request\x12\x1b\n" +
-	"\tfile_path\x18\x01 \x01(\tR\bfilePath\x12!\n" +
-	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\"]\n" +
-	"\x12UploadToS3Response\x12\x17\n" +
-	"\acdn_url\x18\x01 \x01(\tR\x06cdnUrl\x12\x18\n" +
-	"\asuccess\x18\x02 \x01(\bR\asuccess\x12\x14\n" +
 	"\x05error\x18\x03 \x01(\tR\x05error\"&\n" +
 	"\x12LinkPreviewRequest\x12\x10\n" +
 	"\x03url\x18\x01 \x01(\tR\x03url\"\x8d\x01\n" +
@@ -810,13 +699,15 @@ const file_xqecz_proto_rawDesc = "" +
 	"\x05image\x18\x02 \x01(\tR\x05image\x12\x1a\n" +
 	"\bplatform\x18\x03 \x01(\tR\bplatform\x12\x18\n" +
 	"\asuccess\x18\x04 \x01(\bR\asuccess\x12\x14\n" +
-	"\x05error\x18\x05 \x01(\tR\x05error\"u\n" +
+	"\x05error\x18\x05 \x01(\tR\x05error\"\x94\x01\n" +
 	"\rRecommendItem\x12\x1d\n" +
 	"\n" +
 	"content_id\x18\x01 \x01(\x04R\tcontentId\x12&\n" +
 	"\x0fcreated_at_unix\x18\x02 \x01(\x03R\rcreatedAtUnix\x12\x1d\n" +
 	"\n" +
-	"view_count\x18\x03 \x01(\x04R\tviewCount\"A\n" +
+	"view_count\x18\x03 \x01(\x04R\tviewCount\x12\x1d\n" +
+	"\n" +
+	"like_count\x18\x04 \x01(\x04R\tlikeCount\"A\n" +
 	"\n" +
 	"ScoredItem\x12\x1d\n" +
 	"\n" +
@@ -831,13 +722,11 @@ const file_xqecz_proto_rawDesc = "" +
 	"\rHealthRequest\"B\n" +
 	"\x0eHealthResponse\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status\x12\x18\n" +
-	"\aversion\x18\x02 \x01(\tR\aversion2\xb3\x03\n" +
+	"\aversion\x18\x02 \x01(\tR\aversion2\xf0\x02\n" +
 	"\rWorkerService\x125\n" +
 	"\x06Health\x12\x14.xqecz.HealthRequest\x1a\x15.xqecz.HealthResponse\x12F\n" +
 	"\x11GenerateThumbnail\x12\x17.xqecz.ThumbnailRequest\x1a\x18.xqecz.ThumbnailResponse\x12@\n" +
-	"\rCompressImage\x12\x16.xqecz.CompressRequest\x1a\x17.xqecz.CompressResponse\x12A\n" +
-	"\n" +
-	"UploadToS3\x12\x18.xqecz.UploadToS3Request\x1a\x19.xqecz.UploadToS3Response\x12I\n" +
+	"\rCompressImage\x12\x16.xqecz.CompressRequest\x1a\x17.xqecz.CompressResponse\x12I\n" +
 	"\x10FetchLinkPreview\x12\x19.xqecz.LinkPreviewRequest\x1a\x1a.xqecz.LinkPreviewResponse\x12S\n" +
 	"\x10RefreshRecommend\x12\x1e.xqecz.RefreshRecommendRequest\x1a\x1f.xqecz.RefreshRecommendResponseB\x14Z\x12xqecz-worker/protob\x06proto3"
 
@@ -853,40 +742,36 @@ func file_xqecz_proto_rawDescGZIP() []byte {
 	return file_xqecz_proto_rawDescData
 }
 
-var file_xqecz_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_xqecz_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_xqecz_proto_goTypes = []any{
 	(*ThumbnailRequest)(nil),         // 0: xqecz.ThumbnailRequest
 	(*ThumbnailResponse)(nil),        // 1: xqecz.ThumbnailResponse
 	(*CompressRequest)(nil),          // 2: xqecz.CompressRequest
 	(*CompressResponse)(nil),         // 3: xqecz.CompressResponse
-	(*UploadToS3Request)(nil),        // 4: xqecz.UploadToS3Request
-	(*UploadToS3Response)(nil),       // 5: xqecz.UploadToS3Response
-	(*LinkPreviewRequest)(nil),       // 6: xqecz.LinkPreviewRequest
-	(*LinkPreviewResponse)(nil),      // 7: xqecz.LinkPreviewResponse
-	(*RecommendItem)(nil),            // 8: xqecz.RecommendItem
-	(*ScoredItem)(nil),               // 9: xqecz.ScoredItem
-	(*RefreshRecommendRequest)(nil),  // 10: xqecz.RefreshRecommendRequest
-	(*RefreshRecommendResponse)(nil), // 11: xqecz.RefreshRecommendResponse
-	(*HealthRequest)(nil),            // 12: xqecz.HealthRequest
-	(*HealthResponse)(nil),           // 13: xqecz.HealthResponse
+	(*LinkPreviewRequest)(nil),       // 4: xqecz.LinkPreviewRequest
+	(*LinkPreviewResponse)(nil),      // 5: xqecz.LinkPreviewResponse
+	(*RecommendItem)(nil),            // 6: xqecz.RecommendItem
+	(*ScoredItem)(nil),               // 7: xqecz.ScoredItem
+	(*RefreshRecommendRequest)(nil),  // 8: xqecz.RefreshRecommendRequest
+	(*RefreshRecommendResponse)(nil), // 9: xqecz.RefreshRecommendResponse
+	(*HealthRequest)(nil),            // 10: xqecz.HealthRequest
+	(*HealthResponse)(nil),           // 11: xqecz.HealthResponse
 }
 var file_xqecz_proto_depIdxs = []int32{
-	8,  // 0: xqecz.RefreshRecommendRequest.items:type_name -> xqecz.RecommendItem
-	9,  // 1: xqecz.RefreshRecommendResponse.results:type_name -> xqecz.ScoredItem
-	12, // 2: xqecz.WorkerService.Health:input_type -> xqecz.HealthRequest
+	6,  // 0: xqecz.RefreshRecommendRequest.items:type_name -> xqecz.RecommendItem
+	7,  // 1: xqecz.RefreshRecommendResponse.results:type_name -> xqecz.ScoredItem
+	10, // 2: xqecz.WorkerService.Health:input_type -> xqecz.HealthRequest
 	0,  // 3: xqecz.WorkerService.GenerateThumbnail:input_type -> xqecz.ThumbnailRequest
 	2,  // 4: xqecz.WorkerService.CompressImage:input_type -> xqecz.CompressRequest
-	4,  // 5: xqecz.WorkerService.UploadToS3:input_type -> xqecz.UploadToS3Request
-	6,  // 6: xqecz.WorkerService.FetchLinkPreview:input_type -> xqecz.LinkPreviewRequest
-	10, // 7: xqecz.WorkerService.RefreshRecommend:input_type -> xqecz.RefreshRecommendRequest
-	13, // 8: xqecz.WorkerService.Health:output_type -> xqecz.HealthResponse
-	1,  // 9: xqecz.WorkerService.GenerateThumbnail:output_type -> xqecz.ThumbnailResponse
-	3,  // 10: xqecz.WorkerService.CompressImage:output_type -> xqecz.CompressResponse
-	5,  // 11: xqecz.WorkerService.UploadToS3:output_type -> xqecz.UploadToS3Response
-	7,  // 12: xqecz.WorkerService.FetchLinkPreview:output_type -> xqecz.LinkPreviewResponse
-	11, // 13: xqecz.WorkerService.RefreshRecommend:output_type -> xqecz.RefreshRecommendResponse
-	8,  // [8:14] is the sub-list for method output_type
-	2,  // [2:8] is the sub-list for method input_type
+	4,  // 5: xqecz.WorkerService.FetchLinkPreview:input_type -> xqecz.LinkPreviewRequest
+	8,  // 6: xqecz.WorkerService.RefreshRecommend:input_type -> xqecz.RefreshRecommendRequest
+	11, // 7: xqecz.WorkerService.Health:output_type -> xqecz.HealthResponse
+	1,  // 8: xqecz.WorkerService.GenerateThumbnail:output_type -> xqecz.ThumbnailResponse
+	3,  // 9: xqecz.WorkerService.CompressImage:output_type -> xqecz.CompressResponse
+	5,  // 10: xqecz.WorkerService.FetchLinkPreview:output_type -> xqecz.LinkPreviewResponse
+	9,  // 11: xqecz.WorkerService.RefreshRecommend:output_type -> xqecz.RefreshRecommendResponse
+	7,  // [7:12] is the sub-list for method output_type
+	2,  // [2:7] is the sub-list for method input_type
 	2,  // [2:2] is the sub-list for extension type_name
 	2,  // [2:2] is the sub-list for extension extendee
 	0,  // [0:2] is the sub-list for field type_name
@@ -903,7 +788,7 @@ func file_xqecz_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_xqecz_proto_rawDesc), len(file_xqecz_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   14,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

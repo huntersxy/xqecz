@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useAdminStore } from '@/stores/admin'
-import { getImageUrl } from '@/utils'
+import MediaImage from '@/components/MediaImage.vue'
 import { ACTION_COL, CONTENT_COL, STATUS_COL, CLAIMER_COL, REASON_COL } from './adminColumns'
 import { Tooltip, type TableColumnData } from '@arco-design/web-vue'
 import { useMediaQuery } from '@vueuse/core'
@@ -53,7 +53,7 @@ onMounted(load)
           <template #content="{ record }">
             <div class="flex items-center gap-3">
               <div v-if="record.content?.type !== 'text'" class="claim-thumb">
-                <a-image :src="getImageUrl(record.content?.thumb)" :preview="false" loading="lazy" alt="" />
+                <MediaImage :src="record.content?.thumb" :preview="false" loading="lazy" alt="" />
               </div>
               <Tooltip :title="record.content?.title || '未知内容'">
                 <span class="claim-title admin-cell-title">{{ record.content?.title || '未知内容' }}</span>

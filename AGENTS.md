@@ -78,7 +78,7 @@ D:\xqecz/
 | `GenerateThumbnail` | file_path, content_type | thumb_path, success, error | ffmpeg 抽帧/缩放 → webp |
 | `CompressImage` | file_path | compressed_path, success, error | Tinify 压缩（无 key 即跳过） |
 | `FetchLinkPreview` | url | title/image/platform, success, error | 解析 OG 元数据 |
-| `RefreshRecommend` | items[]（content_id/created_at_unix/view_count） | results[]（content_id/score）, success | **纯打分**，不碰 DB/Redis |
+| `RefreshRecommend` | items[]（content_id/created_at_unix/view_count/like_count） | results[]（content_id/score）, success | **纯打分**，不碰 DB/Redis；like_count 权重高于 view_count |
 
 > gRPC client 已设 `loader: { keepCase: true }`，proto 字段用 snake_case，与 Go worker 一致。
 

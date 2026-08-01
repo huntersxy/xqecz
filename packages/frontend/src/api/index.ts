@@ -319,7 +319,7 @@ export const contentApi = {
     }),
 
   toggleLike: (contentId: number) =>
-    request<{ liked: boolean }>(`/content/${contentId}/like`, {
+    request<{ liked: boolean; like_count: number }>(`/content/${contentId}/like`, {
       method: 'POST',
     }),
 

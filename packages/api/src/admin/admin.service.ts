@@ -126,7 +126,9 @@ export class AdminService {
 
     // 最新内容 / 最新用户，供仪表盘快速预览
     const recentRows = await this.contentRepo.find({ order: { created_at: 'DESC' }, take: 6 })
-    const recentContents = await Promise.all(recentRows.map((r) => this.contentSvc.decorateContentPublic(r)))
+    const recentContents = await Promise.all(
+      recentRows.map((r) => this.contentSvc.decorateContentPublic(r, { includeViewCount: true })),
+    )
     const recentUsers = (await this.userRepo.find({ order: { created_at: 'DESC' }, take: 6 })).map((u) => this.formatUser(u))
 
     const n = (v: unknown) => Number(v) || 0
@@ -232,7 +234,7 @@ export class AdminService {
       const u = userMap.get(Number(r.user_id))
       return {
         ...r,
-        content: c ? await this.contentSvc.decorateContentPublic(c) : null,
+        content: c ? await this.contentSvc.decorateContentPublic(c, { includeViewCount: true }) : null,
         user: u ? { id: u.id, username: u.username } : { id: Number(r.user_id), username: 'unknown' },
       }
     }))

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRoute } from 'vue-router'
 import { RouterLink } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import { commentApi } from '@/api'
@@ -13,7 +12,6 @@ const emit = defineEmits<{
   'report-comment': [comment: Comment]
 }>()
 
-const route = useRoute()
 const { confirm } = useConfirm()
 
 const comments = ref<Comment[]>([])

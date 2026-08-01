@@ -5,7 +5,7 @@ export default { name: 'HomeView' }
 <script setup lang="ts">
 import { ref, computed, onMounted, onActivated, nextTick, watch } from 'vue'
 import { useIntersectionObserver } from '@vueuse/core'
-import { useRouter } from 'vue-router'
+import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { contentApi } from '@/api'
 import { useHomeStore } from '@/stores/home'
 import { useRecommendLoader } from '@/composables/useRecommendLoader'
@@ -83,8 +83,14 @@ function onImageLoaded(id: string | number) {
 }
 
 function openContent(content: Content | RecommendContent) {
+  router.push(`/content/${content.id}`)
+}
+
+// 离开首页（详情/后台/登录等任意跳转）时统一保存滚动位置与列表状态，
+// 返回时由 onActivated 恢复（keep-alive）。
+onBeforeRouteLeave(() => {
   const pos = globalThis.scrollY
-  console.log('[Scroll] 点击时位置:', pos)
+  console.log('[Scroll] 离开时保存的位置:', pos)
   homeStore.saveState({
     searchKeyword: homeStore.searchKeyword,
     selectedTags: searchFilter.selectedTags.value,
@@ -98,8 +104,7 @@ function openContent(content: Content | RecommendContent) {
     positions: new Map(waterfall.positions.value),
     containerHeight: waterfall.containerHeight.value,
   })
-  router.push(`/content/${content.id}`)
-}
+})
 
 async function fetchPage(page: number, append = false) {
   if (isLoading.value || isLoadingMore.value) return
@@ -189,6 +194,27 @@ async function diffAndUpdate() {
   }
 }
 
+// 静默同步点赞数：从详情页点赞返回后，原位更新列表中已存在条目的 like_count，
+// 不重排瀑布流、不打断滚动（仅拉第一页 100 条做字段级 diff）。
+async function silentSyncLikeCounts() {
+  if (homeStore.searchKeyword || allContents.value.length === 0) return
+  try {
+    const res = await contentApi.list({ page: 1, page_size: 100, sort_by: 'created_at', order: 'desc' })
+    if (res.code !== 200) return
+    const freshList = res.data.list.map((item: unknown) => ContentSchema.parse(item))
+    const freshMap = new Map(freshList.map((i) => [i.id, i]))
+    let changed = false
+    for (const item of allContents.value) {
+      const fresh = freshMap.get(item.id)
+      if (fresh && fresh.like_count !== item.like_count) {
+        item.like_count = fresh.like_count
+        changed = true
+      }
+    }
+    if (changed) listCache.save(allContents.value, total.value, totalPages.value)
+  } catch { /* 静默失败，保持旧值 */ }
+}
+
 // 监听 sentinel 进入视口
 useIntersectionObserver(sentinelRef, ([{ isIntersecting }]) => {
   if (isIntersecting && hasMore.value && !isLoading.value && !isLoadingMore.value) {
@@ -259,6 +285,9 @@ onActivated(() => {
 
   // 标记需要在图片加载后恢复滚动
   pendingScrollRestore.value = true
+
+  // 从详情页返回时同步最新的点赞数（不阻塞、不重排）
+  void silentSyncLikeCounts()
 
   // 延迟恢复，等待 DOM 就绪
   setTimeout(() => {

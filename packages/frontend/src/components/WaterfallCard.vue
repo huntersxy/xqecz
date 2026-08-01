@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { getImageUrl } from '@/utils'
+import MediaImage from '@/components/MediaImage.vue'
 import type { Content } from '@/types'
 
 interface Props {
@@ -27,7 +27,7 @@ onBeforeUnmount(() => ro?.disconnect())
   <div class="wf-card" @click="emit('click', props.item)" @keydown.enter="emit('click', props.item)" tabindex="0">
     <template v-if="props.item.type !== 'text'">
       <div class="wf-card-media" ref="mediaRef">
-        <a-image :src="getImageUrl(props.item.thumb)" :alt="props.item.title" :preview="false" loading="lazy" decoding="async" />
+        <MediaImage :src="props.item.thumb" :alt="props.item.title" :preview="false" loading="lazy" decoding="async" />
         <div v-if="props.item.tags?.some(t => /ai/i.test(t))" class="wf-badge-ai">AI</div>
       </div>
     </template>
@@ -41,8 +41,8 @@ onBeforeUnmount(() => ro?.disconnect())
       <div class="wf-card-meta">
         <span class="wf-card-user">{{ props.item.user?.username }}</span>
         <span class="wf-card-views">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          {{ props.item.view_count }}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          {{ props.item.like_count || 0 }}
         </span>
       </div>
       <div v-if="props.item.tags?.length" class="wf-card-tags">

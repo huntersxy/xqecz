@@ -5,8 +5,9 @@ import { Message } from '@arco-design/web-vue'
 import { contentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { useContentBrowse } from '@/composables/useContentBrowse'
-import { getImageUrl, formatTime } from '@/utils'
-import { IconArrowLeft, IconCalendar, IconEye, IconLeft, IconRight, IconRefresh } from '@arco-design/web-vue/es/icon'
+import { formatTime } from '@/utils'
+import MediaImage from '@/components/MediaImage.vue'
+import { IconArrowLeft, IconCalendar, IconHeart, IconLeft, IconRight, IconRefresh } from '@arco-design/web-vue/es/icon'
 import ContentMedia from '@/components/ContentMedia.vue'
 import ContentSidebar from '@/components/ContentSidebar.vue'
 import ContentActions from '@/components/ContentActions.vue'
@@ -86,8 +87,8 @@ onMounted(() => {
               {{ formatTime(content.created_at) }}
             </span>
             <span class="cd-meta-item">
-              <IconEye />
-              {{ content.view_count }} 浏览
+              <IconHeart />
+              {{ content.like_count || 0 }} 点赞
             </span>
             <span v-if="currentIndex >= 0" class="cd-meta-item cd-meta-index">
               {{ currentIndex + 1 }} / {{ cachedList.length }}
@@ -150,7 +151,7 @@ onMounted(() => {
               :class="['cd-carousel-thumb', { 'cd-thumb-current': item.isCurrent }]"
               @click="navigateTo(item.id)"
             >
-              <a-image :src="getImageUrl(item.thumb)" :alt="item.title" :preview="false" loading="lazy" />
+              <MediaImage :src="item.thumb" :alt="item.title" :preview="false" loading="lazy" />
             </button>
           </div>
 
