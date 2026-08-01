@@ -11,7 +11,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: []; uploaded: [] }>()
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -40,13 +40,13 @@ const file = ref<File | undefined>(undefined)
 const filePreview = ref('')
 const uploading = ref(false)
 const progress = ref(0)
+const fileInput = ref<HTMLInputElement | null>(null)
+const dragOver = ref(false)
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s]+$/
 
-function onFileChange(e: Event) {
-  const input = e.target as HTMLInputElement
-  const f = input.files?.[0]
+function pickFile(f: File | undefined) {
   if (!f) return
   if (!f.type.startsWith('image/') && !f.type.startsWith('video/')) {
     toast.error('仅支持图片或视频文件')
@@ -63,9 +63,19 @@ function onFileChange(e: Event) {
   reader.readAsDataURL(f)
 }
 
+function onFileChange(e: Event) {
+  pickFile((e.target as HTMLInputElement).files?.[0])
+}
+
+function onDrop(e: DragEvent) {
+  dragOver.value = false
+  pickFile(e.dataTransfer?.files?.[0])
+}
+
 function removeFile() {
   file.value = undefined
   filePreview.value = ''
+  if (fileInput.value) fileInput.value.value = ''
 }
 
 function validate(): string | null {
@@ -101,6 +111,7 @@ async function handleSubmit() {
         JSON.stringify({ nickname: form.value.nickname.trim(), email: form.value.email.trim() }),
       )
       toast.success('上传成功')
+      emit('uploaded')
       emit('close')
       router.push('/')
     } else {
@@ -153,8 +164,16 @@ watch(() => props.open, (val) => {
       <a-textarea v-model="form.content" placeholder="描述（可选）" :auto-size="{ minRows: 3, maxRows: 6 }" />
 
       <div>
-        <div v-if="!file" class="qus-dropzone" @click="($refs.fileInput as HTMLInputElement).click()">
-          <input ref="fileInput" type="file" accept="image/*,video/*" class="qus-hidden" @change="onFileChange" />
+        <div
+          v-if="!file"
+          class="qus-dropzone"
+          :class="{ 'is-dragover': dragOver }"
+          @click="fileInput?.click()"
+          @dragover.prevent="dragOver = true"
+          @dragleave.prevent="dragOver = false"
+          @drop.prevent="onDrop"
+        >
+          <input ref="fileInput" type="file" accept="image/*,video/*" class="qus-hidden" :disabled="uploading" @change="onFileChange" />
           <IconUpload class="qus-upload-icon" />
           <div class="qus-dropzone-hint">选择图片/视频</div>
         </div>
@@ -204,8 +223,10 @@ watch(() => props.open, (val) => {
   cursor: pointer;
   transition: border-color 0.2s;
 
-  &:hover {
-    border-color: var(--color-primary);
+  &:hover,
+  &.is-dragover {
+    border-color: rgb(var(--primary-6));
+    background: var(--color-fill-1);
   }
 }
 

@@ -27,6 +27,8 @@ const fileKind = ref<'' | 'image' | 'video'>('')
 const availableTags = ref<string[]>([])
 const uploading = ref(false)
 const progress = ref(0)
+const fileInput = ref<HTMLInputElement | null>(null)
+const dragOver = ref(false)
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -40,14 +42,15 @@ function handleAddCustomTag(tag: string) {
   if (!form.value.tags.includes(tag)) form.value.tags.push(tag)
 }
 
-function beforeUpload(f: File) {
+function pickFile(f: File | undefined) {
+  if (!f) return
   if (!f.type.startsWith('image/') && !f.type.startsWith('video/')) {
     toast.error('仅支持图片或视频文件')
-    return false
+    return
   }
   if (f.size > MAX_FILE_SIZE) {
     toast.error('文件大小不能超过 20MB')
-    return false
+    return
   }
   file.value = f
   fileKind.value = f.type.startsWith('image/') ? 'image' : 'video'
@@ -55,14 +58,22 @@ function beforeUpload(f: File) {
   const reader = new FileReader()
   reader.onload = (ev) => { filePreview.value = ev.target?.result as string }
   reader.readAsDataURL(f)
-  // 返回 false 阻止 antd upload 自动上传，我们用自己的 xhrUpload
-  return false
+}
+
+function onFileChange(e: Event) {
+  pickFile((e.target as HTMLInputElement).files?.[0])
+}
+
+function onDrop(e: DragEvent) {
+  dragOver.value = false
+  pickFile(e.dataTransfer?.files?.[0])
 }
 
 function removeFile() {
   file.value = undefined
   filePreview.value = ''
   fileKind.value = ''
+  if (fileInput.value) fileInput.value.value = ''
 }
 
 function validate(): string | null {
@@ -170,18 +181,28 @@ onMounted(async () => {
         </a-form-item>
 
         <a-form-item label="媒体文件（可选）">
-          <a-upload drag
-            v-if="!file"
-            :before-upload="beforeUpload"
+          <input
+            ref="fileInput"
+            type="file"
+            class="qu-upload-input-hidden"
             accept="image/*,video/*"
-            :show-file-list="false"
             :disabled="uploading"
+            @change="onFileChange"
+          />
+          <div
+            v-if="!file"
+            class="qu-upload-area"
+            :class="{ 'is-dragover': dragOver }"
+            @click="fileInput?.click()"
+            @dragover.prevent="dragOver = true"
+            @dragleave.prevent="dragOver = false"
+            @drop.prevent="onDrop"
           >
             <IconUpload class="qu-upload-icon" />
-            <a-typography-text type="secondary" class="qu-upload-hint">点击或拖拽文件到此区域</a-typography-text>
-            <a-typography-text type="secondary" class="qu-upload-sub">图片或视频，最大 20MB</a-typography-text>
-          </a-upload>
-          <div v-else>
+            <span class="qu-upload-hint">点击选择，或拖拽文件到此区域</span>
+            <span class="qu-upload-sub">图片或视频，最大 20MB</span>
+          </div>
+          <div v-else class="qu-upload-preview">
             <a-image
               v-if="fileKind === 'image'"
               :src="filePreview"
@@ -251,6 +272,30 @@ onMounted(async () => {
   color: var(--color-primary);
 }
 
+.qu-upload-input-hidden {
+  display: none;
+}
+
+.qu-upload-area {
+  width: 100%;
+  padding: 32px 24px;
+  border: 1.5px dashed var(--color-border-2);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.qu-upload-area:hover,
+.qu-upload-area.is-dragover {
+  border-color: rgb(var(--primary-6));
+  background: var(--color-fill-1);
+}
+
 .qu-upload-hint {
   display: block;
   margin: 6px 0;
@@ -260,6 +305,13 @@ onMounted(async () => {
   display: block;
   margin: 0;
   font-size: 12px;
+}
+
+.qu-upload-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 
 .qu-preview-video {

@@ -194,25 +194,65 @@ async function diffAndUpdate() {
   }
 }
 
-// 静默同步点赞数：从详情页点赞返回后，原位更新列表中已存在条目的 like_count，
-// 不重排瀑布流、不打断滚动（仅拉第一页 100 条做字段级 diff）。
-async function silentSyncLikeCounts() {
+// 返回首页（上传 / 详情页等跳转后）时：拉取最新列表与当前列表 diff，
+// 有新增/删除时重排瀑布流并锚定当前可见内容；仅字段变化时原位更新（不打断滚动）。
+async function syncLatestOnActivated() {
   if (homeStore.searchKeyword || allContents.value.length === 0) return
   try {
     const res = await contentApi.list({ page: 1, page_size: 100, sort_by: 'created_at', order: 'desc' })
     if (res.code !== 200) return
     const freshList = res.data.list.map((item: unknown) => ContentSchema.parse(item))
-    const freshMap = new Map(freshList.map((i) => [i.id, i]))
-    let changed = false
-    for (const item of allContents.value) {
-      const fresh = freshMap.get(item.id)
-      if (fresh && fresh.like_count !== item.like_count) {
-        item.like_count = fresh.like_count
-        changed = true
+    const { merged, added, removed } = diffLists(allContents.value, freshList)
+
+    // 无结构变化：仅原位同步字段（点赞数等），不重排、不打断滚动
+    if (added.size === 0 && removed.size === 0) {
+      const freshMap = new Map(freshList.map((i) => [i.id, i]))
+      let changed = false
+      for (const item of allContents.value) {
+        const fresh = freshMap.get(item.id)
+        if (fresh && fresh.like_count !== item.like_count) {
+          item.like_count = fresh.like_count
+          changed = true
+        }
+      }
+      if (changed) listCache.save(allContents.value, total.value, totalPages.value)
+      return
+    }
+
+    // 记录锚点：当前视口顶部第一张卡片（插入新卡片后保持同一内容的阅读位置）
+    const viewTop = globalThis.scrollY
+    let anchorId: string | number | null = null
+    let anchorTop = Number.POSITIVE_INFINITY
+    for (const [id, pos] of waterfall.positions.value) {
+      if (pos.y >= viewTop - 4 && pos.y < anchorTop) {
+        anchorId = id
+        anchorTop = pos.y
       }
     }
-    if (changed) listCache.save(allContents.value, total.value, totalPages.value)
-  } catch { /* 静默失败，保持旧值 */ }
+
+    allContents.value = merged.filter((item) => !removed.has(item.id))
+    total.value = res.data.total
+    totalPages.value = res.data.total_page
+    listCache.save(allContents.value, total.value, totalPages.value)
+
+    nextTick(() => {
+      waterfall.relayout()
+      if (anchorId != null) {
+        const newPos = waterfall.positions.value.get(anchorId)
+        if (newPos) {
+          const delta = newPos.y - anchorTop
+          globalThis.scrollTo({ top: Math.max(0, viewTop + delta) })
+        }
+      }
+    })
+  } catch (e) {
+    console.warn('返回首页同步最新列表失败:', e)
+  }
+}
+
+// 首页悬浮按钮上传成功后：同样拉取最新列表 diff（新作品插入顶部，锚定当前阅读位置）
+function onUploaded() {
+  void syncLatestOnActivated()
 }
 
 // 监听 sentinel 进入视口
@@ -286,13 +326,11 @@ onActivated(() => {
   // 标记需要在图片加载后恢复滚动
   pendingScrollRestore.value = true
 
-  // 从详情页返回时同步最新的点赞数（不阻塞、不重排）
-  void silentSyncLikeCounts()
-
-  // 延迟恢复，等待 DOM 就绪
+  // 延迟恢复滚动，再拉取最新列表 diff（有新增时锚定当前可见内容，不丢阅读位置）
   setTimeout(() => {
     pendingScrollRestore.value = false
     homeStore.restoreScroll()
+    void syncLatestOnActivated()
     console.log('[Scroll] 延迟恢复后实际位置:', globalThis.scrollY)
   }, 300)
 })
@@ -345,7 +383,7 @@ onActivated(() => {
     </button>
 
     <!-- 快速上传弹窗 -->
-    <QuickUploadSheet :open="showUploadSheet" @close="showUploadSheet = false" />
+    <QuickUploadSheet :open="showUploadSheet" @close="showUploadSheet = false" @uploaded="onUploaded" />
   </div>
 </template>
 
