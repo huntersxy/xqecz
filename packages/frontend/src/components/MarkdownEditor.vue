@@ -46,6 +46,7 @@ onMounted(() => {
     lang: 'zh_CN',
     placeholder: props.placeholder,
     height: props.height,
+    width: '100%',
     cdn: '/vditor',
     cache: { enable: false },
     fullscreen: { index: 2000 },
@@ -114,13 +115,11 @@ watch(
 <style scoped>
 .markdown-editor {
   width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+  box-sizing: border-box;
   border-radius: 8px;
   overflow: hidden;
-}
-
-/* 与 Arco 表单卡片保持视觉一致：编辑器外框跟随圆角与描边 */
-.markdown-editor :deep(.vditor) {
-  border-radius: 8px;
   border-color: var(--color-border-2);
 }
 </style>
