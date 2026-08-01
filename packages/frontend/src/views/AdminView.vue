@@ -4,9 +4,10 @@ import { useAdminStore } from '@/stores/admin'
 import type { AdminNavGroup } from '@/components/admin/AdminNav.vue'
 import {
   IconDashboard, IconFile, IconEye, IconHome, IconUserGroup, IconBarChart,
-  IconLink, IconExclamationCircle, IconUpload, IconLock, IconMenu,
+  IconLink, IconExclamationCircle, IconUpload, IconLock, IconMenu, IconBook,
 } from '@arco-design/web-vue/es/icon'
 import AdminDashboard from '@/components/admin/AdminDashboard.vue'
+import AdminApiDocs from '@/components/admin/AdminApiDocs.vue'
 
 const userStore = useUserStore()
 const admin = useAdminStore()
@@ -44,7 +45,10 @@ const navGroups = computed<AdminNavGroup[]>(() => {
   }
   groups.push({
     label: '系统',
-    items: [{ key: 'api-keys', title: 'API 密钥', icon: IconLock }],
+    items: [
+      { key: 'api-keys', title: 'API 密钥', icon: IconLock },
+      { key: 'api-docs', title: 'API 文档', icon: IconBook },
+    ],
   })
   return groups
 })
@@ -114,6 +118,7 @@ onMounted(() => {
             <AdminClaimTable v-else-if="admin.activeTab === 'claims' && userStore.user?.is_admin" />
             <AdminReportTable v-else-if="admin.activeTab === 'reports' && userStore.user?.is_admin" />
             <AdminApiKeys v-else-if="admin.activeTab === 'api-keys'" />
+            <AdminApiDocs v-else-if="admin.activeTab === 'api-docs'" />
             <a-result
               v-else
               status="403"

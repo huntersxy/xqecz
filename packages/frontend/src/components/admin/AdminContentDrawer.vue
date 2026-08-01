@@ -5,7 +5,7 @@ import { getAvatarUrl, getImageUrl, renderMarkdown } from '@/utils'
 import MediaImage from '@/components/MediaImage.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import { Tag, type FileItem } from '@arco-design/web-vue'
-import { useConfirm } from '@/composables/useToast'
+import { toast, useConfirm } from '@/composables/useToast'
 import type { User } from '@/types'
 import { IconUpload, IconSearch, IconUser } from '@arco-design/web-vue/es/icon'
 
@@ -87,10 +87,18 @@ function setTagChecked(tag: string, checked: boolean) {
 
 function onFileChange(_fileList: FileItem[], fileItem: FileItem) {
   const raw = fileItem?.file as File | undefined
-  if (raw) {
-    editFile.value = raw
-    editFileName.value = raw.name
+  if (!raw) return
+  if (!raw.type.startsWith('image/') && !raw.type.startsWith('video/')) {
+    toast.error('仅支持图片或视频文件')
+    return
   }
+  // 与后端保持一致：单文件最大 20MB
+  if (raw.size > 20 * 1024 * 1024) {
+    toast.error('文件大小不能超过 20MB')
+    return
+  }
+  editFile.value = raw
+  editFileName.value = raw.name
 }
 </script>
 

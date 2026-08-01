@@ -98,6 +98,18 @@ export class ContentService implements OnModuleInit {
     } catch { return 0 }
   }
 
+  /** 根据 session 解析完整用户（快速上传用于判断是否管理员自动过审）。 */
+  async resolveUser(sessionID: string) {
+    if (!sessionID) return null
+    try {
+      const uid = await this.redis.getSession(sessionID)
+      if (!uid) return null
+      return await this.userRepo.findOne({ where: { id: uid } })
+    } catch {
+      return null
+    }
+  }
+
   private parseTags(v: unknown): string[] {
     if (Array.isArray(v)) return v.filter((t) => typeof t === 'string')
     if (typeof v === 'string') {
@@ -191,12 +203,13 @@ export class ContentService implements OnModuleInit {
     return this.decorateContent(row, undefined, opts)
   }
 
-  async list(opts: { page?: number; pageSize?: number; tag?: string; type?: string; auditStatus?: string; keyword?: string; sortBy?: string; order?: string; userId?: number }) {
+  async list(opts: { page?: number; pageSize?: number; tag?: string; type?: string; auditStatus?: string; auditStatuses?: string[]; keyword?: string; sortBy?: string; order?: string; userId?: number }) {
     const page = Math.max(1, opts.page || 1)
     const pageSize = Math.min(Math.max(1, opts.pageSize || 20), 100)
 
     const where: any = {}
-    if (opts.auditStatus) where.audit_status = opts.auditStatus
+    if (opts.auditStatuses?.length) where.audit_status = In(opts.auditStatuses)
+    else if (opts.auditStatus) where.audit_status = opts.auditStatus
     if (opts.type) where.type = opts.type
     if (opts.userId) where.user_id = opts.userId
     if (opts.keyword) where.title = Like(`%${opts.keyword}%`)
@@ -218,9 +231,16 @@ export class ContentService implements OnModuleInit {
     return { list, total, page, page_size: pageSize, total_page: Math.ceil(total / pageSize) }
   }
 
-  async detail(id: number, silent?: boolean) {
+  async detail(id: number, silent?: boolean, viewer?: { uid: number | string; is_admin?: boolean }) {
     const row = await this.contentRepo.findOne({ where: { id } })
     if (!row) throw new NotFoundException('内容不存在')
+    // 审核中（pending）内容公开可见；已拒绝（rejected）不对外展示，仅作者本人或管理员可见。
+    if (row.audit_status === 'rejected') {
+      const isOwner = viewer && String(viewer.uid) === String(row.user_id)
+      if (!isOwner && !viewer?.is_admin) {
+        throw new NotFoundException('内容不存在或未通过审核')
+      }
+    }
     if (!silent) {
       await this.contentRepo.increment({ id }, 'view_count', 1)
       await this.redis.incrementView(id)
@@ -319,7 +339,8 @@ export class ContentService implements OnModuleInit {
   }
 
   async getAllTags() {
-    const rows = await this.contentRepo.find({ where: { audit_status: 'approved' }, select: ['tags'] })
+    // 公开可见范围 = 已通过 + 审核中（rejected 不参与标签云）
+    const rows = await this.contentRepo.find({ where: { audit_status: In(['approved', 'pending']) }, select: ['tags'] })
     const set = new Set<string>()
     for (const r of rows) for (const t of this.parseTags(r.tags)) set.add(t)
     return [...set]
@@ -333,7 +354,8 @@ export class ContentService implements OnModuleInit {
       platform: input.platform, url: input.url,
       tags: JSON.stringify(input.tags || []), user_id: input.userId,
       guest_nickname: input.guestNickname, guest_email: input.guestEmail,
-      audit_status: input.auditStatus || 'approved',
+      // 安全默认：pending。仅管理员上传/编辑等显式传 approved。
+      audit_status: input.auditStatus || 'pending',
     })
     const saved = await this.contentRepo.save(row)
 
@@ -345,8 +367,8 @@ export class ContentService implements OnModuleInit {
     if (input.type === 'link' && input.url) {
       void this.processLinkPreview(saved.id, input.url)
     }
-    // 新内容默认 approved：异步刷新推荐位（不阻塞响应）。
-    if ((input.auditStatus || 'approved') === 'approved') {
+    // 仅通过审核的内容进入推荐候选：异步刷新推荐位（不阻塞响应）。
+    if ((input.auditStatus || 'pending') === 'approved') {
       void this.refreshRecommend().catch((e) => console.warn('[recommend] refresh after create failed:', (e as Error)?.message))
     }
     return this.decorateContent(saved)

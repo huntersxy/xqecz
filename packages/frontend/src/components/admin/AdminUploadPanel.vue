@@ -4,6 +4,7 @@ import { useAdminStore } from '@/stores/admin'
 import { CC_LICENSE_TEXT, VIDEO_TERMS_TEXT } from '@/utils/constants'
 import { Tag } from '@arco-design/web-vue'
 import { IconUpload, IconClose } from '@arco-design/web-vue/es/icon'
+import { toast } from '@/composables/useToast'
 import TagCloud from './TagCloud.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 
@@ -35,7 +36,12 @@ function handleAddCustomTag(tag: string) {
 function pickFile(f: File | undefined) {
   if (!f) return
   if (!f.type.startsWith('image/') && !f.type.startsWith('video/')) {
-    // 静默拒绝非媒体文件
+    toast.error('仅支持图片或视频文件')
+    return
+  }
+  // 与后端保持一致：单文件最大 20MB
+  if (f.size > 20 * 1024 * 1024) {
+    toast.error('文件大小不能超过 20MB')
     return
   }
   form.value.file = f
@@ -131,7 +137,7 @@ async function handleSubmit() {
               <IconUpload />
             </div>
             <span class="upload-area-text">点击选择，或拖拽文件到此处</span>
-            <span class="upload-area-hint">支持图片 / 视频，视频不超过 15MB</span>
+            <span class="upload-area-hint">图片 / 视频，最大 20MB；视频超 15MB 需勾选条款</span>
           </div>
           <div v-else class="upload-preview">
             <img v-if="fileKind === 'image'" :src="filePreview" class="upload-preview-media" alt="" />

@@ -301,14 +301,14 @@ export const useAdminStore = defineStore('admin', () => {
     uploading.value = true
     uploadProgress.value = 0
     try {
-      await contentApi.upload({
+      const res = await contentApi.upload({
         title: data.title,
         content: data.content,
         tags: data.tags,
         user_id: data.userId,
         file: data.file,
       }, (p) => { uploadProgress.value = p })
-      toast.success('上传成功')
+      toast.success(res.data.audit_status === 'approved' ? '上传成功' : '上传成功，审核通过后将进入推荐')
       return true
     } catch (e: unknown) { toast.error(`上传失败: ${(e as Error).message}`); return false }
     finally { uploading.value = false; uploadProgress.value = 0 }

@@ -18,7 +18,7 @@ declare module 'vue' {
     ACheckbox: typeof import('@arco-design/web-vue')['Checkbox']
     ACheckboxGroup: typeof import('@arco-design/web-vue')['CheckboxGroup']
     ACol: typeof import('@arco-design/web-vue')['Col']
-    ADivider: typeof import('@arco-design/web-vue')['Divider']
+    AdminApiDocs: typeof import('./components/admin/AdminApiDocs.vue')['default']
     AdminApiKeys: typeof import('./components/admin/AdminApiKeys.vue')['default']
     AdminApiKeysDocs: typeof import('./components/admin/AdminApiKeysDocs.vue')['default']
     AdminClaimTable: typeof import('./components/admin/AdminClaimTable.vue')['default']

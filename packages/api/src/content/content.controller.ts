@@ -7,6 +7,7 @@ import { mkdirSync, unlink } from 'fs'
 import type { Request, Response } from 'express'
 import { ContentService } from './content.service'
 import { AuthGuard } from '../guards/auth.guard'
+import { OptionalAuthGuard } from '../guards/optional-auth.guard'
 import { ApiKeyPermissionGuard } from '../guards/api-key-permission.guard'
 import { CurrentUser } from '../decorators/current-user.decorator'
 import { RequireApiKeyPermission } from '../decorators/require-api-key-permission.decorator'
@@ -20,6 +21,19 @@ import { UPLOAD_DIR } from '../paths'
 // 共享卷根目录（与 Go Worker 挂载同一路径，由项目根相对解析）。multer 把文件落在这里，api 再把它传给 worker 处理。
 function uploadRoot(): string {
   return process.env.UPLOAD_DIR || UPLOAD_DIR
+}
+
+// 前后端统一：单文件最大 20MB（快速上传/普通上传/富文本插图一致）。
+const MAX_UPLOAD_SIZE = 20 * 1024 * 1024
+
+// 媒体类型校验：仅允许图片/视频。
+function mediaFileFilter(
+  _req: Request,
+  file: Express.Multer.File,
+  cb: (error: Error | null, acceptFile: boolean) => void,
+) {
+  if (file.mimetype?.startsWith('image/') || file.mimetype?.startsWith('video/')) cb(null, true)
+  else cb(new BadRequestException('仅支持图片或视频文件'), false)
 }
 
 // multer 磁盘存储：原文件扁平写到 {UPLOAD_DIR}/ 根目录（无子目录）。
@@ -62,14 +76,19 @@ export class ContentController {
 
   @Get('list')
   async list(@Query() q: ListContentDto) {
-    const data = await this.svc.list({ page: q.page, pageSize: q.page_size, tag: q.tag, type: q.type, auditStatus: q.audit_status || 'approved', keyword: q.keyword, sortBy: q.sort_by, order: q.order })
+    const data = await this.svc.list({
+      page: q.page, pageSize: q.page_size, tag: q.tag, type: q.type, keyword: q.keyword, sortBy: q.sort_by, order: q.order,
+      // 公开可见范围：已通过 + 审核中；rejected 不对外展示。
+      auditStatuses: q.audit_status ? undefined : ['approved', 'pending'],
+      auditStatus: q.audit_status,
+    })
     return { code: 200, message: 'ok', data }
   }
 
   @Get('search')
   async search(@Query() q: ListContentDto) {
     if (!q.keyword?.trim()) return { code: 200, message: 'ok', data: { list: [], total: 0, page: 1, page_size: 20, total_page: 1 } }
-    const data = await this.svc.list({ page: q.page, pageSize: q.page_size, keyword: q.keyword, auditStatus: 'approved' })
+    const data = await this.svc.list({ page: q.page, pageSize: q.page_size, keyword: q.keyword, auditStatuses: ['approved', 'pending'] })
     return { code: 200, message: 'ok', data }
   }
 
@@ -92,16 +111,21 @@ export class ContentController {
   }
 
   @Get(':id')
-  async detail(@Param('id') id: string, @Query('silent') silent?: string) {
-    const data = await this.svc.detail(Number(id), silent === '1')
+  @UseGuards(OptionalAuthGuard)
+  async detail(
+    @Param('id') id: string,
+    @Query('silent') silent?: string,
+    @CurrentUser() viewer?: { uid: number | string; is_admin?: boolean },
+  ) {
+    const data = await this.svc.detail(Number(id), silent === '1', viewer)
     return { code: 200, message: 'ok', data }
   }
 
   @Post('upload')
   @UseGuards(AuthGuard, ApiKeyPermissionGuard)
   @RequireApiKeyPermission('upload')
-  @UseInterceptors(FileInterceptor('file', { storage: uploadStorage() }))
-  async upload(@UploadedFile() file: Express.Multer.File | undefined, @Body() dto: UploadContentDto, @CurrentUser('uid') uid: number) {
+  @UseInterceptors(FileInterceptor('file', { storage: uploadStorage(), limits: { fileSize: MAX_UPLOAD_SIZE }, fileFilter: mediaFileFilter }))
+  async upload(@UploadedFile() file: Express.Multer.File | undefined, @Body() dto: UploadContentDto, @CurrentUser('uid') uid: number, @CurrentUser('is_admin') isAdmin: boolean) {
     const filePath = file ? relPath(file) : undefined
     const tags = Array.isArray(dto.tags) ? dto.tags : typeof dto.tags === 'string' ? dto.tags.split(',').map(s => s.trim()).filter(Boolean) : []
     // 2026-07-29 改造：type 不再由调用方指定；按"是否有 file"自动设 image / text（必须二选一）。
@@ -113,6 +137,8 @@ export class ContentController {
     const result = await this.svc.create(
       {
         title: dto.title, type, content: dto.content, filePath, fileSize: file?.size, tags, userId: uid,
+        // 管理员上传直接过审；其余用户进入审核列表。
+        auditStatus: isAdmin ? 'approved' : 'pending',
       },
       { absPath: file?.path },
     )
@@ -124,11 +150,8 @@ export class ContentController {
   @Post('quick-upload')
   @UseInterceptors(FileInterceptor('file', {
     storage: uploadStorage(),
-    limits: { fileSize: 20 * 1024 * 1024 },
-    fileFilter: (_req, file, cb) => {
-      if (file.mimetype?.startsWith('image/') || file.mimetype?.startsWith('video/')) cb(null, true)
-      else cb(new BadRequestException('仅支持图片或视频文件'), false)
-    },
+    limits: { fileSize: MAX_UPLOAD_SIZE },
+    fileFilter: mediaFileFilter,
   }))
   async quickUpload(@UploadedFile() file: Express.Multer.File | undefined, @Body() dto: QuickUploadDto, @Req() req: Request) {
     // 兜底：title 必填 + content 与 file 至少一个
@@ -138,7 +161,8 @@ export class ContentController {
 
     // 检测登录态：已登录用户用真实 id，未登录用游客信息
     const sessionID = req.cookies?.['session_id'] || ''
-    const uid = await this.svc.resolveUserId(sessionID)
+    const user = await this.svc.resolveUser(sessionID)
+    const uid = user ? Number(user.id) : 0
 
     // 反向代理后 req.ip 可能是代理 IP；优先取 X-Forwarded-For 最左段（真实客户端 IP）。
     const forwarded = req.headers['x-forwarded-for']
@@ -164,6 +188,8 @@ export class ContentController {
         title: dto.title, type, content: dto.content,
         filePath: file ? relPath(file) : undefined, fileSize: file?.size, tags,
         userId: uid || 0,
+        // 仅管理员登录上传自动过审；游客与普通用户一律进入审核列表。
+        auditStatus: uid && user?.is_admin ? 'approved' : 'pending',
         guestNickname: uid ? undefined : (dto.nickname || '').trim(),
         guestEmail: uid ? undefined : (dto.email || '').trim().toLowerCase(),
       },
@@ -176,7 +202,7 @@ export class ContentController {
   @Post('upload-image')
   @UseGuards(AuthGuard, ApiKeyPermissionGuard)
   @RequireApiKeyPermission('upload')
-  @UseInterceptors(FileInterceptor('file', { storage: uploadStorage() }))
+  @UseInterceptors(FileInterceptor('file', { storage: uploadStorage(), limits: { fileSize: MAX_UPLOAD_SIZE }, fileFilter: mediaFileFilter }))
   async uploadImage(@UploadedFile() file: Express.Multer.File | undefined, @CurrentUser('uid') uid: number) {
     if (!file) return { code: 400, message: '未收到文件', data: null }
     const rel = relPath(file)
@@ -213,6 +239,8 @@ export class ContentController {
     if (uid !== row.user_id && !isAdmin) throw new ForbiddenException('无权修改该内容')
     const tags = Array.isArray(dto.tags) ? dto.tags : typeof dto.tags === 'string' ? dto.tags.split(',').map(s => s.trim()).filter(Boolean) : undefined
     const filePath = file ? relPath(file) : undefined
+    // 内容被编辑后重新进入审核列表；管理员编辑视为过审，并刷新推荐位。
+    await this.svc.setAuditStatus(Number(id), isAdmin ? 'approved' : 'pending')
     const data = await this.svc.update(Number(id), {
       title: dto.title, content: dto.content, url: dto.url, tags,
       filePath,

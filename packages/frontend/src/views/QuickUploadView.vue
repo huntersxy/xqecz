@@ -111,7 +111,7 @@ async function handleSubmit() {
         GUEST_STORAGE_KEY,
         JSON.stringify({ nickname: form.value.nickname.trim(), email: form.value.email.trim() }),
       )
-      toast.success('上传成功，可在首页查看')
+      toast.success(res.data.audit_status === 'approved' ? '上传成功' : '上传成功，审核通过后将进入推荐')
       router.push('/')
     } else {
       toast.error(res.message || '上传失败')
