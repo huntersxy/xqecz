@@ -219,39 +219,6 @@ export class ContentController {
     return { code: 200, message: '上传成功', data: result }
   }
 
-  // 富文本图片上传（前端 Markdown 编辑器的图片插入）。返回 image_url 供插入。
-  @Post('upload-image')
-  @UseGuards(AuthGuard, ApiKeyPermissionGuard)
-  @RequireApiKeyPermission('upload')
-  @UseInterceptors(FileInterceptor('file', { storage: uploadStorage(), limits: { fileSize: MAX_UPLOAD_SIZE }, fileFilter: mediaFileFilter }))
-  async uploadImage(@UploadedFile() file: Express.Multer.File | undefined, @CurrentUser('uid') uid: number) {
-    if (!file) return { code: 400, message: '未收到文件', data: null }
-    let rel = relPath(file)
-    let fileSize = file.size
-    let absPath = file.path
-    const prepared = await this.svc.prepareOriginalFile(file)
-    if (prepared) {
-      rel = prepared.relPath
-      fileSize = prepared.size
-      absPath = prepared.absPath
-    }
-    const saved = await this.svc.create(
-      { title: file.originalname, type: 'image', filePath: rel, fileSize, tags: [], userId: uid },
-      { absPath },
-    )
-    return {
-      code: 200,
-      message: 'ok',
-      data: {
-        id: saved.id,
-        filename: file.originalname,
-        file_size: fileSize,
-        image_url: ContentService.fileUrl(rel),
-        upload_time: new Date().toISOString(),
-      },
-    }
-  }
-
   @Put(':id')
   @UseGuards(AuthGuard, ApiKeyPermissionGuard)
   @RequireApiKeyPermission('upload')

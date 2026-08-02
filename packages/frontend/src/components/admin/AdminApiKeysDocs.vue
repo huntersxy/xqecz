@@ -137,7 +137,6 @@ const tocItems = [
   { id: 'ep-upload', label: 'POST /content/upload' },
   { id: 'ep-update', label: 'PUT  /content/:id' },
   { id: 'ep-delete', label: 'DELETE /content/:id' },
-  { id: 'ep-upload-image', label: 'POST /content/upload-image' },
   { id: 'sec-examples', label: '语言示例' },
 ]
 
@@ -251,7 +250,6 @@ function copyFrame(e: MouseEvent) {
                 <td><code>upload</code> 上传内容</td>
                 <td>
                   <code>POST /api/content/upload</code>、
-                  <code>POST /api/content/upload-image</code>、
                   <code>PUT /api/content/:id</code>
                 </td>
               </tr>
@@ -501,41 +499,6 @@ function copyFrame(e: MouseEvent) {
   "code": 200,
   "message": "已删除",
   "data": null
-}</code></pre>
-            </div>
-          </div>
-        </section>
-
-        <!-- POST upload-image -->
-        <section v-else-if="activeToc === 'ep-upload-image'" id="ep-upload-image" class="api-endpoint-card">
-          <div class="api-ep-head">
-            <span class="api-method is-post">POST</span>
-            <code class="api-ep-path">/api/content/upload-image</code>
-            <span class="api-ep-badge is-auth">需 upload 权限</span>
-          </div>
-          <p class="api-desc">
-            富文本图片上传（Markdown 编辑器插图用），请求体 <code>multipart/form-data</code>，
-            仅 <code>file</code> 字段。返回 <code>data.image_url</code> 可直接用于
-            <code>![alt](url)</code>。
-          </p>
-          <p class="api-note">非 GIF 图片上传后同样转为 WebP 原图，返回的 <code>image_url</code> 为 WebP 地址。</p>
-          <div class="api-ep-block">
-            <div class="api-ep-label">响应示例</div>
-            <div class="code-frame">
-              <div class="code-frame-head">
-                <span class="code-frame-label">响应示例</span>
-                <a-button size="mini" type="text" class="code-frame-copy" @click="copyFrame">复制</a-button>
-              </div>
-              <pre class="api-json"><code class="language-json">{
-  "code": 200,
-  "message": "ok",
-  "data": {
-    "id": "817",
-    "filename": "work.png",
-    "file_size": "2223856",
-    "image_url": "/uploads/xxx.webp",
-    "upload_time": "2026-08-02T01:30:00.000Z"
-  }
 }</code></pre>
             </div>
           </div>

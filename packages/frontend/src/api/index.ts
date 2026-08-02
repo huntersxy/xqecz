@@ -22,7 +22,6 @@ import type {
   PollDetail,
   CreatePollData,
   ClaimListResponse,
-  UploadImageResponse,
   RegenerateThumbnailResponse,
   RegenerateAllResponse,
   UpdateContentAuthorResponse,
@@ -303,14 +302,6 @@ export const contentApi = {
   },
 
   delete: (id: number) => request(`/content/${id}`, { method: 'DELETE' }),
-
-  uploadImage: async (file: File) => {
-    const formData = toFormData({ file: await renameFileToMd5(file) })
-    return request<UploadImageResponse>('/content/upload-image', {
-      method: 'POST',
-      body: formData,
-    })
-  },
 
   submitClaim: (contentId: number, reason: string) =>
     request(`/content/${contentId}/claim`, {

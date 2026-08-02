@@ -149,14 +149,6 @@ export interface PollListResponse {
   total_page: number
 }
 
-export interface UploadImageResponse {
-  id: number
-  filename: string
-  file_size: number
-  image_url: string
-  upload_time: string
-}
-
 export interface RegenerateThumbnailResponse {
   id: number
   thumb_path: string
