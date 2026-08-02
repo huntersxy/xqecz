@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config'
 import { Cron } from '@nestjs/schedule'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository, Like, In, IsNull, Not } from 'typeorm'
-import { join } from 'path'
+import { join, relative } from 'path'
 import { createHash } from 'crypto'
 import { existsSync } from 'fs'
 import { Content, User, ContentLike } from '../entities'
@@ -11,6 +11,7 @@ import { WorkerService } from '../worker/worker.service'
 import { RedisService } from '../redis/redis.service'
 import { Claim } from '../entities'
 import { UPLOAD_DIR } from '../paths'
+import { convertNonGifToWebp } from './webp.util'
 
 @Injectable()
 export class ContentService implements OnModuleInit {
@@ -398,6 +399,21 @@ export class ContentService implements OnModuleInit {
       } catch (e) {
         console.warn(`[media] compress error #${id}:`, (e as Error)?.message)
       }
+    }
+  }
+
+  /**
+   * 上传时统一处理原图：非 GIF 图片在本地无损转为 WebP，
+   * 转换成功后删除源文件，并以 WebP 作为新原图（file_path / file_size 均指向它）。
+   * 跳过或转换失败时返回 null，调用方沿用原始文件。
+   */
+  async prepareOriginalFile(file: { path: string; mimetype?: string }): Promise<{ absPath: string; relPath: string; size: number } | null> {
+    const converted = await convertNonGifToWebp(file.path, file.mimetype)
+    if (!converted) return null
+    return {
+      absPath: converted.absPath,
+      relPath: relative(this.uploadDir(), converted.absPath).split('\\').join('/'),
+      size: converted.size,
     }
   }
 

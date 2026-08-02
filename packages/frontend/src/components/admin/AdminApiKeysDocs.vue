@@ -407,6 +407,7 @@ function copyFrame(e: MouseEvent) {
             <span class="api-ep-badge is-auth">需 upload 权限</span>
           </div>
           <p class="api-desc">上传内容，请求体为 <code>multipart/form-data</code>（文本字段与文件可同时携带）。</p>
+          <p class="api-note">非 GIF 图片上传后由服务端本地无损转为 WebP 作为新原图（源文件删除），随后进入缩略图与压缩链路。</p>
           <div class="api-ep-block">
             <div class="api-ep-label">请求参数（form-data）</div>
             <div class="api-table-wrap">
@@ -417,7 +418,7 @@ function copyFrame(e: MouseEvent) {
               <tbody>
                 <tr><td><code>title</code></td><td>string</td><td>是</td><td>标题，1-200 字</td></tr>
                 <tr><td><code>content</code></td><td>string</td><td>否</td><td>Markdown 描述；与 file 至少填一项</td></tr>
-                <tr><td><code>file</code></td><td>file</td><td>否</td><td>图片 / 视频文件（≤20MB）；与 content 至少填一项</td></tr>
+                <tr><td><code>file</code></td><td>file</td><td>否</td><td>图片 / 视频文件（≤20MB）；非 GIF 图片自动无损转为 WebP 原图；与 content 至少填一项</td></tr>
                   <tr><td><code>tags</code></td><td>string</td><td>否</td><td>标签，多个用英文逗号分隔，如 <code>AI,风景</code></td></tr>
                 </tbody>
               </table>
@@ -517,6 +518,7 @@ function copyFrame(e: MouseEvent) {
             仅 <code>file</code> 字段。返回 <code>data.image_url</code> 可直接用于
             <code>![alt](url)</code>。
           </p>
+          <p class="api-note">非 GIF 图片上传后同样转为 WebP 原图，返回的 <code>image_url</code> 为 WebP 地址。</p>
           <div class="api-ep-block">
             <div class="api-ep-label">响应示例</div>
             <div class="code-frame">
@@ -531,7 +533,7 @@ function copyFrame(e: MouseEvent) {
     "id": "817",
     "filename": "work.png",
     "file_size": "2223856",
-    "image_url": "/uploads/xxx.png",
+    "image_url": "/uploads/xxx.webp",
     "upload_time": "2026-08-02T01:30:00.000Z"
   }
 }</code></pre>

@@ -126,8 +126,18 @@ export class ContentController {
   @RequireApiKeyPermission('upload')
   @UseInterceptors(FileInterceptor('file', { storage: uploadStorage(), limits: { fileSize: MAX_UPLOAD_SIZE }, fileFilter: mediaFileFilter }))
   async upload(@UploadedFile() file: Express.Multer.File | undefined, @Body() dto: UploadContentDto, @CurrentUser('uid') uid: number, @CurrentUser('is_admin') isAdmin: boolean) {
-    const filePath = file ? relPath(file) : undefined
     const tags = Array.isArray(dto.tags) ? dto.tags : typeof dto.tags === 'string' ? dto.tags.split(',').map(s => s.trim()).filter(Boolean) : []
+    let filePath = file ? relPath(file) : undefined
+    let fileSize = file?.size
+    let absPath = file?.path
+    if (file) {
+      const prepared = await this.svc.prepareOriginalFile(file)
+      if (prepared) {
+        filePath = prepared.relPath
+        fileSize = prepared.size
+        absPath = prepared.absPath
+      }
+    }
     // 2026-07-29 改造：type 不再由调用方指定；按"是否有 file"自动设 image / text（必须二选一）。
     // 兜底校验：title 必填（DTO 已 @Length(1,200)），content 与 file 至少一个。
     if (!dto.content?.trim() && !file) {
@@ -136,11 +146,11 @@ export class ContentController {
     const type = file ? 'image' : 'text'
     const result = await this.svc.create(
       {
-        title: dto.title, type, content: dto.content, filePath, fileSize: file?.size, tags, userId: uid,
+        title: dto.title, type, content: dto.content, filePath, fileSize, tags, userId: uid,
         // 管理员上传直接过审；其余用户进入审核列表。
         auditStatus: isAdmin ? 'approved' : 'pending',
       },
-      { absPath: file?.path },
+      { absPath },
     )
     return { code: 200, message: '上传成功', data: result }
   }
@@ -183,17 +193,28 @@ export class ContentController {
     const tags = Array.isArray(dto.tags) ? dto.tags : typeof dto.tags === 'string' ? dto.tags.split(',').map(s => s.trim()).filter(Boolean) : []
     // 按 mimetype 自动推导类型：video/* → video，image/* → image，无文件 → text
     const type = !file ? 'text' : file.mimetype?.startsWith('video/') ? 'video' : 'image'
+    let filePath = file ? relPath(file) : undefined
+    let fileSize = file?.size
+    let absPath = file?.path
+    if (file) {
+      const prepared = await this.svc.prepareOriginalFile(file)
+      if (prepared) {
+        filePath = prepared.relPath
+        fileSize = prepared.size
+        absPath = prepared.absPath
+      }
+    }
     const result = await this.svc.create(
       {
         title: dto.title, type, content: dto.content,
-        filePath: file ? relPath(file) : undefined, fileSize: file?.size, tags,
+        filePath, fileSize, tags,
         userId: uid || 0,
         // 仅管理员登录上传自动过审；游客与普通用户一律进入审核列表。
         auditStatus: uid && user?.is_admin ? 'approved' : 'pending',
         guestNickname: uid ? undefined : (dto.nickname || '').trim(),
         guestEmail: uid ? undefined : (dto.email || '').trim().toLowerCase(),
       },
-      { absPath: file?.path },
+      { absPath },
     )
     return { code: 200, message: '上传成功', data: result }
   }
@@ -205,10 +226,18 @@ export class ContentController {
   @UseInterceptors(FileInterceptor('file', { storage: uploadStorage(), limits: { fileSize: MAX_UPLOAD_SIZE }, fileFilter: mediaFileFilter }))
   async uploadImage(@UploadedFile() file: Express.Multer.File | undefined, @CurrentUser('uid') uid: number) {
     if (!file) return { code: 400, message: '未收到文件', data: null }
-    const rel = relPath(file)
+    let rel = relPath(file)
+    let fileSize = file.size
+    let absPath = file.path
+    const prepared = await this.svc.prepareOriginalFile(file)
+    if (prepared) {
+      rel = prepared.relPath
+      fileSize = prepared.size
+      absPath = prepared.absPath
+    }
     const saved = await this.svc.create(
-      { title: file.originalname, type: 'image', filePath: rel, fileSize: file.size, tags: [], userId: uid },
-      { absPath: file.path },
+      { title: file.originalname, type: 'image', filePath: rel, fileSize, tags: [], userId: uid },
+      { absPath },
     )
     return {
       code: 200,
@@ -216,7 +245,7 @@ export class ContentController {
       data: {
         id: saved.id,
         filename: file.originalname,
-        file_size: file.size,
+        file_size: fileSize,
         image_url: ContentService.fileUrl(rel),
         upload_time: new Date().toISOString(),
       },
@@ -238,17 +267,27 @@ export class ContentController {
     if (!row) throw new NotFoundException('内容不存在')
     if (uid !== row.user_id && !isAdmin) throw new ForbiddenException('无权修改该内容')
     const tags = Array.isArray(dto.tags) ? dto.tags : typeof dto.tags === 'string' ? dto.tags.split(',').map(s => s.trim()).filter(Boolean) : undefined
-    const filePath = file ? relPath(file) : undefined
+    let filePath = file ? relPath(file) : undefined
+    let fileSize = file?.size
+    let absPath = file?.path
+    if (file) {
+      const prepared = await this.svc.prepareOriginalFile(file)
+      if (prepared) {
+        filePath = prepared.relPath
+        fileSize = prepared.size
+        absPath = prepared.absPath
+      }
+    }
     // 内容被编辑后重新进入审核列表；管理员编辑视为过审，并刷新推荐位。
     await this.svc.setAuditStatus(Number(id), isAdmin ? 'approved' : 'pending')
     const data = await this.svc.update(Number(id), {
       title: dto.title, content: dto.content, url: dto.url, tags,
       filePath,
-      fileSize: file?.size,
+      fileSize,
     })
     // 替换了文件则异步重建缩略图与压缩图
     if (file && filePath && (row.type === 'image' || row.type === 'video')) {
-      void this.svc.processMedia(Number(id), file.path, row.type)
+      void this.svc.processMedia(Number(id), absPath!, row.type)
     }
     return { code: 200, message: '更新成功', data }
   }
