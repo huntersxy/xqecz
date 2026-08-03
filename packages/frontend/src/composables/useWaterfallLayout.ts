@@ -1,6 +1,6 @@
 import { ref, watch, onMounted, onUnmounted, nextTick, type Ref } from 'vue'
 
-export interface WaterfallItem {
+interface WaterfallItem {
   id: string | number
   [key: string]: unknown
 }

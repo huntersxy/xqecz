@@ -16,15 +16,31 @@ function createPaginatedState<T>(pageSize = 20): PaginatedState<T> {
   return { list: [], total: 0, page: 1, pageSize, totalPages: 1, loading: false }
 }
 
+interface PageResult<T> { list: T[]; total: number; total_page: number }
+
+async function loadPage<T>(state: PaginatedState<T>, page: number, fetch: (p: number) => Promise<PageResult<T>>): Promise<void> {
+  state.loading = true
+  state.page = page
+  try {
+    const data = await fetch(page)
+    state.list = data.list
+    state.total = data.total
+    state.totalPages = data.total_page
+  } catch (e: unknown) { toast.error((e as Error).message || '加载失败') } finally { state.loading = false }
+}
+
 const { confirm } = useConfirm()
 
-async function apiChangeAuthor(contentId: number, userId: number): Promise<boolean> {
+async function runAdmin(action: () => Promise<unknown>, successMsg: string, failMsg: string): Promise<boolean> {
   try {
-    await adminApi.updateContentAuthor(contentId, userId)
-    toast.success('作者已更新')
+    await action()
+    toast.success(successMsg)
     return true
-  } catch (e: unknown) { toast.error((e as Error).message || '更新失败'); return false }
+  } catch (e: unknown) { toast.error((e as Error).message || failMsg); return false }
 }
+
+const apiChangeAuthor = (contentId: number, userId: number) =>
+  runAdmin(() => adminApi.updateContentAuthor(contentId, userId), '作者已更新', '更新失败')
 
 function apiConfirmDelete(id: number, onOk?: () => void) {
   confirm('确定要删除这条内容吗？此操作不可撤销。').then(async (ok) => {
@@ -37,83 +53,37 @@ function apiConfirmDelete(id: number, onOk?: () => void) {
   })
 }
 
-async function apiAuditContent(id: number, status: 'approved' | 'rejected', _adminId: number): Promise<boolean> {
-  try {
-    await adminApi.audit(id, { status, remark: '' })
-    toast.success('审核成功')
-    return true
-  } catch (e: unknown) { toast.error((e as Error).message || '审核失败'); return false }
-}
+const apiAuditContent = (id: number, status: 'approved' | 'rejected', _adminId: number) =>
+  runAdmin(() => adminApi.audit(id, { status, remark: '' }), '审核成功', '审核失败')
 
-async function apiUpdateUserRole(id: number, isAdmin: boolean): Promise<boolean> {
-  try {
-    await adminApi.updateUserRole(id, isAdmin)
-    toast.success('更新成功')
-    return true
-  } catch (e: unknown) { toast.error((e as Error).message || '更新失败'); return false }
-}
+const apiUpdateUserRole = (id: number, isAdmin: boolean) =>
+  runAdmin(() => adminApi.updateUserRole(id, isAdmin), '更新成功', '更新失败')
 
-async function apiUpdateUserBan(id: number, isBanned: boolean): Promise<boolean> {
-  try {
-    await adminApi.updateUserBan(id, isBanned)
-    toast.success(isBanned ? '封禁成功' : '解封成功')
-    return true
-  } catch (e: unknown) { toast.error((e as Error).message || (isBanned ? '封禁失败' : '解封失败')); return false }
-}
+const apiUpdateUserBan = (id: number, isBanned: boolean) =>
+  runAdmin(() => adminApi.updateUserBan(id, isBanned), isBanned ? '封禁成功' : '解封成功', isBanned ? '封禁失败' : '解封失败')
 
-async function apiDeleteUser(id: number): Promise<boolean> {
-  try {
-    await adminApi.deleteUser(id)
-    toast.success('删除成功')
-    return true
-  } catch (e: unknown) { toast.error((e as Error).message || '删除失败'); return false }
-}
+const apiDeleteUser = (id: number) =>
+  runAdmin(() => adminApi.deleteUser(id), '删除成功', '删除失败')
 
-async function apiHandleClaim(claimId: number, action: 'approve' | 'reject'): Promise<boolean> {
-  let reason: string | null = ''
+const apiHandleClaim = async (claimId: number, action: 'approve' | 'reject'): Promise<boolean> => {
   if (action === 'reject') {
     const ok = await confirm('请输入拒绝原因（可选），点取消放弃操作。')
     if (!ok) return false
-    reason = '' // 用户点了确认但无输入框，使用空字符串；如需输入可改用 prompt
   }
-  try {
-    await adminApi.handleClaim(claimId, action, reason || undefined)
-    toast.success(action === 'approve' ? '认领已通过' : '认领已拒绝')
-    return true
-  } catch (e: unknown) { toast.error((e as Error).message || '操作失败'); return false }
+  return runAdmin(() => adminApi.handleClaim(claimId, action, undefined), action === 'approve' ? '认领已通过' : '认领已拒绝', '操作失败')
 }
 
-async function apiDeletePoll(id: number): Promise<boolean> {
-  try {
-    await pollApi.delete(id)
-    toast.success('删除成功')
-    return true
-  } catch (e: unknown) { toast.error((e as Error).message || '删除失败'); return false }
-}
+const apiDeletePoll = (id: number) =>
+  runAdmin(() => pollApi.delete(id), '删除成功', '删除失败')
 
-async function apiHandleReport(reportId: number): Promise<boolean> {
-  try {
-    await commentApi.handleReport(reportId)
-    toast.success('处理成功')
-    return true
-  } catch (e: unknown) { toast.error((e as Error).message || '处理失败'); return false }
-}
+const apiHandleReport = (reportId: number) =>
+  runAdmin(() => commentApi.handleReport(reportId), '处理成功', '处理失败')
 
-async function apiDeleteComment(commentId: number): Promise<boolean> {
-  try {
-    await commentApi.delete(commentId)
-    toast.success('删除成功')
-    return true
-  } catch (e: unknown) { toast.error((e as Error).message || '删除失败'); return false }
-}
+const apiDeleteComment = (commentId: number) =>
+  runAdmin(() => commentApi.delete(commentId), '删除成功', '删除失败')
 
-async function apiRegenerateThumbnail(id: number): Promise<boolean> {
-  try {
-    await adminApi.regenerateThumbnail(id)
-    toast.success('封面更新成功')
-    return true
-  } catch (e: unknown) { toast.error((e as Error).message || '封面更新失败'); return false }
-}
+const apiRegenerateThumbnail = (id: number) =>
+  runAdmin(() => adminApi.regenerateThumbnail(id), '封面更新成功', '封面更新失败')
 
 async function apiRegenerateAllThumbnails() {
   try {
@@ -171,61 +141,15 @@ export const useAdminStore = defineStore('admin', () => {
     } catch (e: unknown) { toast.error((e as Error).message || '加载失败') } finally { tagsLoading.value = false }
   }
 
-  async function loadMyContent(page = 1) {
-    myContent.loading = true
-    myContent.page = page
-    try {
-      const r = await contentApi.myList({ page, page_size: myContent.pageSize })
-      myContent.list = r.data.list
-      myContent.total = r.data.total
-      myContent.totalPages = r.data.total_page
-    } catch (e: unknown) { toast.error((e as Error).message || '加载失败') } finally { myContent.loading = false }
-  }
-
-  async function loadAllContent(page = 1) {
-    allContent.loading = true
-    allContent.page = page
-    try {
-      const r = await adminApi.getAllContent({ page, page_size: allContent.pageSize })
-      allContent.list = r.data.list
-      allContent.total = r.data.total
-      allContent.totalPages = r.data.total_page
-    } catch (e: unknown) { toast.error((e as Error).message || '加载失败') } finally { allContent.loading = false }
-  }
-
-  async function loadPendingContent(page = 1) {
-    pendingContent.loading = true
-    pendingContent.page = page
-    try {
-      const r = await adminApi.pending({ page, page_size: pendingContent.pageSize })
-      pendingContent.list = r.data.list
-      pendingContent.total = r.data.total
-      pendingContent.totalPages = r.data.total_page
-    } catch (e: unknown) { toast.error((e as Error).message || '加载失败') } finally { pendingContent.loading = false }
-  }
-
-  async function loadUsers(page = 1) {
-    users.loading = true
-    users.page = page
-    try {
-      const r = await adminApi.getUsers({ page, page_size: users.pageSize })
-      users.list = r.data.list
-      users.total = r.data.total
-      users.totalPages = r.data.total_page
-    } catch (e: unknown) { toast.error((e as Error).message || '加载失败') } finally { users.loading = false }
-  }
-
-  async function loadClaims(page = 1, status?: string) {
-    claims.loading = true
-    claims.page = page
-    try {
-      const params = { page, page_size: claims.pageSize, ...(status ? { status } : {}) }
-      const r = await adminApi.getClaims(params)
-      claims.list = r.data.list
-      claims.total = r.data.total
-      claims.totalPages = Math.ceil(r.data.total / r.data.page_size)
-    } catch (e: unknown) { toast.error((e as Error).message || '加载失败') } finally { claims.loading = false }
-  }
+  const loadMyContent = (page = 1) => loadPage(myContent, page, (p) => contentApi.myList({ page: p, page_size: myContent.pageSize }).then((r) => r.data))
+  const loadAllContent = (page = 1) => loadPage(allContent, page, (p) => adminApi.getAllContent({ page: p, page_size: allContent.pageSize }).then((r) => r.data))
+  const loadPendingContent = (page = 1) => loadPage(pendingContent, page, (p) => adminApi.pending({ page: p, page_size: pendingContent.pageSize }).then((r) => r.data))
+  const loadUsers = (page = 1) => loadPage(users, page, (p) => adminApi.getUsers({ page: p, page_size: users.pageSize }).then((r) => r.data))
+  const loadClaims = (page = 1, status?: string) => loadPage(claims, page, async (p) => {
+    const params = { page: p, page_size: claims.pageSize, ...(status ? { status } : {}) }
+    const r = await adminApi.getClaims(params)
+    return { ...r.data, total_page: Math.ceil(r.data.total / r.data.page_size) }
+  })
 
   async function loadPolls() {
     pollsLoading.value = true

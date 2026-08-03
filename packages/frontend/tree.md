@@ -105,7 +105,6 @@ packages/frontend/
     │
     └── utils/                     # 工具函数
         ├── index.ts               # 通用工具：getImageUrl、renderMarkdown(marked+DOMPurify)、formatTime(dayjs)、toFormData、renameFileToMd5(SparkMD5)
-        ├── asyncComponent.ts      # createAsyncComponent：带 delay/timeout 的异步组件工厂（路由懒加载）
         ├── constants.ts           # 文案常量：CC 授权协议、视频转链接条款
         ├── webVitals.ts           # Web Vitals 性能监控（LCP/FID/CLS/TTFB）
         └── __tests__/
@@ -163,7 +162,6 @@ packages/frontend/
 | `types/schemas.ts` | zod 运行时校验 + `ContentType`/`CONTENT_TYPES`（新数据仅 `image`/`text`，兼容历史 `video`/`link`）。 |
 | `types/index.ts` | 类型统一出口 + `ApiResponse`/`PaginatedResponse` 等通用接口。 |
 | `utils/index.ts` | 图片 URL 拼接、Markdown 渲染消毒、时间格式化、FormData 构造、文件 MD5 重命名等。 |
-| `utils/asyncComponent.ts` | 异步组件工厂（延迟/超时/错误处理），供路由懒加载。 |
 | `utils/constants.ts` | CC 授权协议、视频转链接条款等长文案常量。 |
 | `utils/webVitals.ts` | 采集 LCP/FID/CLS/TTFB 核心性能指标。 |
 

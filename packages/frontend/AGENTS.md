@@ -77,7 +77,6 @@ src/
 ├── utils/
 │   ├── index.ts      # getImageUrl / formatTime / renderMarkdown / getPreviewText
 │   ├── constants.ts  # CC 协议文本 / 视频条款文本
-│   ├── asyncComponent.ts # 异步组件工厂（带错误边界）
 │   └── webVitals.ts  # Web Vitals 监控
 ├── views/            # 页面级组件
 │   ├── HomeView.vue         # 首页（薄层 → <WaterfallTheme />）

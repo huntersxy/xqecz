@@ -90,7 +90,6 @@ function openContent(content: Content | RecommendContent) {
 // 返回时由 onActivated 恢复（keep-alive）。
 onBeforeRouteLeave(() => {
   const pos = globalThis.scrollY
-  console.log('[Scroll] 离开时保存的位置:', pos)
   homeStore.saveState({
     searchKeyword: homeStore.searchKeyword,
     selectedTags: searchFilter.selectedTags.value,
@@ -263,7 +262,6 @@ useIntersectionObserver(sentinelRef, ([{ isIntersecting }]) => {
 }, { rootMargin: '1000px' })
 
 onMounted(() => {
-  console.log('[HomeView] onMounted 触发')
   const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[]
   if (navEntries.length > 0 && navEntries[0].type === 'reload') {
     homeStore.clearState()
@@ -312,9 +310,6 @@ onMounted(() => {
 
 // keep-alive 激活时恢复滚动位置
 onActivated(() => {
-  console.log('[HomeView] onActivated 触发')
-  const savedPos = homeStore.scrollPosition
-  console.log('[Scroll] 返回时保存的位置:', savedPos)
 
   // 恢复瀑布流布局缓存
   if (homeStore.cachedPositions.size > 0) {
@@ -331,7 +326,6 @@ onActivated(() => {
     pendingScrollRestore.value = false
     homeStore.restoreScroll()
     void syncLatestOnActivated()
-    console.log('[Scroll] 延迟恢复后实际位置:', globalThis.scrollY)
   }, 300)
 })
 </script>

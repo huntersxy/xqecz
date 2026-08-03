@@ -145,6 +145,121 @@ const activeIndex = computed(() =>
   Math.max(0, tocItems.findIndex((item) => item.id === activeToc.value)),
 )
 
+
+interface EndpointParam { name: string; loc?: string; type: string; required: string; descHtml: string }
+interface EndpointCard {
+  id: string; method: string; methodCls: string; path: string; badge: string; badgeCls: string
+  descHtml: string; noteHtml?: string
+  params?: { title: string; head: string[]; hasLoc: boolean; rows: EndpointParam[] }
+  response?: string
+}
+
+const endpointCards: EndpointCard[] = [
+  {
+    id: 'ep-list', method: 'GET', methodCls: 'is-get', path: '/api/content/list',
+    badge: '公开', badgeCls: 'is-public',
+    descHtml: `分页获取已审核内容列表。`,
+    params: { title: '请求参数（query）', head: ['参数', '类型', '必填', '说明'], hasLoc: false, rows: [
+      { name: 'page', type: 'number', required: '否', descHtml: `页码，默认 1` },
+      { name: 'page_size', type: 'number', required: '否', descHtml: `每页条数，默认 20，最大 100` },
+      { name: 'sort_by', type: 'string', required: '否', descHtml: `created_at / view_count / id，默认 created_at` },
+      { name: 'order', type: 'string', required: '否', descHtml: `desc / asc，默认 desc` },
+      { name: 'tag', type: 'string', required: '否', descHtml: `标签过滤，多个用英文逗号分隔` },
+      { name: 'type', type: 'string', required: '否', descHtml: `内容类型：image / text` },
+      { name: 'keyword', type: 'string', required: '否', descHtml: `标题关键词（完整搜索见 <code>/api/content/search</code>）` },
+    ] },
+    response: `{
+  "code": 200,
+  "message": "ok",
+  "data": {
+    "list": [
+      {
+        "id": "814",
+        "title": "晓晓自拍",
+        "type": "image",
+        "text": "",
+        "thumb": "/thumbs/xxx_thumb.jpg",
+        "img": "/images/xxx_tinified.webp",
+        "user": { "id": "2", "username": "huntersxy" },
+        "tags": [],
+        "like_count": 0,
+        "audit_status": "approved",
+        "created_at": "2026-08-01T17:00:28.227Z"
+      }
+    ],
+    "total": 309,
+    "page": 1,
+    "page_size": 20,
+    "total_page": 16
+  }
+}`,
+  },
+  {
+    id: 'ep-detail', method: 'GET', methodCls: 'is-get', path: '/api/content/:id',
+    badge: '公开', badgeCls: 'is-public',
+    descHtml: `获取单个内容详情，<code>data</code> 为单个内容对象（字段同列表项）；
+            可附加 <code>?silent=1</code> 跳过浏览量计数。`,
+    params: { title: '请求参数（path / query）', head: ['参数', '位置', '类型', '必填', '说明'], hasLoc: true, rows: [
+      { name: 'id', loc: 'path', type: 'number', required: '是', descHtml: `内容 ID` },
+      { name: 'silent', loc: 'query', type: 'string', required: '否', descHtml: `传 1 时跳过浏览量计数` },
+    ] },
+  },
+  {
+    id: 'ep-upload', method: 'POST', methodCls: 'is-post', path: '/api/content/upload',
+    badge: '需 upload 权限', badgeCls: 'is-auth',
+    descHtml: `上传内容，请求体为 <code>multipart/form-data</code>（文本字段与文件可同时携带）。`,
+    noteHtml: `非 GIF 图片上传后由服务端本地无损转为 WebP 作为新原图（源文件删除），随后进入缩略图与压缩链路。`,
+    params: { title: '请求参数（form-data）', head: ['字段', '类型', '必填', '说明'], hasLoc: false, rows: [
+      { name: 'title', type: 'string', required: '是', descHtml: `标题，1-200 字` },
+      { name: 'content', type: 'string', required: '否', descHtml: `Markdown 描述；与 file 至少填一项` },
+      { name: 'file', type: 'file', required: '否', descHtml: `图片 / 视频文件（≤20MB）；非 GIF 图片自动无损转为 WebP 原图；与 content 至少填一项` },
+      { name: 'tags', type: 'string', required: '否', descHtml: `标签，多个用英文逗号分隔，如 <code>AI,风景</code>` },
+    ] },
+    response: `{
+  "code": 200,
+  "message": "上传成功",
+  "data": {
+    "id": "815",
+    "title": "我的作品",
+    "type": "text",
+    "text": "**Markdown** 描述",
+    "thumb": "",
+    "img": "",
+    "user": { "id": "51", "username": "my_tool" },
+    "tags": ["AI", "风景"],
+    "like_count": 0,
+    "audit_status": "pending",
+    "created_at": "2026-08-02T01:12:24.000Z"
+  }
+}`,
+  },
+  {
+    id: 'ep-update', method: 'PUT', methodCls: 'is-put', path: '/api/content/:id',
+    badge: '需 upload 权限', badgeCls: 'is-auth',
+    descHtml: `编辑自己的内容，请求体同上传（<code>multipart/form-data</code>）；
+            仅能修改密钥所属账号自己的内容，至少提供一个待修改字段。`,
+    params: { title: '请求参数（path / form-data）', head: ['字段', '位置', '类型', '必填', '说明'], hasLoc: true, rows: [
+      { name: 'id', loc: 'path', type: 'number', required: '是', descHtml: `要修改的内容 ID` },
+      { name: 'title', loc: 'form', type: 'string', required: '否', descHtml: `新标题` },
+      { name: 'content', loc: 'form', type: 'string', required: '否', descHtml: `新 Markdown 描述` },
+      { name: 'tags', loc: 'form', type: 'string', required: '否', descHtml: `新标签，逗号分隔` },
+      { name: 'file', loc: 'form', type: 'file', required: '否', descHtml: `替换媒体文件（≤20MB）` },
+    ] },
+  },
+  {
+    id: 'ep-delete', method: 'DELETE', methodCls: 'is-delete', path: '/api/content/:id',
+    badge: '需 delete 权限', badgeCls: 'is-auth',
+    descHtml: `软删除内容，仅能删除密钥所属账号自己的内容。响应示例：`,
+    response: `{
+  "code": 200,
+  "message": "已删除",
+  "data": null
+}`,
+  },
+]
+
+const currentCard = computed(() => endpointCards.find((c) => c.id === activeToc.value))
+
 function scrollToSection(id: string) {
   activeToc.value = id
   nextTick(() => {
@@ -308,201 +423,45 @@ function copyFrame(e: MouseEvent) {
         </section>
 
         <!-- GET list -->
-        <section v-else-if="activeToc === 'ep-list'" id="ep-list" class="api-endpoint-card">
+                <section v-else-if="currentCard" :id="currentCard.id" class="api-endpoint-card">
           <div class="api-ep-head">
-            <span class="api-method is-get">GET</span>
-            <code class="api-ep-path">/api/content/list</code>
-            <span class="api-ep-badge is-public">公开</span>
+            <span class="api-method" :class="currentCard.methodCls">{{ currentCard.method }}</span>
+            <code class="api-ep-path">{{ currentCard.path }}</code>
+            <span class="api-ep-badge" :class="currentCard.badgeCls">{{ currentCard.badge }}</span>
           </div>
-          <p class="api-desc">分页获取已审核内容列表。</p>
-          <div class="api-ep-block">
-            <div class="api-ep-label">请求参数（query）</div>
+          <p class="api-desc" v-html="currentCard.descHtml"></p>
+          <p v-if="currentCard.noteHtml" class="api-note" v-html="currentCard.noteHtml"></p>
+          <div v-if="currentCard.params" class="api-ep-block">
+            <div class="api-ep-label">{{ currentCard.params.title }}</div>
             <div class="api-table-wrap">
               <table class="api-table">
                 <thead>
-                  <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
-              </thead>
-              <tbody>
-                <tr><td><code>page</code></td><td>number</td><td>否</td><td>页码，默认 1</td></tr>
-                <tr><td><code>page_size</code></td><td>number</td><td>否</td><td>每页条数，默认 20，最大 100</td></tr>
-                <tr><td><code>sort_by</code></td><td>string</td><td>否</td><td>created_at / view_count / id，默认 created_at</td></tr>
-                <tr><td><code>order</code></td><td>string</td><td>否</td><td>desc / asc，默认 desc</td></tr>
-                <tr><td><code>tag</code></td><td>string</td><td>否</td><td>标签过滤，多个用英文逗号分隔</td></tr>
-                <tr><td><code>type</code></td><td>string</td><td>否</td><td>内容类型：image / text</td></tr>
-                  <tr><td><code>keyword</code></td><td>string</td><td>否</td><td>标题关键词（完整搜索见 <code>/api/content/search</code>）</td></tr>
+                  <tr><th v-for="h in currentCard.params.head" :key="h">{{ h }}</th></tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in currentCard.params.rows" :key="row.name">
+                    <td><code>{{ row.name }}</code></td>
+                    <td v-if="currentCard.params.hasLoc">{{ row.loc }}</td>
+                    <td>{{ row.type }}</td>
+                    <td>{{ row.required }}</td>
+                    <td v-html="row.descHtml"></td>
+                  </tr>
                 </tbody>
               </table>
             </div>
           </div>
-          <div class="api-ep-block">
-            <div class="api-ep-label">响应示例</div>
+          <div v-if="currentCard.response" class="api-ep-block">
+            <div class="api-ep-label">????</div>
             <div class="code-frame">
               <div class="code-frame-head">
-                <span class="code-frame-label">响应示例</span>
-                <a-button size="mini" type="text" class="code-frame-copy" @click="copyFrame">复制</a-button>
+                <span class="code-frame-label">????</span>
+                <a-button size="mini" type="text" class="code-frame-copy" @click="copyFrame">??</a-button>
               </div>
-              <pre class="api-json"><code class="language-json">{
-  "code": 200,
-  "message": "ok",
-  "data": {
-    "list": [
-      {
-        "id": "814",
-        "title": "晓晓自拍",
-        "type": "image",
-        "text": "",
-        "thumb": "/thumbs/xxx_thumb.jpg",
-        "img": "/images/xxx_tinified.webp",
-        "user": { "id": "2", "username": "huntersxy" },
-        "tags": [],
-        "like_count": 0,
-        "audit_status": "approved",
-        "created_at": "2026-08-01T17:00:28.227Z"
-      }
-    ],
-    "total": 309,
-    "page": 1,
-    "page_size": 20,
-    "total_page": 16
-  }
-}</code></pre>
+              <pre class="api-json"><code class="language-json">{{ currentCard.response }}</code></pre>
             </div>
           </div>
         </section>
 
-        <!-- GET detail -->
-        <section v-else-if="activeToc === 'ep-detail'" id="ep-detail" class="api-endpoint-card">
-          <div class="api-ep-head">
-            <span class="api-method is-get">GET</span>
-            <code class="api-ep-path">/api/content/:id</code>
-            <span class="api-ep-badge is-public">公开</span>
-          </div>
-          <p class="api-desc">
-            获取单个内容详情，<code>data</code> 为单个内容对象（字段同列表项）；
-            可附加 <code>?silent=1</code> 跳过浏览量计数。
-          </p>
-          <div class="api-ep-block">
-            <div class="api-ep-label">请求参数（path / query）</div>
-            <div class="api-table-wrap">
-              <table class="api-table">
-                <thead>
-                  <tr><th>参数</th><th>位置</th><th>类型</th><th>必填</th><th>说明</th></tr>
-              </thead>
-              <tbody>
-                <tr><td><code>id</code></td><td>path</td><td>number</td><td>是</td><td>内容 ID</td></tr>
-                  <tr><td><code>silent</code></td><td>query</td><td>string</td><td>否</td><td>传 1 时跳过浏览量计数</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <!-- POST upload -->
-        <section v-else-if="activeToc === 'ep-upload'" id="ep-upload" class="api-endpoint-card">
-          <div class="api-ep-head">
-            <span class="api-method is-post">POST</span>
-            <code class="api-ep-path">/api/content/upload</code>
-            <span class="api-ep-badge is-auth">需 upload 权限</span>
-          </div>
-          <p class="api-desc">上传内容，请求体为 <code>multipart/form-data</code>（文本字段与文件可同时携带）。</p>
-          <p class="api-note">非 GIF 图片上传后由服务端本地无损转为 WebP 作为新原图（源文件删除），随后进入缩略图与压缩链路。</p>
-          <div class="api-ep-block">
-            <div class="api-ep-label">请求参数（form-data）</div>
-            <div class="api-table-wrap">
-              <table class="api-table">
-                <thead>
-                  <tr><th>字段</th><th>类型</th><th>必填</th><th>说明</th></tr>
-              </thead>
-              <tbody>
-                <tr><td><code>title</code></td><td>string</td><td>是</td><td>标题，1-200 字</td></tr>
-                <tr><td><code>content</code></td><td>string</td><td>否</td><td>Markdown 描述；与 file 至少填一项</td></tr>
-                <tr><td><code>file</code></td><td>file</td><td>否</td><td>图片 / 视频文件（≤20MB）；非 GIF 图片自动无损转为 WebP 原图；与 content 至少填一项</td></tr>
-                  <tr><td><code>tags</code></td><td>string</td><td>否</td><td>标签，多个用英文逗号分隔，如 <code>AI,风景</code></td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div class="api-ep-block">
-            <div class="api-ep-label">响应示例</div>
-            <div class="code-frame">
-              <div class="code-frame-head">
-                <span class="code-frame-label">响应示例</span>
-                <a-button size="mini" type="text" class="code-frame-copy" @click="copyFrame">复制</a-button>
-              </div>
-              <pre class="api-json"><code class="language-json">{
-  "code": 200,
-  "message": "上传成功",
-  "data": {
-    "id": "815",
-    "title": "我的作品",
-    "type": "text",
-    "text": "**Markdown** 描述",
-    "thumb": "",
-    "img": "",
-    "user": { "id": "51", "username": "my_tool" },
-    "tags": ["AI", "风景"],
-    "like_count": 0,
-    "audit_status": "pending",
-    "created_at": "2026-08-02T01:12:24.000Z"
-  }
-}</code></pre>
-            </div>
-          </div>
-        </section>
-
-        <!-- PUT update -->
-        <section v-else-if="activeToc === 'ep-update'" id="ep-update" class="api-endpoint-card">
-          <div class="api-ep-head">
-            <span class="api-method is-put">PUT</span>
-            <code class="api-ep-path">/api/content/:id</code>
-            <span class="api-ep-badge is-auth">需 upload 权限</span>
-          </div>
-          <p class="api-desc">
-            编辑自己的内容，请求体同上传（<code>multipart/form-data</code>）；
-            仅能修改密钥所属账号自己的内容，至少提供一个待修改字段。
-          </p>
-          <div class="api-ep-block">
-            <div class="api-ep-label">请求参数（path / form-data）</div>
-            <div class="api-table-wrap">
-              <table class="api-table">
-                <thead>
-                  <tr><th>字段</th><th>位置</th><th>类型</th><th>必填</th><th>说明</th></tr>
-              </thead>
-              <tbody>
-                <tr><td><code>id</code></td><td>path</td><td>number</td><td>是</td><td>要修改的内容 ID</td></tr>
-                <tr><td><code>title</code></td><td>form</td><td>string</td><td>否</td><td>新标题</td></tr>
-                <tr><td><code>content</code></td><td>form</td><td>string</td><td>否</td><td>新 Markdown 描述</td></tr>
-                <tr><td><code>tags</code></td><td>form</td><td>string</td><td>否</td><td>新标签，逗号分隔</td></tr>
-                  <tr><td><code>file</code></td><td>form</td><td>file</td><td>否</td><td>替换媒体文件（≤20MB）</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <!-- DELETE -->
-        <section v-else-if="activeToc === 'ep-delete'" id="ep-delete" class="api-endpoint-card">
-          <div class="api-ep-head">
-            <span class="api-method is-delete">DELETE</span>
-            <code class="api-ep-path">/api/content/:id</code>
-            <span class="api-ep-badge is-auth">需 delete 权限</span>
-          </div>
-          <p class="api-desc">软删除内容，仅能删除密钥所属账号自己的内容。响应示例：</p>
-          <div class="api-ep-block">
-            <div class="api-ep-label">响应示例</div>
-            <div class="code-frame">
-              <div class="code-frame-head">
-                <span class="code-frame-label">响应示例</span>
-                <a-button size="mini" type="text" class="code-frame-copy" @click="copyFrame">复制</a-button>
-              </div>
-              <pre class="api-json"><code class="language-json">{
-  "code": 200,
-  "message": "已删除",
-  "data": null
-}</code></pre>
-            </div>
-          </div>
-        </section>
 
         <!-- 语言示例 -->
         <section v-else id="sec-examples" class="api-section">

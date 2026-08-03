@@ -100,10 +100,6 @@ export interface CreatePollData {
   options: string[]
 }
 
-export interface VoteData {
-  option_index: number
-}
-
 // ── API Key 类型 ──
 
 export interface ApiKey {
@@ -175,7 +171,7 @@ export interface ClaimListResponse {
 
 // ── 仪表盘统计 ──
 
-export interface DashboardContentStats {
+interface DashboardContentStats {
   total: number
   pending: number
   approved: number
@@ -185,14 +181,14 @@ export interface DashboardContentStats {
   today: number
 }
 
-export interface DashboardUsersStats {
+interface DashboardUsersStats {
   total: number
   admins: number
   banned: number
   today: number
 }
 
-export interface DashboardTagCount {
+interface DashboardTagCount {
   tag: string
   count: number
 }

@@ -100,7 +100,6 @@ src/
 ├── utils/
 │   ├── index.ts             # toFormData / 图片 URL / 时间 / Markdown 渲染工具
 │   ├── constants.ts         # 共享常量（CC 协议文本等）
-│   ├── asyncComponent.ts    # 异步组件封装（加载态 / 错误态）
 │   └── webVitals.ts         # Web Vitals 性能监控
 ├── views/            # 页面级组件（薄路由层）
 ├── App.vue           # 根组件（导航 / 页脚 / Toast / Confirm 容器）

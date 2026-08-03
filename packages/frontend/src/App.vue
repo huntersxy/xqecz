@@ -413,7 +413,8 @@ body[arco-theme='dark'] .app-nav-item.app-nav-item-active:hover {
   max-width: 360px;
   min-width: 0;
 }
-.app-search-input :deep(.arco-input-search-btn) {
+.app-search-input :deep(.arco-input-search-btn),
+.app-search-input-mobile :deep(.arco-input-search-btn) {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -424,12 +425,6 @@ body[arco-theme='dark'] .app-nav-item.app-nav-item-active:hover {
   min-width: 0;
   max-width: 100%;
 }
-.app-search-input-mobile :deep(.arco-input-search-btn) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .app-header-spacer {
   flex: 1;
   min-width: 0;
@@ -451,7 +446,8 @@ body[arco-theme='dark'] .app-nav-item.app-nav-item-active:hover {
   background: var(--color-fill-2);
 }
 
-:deep(.app-theme-btn .arco-icon) {
+:deep(.app-theme-btn .arco-icon),
+:deep(.app-mobile-menu-btn .arco-icon) {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -501,13 +497,6 @@ body[arco-theme='dark'] .app-nav-item.app-nav-item-active:hover {
   width: 36px;
   height: 36px;
   padding: 0;
-}
-
-:deep(.app-mobile-menu-btn .arco-icon) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
 }
 
 /* 移动端抽屉（侧边栏） */

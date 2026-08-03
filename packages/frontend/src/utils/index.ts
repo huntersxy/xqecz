@@ -1,13 +1,8 @@
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import dayjs from 'dayjs'
-import relativeTime from 'dayjs/plugin/relativeTime'
 import removeMarkdown from 'remove-markdown'
 import SparkMD5 from 'spark-md5'
-import 'dayjs/locale/zh-cn'
-
-dayjs.extend(relativeTime)
-dayjs.locale('zh-cn')
 
 const MEDIA_BASE = import.meta.env.VITE_MEDIA_BASE_URL || ''
 
@@ -21,7 +16,7 @@ export function getImageUrl(image?: string): string {
 }
 
 /** 生产服务器远程媒体兜底地址：开发环境图片 404 时，回退到该域名同路径重试。 */
-export const REMOTE_MEDIA_BASE = 'https://xq.xiey.work'
+const REMOTE_MEDIA_BASE = 'https://xq.xiey.work'
 
 /**
  * 生成本站媒体在生产服务器的同路径兜底 URL。
@@ -79,12 +74,6 @@ export function formatTime(ts: number | string, useLocaleDate: boolean = false):
   return useLocaleDate ? d.format('YYYY/MM/DD') : d.format('YYYY/MM/DD HH:mm:ss')
 }
 
-export function formatRelativeTime(ts: number | string): string {
-  if (!ts) return ''
-  const d = typeof ts === 'string' && /^\d{4}-/.test(ts) ? dayjs(ts) : dayjs.unix(typeof ts === 'string' ? Number.parseInt(ts, 10) : ts)
-  return d.fromNow()
-}
-
 export function getPreviewText(content: string, maxLength: number = 100): string {
   if (!content) return ''
   const plainText = removeMarkdown(content).replace(/\s+/g, ' ').trim()
@@ -102,7 +91,7 @@ export function renderMarkdown(text: string): string {
 /**
  * 计算文件内容的 MD5（spark-md5 分片读取，避免大文件一次性载入内存）。
  */
-export async function fileMd5(file: File): Promise<string> {
+async function fileMd5(file: File): Promise<string> {
   const CHUNK = 4 * 1024 * 1024 // 4MB 分片
   const spark = new SparkMD5.ArrayBuffer()
   for (let offset = 0; offset < file.size; offset += CHUNK) {

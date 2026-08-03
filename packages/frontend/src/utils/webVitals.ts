@@ -3,7 +3,7 @@
  * 跟踪 LCP、FID、CLS、TTFB 等核心指标
  */
 
-export interface WebVitalMetric {
+interface WebVitalMetric {
   name: string
   value: number
   rating: 'good' | 'needs-improvement' | 'poor'
@@ -190,7 +190,6 @@ export function initWebVitals(callback?: MetricCallback): void {
     console.log(`${emoji} [Web Vitals] ${metric.name}: ${metric.value.toFixed(2)}ms (${metric.rating})`)
 
     // 可以在这里发送到分析服务
-    // sendToAnalytics(metric)
   }
 
   const metricCallback = callback || defaultCallback
@@ -212,44 +211,4 @@ function startObservers(callback: MetricCallback): void {
   observeCLS(callback)
   observeTTFB(callback)
   observeFCP(callback)
-}
-
-/**
- * 获取当前页面性能指标
- */
-export function getPerformanceMetrics(): Record<string, number> {
-  const metrics: Record<string, number> = {}
-
-  if (!('performance' in globalThis)) return metrics
-
-  const navEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
-
-  if (navEntry) {
-    metrics.dns = navEntry.domainLookupEnd - navEntry.domainLookupStart
-    metrics.tcp = navEntry.connectEnd - navEntry.connectStart
-    metrics.ttfb = navEntry.responseStart - navEntry.requestStart
-    metrics.download = navEntry.responseEnd - navEntry.responseStart
-    metrics.domInteractive = navEntry.domInteractive
-    metrics.domComplete = navEntry.domComplete
-    metrics.loadComplete = navEntry.loadEventEnd
-  }
-
-  return metrics
-}
-
-/**
- * 发送指标到分析服务 (示例实现)
- */
-export function sendToAnalytics(_metric: WebVitalMetric): void {
-  // 使用 sendBeacon API 异步发送
-  if ('navigator' in globalThis && 'sendBeacon' in navigator) {
-    // 替换为实际的分析端点
-    // navigator.sendBeacon('/api/analytics', JSON.stringify({
-    //   name: metric.name,
-    //   value: metric.value,
-    //   rating: metric.rating,
-    //   page: globalThis.location.pathname,
-    //   timestamp: Date.now(),
-    // }))
-  }
 }

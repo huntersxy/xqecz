@@ -155,12 +155,6 @@ export const authApi = {
 
   getMe: () => request<User>('/auth/me', { method: 'GET' }),
 
-  changePassword: (oldPassword: string, newPassword: string) =>
-    request('/auth/change-password', {
-      method: 'POST',
-      body: { oldPassword, newPassword },
-    }),
-
   updateEmail: (email: string) =>
     request('/auth/email', {
       method: 'PUT',
@@ -367,14 +361,6 @@ export const pollApi = {
   list: () => request<PollListResponse>('/poll/list'),
 
   detail: (id: number) => request<PollDetail>(`/poll/${id}`),
-
-  vote: (id: number, optionIndex: number) =>
-    request(`/poll/${id}/vote`, {
-      method: 'POST',
-      body: {
-        option_index: optionIndex,
-      },
-    }),
 
   delete: (id: number) => request(`/poll/${id}`, { method: 'DELETE' }),
 }

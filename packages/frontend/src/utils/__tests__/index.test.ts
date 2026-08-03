@@ -3,7 +3,6 @@ import {
   getImageUrl,
   getRemoteFallbackUrl,
   formatTime,
-  formatRelativeTime,
   renderMarkdown,
   getPreviewText,
 } from '@/utils'
@@ -87,24 +86,6 @@ describe('formatTime', () => {
   it('returns date-only format when useLocaleDate is true', () => {
     const result = formatTime(1710230400, true)
     expect(result).toMatch(/^\d{4}\/\d{2}\/\d{2}$/)
-  })
-})
-
-describe('formatRelativeTime', () => {
-  it('returns empty string for 0', () => {
-    expect(formatRelativeTime(0)).toBe('')
-  })
-
-  it('returns relative time string', () => {
-    const now = Math.floor(Date.now() / 1000)
-    const result = formatRelativeTime(now)
-    expect(result).toBeTruthy()
-    expect(typeof result).toBe('string')
-  })
-
-  it('returns past time for old timestamp', () => {
-    const result = formatRelativeTime(1710230400)
-    expect(result).toContain('前')
   })
 })
 

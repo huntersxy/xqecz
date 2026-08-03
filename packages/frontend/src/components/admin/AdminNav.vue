@@ -1,6 +1,6 @@
 <script lang="ts">
 // 导航数据结构（供 AdminView 组装）
-export interface AdminNavItem {
+interface AdminNavItem {
   key: string
   title: string
   icon: Component

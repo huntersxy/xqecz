@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, type Component } from 'vue'
 import { adminApi } from '@/api'
 import { getAvatarUrl, formatTime } from '@/utils'
 import MediaImage from '@/components/MediaImage.vue'
@@ -52,22 +52,32 @@ function go(key: string) {
   if (key) emit('select', key)
 }
 
-const auditRows = computed(() => {
-  const c = stats.value?.content
-  if (!c) return []
-  return [
-    { label: '已通过', count: c.approved, status: 'success' as const, icon: IconCheckCircle },
-    { label: '待审核', count: c.pending, status: 'warning' as const, icon: IconEye },
-    { label: '已拒绝', count: c.rejected, status: 'danger' as const, icon: IconCloseCircle },
-  ]
-})
+interface ProgressRow { label: string; count: number; status?: 'success' | 'warning' | 'danger'; color?: string; icon?: Component }
+interface ProgressCard { title: string; footerLabel: string; footerValue: string; rows: ProgressRow[] }
 
-const typeRows = computed(() => {
-  const c = stats.value?.content
-  if (!c) return []
+const progressCards = computed<ProgressCard[]>(() => {
+  const s = stats.value
+  if (!s) return []
   return [
-    { label: '图片', count: c.image, color: 'rgb(var(--primary-6))' },
-    { label: '图文', count: c.text, color: 'rgb(var(--arcoblue-6))' },
+    {
+      title: '内容审核状态',
+      footerLabel: '今日新增内容',
+      footerValue: String(s.content.today),
+      rows: [
+        { label: '已通过', count: s.content.approved, status: 'success', icon: IconCheckCircle },
+        { label: '待审核', count: s.content.pending, status: 'warning', icon: IconEye },
+        { label: '已拒绝', count: s.content.rejected, status: 'danger', icon: IconCloseCircle },
+      ],
+    },
+    {
+      title: '内容类型分布',
+      footerLabel: '内容 / 用户 / 评论今日新增',
+      footerValue: `${s.content.today} / ${s.users.today} / ${s.comments.today}`,
+      rows: [
+        { label: '图片', count: s.content.image, color: 'rgb(var(--primary-6))' },
+        { label: '图文', count: s.content.text, color: 'rgb(var(--arcoblue-6))' },
+      ],
+    },
   ]
 })
 
@@ -112,12 +122,12 @@ const maxTag = computed(() => Math.max(1, ...(stats.value?.topTags.map((t) => t.
 
         <!-- 分布与热门标签 -->
         <a-row :gutter="[16, 16]" class="mt-4">
-          <a-col :xs="24" :md="12" :xl="8">
-            <a-card title="内容审核状态" :bordered="false" class="dash-card">
-              <div v-for="row in auditRows" :key="row.label" class="dash-progress-row">
+          <a-col v-for="card in progressCards" :key="card.title" :xs="24" :md="12" :xl="8">
+            <a-card :title="card.title" :bordered="false" class="dash-card">
+              <div v-for="row in card.rows" :key="row.label" class="dash-progress-row">
                 <div class="dash-progress-head">
                   <span class="dash-progress-label">
-                    <component :is="row.icon" class="dash-progress-icon" />
+                    <component v-if="row.icon" :is="row.icon" class="dash-progress-icon" />
                     {{ row.label }}
                   </span>
                   <span class="dash-progress-count">{{ row.count }}</span>
@@ -125,36 +135,14 @@ const maxTag = computed(() => Math.max(1, ...(stats.value?.topTags.map((t) => t.
                 <a-progress
                   :percent="pct(row.count, stats!.content.total)"
                   :status="row.status"
-                  :stroke-width="8"
-                  :show-text="false"
-                />
-              </div>
-              <div class="dash-today">
-                <span class="admin-cell-3">今日新增内容</span>
-                <span class="dash-today-value">{{ stats!.content.today }}</span>
-              </div>
-            </a-card>
-          </a-col>
-
-          <a-col :xs="24" :md="12" :xl="8">
-            <a-card title="内容类型分布" :bordered="false" class="dash-card">
-              <div v-for="row in typeRows" :key="row.label" class="dash-progress-row">
-                <div class="dash-progress-head">
-                  <span class="dash-progress-label">{{ row.label }}</span>
-                  <span class="dash-progress-count">{{ row.count }}</span>
-                </div>
-                <a-progress
-                  :percent="pct(row.count, stats!.content.total)"
-                  :stroke-width="8"
-                  :show-text="false"
                   :color="row.color"
+                  :stroke-width="8"
+                  :show-text="false"
                 />
               </div>
               <div class="dash-today">
-                <span class="admin-cell-3">内容 / 用户 / 评论今日新增</span>
-                <span class="dash-today-value">
-                  {{ stats!.content.today }} / {{ stats!.users.today }} / {{ stats!.comments.today }}
-                </span>
+                <span class="admin-cell-3">{{ card.footerLabel }}</span>
+                <span class="dash-today-value">{{ card.footerValue }}</span>
               </div>
             </a-card>
           </a-col>

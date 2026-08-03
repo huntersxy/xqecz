@@ -7,7 +7,7 @@ declare module 'vue-router' {
   }
 }
 
-export const routes: RouteRecordRaw[] = [
+const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'home',

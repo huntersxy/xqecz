@@ -14,7 +14,7 @@ interface CacheData {
   }
 }
 
-export interface DiffResult {
+interface DiffResult {
   merged: Content[]
   added: Set<string | number>
   removed: Set<string | number>

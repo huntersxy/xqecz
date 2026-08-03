@@ -4,7 +4,7 @@ import { useAdminStore } from '@/stores/admin'
 import { CC_LICENSE_TEXT, VIDEO_TERMS_TEXT } from '@/utils/constants'
 import { Tag } from '@arco-design/web-vue'
 import { IconUpload, IconClose } from '@arco-design/web-vue/es/icon'
-import { toast } from '@/composables/useToast'
+import { useFilePicker } from '@/composables/useFilePicker'
 import TagCloud from './TagCloud.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 
@@ -17,11 +17,12 @@ const form = ref({
   tags: [] as string[],
   file: undefined as File | undefined,
 })
-const filePreview = ref('')
 const fileKind = ref<'' | 'image' | 'video'>('')
 const agreeUpload = ref(false)
-const fileInput = ref<HTMLInputElement | null>(null)
-const dragOver = ref(false)
+const { filePreview, fileInput, dragOver, onFileChange, onDrop, clearPreview } = useFilePicker((f) => {
+  form.value.file = f
+  fileKind.value = f.type.startsWith('image/') ? 'image' : 'video'
+})
 
 function toggleTag(tag: string) {
   const i = form.value.tags.indexOf(tag)
@@ -33,38 +34,10 @@ function handleAddCustomTag(tag: string) {
   form.value.tags.push(tag)
 }
 
-function pickFile(f: File | undefined) {
-  if (!f) return
-  if (!f.type.startsWith('image/') && !f.type.startsWith('video/')) {
-    toast.error('仅支持图片或视频文件')
-    return
-  }
-  // 与后端保持一致：单文件最大 20MB
-  if (f.size > 20 * 1024 * 1024) {
-    toast.error('文件大小不能超过 20MB')
-    return
-  }
-  form.value.file = f
-  fileKind.value = f.type.startsWith('image/') ? 'image' : 'video'
-  const reader = new FileReader()
-  reader.onload = (ev) => { filePreview.value = ev.target?.result as string }
-  reader.readAsDataURL(f)
-}
-
-function onFileChange(e: Event) {
-  pickFile((e.target as HTMLInputElement).files?.[0])
-}
-
-function onDrop(e: DragEvent) {
-  dragOver.value = false
-  pickFile(e.dataTransfer?.files?.[0])
-}
-
 function clearFile() {
   form.value.file = undefined
-  filePreview.value = ''
   fileKind.value = ''
-  if (fileInput.value) fileInput.value.value = ''
+  clearPreview()
 }
 
 function clearForm() {

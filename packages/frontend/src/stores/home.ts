@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Content } from '@/types'
 
-export interface CachedPosition {
+interface CachedPosition {
   x: number
   y: number
   w: number
@@ -86,7 +86,6 @@ export const useHomeStore = defineStore('home', () => {
   // 恢复滚动位置（需在 DOM 渲染后调用）
   function restoreScroll() {
     if (scrollPosition.value > 0) {
-      console.log('[Scroll] restoreScroll 被调用, 目标位置:', scrollPosition.value)
       window.scrollTo({ top: scrollPosition.value, behavior: 'instant' })
     }
   }

@@ -22,7 +22,7 @@ const tagsArr = z
 
 // ── User(完整) ──
 // 与原 normalize 等价:id/username 必填(契约保证),其他 optional 兜空。
-export const UserSchema = z.object({
+const UserSchema = z.object({
   id: num,
   username: str,
   email: str.optional(),
@@ -84,7 +84,7 @@ export const ContentSchema = z.object({
 export type Content = z.infer<typeof ContentSchema>
 
 // ── Comment ──
-export const CommentSchema: z.ZodType<{
+const CommentSchema: z.ZodType<{
   id: number
   content_id: number
   user_id: number
@@ -117,7 +117,7 @@ export const CommentSchema: z.ZodType<{
 export type Comment = z.infer<typeof CommentSchema>
 
 // ── Poll ──
-export const PollSchema = z.object({
+const PollSchema = z.object({
   id: num,
   title: str,
   description: str,
@@ -131,7 +131,7 @@ export const PollSchema = z.object({
 export type Poll = z.infer<typeof PollSchema>
 
 // ── Claim ──
-export const ClaimSchema = z.object({
+const ClaimSchema = z.object({
   id: num,
   content_id: num,
   user_id: num,

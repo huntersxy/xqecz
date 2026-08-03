@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { toast } from '@/composables/useToast'
 import { contentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
+import { useFilePicker } from '@/composables/useFilePicker'
 import { IconUpload } from '@arco-design/web-vue/es/icon'
 
 interface Props {
@@ -37,45 +38,18 @@ const form = ref({
   content: '',
 })
 const file = ref<File | undefined>(undefined)
-const filePreview = ref('')
 const uploading = ref(false)
 const progress = ref(0)
-const fileInput = ref<HTMLInputElement | null>(null)
-const dragOver = ref(false)
-
-const MAX_FILE_SIZE = 20 * 1024 * 1024
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s]+$/
-
-function pickFile(f: File | undefined) {
-  if (!f) return
-  if (!f.type.startsWith('image/') && !f.type.startsWith('video/')) {
-    toast.error('仅支持图片或视频文件')
-    return
-  }
-  if (f.size > MAX_FILE_SIZE) {
-    toast.error('文件大小不能超过 20MB')
-    return
-  }
+const { filePreview, fileInput, dragOver, onFileChange, onDrop, clearPreview } = useFilePicker((f) => {
   file.value = f
   if (!form.value.title) form.value.title = f.name.replace(/\.[^.]+$/, '')
-  const reader = new FileReader()
-  reader.onload = (ev) => { filePreview.value = ev.target?.result as string }
-  reader.readAsDataURL(f)
-}
+})
 
-function onFileChange(e: Event) {
-  pickFile((e.target as HTMLInputElement).files?.[0])
-}
-
-function onDrop(e: DragEvent) {
-  dragOver.value = false
-  pickFile(e.dataTransfer?.files?.[0])
-}
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s]+$/
 
 function removeFile() {
   file.value = undefined
-  filePreview.value = ''
-  if (fileInput.value) fileInput.value.value = ''
+  clearPreview()
 }
 
 function validate(): string | null {

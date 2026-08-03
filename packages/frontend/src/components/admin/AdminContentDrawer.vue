@@ -324,11 +324,7 @@ body[arco-theme='dark'] .preview-text :deep(pre) {
   margin-top: 8px;
 }
 
-.drawer-edit-form :deep(.arco-form-item-content) {
-  display: block;
-  width: 100%;
-}
-
+.drawer-edit-form :deep(.arco-form-item-content),
 .drawer-field-stack {
   display: block;
   width: 100%;
@@ -338,10 +334,7 @@ body[arco-theme='dark'] .preview-text :deep(pre) {
   width: 100%;
 }
 
-.tag-pool-item {
-  margin: 0;
-}
-
+.tag-pool-item,
 .drawer-tag-inline {
   margin: 0;
 }
