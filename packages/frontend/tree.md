@@ -141,7 +141,11 @@ packages/frontend/
 | `useToast.ts` | 基于 vue-sonner 的 `toast`（success/error/warning/info）+ `useConfirm` 全局确认（与 `ConfirmDialog.vue` 联动）。 |
 | `useGlobalSearch.ts` | 模块级搜索关键字单例：`App.vue` 搜索框写入，`HomeView` 监听 `searchTrigger` 触发查询。 |
 | `useSearchFilter.ts` | 标签/关键字筛选逻辑，与 `home` store 同步，300ms 防抖，负责 `loadTags`。 |
-| `useRecommendLoader.ts` | “精选推荐”加载，使用 vue-query 缓存，6 页 × 16 条循环换批。 |
+| `useRecommendLoader.ts` | “精选推荐”池式加载：最多 6 页 × 16 条，翻页垫补/整池替换，zod 校验。 |
+| `useListCache.ts` | 首页列表 localStorage 缓存（7 天 TTL）+ `diffLists` 新旧列表差异合并。 |
+| `useWaterfallLayout.ts` | 瀑布流布局位置计算与滚动锚定，供首页与列表页复用。 |
+| `useFilePicker.ts` | 上传文件选择/校验/预览共用逻辑（图片/视频、20MB 上限），三个上传入口共用。 |
+| `useContentBrowse.ts` | 内容详情页浏览状态（前后篇切换、阅读进度）。 |
 
 ### 5. 页面（`views/`）
 | 文件 | 职责 |
