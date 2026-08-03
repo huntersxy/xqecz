@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codebase Lean"
+  short_description: "省 token 的代码瘦身与高效检索，保持功能不变"
+  default_prompt: "Use $codebase-lean to slim down the repo and cut token usage without changing functionality."
