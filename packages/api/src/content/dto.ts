@@ -1,9 +1,7 @@
-import { IsOptional, IsString, IsNumber, IsIn, IsEmail, Length } from 'class-validator'
+import { IsOptional, IsString, IsNumber, IsEmail, Length } from 'class-validator'
 
 // 2026-07-29 改造：上传"去分类"后，type 不再由调用方指定；后端按"是否有 file"自动设为 image / text。
 // 历史数据 type 取值仍保留在 DB（兼容老数据 + 后端 service 内含迁移脚本一次性归并 video/link → text）。
-export const CONTENT_TYPES = ['image', 'text', 'video', 'link'] as const
-
 export class UploadContentDto {
   @IsString() @Length(1, 200) title!: string
   @IsOptional() @IsString() content?: string
@@ -40,9 +38,4 @@ export class ListContentDto {
 
 export class ClaimDto {
   @IsOptional() @IsString() reason?: string
-}
-
-// 一次性迁移脚本专用 DTO（管理员手动触发；仅允许迁移到合法值）。
-export class MigrateTypesDto {
-  @IsIn(['text']) to!: 'text'
 }

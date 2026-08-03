@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Inject, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common'
+import { Injectable, NotFoundException, BadRequestException, Inject, OnModuleInit, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { Cron } from '@nestjs/schedule'
 import { InjectRepository } from '@nestjs/typeorm'
@@ -187,6 +187,20 @@ export class ContentService implements OnModuleInit {
     return map
   }
 
+  /** 批量查询用户，消除 N+1 查询 */
+  private async buildUserMap(rows: { user_id: number }[]) {
+    const userIds = [...new Set(rows.map((r) => r.user_id).filter((id) => id > 0))]
+    const users = userIds.length ? await this.userRepo.find({ where: { id: In(userIds) } }) : []
+    return new Map(users.map((u) => [u.id, u]))
+  }
+
+  /** 批量装饰内容：批量用户 + 点赞数，消除 N+1 查询 */
+  private async decorateRows(rows: Content[]) {
+    const userMap = await this.buildUserMap(rows)
+    const likeMap = await this.getLikeCountMap(rows.map((r) => r.id))
+    return Promise.all(rows.map((r) => this.decorateContent(r, userMap, { likeCount: likeMap.get(String(r.id)) })))
+  }
+
   /** 根据邮箱生成头像 URL（不暴露原始邮箱），QQ 邮箱 → QQ 头像接口，其余 → Gravatar */
   static makeAvatarUrl(email: string, size: number = 80): string {
     if (!email) return ''
@@ -222,13 +236,7 @@ export class ContentService implements OnModuleInit {
       where, order: { [sortBy]: order }, skip: (page - 1) * pageSize, take: pageSize,
     })
 
-    // 批量查询用户，消除 N+1 查询
-    const userIds = [...new Set(rows.map((r) => r.user_id).filter((id) => id > 0))]
-    const users = userIds.length ? await this.userRepo.find({ where: { id: In(userIds) } }) : []
-    const userMap = new Map(users.map((u) => [u.id, u]))
-
-    const likeMap = await this.getLikeCountMap(rows.map((r) => r.id))
-    const list = await Promise.all(rows.map((r) => this.decorateContent(r, userMap, { likeCount: likeMap.get(String(r.id)) })))
+    const list = await this.decorateRows(rows)
     return { list, total, page, page_size: pageSize, total_page: Math.ceil(total / pageSize) }
   }
 
@@ -265,13 +273,7 @@ export class ContentService implements OnModuleInit {
         const byId = new Map(rows.map((r) => [String(r.id), r]))
         const ordered = ids.map((id) => byId.get(String(id))).filter((r): r is Content => !!r)
 
-        // 批量查询用户，消除 N+1 查询
-        const userIds = [...new Set(ordered.map((r) => r.user_id).filter((id) => id > 0))]
-        const users = userIds.length ? await this.userRepo.find({ where: { id: In(userIds) } }) : []
-        const userMap = new Map(users.map((u) => [u.id, u]))
-
-        const likeMap = await this.getLikeCountMap(ordered.map((r) => r.id))
-        const list = await Promise.all(ordered.map((r) => this.decorateContent(r, userMap, { likeCount: likeMap.get(String(r.id)) })))
+        const list = await this.decorateRows(ordered)
         const total = await this.redis.getRecommendTotal()
         return { list, count: total }
       }
@@ -288,13 +290,7 @@ export class ContentService implements OnModuleInit {
     })
     const total = await this.contentRepo.count({ where: { audit_status: 'approved' } })
 
-    // 批量查询用户，消除 N+1 查询
-    const userIds = [...new Set(rows.map((r) => r.user_id).filter((id) => id > 0))]
-    const users = userIds.length ? await this.userRepo.find({ where: { id: In(userIds) } }) : []
-    const userMap = new Map(users.map((u) => [u.id, u]))
-
-    const likeMap = await this.getLikeCountMap(rows.map((r) => r.id))
-    const list = await Promise.all(rows.map((r) => this.decorateContent(r, userMap, { likeCount: likeMap.get(String(r.id)) })))
+    const list = await this.decorateRows(rows)
     return { list, count: total }
   }
 

@@ -20,7 +20,7 @@ function findProjectRoot(start: string): string {
 }
 
 export const PROJECT_ROOT = findProjectRoot(__dirname)
-export const DATA_DIR = join(PROJECT_ROOT, 'data')
+const DATA_DIR = join(PROJECT_ROOT, 'data')
 // 三目录同级：uploads（原文件，扁平存放、文件名为前端计算的 md5）/ thumbs（缩略图）/ images（压缩图）
 export const UPLOAD_DIR = join(DATA_DIR, 'uploads')
 export const THUMB_DIR = join(DATA_DIR, 'thumbs')

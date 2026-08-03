@@ -11,7 +11,7 @@ import sharp from 'sharp'
  *   转换成功后删除源文件，返回值作为新原图（绝对路径 + 大小）；
  * - 任何失败都降级：保留源文件并返回 null，不阻塞上传（后续缩略图/压缩照常）。
  */
-export interface WebpConversion {
+interface WebpConversion {
   /** 转换后的 WebP 绝对路径（新原图） */
   absPath: string
   /** 转换后的文件大小 */

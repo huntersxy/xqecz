@@ -1,10 +1,10 @@
-import { Controller, Get, Post, Put, Delete, Param, Query, Body, Req, Res, UseGuards, UploadedFile, UseInterceptors, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common'
+import { Controller, Get, Post, Put, Delete, Param, Query, Body, Req, UseGuards, UploadedFile, UseInterceptors, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { diskStorage } from 'multer'
 import { basename, extname, relative } from 'path'
 import { randomBytes } from 'crypto'
 import { mkdirSync, unlink } from 'fs'
-import type { Request, Response } from 'express'
+import type { Request } from 'express'
 import { ContentService } from './content.service'
 import { AuthGuard } from '../guards/auth.guard'
 import { OptionalAuthGuard } from '../guards/optional-auth.guard'
@@ -62,6 +62,22 @@ function uploadStorage() {
 // 把 multer 写出的绝对路径转成相对 UPLOAD_DIR 的路径（用于 /uploads 静态服务与 DB 存储）。
 function relPath(file: Express.Multer.File): string {
   return relative(uploadRoot(), file.path).split('\\').join('/')
+}
+
+// 上传文件统一准备：绝对路径 → 相对路径，必要时走无损 WebP 转换。
+async function prepareUploadFile(svc: ContentService, file?: Express.Multer.File) {
+  let filePath = file ? relPath(file) : undefined
+  let fileSize = file?.size
+  let absPath = file?.path
+  if (file) {
+    const prepared = await svc.prepareOriginalFile(file)
+    if (prepared) {
+      filePath = prepared.relPath
+      fileSize = prepared.size
+      absPath = prepared.absPath
+    }
+  }
+  return { filePath, fileSize, absPath }
 }
 
 @Controller('content')
@@ -127,17 +143,7 @@ export class ContentController {
   @UseInterceptors(FileInterceptor('file', { storage: uploadStorage(), limits: { fileSize: MAX_UPLOAD_SIZE }, fileFilter: mediaFileFilter }))
   async upload(@UploadedFile() file: Express.Multer.File | undefined, @Body() dto: UploadContentDto, @CurrentUser('uid') uid: number, @CurrentUser('is_admin') isAdmin: boolean) {
     const tags = Array.isArray(dto.tags) ? dto.tags : typeof dto.tags === 'string' ? dto.tags.split(',').map(s => s.trim()).filter(Boolean) : []
-    let filePath = file ? relPath(file) : undefined
-    let fileSize = file?.size
-    let absPath = file?.path
-    if (file) {
-      const prepared = await this.svc.prepareOriginalFile(file)
-      if (prepared) {
-        filePath = prepared.relPath
-        fileSize = prepared.size
-        absPath = prepared.absPath
-      }
-    }
+    const { filePath, fileSize, absPath } = await prepareUploadFile(this.svc, file)
     // 2026-07-29 改造：type 不再由调用方指定；按"是否有 file"自动设 image / text（必须二选一）。
     // 兜底校验：title 必填（DTO 已 @Length(1,200)），content 与 file 至少一个。
     if (!dto.content?.trim() && !file) {
@@ -193,17 +199,7 @@ export class ContentController {
     const tags = Array.isArray(dto.tags) ? dto.tags : typeof dto.tags === 'string' ? dto.tags.split(',').map(s => s.trim()).filter(Boolean) : []
     // 按 mimetype 自动推导类型：video/* → video，image/* → image，无文件 → text
     const type = !file ? 'text' : file.mimetype?.startsWith('video/') ? 'video' : 'image'
-    let filePath = file ? relPath(file) : undefined
-    let fileSize = file?.size
-    let absPath = file?.path
-    if (file) {
-      const prepared = await this.svc.prepareOriginalFile(file)
-      if (prepared) {
-        filePath = prepared.relPath
-        fileSize = prepared.size
-        absPath = prepared.absPath
-      }
-    }
+    const { filePath, fileSize, absPath } = await prepareUploadFile(this.svc, file)
     const result = await this.svc.create(
       {
         title: dto.title, type, content: dto.content,
@@ -234,17 +230,7 @@ export class ContentController {
     if (!row) throw new NotFoundException('内容不存在')
     if (uid !== row.user_id && !isAdmin) throw new ForbiddenException('无权修改该内容')
     const tags = Array.isArray(dto.tags) ? dto.tags : typeof dto.tags === 'string' ? dto.tags.split(',').map(s => s.trim()).filter(Boolean) : undefined
-    let filePath = file ? relPath(file) : undefined
-    let fileSize = file?.size
-    let absPath = file?.path
-    if (file) {
-      const prepared = await this.svc.prepareOriginalFile(file)
-      if (prepared) {
-        filePath = prepared.relPath
-        fileSize = prepared.size
-        absPath = prepared.absPath
-      }
-    }
+    const { filePath, fileSize, absPath } = await prepareUploadFile(this.svc, file)
     // 内容被编辑后重新进入审核列表；管理员编辑视为过审，并刷新推荐位。
     await this.svc.setAuditStatus(Number(id), isAdmin ? 'approved' : 'pending')
     const data = await this.svc.update(Number(id), {

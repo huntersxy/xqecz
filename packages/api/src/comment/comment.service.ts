@@ -13,8 +13,7 @@ export class CommentService {
     private redis: RedisService,
   ) {}
 
-  private async decorateComment(row: Comment, userMap?: Map<number, User>) {
-    const user = userMap?.get(row.user_id) ?? await this.userRepo.findOne({ where: { id: row.user_id } })
+  private toCommentDto(row: Comment, user: User | null | undefined) {
     return {
       id: row.id, content_id: row.content_id, user_id: row.user_id, text: row.text,
       parent_id: row.parent_id ?? null, is_banned: !!row.is_banned,
@@ -23,15 +22,14 @@ export class CommentService {
     }
   }
 
+  private async decorateComment(row: Comment, userMap?: Map<number, User>) {
+    const user = userMap?.get(row.user_id) ?? await this.userRepo.findOne({ where: { id: row.user_id } })
+    return this.toCommentDto(row, user)
+  }
+
   /** 同步版本，用于 userMap 已预加载的场景（回复列表），避免不必要的 async 开销。 */
   private decorateCommentSync(row: Comment, userMap: Map<number, User>) {
-    const user = userMap.get(row.user_id)
-    return {
-      id: row.id, content_id: row.content_id, user_id: row.user_id, text: row.text,
-      parent_id: row.parent_id ?? null, is_banned: !!row.is_banned,
-      created_at: row.created_at, updated_at: row.updated_at,
-      user: user ? { id: user.id, username: user.username } : { id: row.user_id, username: 'unknown' },
-    }
+    return this.toCommentDto(row, userMap.get(row.user_id))
   }
 
   async list(contentId: number, page = 1, pageSize = 20) {
