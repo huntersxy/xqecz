@@ -152,6 +152,7 @@ export interface RegenerateThumbnailResponse {
 
 export interface RegenerateAllResponse {
   count: number
+  running?: boolean
 }
 
 export interface UpdateContentAuthorResponse {

@@ -88,7 +88,7 @@ const apiRegenerateThumbnail = (id: number) =>
 async function apiRegenerateAllThumbnails() {
   try {
     const r = await adminApi.regenerateAllThumbnails()
-    toast.success(`已开始处理 ${r.data.count} 条`)
+    toast.success(r.data.running ? '批量生成已在后台进行中' : `已开始处理 ${r.data.count} 条`)
   } catch (e: unknown) { toast.error((e as Error).message || '操作失败') }
 }
 

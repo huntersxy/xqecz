@@ -16,6 +16,8 @@ import { convertNonGifToWebp } from './webp.util'
 @Injectable()
 export class ContentService implements OnModuleInit {
   private readonly log = new Logger(ContentService.name)
+  /** 批量缩略图后台任务是否正在进行（防止重复触发）。 */
+  private regeneratingAll = false
   constructor(
     @InjectRepository(Content) private contentRepo: Repository<Content>,
     @InjectRepository(User) private userRepo: Repository<User>,
@@ -493,13 +495,30 @@ export class ContentService implements OnModuleInit {
     return this.decorateContent(updated!)
   }
 
-  /** 批量重新生成所有图片/视频的缩略图。 */
+  /** 批量重新生成所有图片/视频的缩略图（接口立即返回，后台异步执行，避免超时）。 */
   async regenerateAllThumbnails() {
     const rows = await this.contentRepo.find({ where: { type: In(['image', 'video']) } })
+    const targets = rows.filter((r): r is Content & { file_path: string } => Boolean(r.file_path))
+    if (this.regeneratingAll) {
+      return { ok: 0, fail: 0, total: targets.length, count: targets.length, running: true }
+    }
+    if (!targets.length) {
+      return { ok: 0, fail: 0, total: 0, count: 0 }
+    }
+    this.regeneratingAll = true
+    void this.runRegenerateAll(targets)
+      .catch((e) => this.log.error('批量缩略图后台任务异常:', (e as Error)?.message || e))
+      .finally(() => {
+        this.regeneratingAll = false
+      })
+    return { ok: 0, fail: 0, total: targets.length, count: targets.length }
+  }
+
+  /** 后台批量重生成：逐条调 worker 并更新 thumb_path（单条失败不中断）。 */
+  private async runRegenerateAll(targets: Array<Content & { file_path: string }>) {
     let ok = 0
     let fail = 0
-    for (const r of rows) {
-      if (!r.file_path) continue
+    for (const r of targets) {
       try {
         const t = await this.worker.generateThumbnail(this.absPath(r.file_path), r.type)
         if (t?.success) {
@@ -512,7 +531,7 @@ export class ContentService implements OnModuleInit {
         fail++
       }
     }
-    return { ok, fail, total: rows.length }
+    this.log.log(`批量缩略图完成: 成功 ${ok} / 失败 ${fail} / 共 ${targets.length}`)
   }
 
   /**

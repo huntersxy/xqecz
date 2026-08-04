@@ -106,7 +106,8 @@ export class AdminController {
   @Post('content/regenerate-all-thumbnails')
   async regenerateAllThumbnails() {
     const data = await this.contentSvc.regenerateAllThumbnails()
-    return { code: 200, message: `成功 ${data.ok} / 失败 ${data.fail}`, data }
+    const message = data.running ? '批量生成已在后台进行中' : `已开始处理 ${data.count} 条`
+    return { code: 200, message, data }
   }
 
   // 手动触发推荐位刷新（api 读 MySQL → worker 打分 → api 写 Redis）。
