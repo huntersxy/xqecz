@@ -3,12 +3,13 @@ module xqecz-worker
 go 1.25.0
 
 require (
+	github.com/deepteams/webp v1.2.7
+	golang.org/x/image v0.44.0
 	google.golang.org/grpc v1.72.0
 	google.golang.org/protobuf v1.36.6
 )
 
 require (
-	golang.org/x/image v0.44.0 // indirect
 	golang.org/x/net v0.35.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.40.0 // indirect

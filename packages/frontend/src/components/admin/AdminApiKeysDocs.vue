@@ -178,7 +178,7 @@ const endpointCards: EndpointCard[] = [
         "title": "晓晓自拍",
         "type": "image",
         "text": "",
-        "thumb": "/thumbs/xxx_thumb.jpg",
+        "thumb": "/thumbs/xxx_thumb.webp",
         "img": "/images/xxx_tinified.webp",
         "user": { "id": "2", "username": "huntersxy" },
         "tags": [],

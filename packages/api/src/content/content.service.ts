@@ -123,7 +123,7 @@ export class ContentService implements OnModuleInit {
   /**
    * 将存储的相对路径补全为前端可访问的 URL。
    * 三目录同级：原文件扁平存 uploads（如 `d41d8cd9....png` → /uploads/...），
-   * 缩略图存 thumbs（`thumbs/xxx_thumb.jpg` → /thumbs/...），压缩图存 images（`images/xxx.webp` → /images/...）。
+   * 缩略图存 thumbs（`thumbs/xxx_thumb.webp` → /thumbs/...），压缩图存 images（`images/xxx.webp` → /images/...）。
    */
   static fileUrl(rel?: string): string {
     if (!rel) return ''

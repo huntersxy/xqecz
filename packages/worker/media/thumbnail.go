@@ -7,7 +7,7 @@ import (
 	"image/color"
 	"image/draw"
 	_ "image/gif"
-	"image/jpeg"
+	_ "image/jpeg"
 	_ "image/png"
 	"math"
 	"os"
@@ -16,6 +16,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/deepteams/webp"
 
 	// 额外图像解码器（标准库不含 WebP/BMP/TIFF）。均为纯 Go，无 CGO 依赖。
 	_ "golang.org/x/image/bmp"
@@ -31,11 +33,11 @@ var ffmpegAvailable = sync.OnceValue(func() bool {
 
 // GenerateThumbnail 为图片或视频生成 800px 宽的缩略图。
 //
-// 图片：优先用 ffmpeg（若可用）；ffmpeg 缺失时自动降级为纯 Go 解码→缩放→编码 JPEG，
+// 图片：优先用 ffmpeg（若可用）；ffmpeg 缺失时自动降级为纯 Go 解码→缩放→编码 WebP，
 // 零系统依赖，保证本地/生产环境无需安装 ffmpeg 也能生成图片缩略图。
 // 视频：必须使用 ffmpeg（缺失即返回错误，由调用方降级）。
 //
-// 返回：相对 data 目录的缩略图路径（如 "thumbs/xxx_thumb.jpg"），供 api 映射为 /thumbs/ URL。
+// 返回：相对 data 目录的缩略图路径（如 "thumbs/xxx_thumb.webp"），供 api 映射为 /thumbs/ URL。
 func GenerateThumbnail(ctx context.Context, absPath, contentType, thumbDir string) (string, error) {
 	if err := os.MkdirAll(thumbDir, 0o755); err != nil {
 		return "", fmt.Errorf("create thumb dir: %w", err)
@@ -46,7 +48,7 @@ func GenerateThumbnail(ctx context.Context, absPath, contentType, thumbDir strin
 		if !ffmpegAvailable() {
 			return "", fmt.Errorf("ffmpeg not found in PATH; cannot generate video thumbnail")
 		}
-		outPath := filepath.Join(thumbDir, thumbName(absPath, "jpg"))
+		outPath := filepath.Join(thumbDir, thumbName(absPath, "webp"))
 		if err := runFFmpeg(ctx, absPath, outPath); err != nil {
 			return "", err
 		}
@@ -55,34 +57,41 @@ func GenerateThumbnail(ctx context.Context, absPath, contentType, thumbDir strin
 
 	// 图片：ffmpeg 优先（统一缩放），失败/缺失则纯 Go 兜底。
 	if ffmpegAvailable() {
-		outPath := filepath.Join(thumbDir, thumbName(absPath, "jpg"))
+		outPath := filepath.Join(thumbDir, thumbName(absPath, "webp"))
 		if err := runFFmpeg(ctx, absPath, outPath); err == nil {
 			return relThumb(thumbDir, outPath)
 		}
 		// ffmpeg 失败不致命，继续走纯 Go 路径。
 	}
 
-	outPath := filepath.Join(thumbDir, thumbName(absPath, "jpg"))
+	outPath := filepath.Join(thumbDir, thumbName(absPath, "webp"))
 	if err := generateWithGo(absPath, outPath); err != nil {
 		return "", err
 	}
 	return relThumb(thumbDir, outPath)
 }
 
-// thumbName 由源文件名推导缩略图文件名（`<stem>_thumb.jpg`）。
+// thumbName 由源文件名推导缩略图文件名（`<stem>_thumb.webp`）。
 func thumbName(absPath, ext string) string {
 	stem := strings.TrimSuffix(filepath.Base(absPath), filepath.Ext(absPath))
 	return stem + "_thumb." + ext
 }
 
-// runFFmpeg 用 ffmpeg 把源文件缩放到宽 800（高度按比例）输出为 jpg。
+// runFFmpeg 用 ffmpeg 把源文件缩放到宽 800（高度按比例）输出为 webp。
 // 支持 context 传入的 deadline，超时自动终止 ffmpeg 进程。
 func runFFmpeg(ctx context.Context, absPath, outPath string) error {
 	// 默认 5 分钟超时（视频抽帧可能较慢），如果 context 已有更短的 deadline 则尊重它。
 	ffmpegCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	args := []string{"-y", "-i", absPath, "-vf", "scale=800:-1", outPath}
+	// 只取第一帧作为缩略图；显式指定 libwebp 编码器，质量对齐原 jpg 的 85。
+	args := []string{
+		"-y", "-i", absPath,
+		"-vf", "scale=800:-1",
+		"-frames:v", "1",
+		"-c:v", "libwebp", "-quality", "85",
+		outPath,
+	}
 	cmd := exec.CommandContext(ffmpegCtx, "ffmpeg", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -97,7 +106,7 @@ func runFFmpeg(ctx context.Context, absPath, outPath string) error {
 	return nil
 }
 
-// relThumb 把绝对输出路径转成相对 data 目录（thumbDir 的父目录）的斜杠路径（如 "thumbs/xxx_thumb.jpg"）。
+// relThumb 把绝对输出路径转成相对 data 目录（thumbDir 的父目录）的斜杠路径（如 "thumbs/xxx_thumb.webp"）。
 func relThumb(thumbDir, outPath string) (string, error) {
 	rel, err := filepath.Rel(filepath.Dir(thumbDir), outPath)
 	if err != nil {
@@ -106,7 +115,7 @@ func relThumb(thumbDir, outPath string) (string, error) {
 	return filepath.ToSlash(rel), nil
 }
 
-// generateWithGo 纯 Go 实现：解码图片 → 缩放到宽 800 → 编码为 JPEG。
+// generateWithGo 纯 Go 实现：解码图片 → 缩放到宽 800 → 编码为 WebP。
 // 不依赖任何外部二进制，适合未安装 ffmpeg 的环境（本地/生产通用）。
 func generateWithGo(absPath, outPath string) error {
 	f, err := os.Open(absPath)
@@ -145,8 +154,8 @@ func generateWithGo(absPath, outPath string) error {
 		return fmt.Errorf("create thumb: %w", err)
 	}
 	defer out.Close()
-	if err := jpeg.Encode(out, dst, &jpeg.Options{Quality: 85}); err != nil {
-		return fmt.Errorf("encode jpeg: %w", err)
+	if err := webp.Encode(out, dst, &webp.EncoderOptions{Quality: 85}); err != nil {
+		return fmt.Errorf("encode webp: %w", err)
 	}
 	return nil
 }
