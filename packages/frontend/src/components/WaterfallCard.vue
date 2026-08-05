@@ -32,7 +32,7 @@ onBeforeUnmount(() => ro?.disconnect())
 
 <template>
   <div class="wf-card" @click="emit('click', props.item)" @keydown.enter="emit('click', props.item)" tabindex="0">
-    <template v-if="props.item.type !== 'text'">
+    <template v-if="props.item.thumb">
       <div class="wf-card-media" ref="mediaRef">
         <MediaImage :src="props.item.thumb" :alt="props.item.title" :preview="false" loading="lazy" decoding="async" />
         <div v-if="props.item.tags?.some(t => /ai/i.test(t))" class="wf-badge-ai">AI</div>

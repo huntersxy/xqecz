@@ -12,7 +12,6 @@ export const useHomeStore = defineStore('home', () => {
   // 搜索和筛选状态
   const searchKeyword = ref('')
   const selectedTags = ref<string[]>([])
-  const selectedTypes = ref<string[]>([])
   const page = ref(1)
   
   // 推荐内容页码
@@ -43,7 +42,6 @@ export const useHomeStore = defineStore('home', () => {
   function saveState(params: {
     searchKeyword: string
     selectedTags: string[]
-    selectedTypes: string[]
     page: number
     recommendPage: number
     scrollPosition: number
@@ -55,7 +53,6 @@ export const useHomeStore = defineStore('home', () => {
   }) {
     searchKeyword.value = params.searchKeyword
     selectedTags.value = params.selectedTags
-    selectedTypes.value = params.selectedTypes
     page.value = params.page
     recommendPage.value = params.recommendPage
     scrollPosition.value = params.scrollPosition
@@ -71,7 +68,6 @@ export const useHomeStore = defineStore('home', () => {
   function clearState() {
     searchKeyword.value = ''
     selectedTags.value = []
-    selectedTypes.value = []
     page.value = 1
     recommendPage.value = 1
     scrollPosition.value = 0
@@ -93,7 +89,6 @@ export const useHomeStore = defineStore('home', () => {
   return {
     searchKeyword,
     selectedTags,
-    selectedTypes,
     page,
     recommendPage,
     scrollPosition,

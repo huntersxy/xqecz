@@ -30,7 +30,6 @@ const showUploadSheet = ref(false)
 const swapSections = computed(
   () =>
     searchFilter.selectedTags.value.length > 0 ||
-    searchFilter.selectedTypes.value.length > 0 ||
     !!homeStore.searchKeyword.trim(),
 )
 
@@ -93,7 +92,6 @@ onBeforeRouteLeave(() => {
   homeStore.saveState({
     searchKeyword: homeStore.searchKeyword,
     selectedTags: searchFilter.selectedTags.value,
-    selectedTypes: searchFilter.selectedTypes.value,
     page: currentPage.value,
     recommendPage: recommendLoader.loadedPage.value,
     scrollPosition: pos,
@@ -116,12 +114,10 @@ async function fetchPage(page: number, append = false) {
       res = await contentApi.search(homeStore.searchKeyword, {
         page, page_size: pageSize.value,
         tag: searchFilter.selectedTags.value.length > 0 ? searchFilter.selectedTags.value.join(',') : undefined,
-        type: searchFilter.selectedTypes.value.length > 0 ? searchFilter.selectedTypes.value.join(',') : undefined,
       })
     } else {
       const params: ListParams = { page, page_size: pageSize.value, sort_by: 'created_at', order: 'desc' }
       if (searchFilter.selectedTags.value.length > 0) params.tag = searchFilter.selectedTags.value.join(',')
-      if (searchFilter.selectedTypes.value.length > 0) params.type = searchFilter.selectedTypes.value.join(',')
       res = await contentApi.list(params)
     }
     if (res.code === 200) {

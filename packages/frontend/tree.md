@@ -57,7 +57,7 @@ packages/frontend/
     │
     ├── stores/                    # Pinia（Setup Store 写法）
     │   ├── user.ts                # 用户会话：login/logout/checkAuth/getMe、isLoggedIn/needsEmail
-    │   ├── home.ts                # 首页状态持久化：搜索词/标签/类型/页码/滚动位置，返回时恢复
+    │   ├── home.ts                # 首页状态持久化：搜索词/标签/页码/滚动位置，返回时恢复
     │   ├── admin.ts               # 后台聚合状态：内容/用户/举报/认领/投票分页 + 相关 API 调用
     │   ├── theme.ts               # 日间/暗色模式：切 html.dark class + localStorage 记忆
     │   └── __tests__/
@@ -131,7 +131,7 @@ packages/frontend/
 | Store | 职责 |
 |-------|------|
 | `user.ts` | 登录态核心：`login/logout/checkAuth/getMe`，暴露 `isLoggedIn`、`needsEmail`。 |
-| `home.ts` | 首页浏览状态持久化（搜索/标签/类型/页码/滚动位置），从详情页返回时恢复现场。 |
+| `home.ts` | 首页浏览状态持久化（搜索/标签/页码/滚动位置），从详情页返回时恢复现场。 |
 | `admin.ts` | 后台数据中枢：内容、用户、举报、认领、投票的分页状态与增删改查 API 编排。 |
 | `theme.ts` | 明暗模式：切换 `html.dark`/`html.light` class，localStorage 记忆。 |
 
@@ -163,7 +163,7 @@ packages/frontend/
 ### 7. 类型与工具
 | 文件 | 职责 |
 |------|------|
-| `types/schemas.ts` | zod 运行时校验 + `ContentType`/`CONTENT_TYPES`（新数据仅 `image`/`text`，兼容历史 `video`/`link`）。 |
+| `types/schemas.ts` | zod 运行时校验（内容不再有 type 分类，媒体按 `img`/`video`/`thumb` 字段渲染）。 |
 | `types/index.ts` | 类型统一出口 + `ApiResponse`/`PaginatedResponse` 等通用接口。 |
 | `utils/index.ts` | 图片 URL 拼接、Markdown 渲染消毒、时间格式化、FormData 构造、文件 MD5 重命名等。 |
 | `utils/constants.ts` | CC 授权协议、视频转链接条款等长文案常量。 |

@@ -8,7 +8,7 @@ import { RedisService } from '../redis/redis.service'
 
 /** 仪表盘聚合结果（与 getJSON 缓存共用同一结构） */
 export interface DashboardData {
-  content: { total: number; pending: number; approved: number; rejected: number; image: number; text: number; today: number }
+  content: { total: number; pending: number; approved: number; rejected: number; today: number }
   users: { total: number; admins: number; banned: number; today: number }
   comments: { total: number; today: number }
   claims: { total: number; pending: number; approved: number; rejected: number }
@@ -65,8 +65,6 @@ export class AdminService {
           .addSelect(`COALESCE(SUM(c.audit_status = 'pending'), 0)`, 'pending')
           .addSelect(`COALESCE(SUM(c.audit_status = 'approved'), 0)`, 'approved')
           .addSelect(`COALESCE(SUM(c.audit_status = 'rejected'), 0)`, 'rejected')
-          .addSelect(`COALESCE(SUM(c.type = 'image'), 0)`, 'image')
-          .addSelect(`COALESCE(SUM(c.type = 'text'), 0)`, 'text')
           .addSelect('COALESCE(SUM(c.created_at >= :today), 0)', 'today')
           .where('c.deleted_at IS NULL')
           .setParameter('today', todayStart)
@@ -136,8 +134,7 @@ export class AdminService {
     const data: DashboardData = {
       content: {
         total: n(contentRow?.total), pending: n(contentRow?.pending), approved: n(contentRow?.approved),
-        rejected: n(contentRow?.rejected), image: n(contentRow?.image), text: n(contentRow?.text),
-        today: n(contentRow?.today),
+        rejected: n(contentRow?.rejected), today: n(contentRow?.today),
       },
       users: { total: n(userRow?.total), admins: n(userRow?.admins), banned: n(userRow?.banned), today: n(userRow?.today) },
       comments: { total: n(commentRow?.total), today: n(commentRow?.today) },
@@ -163,7 +160,7 @@ export class AdminService {
     return this.contentSvc.list({ page, pageSize, auditStatus: 'pending', sortBy: 'created_at', order: 'asc' })
   }
 
-  async allContent(opts: { page?: number; pageSize?: number; auditStatus?: string; type?: string; tag?: string; keyword?: string; sortBy?: string; order?: string }) {
+  async allContent(opts: { page?: number; pageSize?: number; auditStatus?: string; tag?: string; keyword?: string; sortBy?: string; order?: string }) {
     return this.contentSvc.list(opts)
   }
 
@@ -210,6 +207,8 @@ export class AdminService {
     const u = await this.userRepo.findOne({ where: { id } })
     if (!u) throw new NotFoundException('用户不存在')
     await this.userRepo.softDelete(id)
+    // 用户被删除后，其内容的作者名/头像装饰会变化，失效内容缓存。
+    await this.redis.clearAllContentCaches().catch(() => undefined)
   }
 
   async listClaims(page = 1, pageSize = 20, status?: string) {

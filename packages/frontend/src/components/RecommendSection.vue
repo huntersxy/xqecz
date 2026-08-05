@@ -28,10 +28,10 @@ function markBroken(id: string | number) {
   if (!brokenIds.value.includes(id)) brokenIds.value = [...brokenIds.value, id]
 }
 
-// 不显示文字类、不显示破图
+// 不显示无封面、不显示破图
 const visibleContents = computed(() =>
   recommendContents.value.filter(
-    (it) => it.type !== 'text' && !brokenIds.value.includes(it.id)
+    (it) => it.thumb && !brokenIds.value.includes(it.id)
   )
 )
 

@@ -21,7 +21,6 @@ vi.mock('@/stores/home', () => ({
   useHomeStore: vi.fn(() => ({
     selectedTags: [],
     searchKeyword: '',
-    selectedTypes: [],
   })),
 }))
 
@@ -32,12 +31,11 @@ describe('useSearchFilter', () => {
   })
 
   it('should initialize with default values', () => {
-    const { allTags, selectedTags, searchKeyword, selectedTypes } = useSearchFilter()
+    const { allTags, selectedTags, searchKeyword } = useSearchFilter()
 
     expect(allTags.value).toEqual([])
     expect(selectedTags.value).toEqual([])
     expect(searchKeyword.value).toBe('')
-    expect(selectedTypes.value).toEqual([])
   })
 
   it('should select and deselect tags', () => {
@@ -50,18 +48,6 @@ describe('useSearchFilter', () => {
 
     selectTag('tag1', callback)
     expect(selectedTags.value).toEqual([])
-  })
-
-  it('should select and deselect types', () => {
-    const { selectedTypes, selectType } = useSearchFilter()
-    const callback = vi.fn()
-
-    selectType('video', callback)
-    expect(selectedTypes.value).toEqual(['video'])
-    expect(callback).toHaveBeenCalled()
-
-    selectType('video', callback)
-    expect(selectedTypes.value).toEqual([])
   })
 
   it('should handle search with debounce', () => {

@@ -33,53 +33,59 @@ export class CommentService {
   }
 
   async list(contentId: number, page = 1, pageSize = 20) {
-    // Top-level comments
-    const [tops, total] = await this.commentRepo.findAndCount({
-      where: { content_id: contentId, parent_id: IsNull() as any, is_banned: 0 },
-      order: { created_at: 'ASC' },
-      skip: (page - 1) * pageSize, take: pageSize,
+    // 评论树按 内容+分页 缓存；评论增删/软删时经 clearCommentCache 失效。
+    const key = `comments:${contentId}:${page}:${pageSize}`
+    return this.redis.getOrSetJSON(key, 300, async () => {
+      // Top-level comments
+      const [tops, total] = await this.commentRepo.findAndCount({
+        where: { content_id: contentId, parent_id: IsNull() as any, is_banned: 0 },
+        order: { created_at: 'ASC' },
+        skip: (page - 1) * pageSize, take: pageSize,
+      })
+
+      // Replies for those top-level comments
+      const topIds = tops.map((t) => t.id)
+      let replies: Comment[] = []
+      if (topIds.length) {
+        replies = await this.commentRepo
+          .createQueryBuilder('c')
+          .where('c.parent_id IN (:...ids)', { ids: topIds })
+          .andWhere('c.is_banned = 0')
+          .orderBy('c.created_at', 'ASC')
+          .getMany()
+      }
+
+      // 批量查询用户，消除 N+1 查询
+      const allUserIds = [...new Set([
+        ...tops.map((t) => t.user_id),
+        ...replies.map((r) => r.user_id),
+      ].filter((id) => id > 0))]
+      const users = allUserIds.length ? await this.userRepo.find({ where: { id: In(allUserIds) } }) : []
+      const userMap = new Map(users.map((u) => [u.id, u]))
+
+      const replyMap = new Map<number, Comment[]>()
+      for (const r of replies) {
+        if (!replyMap.has(r.parent_id!)) replyMap.set(r.parent_id!, [])
+        replyMap.get(r.parent_id!)!.push(r)
+      }
+
+      const list = await Promise.all(tops.map(async (t) => {
+        const base = await this.decorateComment(t, userMap)
+        const childReplies = replyMap.get(t.id) || []
+        ;(base as any).replies = childReplies.map((r) => this.decorateCommentSync(r, userMap))
+        return base
+      }))
+
+      const totalPage = pageSize > 0 ? Math.ceil(total / pageSize) : 1
+      return { list, total, page, page_size: pageSize, total_page: totalPage }
     })
-
-    // Replies for those top-level comments
-    const topIds = tops.map((t) => t.id)
-    let replies: Comment[] = []
-    if (topIds.length) {
-      replies = await this.commentRepo
-        .createQueryBuilder('c')
-        .where('c.parent_id IN (:...ids)', { ids: topIds })
-        .andWhere('c.is_banned = 0')
-        .orderBy('c.created_at', 'ASC')
-        .getMany()
-    }
-
-    // 批量查询用户，消除 N+1 查询
-    const allUserIds = [...new Set([
-      ...tops.map((t) => t.user_id),
-      ...replies.map((r) => r.user_id),
-    ].filter((id) => id > 0))]
-    const users = allUserIds.length ? await this.userRepo.find({ where: { id: In(allUserIds) } }) : []
-    const userMap = new Map(users.map((u) => [u.id, u]))
-
-    const replyMap = new Map<number, Comment[]>()
-    for (const r of replies) {
-      if (!replyMap.has(r.parent_id!)) replyMap.set(r.parent_id!, [])
-      replyMap.get(r.parent_id!)!.push(r)
-    }
-
-    const list = await Promise.all(tops.map(async (t) => {
-      const base = await this.decorateComment(t, userMap)
-      const childReplies = replyMap.get(t.id) || []
-      ;(base as any).replies = childReplies.map((r) => this.decorateCommentSync(r, userMap))
-      return base
-    }))
-
-    const totalPage = pageSize > 0 ? Math.ceil(total / pageSize) : 1
-    return { list, total, page, page_size: pageSize, total_page: totalPage }
   }
 
   async count(contentId: number) {
-    const count = await this.commentRepo.count({ where: { content_id: contentId, is_banned: 0 } as any })
-    return { content_id: contentId, count }
+    return this.redis.getOrSetJSON(`comment_count:${contentId}`, 300, async () => {
+      const count = await this.commentRepo.count({ where: { content_id: contentId, is_banned: 0 } as any })
+      return { content_id: contentId, count }
+    })
   }
 
   async add(contentId: number, userId: number, text: string, parentId?: number | null) {
@@ -94,6 +100,7 @@ export class CommentService {
     if (!row) throw new NotFoundException('评论不存在')
     if (userId !== row.user_id && !isAdmin) throw new ForbiddenException('无权删除该评论')
     await this.commentRepo.softDelete(id)
+    await this.redis.clearCommentCache(row.content_id)
   }
 
   async report(commentId: number, userId: number, reason: string) {

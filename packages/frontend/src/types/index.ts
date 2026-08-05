@@ -1,8 +1,8 @@
-import { CONTENT_TYPES, ContentSchema, RecommendContentSchema } from './schemas'
-import type { ContentType, User, Content, RecommendContent, Comment, Poll, Claim } from './schemas'
+import { ContentSchema, RecommendContentSchema } from './schemas'
+import type { User, Content, RecommendContent, Comment, Poll, Claim } from './schemas'
 
-export { CONTENT_TYPES, ContentSchema, RecommendContentSchema }
-export type { ContentType, User, Content, RecommendContent, Comment, Poll, Claim }
+export { ContentSchema, RecommendContentSchema }
+export type { User, Content, RecommendContent, Comment, Poll, Claim }
 
 export interface ApiResponse<T = unknown> {
   code: number
@@ -34,7 +34,7 @@ export interface AuditRequest {
   remark?: string
 }
 
-// 2026-07-29 改造：上传不再让用户选 type，后端根据"是否有 file"自动设 image / text。
+// 内容统一模型：上传不再有类型概念，内容 = 标题 + 正文 + 可选媒体文件。
 // 描述字段统一用 `content`（对应后端 contents.content / DB column）。
 export interface UploadContentData {
   title: string
@@ -74,7 +74,6 @@ export interface ListParams {
   page?: number
   page_size?: number
   tag?: string
-  type?: string
   audit_status?: string
   sort_by?: string
   order?: string
@@ -152,7 +151,21 @@ export interface RegenerateThumbnailResponse {
 
 export interface RegenerateAllResponse {
   count: number
+  ok?: number
+  fail?: number
+  total?: number
   running?: boolean
+}
+
+export interface RegenerateAllStatus {
+  status: 'idle' | 'running' | 'done' | 'error'
+  total: number
+  ok: number
+  fail: number
+  started_at?: number
+  updated_at?: number
+  finished_at?: number
+  error?: string
 }
 
 export interface UpdateContentAuthorResponse {

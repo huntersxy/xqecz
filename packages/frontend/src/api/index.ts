@@ -24,6 +24,7 @@ import type {
   ClaimListResponse,
   RegenerateThumbnailResponse,
   RegenerateAllResponse,
+  RegenerateAllStatus,
   UpdateContentAuthorResponse,
   ApiKey,
   ApiKeyCreated,
@@ -237,7 +238,7 @@ export const contentApi = {
     return xhrUpload('/content/upload', formData, onProgress, signal)
   },
 
-  // 游客快速上传：title 必填 + (content 或 file) 至少一个；后端按 file 是否存在自动设 type=image/text。
+  // 游客快速上传：title 必填 + (content 或 file) 至少一个；内容不分类，媒体按文件识别。
   quickUpload: async (
     data: QuickUploadData,
     onProgress?: (percent: number) => void,
@@ -279,12 +280,11 @@ export const contentApi = {
 
   update: async (
     id: number,
-    data: { title?: string; content?: string; url?: string; tags?: string[]; file?: File },
+    data: { title?: string; content?: string; tags?: string[]; file?: File },
   ) => {
     const formData = toFormData({
       title: data.title,
       content: data.content,
-      url: data.url,
       tags: data.tags,
       file: data.file ? await renameFileToMd5(data.file) : data.file,
     })
@@ -418,6 +418,9 @@ export const adminApi = {
     request<RegenerateAllResponse>('/admin/content/regenerate-all-thumbnails', {
       method: 'POST',
     }),
+
+  getRegenerateAllStatus: () =>
+    request<RegenerateAllStatus>('/admin/content/regenerate-all-thumbnails/status'),
 
   deleteUser: (id: number) => request(`/admin/users/${id}`, { method: 'DELETE' }),
 

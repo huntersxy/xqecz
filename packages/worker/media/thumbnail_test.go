@@ -18,7 +18,10 @@ func assertWebP(t *testing.T, path string) {
 	if err != nil {
 		t.Fatalf("read thumb: %v", err)
 	}
-	if len(data) < 12 || string(data[0:4]) != "RIFF" || string(data[8:12]) != "WEBP" {
+	if len(data) < 12 {
+		t.Fatalf("not a webp file (len=%d): too short", len(data))
+	}
+	if string(data[0:4]) != "RIFF" || string(data[8:12]) != "WEBP" {
 		t.Fatalf("not a webp file (len=%d, magic=% x)", len(data), data[:12])
 	}
 }

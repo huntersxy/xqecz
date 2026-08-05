@@ -7,7 +7,7 @@ import { Tag, Tooltip, type TableColumnData } from '@arco-design/web-vue'
 import { useMediaQuery } from '@vueuse/core'
 import type { Content } from '@/types'
 import {
-  IconImage, IconFile, IconEdit, IconDelete, IconRefresh, IconCheck, IconClose,
+  IconEdit, IconDelete, IconRefresh, IconCheck, IconClose,
 } from '@arco-design/web-vue/es/icon'
 
 const props = defineProps<{ mode: 'my' | 'all' | 'pending' }>()
@@ -23,17 +23,11 @@ const panelTitle = computed(() =>
 )
 
 const columns = computed<TableColumnData[]>(() => [
-  { title: '类型', slotName: 'type', width: 76, align: 'center' },
   { title: '内容', slotName: 'content', minWidth: 220 },
   { title: '标签', slotName: 'tags', width: 180 },
   { title: '作者', slotName: 'author', minWidth: 80 },
   { ...ACTION_COL },
 ])
-
-const typeMap: Record<string, { color: string; label: string; icon: Component }> = {
-  image: { color: 'green', label: '图片', icon: IconImage },
-  text: { color: 'blue', label: '文字', icon: IconFile },
-}
 
 async function load(page = 1) {
   if (props.mode === 'my') admin.loadMyContent(page)
@@ -72,15 +66,9 @@ onMounted(load)
           row-key="id"
           @page-change="onTableChange"
         >
-          <template #type="{ record }">
-            <Tag :color="typeMap[record.type]?.color" :bordered="false" class="admin-tag-inline">
-              <component :is="typeMap[record.type]?.icon" />
-              {{ typeMap[record.type]?.label }}
-            </Tag>
-          </template>
           <template #content="{ record }">
             <div class="flex items-center gap-3">
-              <div v-if="record.type !== 'text'" class="content-thumb">
+              <div v-if="record.thumb" class="content-thumb">
                 <MediaImage :src="record.thumb" :preview="false" alt="" />
               </div>
               <Tooltip :title="record.title || '无标题'">
@@ -122,13 +110,12 @@ onMounted(load)
         <div class="admin-mobile-list">
           <div v-for="record in data.list" :key="record.id" class="admin-mobile-card" @click="admin.openDrawer(record, 'view')">
             <div class="flex gap-2.5 items-start">
-              <div v-if="record.type !== 'text'" class="content-thumb content-thumb-lg">
+              <div v-if="record.thumb" class="content-thumb content-thumb-lg">
                 <MediaImage :src="record.thumb" :preview="false" alt="" />
               </div>
               <div class="flex-1 min-w-0">
                 <div class="mobile-title admin-cell-title">{{ record.title || '无标题' }}</div>
                 <div class="flex items-center gap-1.5 flex-wrap">
-                  <Tag :color="typeMap[record.type]?.color" size="small" :bordered="false" class="admin-tag-inline">{{ typeMap[record.type]?.label }}</Tag>
                   <span v-if="mode !== 'my'" class="admin-cell-3">{{ record.user?.username }}</span>
                 </div>
               </div>

@@ -86,6 +86,8 @@ export class AuthService implements OnModuleInit {
     const emailExists = await this.userRepo.findOne({ where: { email } })
     if (emailExists && emailExists.id !== uid) throw new ConflictException('邮箱已被使用')
     await this.userRepo.update(uid, { email })
+    // 邮箱用于生成头像 URL，变化后需失效内容装饰缓存（detail/list 内嵌 avatar_url）。
+    await this.redis.clearAllContentCaches().catch(() => undefined)
     return { message: '邮箱更新成功' }
   }
 

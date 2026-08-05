@@ -69,15 +69,6 @@ const progressCards = computed<ProgressCard[]>(() => {
         { label: '已拒绝', count: s.content.rejected, status: 'danger', icon: IconCloseCircle },
       ],
     },
-    {
-      title: '内容类型分布',
-      footerLabel: '内容 / 用户 / 评论今日新增',
-      footerValue: `${s.content.today} / ${s.users.today} / ${s.comments.today}`,
-      rows: [
-        { label: '图片', count: s.content.image, color: 'rgb(var(--primary-6))' },
-        { label: '图文', count: s.content.text, color: 'rgb(var(--arcoblue-6))' },
-      ],
-    },
   ]
 })
 
@@ -175,7 +166,7 @@ const maxTag = computed(() => Math.max(1, ...(stats.value?.topTags.map((t) => t.
                   class="dash-list-item"
                   @click="admin.openDrawer(item, 'view')"
                 >
-                  <div v-if="item.type !== 'text'" class="content-thumb">
+                  <div v-if="item.thumb" class="content-thumb">
                     <MediaImage :src="item.thumb" :preview="false" alt="" />
                   </div>
                   <div v-else class="content-thumb content-thumb-text">

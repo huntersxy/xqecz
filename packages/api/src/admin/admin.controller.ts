@@ -27,7 +27,7 @@ export class AdminController {
 
   @Get('content/all')
   async allContent(@Query() q: any) {
-    return { code: 200, message: 'ok', data: await this.svc.allContent({ page: q.page, pageSize: q.page_size, auditStatus: q.audit_status, type: q.type, tag: q.tag, keyword: q.keyword, sortBy: q.sort_by, order: q.order }) }
+    return { code: 200, message: 'ok', data: await this.svc.allContent({ page: q.page, pageSize: q.page_size, auditStatus: q.audit_status, tag: q.tag, keyword: q.keyword, sortBy: q.sort_by, order: q.order }) }
   }
 
   @Put('content/:id/author')
@@ -110,6 +110,11 @@ export class AdminController {
     return { code: 200, message, data }
   }
 
+  @Get('content/regenerate-all-thumbnails/status')
+  async regenerateAllThumbnailsStatus() {
+    return { code: 200, message: 'ok', data: await this.contentSvc.getRegenerateAllStatus() }
+  }
+
   // 手动触发推荐位刷新（api 读 MySQL → worker 打分 → api 写 Redis）。
   @Post('content/refresh-recommend')
   async refreshRecommend() {
@@ -117,10 +122,4 @@ export class AdminController {
     return { code: 200, message: '推荐位已刷新', data: null }
   }
 
-  // 2026-07-29 一次性迁移：把 type in ('video','link') 的旧记录改为 'text'。幂等，可重复执行。
-  @Post('content/migrate-old-types')
-  async migrateOldTypes() {
-    const data = await this.contentSvc.migrateOldTypes()
-    return { code: 200, message: `已迁移 ${data.total} 条（video: ${data.video}，link: ${data.link}）`, data }
-  }
 }

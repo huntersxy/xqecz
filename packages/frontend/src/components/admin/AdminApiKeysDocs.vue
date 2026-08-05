@@ -165,7 +165,6 @@ const endpointCards: EndpointCard[] = [
       { name: 'sort_by', type: 'string', required: '否', descHtml: `created_at / view_count / id，默认 created_at` },
       { name: 'order', type: 'string', required: '否', descHtml: `desc / asc，默认 desc` },
       { name: 'tag', type: 'string', required: '否', descHtml: `标签过滤，多个用英文逗号分隔` },
-      { name: 'type', type: 'string', required: '否', descHtml: `内容类型：image / text` },
       { name: 'keyword', type: 'string', required: '否', descHtml: `标题关键词（完整搜索见 <code>/api/content/search</code>）` },
     ] },
     response: `{
@@ -176,7 +175,6 @@ const endpointCards: EndpointCard[] = [
       {
         "id": "814",
         "title": "晓晓自拍",
-        "type": "image",
         "text": "",
         "thumb": "/thumbs/xxx_thumb.webp",
         "img": "/images/xxx_tinified.webp",
@@ -208,7 +206,7 @@ const endpointCards: EndpointCard[] = [
     id: 'ep-upload', method: 'POST', methodCls: 'is-post', path: '/api/content/upload',
     badge: '需 upload 权限', badgeCls: 'is-auth',
     descHtml: `上传内容，请求体为 <code>multipart/form-data</code>（文本字段与文件可同时携带）。`,
-    noteHtml: `非 GIF 图片上传后由服务端本地无损转为 WebP 作为新原图（源文件删除），随后进入缩略图与压缩链路。`,
+    noteHtml: `非 GIF 图片上传后由服务端本地无损转为 WebP 作为新原图（源文件删除），随后进入缩略图生成链路。`,
     params: { title: '请求参数（form-data）', head: ['字段', '类型', '必填', '说明'], hasLoc: false, rows: [
       { name: 'title', type: 'string', required: '是', descHtml: `标题，1-200 字` },
       { name: 'content', type: 'string', required: '否', descHtml: `Markdown 描述；与 file 至少填一项` },
@@ -221,7 +219,6 @@ const endpointCards: EndpointCard[] = [
   "data": {
     "id": "815",
     "title": "我的作品",
-    "type": "text",
     "text": "**Markdown** 描述",
     "thumb": "",
     "img": "",

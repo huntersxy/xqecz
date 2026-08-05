@@ -14,7 +14,6 @@ const admin = useAdminStore()
 const editFormModel: Record<string, unknown> = {}
 const editTitle = ref('')
 const editContent = ref('')
-const editUrl = ref('')
 const editTags = ref<string[]>([])
 const editFile = ref<File | undefined>()
 const editFileName = ref('')
@@ -29,9 +28,6 @@ const renderedContent = computed(() => {
   return renderMarkdown(admin.drawerContent.text || '')
 })
 
-// 保留 video/link 展示兜底（历史脏数据），用 string 比较避免收窄后的类型错误
-const drawerTypeStr = computed(() => admin.drawerContent?.type as string)
-
 const filteredUsers = computed(() => {
   if (!authorKeyword.value.trim()) return allUsers.value
   const kw = authorKeyword.value.toLowerCase()
@@ -44,7 +40,6 @@ watch(() => admin.drawerOpen, async (open) => {
     if (detail) admin.drawerContent = detail
     editTitle.value = admin.drawerContent.title
     editContent.value = admin.drawerContent.text || ''
-    editUrl.value = admin.drawerContent.url || ''
     editTags.value = [...(admin.drawerContent.tags || [])]
     editFile.value = undefined
     editFileName.value = ''
@@ -64,7 +59,7 @@ async function loadUsers() {
 async function handleSave() {
   if (!admin.drawerContent) return
   const ok = await admin.saveContent(admin.drawerContent.id, {
-    title: editTitle.value, content: editContent.value, url: editUrl.value,
+    title: editTitle.value, content: editContent.value,
     tags: editTags.value, file: editFile.value,
   })
   if (ok) admin.closeDrawer()
@@ -114,13 +109,6 @@ function onFileChange(_fileList: FileItem[], fileItem: FileItem) {
       <a-tabs v-model:active-key="tabKey">
         <a-tab-pane key="preview" title="预览">
           <div class="preview-meta">
-            <Tag
-              :color="drawerTypeStr === 'video' ? 'red' : drawerTypeStr === 'image' ? 'green' : drawerTypeStr === 'link' ? 'orange' : 'arcoblue'"
-              :bordered="false"
-              class="drawer-tag-inline"
-            >
-              {{ { video: '视频', image: '图片', link: '链接', text: '文字' }[drawerTypeStr] }}
-            </Tag>
             <AdminStatus
               v-if="admin.drawerContent.audit_status"
               :type="admin.drawerContent.audit_status === 'approved' ? 'success' : admin.drawerContent.audit_status === 'pending' ? 'warning' : 'danger'"
@@ -133,28 +121,15 @@ function onFileChange(_fileList: FileItem[], fileItem: FileItem) {
           <div class="preview-tags">
             <Tag v-for="tag in admin.drawerContent.tags" :key="tag">{{ tag }}</Tag>
           </div>
-          <div v-if="admin.drawerContent.type === 'image'" class="preview-media-wrap">
-            <MediaImage :src="admin.drawerContent.img" class="preview-media" :preview="false" alt="" />
-          </div>
-
-          <div v-else-if="drawerTypeStr === 'video'" class="preview-media-wrap">
+          <div v-if="admin.drawerContent.video" class="preview-media-wrap">
             <video controls class="preview-media">
               <source :src="getImageUrl(admin.drawerContent.video)" />
               <track kind="captions" />
             </video>
           </div>
 
-          <div v-else-if="drawerTypeStr === 'link'" class="preview-media-wrap">
-            <a :href="admin.drawerContent.url" target="_blank" rel="noopener">
-              <MediaImage
-                v-if="admin.drawerContent.thumb"
-                :src="admin.drawerContent.thumb"
-                class="preview-media"
-                :preview="false"
-                alt=""
-              />
-              <div v-else class="link-box">{{ admin.drawerContent.url }}</div>
-            </a>
+          <div v-else-if="admin.drawerContent.img || admin.drawerContent.thumb" class="preview-media-wrap">
+            <MediaImage :src="admin.drawerContent.img" class="preview-media" :preview="false" alt="" />
           </div>
 
           <div v-if="admin.drawerContent.text" class="preview-text" v-html="renderedContent"></div>
@@ -164,10 +139,6 @@ function onFileChange(_fileList: FileItem[], fileItem: FileItem) {
           <a-form :model="editFormModel" layout="vertical" class="drawer-edit-form">
             <a-form-item label="标题" required>
               <a-input v-model="editTitle" :maxlength="200" show-word-limit placeholder="输入标题" />
-            </a-form-item>
-
-            <a-form-item v-if="drawerTypeStr === 'link'" label="链接">
-              <a-input v-model="editUrl" placeholder="https://…" />
             </a-form-item>
 
             <a-form-item label="描述（Markdown，可留空为纯媒体内容）">
@@ -201,11 +172,11 @@ function onFileChange(_fileList: FileItem[], fileItem: FileItem) {
                 {{ editFileName }}
               </a-typography-text>
               <a-typography-text
-                v-else-if="drawerTypeStr === 'image' || drawerTypeStr === 'video'"
+                v-else-if="admin.drawerContent.img || admin.drawerContent.video || admin.drawerContent.thumb"
                 type="secondary"
                 class="drawer-file-name"
               >
-                当前已有{{ drawerTypeStr === 'image' ? '图片' : '视频' }}，可在预览页查看；选择新文件可替换
+                当前已有媒体文件，可在预览页查看；选择新文件可替换
               </a-typography-text>
             </a-form-item>
 

@@ -19,20 +19,10 @@ const mediaUrl = computed(() => {
   if (props.content.video) return getImageUrl(props.content.video)
   return ''
 })
-const mediaKind = computed<'image' | 'video' | 'link' | 'text'>(() => {
+const mediaKind = computed<'image' | 'video' | 'text'>(() => {
   if (props.content.img) return 'image'
   if (props.content.video) return 'video'
-  if (props.content.url) return 'link'
   return 'text'
-})
-
-const noMediaReason = computed(() => {
-  if (mediaKind.value !== 'text') return ''
-  const t = props.content.type as string | undefined
-  if (t === 'image' || t === 'video') {
-    if (!props.content.img && !props.content.video) return '原文件丢失或未生成，等待后台处理中...'
-  }
-  return ''
 })
 
 const renderedText = computed(() => {
@@ -53,10 +43,6 @@ function openViewerInline() {
   nextTick(() => { viewerInstance?.show() })
 }
 
-function openExternalLink() {
-  if (mediaKind.value === 'link' && props.content.url) globalThis.open(props.content.url, '_blank', 'noopener')
-}
-
 defineExpose({ mediaKind, mediaUrl })
 </script>
 
@@ -68,22 +54,8 @@ defineExpose({ mediaKind, mediaUrl })
     <video v-else-if="mediaKind === 'video'" :src="mediaUrl" controls playsinline class="cd-video">
       您的浏览器不支持视频播放。
     </video>
-    <div v-else-if="mediaKind === 'link'" class="cd-link-card">
-      <div class="cd-link-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-        </svg>
-      </div>
-      <div class="cd-link-text">
-        <div class="cd-link-label">外部链接</div>
-        <div class="cd-link-url">{{ content.url }}</div>
-      </div>
-      <button class="cd-link-open" type="button" @click="openExternalLink">打开</button>
-    </div>
     <div v-else class="cd-text-only">
-      <p v-if="noMediaReason" class="cd-no-media-reason">{{ noMediaReason }}</p>
-      <p v-else-if="content.text" class="cd-text-content" v-html="renderedText"></p>
+      <p v-if="content.text" class="cd-text-content" v-html="renderedText"></p>
       <p v-else>{{ content.title }}</p>
     </div>
   </section>

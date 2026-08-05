@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-小泉动漫二创站（xqecz）— 用户上传/浏览二次创作内容（图片、图文，内容类型已缩窄为 image/text），含评论、管理后台。
+小泉动漫二创站（xqecz）— 用户上传/浏览二次创作内容（内容统一为"文本 + 可选媒体"，不分类，贴吧/动态式），含评论、管理后台。
 
 **Monorepo 架构**：NestJS 主后端（API）+ Go 无状态 Worker（文件处理 / 推荐打分）+ Vue 3 前端，通过 pnpm workspace 统一管理。
 
@@ -18,7 +18,7 @@
                        │                  ├─ FetchLinkPreview（OG 解析）
                        │                  └─ RefreshRecommend（纯打分，输入来自 NestJS，输出评分回传 NestJS）
                        │
-                       └── 共享上传目录（UPLOAD_DIR）：NestJS 与 Worker 指向同一目录、互认绝对路径，处理缩略图/压缩
+                       └── 共享上传目录（UPLOAD_DIR）：NestJS 与 Worker 指向同一目录、互认绝对路径，处理缩略图
 ```
 
 **推荐链路（重要）**：NestJS 独占 DB/Redis —— worker **不**直连 MySQL/Redis。
@@ -76,8 +76,8 @@ D:\xqecz/
 |------|------|------|------|
 | `Health` | — | status/version | 健康检查 |
 | `GenerateThumbnail` | file_path, content_type | thumb_path, success, error | ffmpeg 抽帧/缩放 → webp |
-| `CompressImage` | file_path | compressed_path, success, error | Tinify 压缩（无 key 即跳过） |
-| `FetchLinkPreview` | url | title/image/platform, success, error | 解析 OG 元数据 |
+| `CompressImage` | file_path | compressed_path, success, error | Tinify 压缩（proto 兼容保留；API 当前不调用） |
+| `FetchLinkPreview` | url | title/image/platform, success, error | 解析 OG 元数据（proto 兼容保留；API 当前不调用） |
 | `RefreshRecommend` | items[]（content_id/created_at_unix/view_count/like_count） | results[]（content_id/score）, success | **纯打分**，不碰 DB/Redis；like_count 权重高于 view_count |
 
 > gRPC client 已设 `loader: { keepCase: true }`，proto 字段用 snake_case，与 Go worker 一致。
@@ -121,7 +121,8 @@ pnpm proto:generate                        # 生成 ts/go stub
 - **API 密钥认证** — `AuthGuard` 双模式：请求头 `X-API-Key`（sha256 比对 `api_keys.key_hash`，`req.user.api_key` 携带权限）或 Session Cookie；`ApiKeyPermissionGuard` + `@RequireApiKeyPermission('upload'|'delete'|'read')` 仅约束密钥调用，Session 用户不受限。新增受保护接口时按此模式挂守卫
 - **共享上传目录** — 文件处理路径通过 gRPC 传入绝对路径，NestJS 与 Go 必须指向同一 `UPLOAD_DIR`；单一配置源为 `packages/api/.env`，worker 由 `scripts/run-worker.mjs` 启动时自动读取该 .env 注入 `UPLOAD_DIR/THUMB_DIR/IMAGES_DIR`
 - **统一响应** — `{ code, message, data }` 包装格式
-- **内容类型已缩窄** — `content.type` 值域仅 `image` / `text`（按“是否有 file”自动推导）；存量 `video` / `link` 记录走一次性迁移归并为 `text`（`POST /admin/content/migrate-old-types`）
+- **内容统一模型** — `contents` 不再有 `type` 列：内容 = 标题 + 正文（`content`）+ 可选媒体文件（`file_path`，null 即纯文本）；媒体类型（图片/视频）按 `file_path` 扩展名识别（`ContentService.isVideoFile()` / `mediaTypeForPath()`），前端据此填充 `img` / `video` 字段渲染。旧 `type/url/platform/og_*/compressed_path` 列已由迁移脚本 `scripts/migrations/2026-08-05-unify-content-schema.sql` 清理（`file_path` 即展示文件，无压缩图概念）
+- **Redis 内容缓存** — 公开读路径（`content:{id}` 详情、`content_list:{sha1}` 列表/搜索、`tags`、`comments:{cid}:{page}`、`comment_count:{cid}`）经 `RedisService.getOrSetJSON()` 读穿，TTL 5 分钟仅作兜底；**所有写路径必须显式失效**（`clearContentCache` / `clearContentListCache` / `clearCommentCache` / `clearAllContentCaches`），新增写操作时务必补上失效点，避免缓存不更新
 - **软删除** — 所有删除写 `deleted_at`；Entity 已声明 `@DeleteDateColumn()`，TypeORM 的 `find/findOne/findAndCount` 查询自动附加 `WHERE deleted_at IS NULL`，业务代码无需手动过滤
 - **降级优先** — 外部依赖（Tinify/Worker）缺失即降级，gRPC 永不返 rpc error，只返 `success=false` + `error` 文本
 

@@ -62,7 +62,7 @@ src/
 ├── composables/      # 组合式函数
 │   ├── useGlobalSearch.ts   # 全局搜索单例
 │   ├── useRecommendLoader.ts # 推荐内容加载
-│   ├── useSearchFilter.ts   # 搜索/标签/类型筛选
+│   ├── useSearchFilter.ts   # 搜索/标签筛选
 │   └── useToast.ts          # 确认对话框 + toast
 ├── router/
 │   └── index.ts      # 路由表 + 导航守卫 + 后台预加载队列

@@ -13,11 +13,42 @@ import { Claim } from '../entities'
 import { UPLOAD_DIR } from '../paths'
 import { convertNonGifToWebp } from './webp.util'
 
+/** 批量缩略图后台任务状态（Redis 持久化，管理端轮询用）。 */
+export interface RegenAllStatus {
+  status: 'idle' | 'running' | 'done' | 'error'
+  total: number
+  ok: number
+  fail: number
+  started_at?: number
+  updated_at?: number
+  finished_at?: number
+  error?: string
+}
+
+/** 内容装饰结果（list / detail 缓存的统一形状）。 */
+type DecoratedContent = ReturnType<ContentService['decorateContent']>
+
 @Injectable()
 export class ContentService implements OnModuleInit {
   private readonly log = new Logger(ContentService.name)
-  /** 批量缩略图后台任务是否正在进行（防止重复触发）。 */
-  private regeneratingAll = false
+
+  // 批量缩略图后台任务：Redis 分布式锁（多实例防重）+ 状态记录（供管理端查询进度）。
+  // 锁 TTL 与心跳配合：任务逐条串行可能运行很久，心跳每 30s 续期一次；
+  // 进程崩溃后锁最多 2 分钟自动释放，不会永久卡死。
+  private static readonly REGEN_LOCK_KEY = 'lock:regen-all-thumbs'
+  private static readonly REGEN_STATUS_KEY = 'task:regen-all-thumbs:status'
+  private static readonly REGEN_LOCK_TTL = 120
+  private static readonly REGEN_HEARTBEAT_MS = 30_000
+  private static readonly REGEN_STATUS_TTL = 7 * 24 * 3600
+  // 内容缓存 TTL（5 分钟安全兜底；所有写路径都会显式失效，保证不出现缓存不更新）。
+  private static readonly CONTENT_TTL = 300
+  private static readonly LIST_TTL = 300
+  private static readonly TAGS_TTL = 300
+  private static readonly VIDEO_EXTS = new Set([
+    '.mp4', '.webm', '.mov', '.m4v', '.mkv', '.avi', '.flv', '.ogv', '.wmv', '.3gp', '.mpeg', '.mpg', '.ts', '.m2ts',
+  ])
+  private regenHeartbeat: ReturnType<typeof setInterval> | undefined
+
   constructor(
     @InjectRepository(Content) private contentRepo: Repository<Content>,
     @InjectRepository(User) private userRepo: Repository<User>,
@@ -28,9 +59,48 @@ export class ContentService implements OnModuleInit {
     @Inject(ConfigService) private cfg: ConfigService,
   ) {}
 
+  /** 按文件扩展名识别视频文件（type 归并后，媒体类型以扩展名为唯一依据）。 */
+  static isVideoFile(filePath: string): boolean {
+    const dot = filePath.lastIndexOf('.')
+    const ext = (dot >= 0 ? filePath.slice(dot) : filePath).toLowerCase()
+    return ContentService.VIDEO_EXTS.has(ext)
+  }
+
+  /** 供 worker 使用的媒体类型（content_type）：视频扩展名 → video，其余 → image。 */
+  static mediaTypeForPath(filePath: string): 'image' | 'video' {
+    return ContentService.isVideoFile(filePath) ? 'video' : 'image'
+  }
+
+  /** 列表缓存键：规范化参数后 sha1，确保不同筛选条件互不串缓存。 */
+  private contentListKey(opts: { page?: number; pageSize?: number; tag?: string; auditStatus?: string; auditStatuses?: string[]; keyword?: string; sortBy?: string; order?: string; userId?: number }): string {
+    const norm = {
+      page: Math.max(1, opts.page || 1),
+      pageSize: Math.min(Math.max(1, opts.pageSize || 20), 100),
+      tag: opts.tag || '',
+      auditStatus: opts.auditStatus || '',
+      auditStatuses: [...(opts.auditStatuses || [])].sort(),
+      keyword: opts.keyword || '',
+      sortBy: opts.sortBy && ['created_at', 'view_count', 'id'].includes(opts.sortBy) ? opts.sortBy : 'created_at',
+      order: opts.order === 'asc' ? 'asc' : 'desc',
+      userId: opts.userId || 0,
+    }
+    return `content_list:${createHash('sha1').update(JSON.stringify(norm)).digest('hex')}`
+  }
+
+  /** 写路径缓存失效：单条详情 + 列表/搜索/标签；Redis 不可用时忽略（TTL 兜底）。 */
+  private async invalidateContent(id: number) {
+    await Promise.all([
+      this.redis.clearContentCache(id).catch(() => undefined),
+      this.redis.clearContentListCache().catch(() => undefined),
+    ])
+  }
+
   // 模块初始化后立即刷新一次推荐位，并启动每 10 分钟的周期刷新。
   // 推荐刷新链路：api 读 MySQL → 调用 worker 纯计算打分 → api 写 Redis ZSet。
   onModuleInit() {
+    // 启动时清空非会话缓存，避免代码升级后读到旧格式/旧数据。
+    void this.redis.clearCachesOnStartup().catch((e) =>
+      console.warn('[redis] startup cache clear failed (non-fatal):', (e as Error)?.message))
     void this.runStartupMigration().catch((e) => this.log.warn('Startup migration failed (non-fatal):', (e as Error)?.message))
     void this.refreshRecommend().catch((e) => console.warn('[recommend] initial refresh failed:', (e as Error)?.message))
   }
@@ -42,41 +112,22 @@ export class ContentService implements OnModuleInit {
 
   /**
    * 启动时自检迁移：自动识别可安全升级的数据并修复。
-   * - 图片类内容有 file_path 但缺 compressed_path → 补压缩
-   * - 图片/视频类内容有 file_path 但缺 thumb_path → 补缩略图
+   * - 有 file_path 但缺 thumb_path → 补缩略图（图片/视频统一按扩展名识别）
    *
    * 所有操作幂等、允许失败，不影响服务启动。
    */
   private async runStartupMigration() {
-    // 1. 图片缺压缩
-    const needCompress = await this.contentRepo.find({
-      where: { type: 'image', file_path: Not(IsNull()), compressed_path: '' },
-      select: ['id', 'file_path'],
-    })
-    if (needCompress.length) {
-      this.log.log(`Found ${needCompress.length} images missing compressed version, queuing compression...`)
-      for (const row of needCompress) {
-        const abs = this.absPath(row.file_path!)
-        if (!existsSync(abs)) { this.log.warn(`  #${row.id}: file not found on disk (${abs}), skipping`); continue }
-        void this.processMedia(row.id, abs, 'image').catch((e) =>
-          this.log.warn(`  #${row.id} compression failed: ${(e as Error)?.message}`))
-      }
-    }
-
-    // 2. 图片/视频缺缩略图（有原文件但 thumb_path 为空）
+    // 缺缩略图（有原文件但 thumb_path 为空，覆盖历史 video 记录）
     const needThumb = await this.contentRepo.find({
-      where: [
-        { type: 'image', file_path: Not(IsNull()), thumb_path: IsNull() },
-        { type: 'video', file_path: Not(IsNull()), thumb_path: IsNull() },
-      ],
-      select: ['id', 'type', 'file_path'],
+      where: { file_path: Not(IsNull()), thumb_path: IsNull() },
+      select: ['id', 'file_path'],
     })
     if (needThumb.length) {
       this.log.log(`Found ${needThumb.length} media items missing thumbnail, queuing generation...`)
       for (const row of needThumb) {
         const abs = this.absPath(row.file_path!)
         if (!existsSync(abs)) { this.log.warn(`  #${row.id}: file not found on disk (${abs}), skipping`); continue }
-        void this.processMedia(row.id, abs, row.type).catch((e) =>
+        void this.processMedia(row.id, abs, ContentService.mediaTypeForPath(row.file_path!)).catch((e) =>
           this.log.warn(`  #${row.id} thumbnail failed: ${(e as Error)?.message}`))
       }
     }
@@ -146,24 +197,25 @@ export class ContentService implements OnModuleInit {
       ? { id: 0, username: row.guest_nickname }
       : null
     const user = guestUser ? null : (userMap?.get(row.user_id) ?? await this.userRepo.findOne({ where: { id: row.user_id } }))
-    const imgUrl = row.type === 'image'
-      ? ContentService.fileUrl(row.compressed_path || row.file_path)
+    // 内容不再分类：媒体类型按 file_path 扩展名识别。
+    // 图片 → img 字段；视频文件 → video 字段；无文件的历史行（仅剩缩略图）用缩略图兜底展示。
+    const isVideo = !!row.file_path && ContentService.isVideoFile(row.file_path)
+    const imgUrl = !isVideo && (row.file_path || row.thumb_path)
+      ? ContentService.fileUrl(row.file_path || row.thumb_path)
       : ''
-    // 缩略图优先用生成的 thumb_path；未生成（如 ffmpeg 缺失降级 / 历史数据）时回退到压缩图或原图，避免破图。
+    // 缩略图优先用生成的 thumb_path；未生成时回退到原文件，避免破图。
     const thumb = ContentService.fileUrl(row.thumb_path) ||
-      ContentService.fileUrl(row.compressed_path) ||
       ContentService.fileUrl(row.file_path)
     // 头像：游客用 guest_email，登录用户用 user.email（均为 QQ 邮箱→QQ 头像，其余→Gravatar）
     const emailForAvatar = guestUser ? row.guest_email : user?.email
     const avatarUrl = emailForAvatar ? ContentService.makeAvatarUrl(emailForAvatar) : undefined
     return {
-      id: row.id, title: row.title, type: row.type,
-      text: row.content || '', url: row.url || '',
-      thumb, video: row.type === 'video' ? ContentService.fileUrl(row.file_path) : '',
-      img: imgUrl, compressed: row.compressed_path ? ContentService.fileUrl(row.compressed_path) : undefined,
+      id: row.id, title: row.title,
+      text: row.content || '',
+      thumb, video: isVideo ? ContentService.fileUrl(row.file_path!) : '',
+      img: imgUrl,
       origin: row.file_path ? ContentService.fileUrl(row.file_path) : undefined,
-      platform: row.platform || undefined, file_size: row.file_size || 0,
-      ogTitle: row.og_title || undefined, ogImage: row.og_image ? ContentService.fileUrl(row.og_image) : undefined,
+      file_size: row.file_size || 0,
       user: guestUser || (user ? { id: user.id, username: user.username } : { id: row.user_id, username: 'unknown' }),
       avatar_url: avatarUrl,
       tags: this.parseTags(row.tags),
@@ -220,29 +272,42 @@ export class ContentService implements OnModuleInit {
     return this.decorateContent(row, undefined, opts)
   }
 
-  async list(opts: { page?: number; pageSize?: number; tag?: string; type?: string; auditStatus?: string; auditStatuses?: string[]; keyword?: string; sortBy?: string; order?: string; userId?: number }) {
-    const page = Math.max(1, opts.page || 1)
-    const pageSize = Math.min(Math.max(1, opts.pageSize || 20), 100)
+  async list(opts: { page?: number; pageSize?: number; tag?: string; auditStatus?: string; auditStatuses?: string[]; keyword?: string; sortBy?: string; order?: string; userId?: number }) {
+    // 列表/搜索/我的内容：按规范化参数哈希缓存，写路径统一失效。
+    const key = this.contentListKey(opts)
+    return this.redis.getOrSetJSON(key, ContentService.LIST_TTL, async () => {
+      const page = Math.max(1, opts.page || 1)
+      const pageSize = Math.min(Math.max(1, opts.pageSize || 20), 100)
 
-    const where: any = {}
-    if (opts.auditStatuses?.length) where.audit_status = In(opts.auditStatuses)
-    else if (opts.auditStatus) where.audit_status = opts.auditStatus
-    if (opts.type) where.type = opts.type
-    if (opts.userId) where.user_id = opts.userId
-    if (opts.keyword) where.title = Like(`%${opts.keyword}%`)
+      const where: any = {}
+      if (opts.auditStatuses?.length) where.audit_status = In(opts.auditStatuses)
+      else if (opts.auditStatus) where.audit_status = opts.auditStatus
+      if (opts.userId) where.user_id = opts.userId
+      if (opts.keyword) where.title = Like(`%${opts.keyword}%`)
 
-    const sortBy = ['created_at', 'view_count', 'id'].includes(opts.sortBy || '') ? opts.sortBy! : 'created_at'
-    const order = opts.order === 'asc' ? 'ASC' as const : 'DESC' as const
+      const sortBy = ['created_at', 'view_count', 'id'].includes(opts.sortBy || '') ? opts.sortBy! : 'created_at'
+      const order = opts.order === 'asc' ? 'ASC' as const : 'DESC' as const
 
-    const [rows, total] = await this.contentRepo.findAndCount({
-      where, order: { [sortBy]: order }, skip: (page - 1) * pageSize, take: pageSize,
+      const [rows, total] = await this.contentRepo.findAndCount({
+        where, order: { [sortBy]: order }, skip: (page - 1) * pageSize, take: pageSize,
+      })
+
+      const list = await this.decorateRows(rows)
+      return { list, total, page, page_size: pageSize, total_page: Math.ceil(total / pageSize) }
     })
-
-    const list = await this.decorateRows(rows)
-    return { list, total, page, page_size: pageSize, total_page: Math.ceil(total / pageSize) }
   }
 
   async detail(id: number, silent?: boolean, viewer?: { uid: number | string; is_admin?: boolean }) {
+    // 匿名非 silent 的公开详情走缓存；登录/内部请求直查，保证权限判断与新鲜度。
+    if (!viewer && !silent) {
+      const cached = await this.redis.getJSON<DecoratedContent>(`content:${id}`).catch(() => null)
+      if (cached) {
+        // 缓存不包含浏览量：命中时照常累计，保证统计不丢。
+        await this.contentRepo.increment({ id }, 'view_count', 1)
+        await this.redis.incrementView(id)
+        return cached
+      }
+    }
     const row = await this.contentRepo.findOne({ where: { id } })
     if (!row) throw new NotFoundException('内容不存在')
     // 审核中（pending）内容公开可见；已拒绝（rejected）不对外展示，仅作者本人或管理员可见。
@@ -257,7 +322,12 @@ export class ContentService implements OnModuleInit {
       await this.redis.incrementView(id)
     }
     const likeCount = await this.likeRepo.count({ where: { content_id: id } })
-    return this.decorateContent(row, undefined, { likeCount })
+    const data = this.decorateContent(row, undefined, { likeCount })
+    // 仅缓存公开可见（非 rejected）内容；rejected 的访问权限需实时判断，不缓存。
+    if (!viewer && row.audit_status !== 'rejected') {
+      await this.redis.setJSON(`content:${id}`, data, ContentService.CONTENT_TTL).catch(() => undefined)
+    }
+    return data
   }
 
   async recommend(count: number, page: number) {
@@ -338,33 +408,32 @@ export class ContentService implements OnModuleInit {
   }
 
   async getAllTags() {
-    // 公开可见范围 = 已通过 + 审核中（rejected 不参与标签云）
-    const rows = await this.contentRepo.find({ where: { audit_status: In(['approved', 'pending']) }, select: ['tags'] })
-    const set = new Set<string>()
-    for (const r of rows) for (const t of this.parseTags(r.tags)) set.add(t)
-    return [...set]
+    return this.redis.getOrSetJSON('tags', ContentService.TAGS_TTL, async () => {
+      // 公开可见范围 = 已通过 + 审核中（rejected 不参与标签云）
+      const rows = await this.contentRepo.find({ where: { audit_status: In(['approved', 'pending']) }, select: ['tags'] })
+      const set = new Set<string>()
+      for (const r of rows) for (const t of this.parseTags(r.tags)) set.add(t)
+      return [...set]
+    })
   }
 
-  async create(input: { title: string; type: string; content?: string; filePath?: string; fileSize?: number; thumbPath?: string; compressedPath?: string; platform?: string; url?: string; tags?: string[]; userId: number; auditStatus?: string; guestNickname?: string; guestEmail?: string }, opts?: { absPath?: string }) {
+  async create(input: { title: string; content?: string; filePath?: string; fileSize?: number; thumbPath?: string; tags?: string[]; userId: number; auditStatus?: string; guestNickname?: string; guestEmail?: string }, opts?: { absPath?: string }) {
     const row = this.contentRepo.create({
-      title: input.title, type: input.type, content: input.content || '',
+      title: input.title, content: input.content || '',
       file_path: input.filePath, file_size: input.fileSize || 0,
-      thumb_path: input.thumbPath, compressed_path: input.compressedPath || '',
-      platform: input.platform, url: input.url,
+      thumb_path: input.thumbPath,
       tags: JSON.stringify(input.tags || []), user_id: input.userId,
       guest_nickname: input.guestNickname, guest_email: input.guestEmail,
       // 安全默认：pending。仅管理员上传/编辑等显式传 approved。
       audit_status: input.auditStatus || 'pending',
     })
     const saved = await this.contentRepo.save(row)
+    // 新内容改变所有列表/搜索/标签结果。
+    await this.redis.clearContentListCache().catch(() => undefined)
 
-    // 文件类内容：落库后异步触发缩略图/压缩/S3，不阻塞响应。
-    if (opts?.absPath && (input.type === 'image' || input.type === 'video')) {
-      void this.processMedia(saved.id, opts.absPath, input.type)
-    }
-    // 链接类内容：异步抓取 OG 元数据回填。
-    if (input.type === 'link' && input.url) {
-      void this.processLinkPreview(saved.id, input.url)
+    // 文件类内容：落库后异步生成缩略图，不阻塞响应。媒体类型按扩展名识别。
+    if (opts?.absPath) {
+      void this.processMedia(saved.id, opts.absPath, ContentService.mediaTypeForPath(opts.absPath))
     }
     // 仅通过审核的内容进入推荐候选：异步刷新推荐位（不阻塞响应）。
     if ((input.auditStatus || 'pending') === 'approved') {
@@ -373,30 +442,18 @@ export class ContentService implements OnModuleInit {
     return this.decorateContent(saved)
   }
 
-  /** 异步媒体处理：缩略图 → (图片)压缩，逐步回写数据库。任一步失败仅告警不影响其他步骤。 */
+  /** 异步媒体处理：生成缩略图并回写 thumb_path（失败仅告警不影响其他步骤）。 */
   async processMedia(id: number, absPath: string, type: string) {
     try {
       const t = await this.worker.generateThumbnail(absPath, type)
       if (t?.success && t.thumb_path) {
         await this.contentRepo.update(id, { thumb_path: t.thumb_path })
+        await this.invalidateContent(id)
       } else if (t && !t.success) {
         console.warn(`[media] thumbnail failed for #${id}: ${t.error}`)
       }
     } catch (e) {
       console.warn(`[media] thumbnail error #${id}:`, (e as Error)?.message)
-    }
-
-    if (type === 'image') {
-      try {
-        const c = await this.worker.compressImage(absPath)
-        if (c?.success && c.compressed_path) {
-          await this.contentRepo.update(id, { compressed_path: c.compressed_path })
-        } else if (c && !c.success) {
-          console.warn(`[media] compress failed for #${id}: ${c.error}`)
-        }
-      } catch (e) {
-        console.warn(`[media] compress error #${id}:`, (e as Error)?.message)
-      }
     }
   }
 
@@ -415,42 +472,27 @@ export class ContentService implements OnModuleInit {
     }
   }
 
-  /** 异步抓取链接 OG 元数据并回填 og_title/og_image/platform。 */
-  private async processLinkPreview(id: number, url: string) {
-    try {
-      const r = await this.worker.fetchLinkPreview(url)
-      if (r?.success) {
-        const update: Record<string, unknown> = {}
-        if (r.title) update.og_title = r.title
-        if (r.image) update.og_image = r.image
-        if (r.platform) update.platform = r.platform
-        if (Object.keys(update).length) await this.contentRepo.update(id, update)
-      }
-    } catch (e) {
-      console.warn(`[linkpreview] error #${id}:`, (e as Error)?.message)
-    }
-  }
-
-  async update(id: number, fields: { title?: string; content?: string; url?: string; filePath?: string; fileSize?: number; thumbPath?: string; compressedPath?: string; platform?: string; tags?: string[] }) {
+  async update(id: number, fields: { title?: string; content?: string; filePath?: string; fileSize?: number; thumbPath?: string; tags?: string[] }) {
     const row = await this.contentRepo.findOne({ where: { id } })
     if (!row) throw new NotFoundException('内容不存在')
     const update: any = {}
     if (fields.title !== undefined) update.title = fields.title
     if (fields.content !== undefined) update.content = fields.content
-    if (fields.url !== undefined) update.url = fields.url
     if (fields.filePath !== undefined) update.file_path = fields.filePath
     if (fields.fileSize !== undefined) update.file_size = fields.fileSize
     if (fields.thumbPath !== undefined) update.thumb_path = fields.thumbPath
-    if (fields.compressedPath !== undefined) update.compressed_path = fields.compressedPath
-    if (fields.platform !== undefined) update.platform = fields.platform
     if (fields.tags !== undefined) update.tags = JSON.stringify(fields.tags)
-    if (Object.keys(update).length) await this.contentRepo.update(id, update)
+    if (Object.keys(update).length) {
+      await this.contentRepo.update(id, update)
+      await this.invalidateContent(id)
+    }
     const updated = await this.contentRepo.findOne({ where: { id } })!
     return this.decorateContent(updated!)
   }
 
   async softDelete(id: number) {
     await this.contentRepo.softDelete(id)
+    await this.invalidateContent(id)
   }
 
   async contentExists(id: number): Promise<boolean> {
@@ -463,6 +505,7 @@ export class ContentService implements OnModuleInit {
 
   async setAuditStatus(id: number, status: string) {
     await this.contentRepo.update(id, { audit_status: status })
+    await this.invalidateContent(id)
     // 审核通过意味着内容进入推荐候选，立即刷新推荐位。
     if (status === 'approved') {
       void this.refreshRecommend().catch((e) => console.warn('[recommend] refresh after audit failed:', (e as Error)?.message))
@@ -473,56 +516,98 @@ export class ContentService implements OnModuleInit {
     const row = await this.contentRepo.findOne({ where: { id } })
     const oldUserId = row?.user_id || 0
     await this.contentRepo.update(id, { user_id: userId })
+    await this.invalidateContent(id)
     const newUser = await this.userRepo.findOne({ where: { id: userId } })
     return { oldUserId, newUsername: newUser?.username || '' }
   }
 
   async purgeDeleted() {
     const result = await this.contentRepo.createQueryBuilder().delete().where('deleted_at IS NOT NULL').execute()
+    await this.redis.clearContentListCache().catch(() => undefined)
     return result.affected || 0
   }
 
-  /** 为单条内容重新生成缩略图（仅图片/视频）。 */
+  /** 为单条内容重新生成缩略图（有原始文件即可，媒体类型按扩展名识别）。 */
   async regenerateThumbnail(id: number) {
     const row = await this.contentRepo.findOne({ where: { id } })
     if (!row) throw new NotFoundException('内容不存在')
-    if (row.type !== 'image' && row.type !== 'video') throw new BadRequestException('仅图片/视频可生成缩略图')
     if (!row.file_path) throw new BadRequestException('无原始文件')
-    const t = await this.worker.generateThumbnail(this.absPath(row.file_path), row.type)
+    const t = await this.worker.generateThumbnail(this.absPath(row.file_path), ContentService.mediaTypeForPath(row.file_path))
     if (!t?.success) throw new BadRequestException(t?.error || '缩略图生成失败')
     await this.contentRepo.update(id, { thumb_path: t.thumb_path })
+    await this.invalidateContent(id)
     const updated = await this.contentRepo.findOne({ where: { id } })
     return this.decorateContent(updated!)
   }
 
-  /** 批量重新生成所有图片/视频的缩略图（接口立即返回，后台异步执行，避免超时）。 */
+  /**
+   * 批量重新生成所有有原始文件的缩略图（接口立即返回，后台异步执行，避免超时）。
+   * 多实例防重：Redis 分布式锁 + 心跳续期；进程崩溃时锁最多 2 分钟自动释放。
+   * 进度/结果写入 Redis 状态，管理端可经 getRegenerateAllStatus() 轮询。
+   */
   async regenerateAllThumbnails() {
-    const rows = await this.contentRepo.find({ where: { type: In(['image', 'video']) } })
-    const targets = rows.filter((r): r is Content & { file_path: string } => Boolean(r.file_path))
-    if (this.regeneratingAll) {
-      return { ok: 0, fail: 0, total: targets.length, count: targets.length, running: true }
+    if (!(await this.redis.acquireLock(ContentService.REGEN_LOCK_KEY, ContentService.REGEN_LOCK_TTL))) {
+      return { ok: 0, fail: 0, total: 0, count: 0, running: true }
     }
-    if (!targets.length) {
-      return { ok: 0, fail: 0, total: 0, count: 0 }
-    }
-    this.regeneratingAll = true
-    void this.runRegenerateAll(targets)
-      .catch((e) => this.log.error('批量缩略图后台任务异常:', (e as Error)?.message || e))
-      .finally(() => {
-        this.regeneratingAll = false
+    try {
+      const rows = await this.contentRepo.find({
+        where: { file_path: Not(IsNull()) },
+        select: ['id', 'file_path'],
       })
-    return { ok: 0, fail: 0, total: targets.length, count: targets.length }
+      const targets = rows.filter((r): r is Content & { file_path: string } => Boolean(r.file_path))
+      if (!targets.length) {
+        await this.redis.del(ContentService.REGEN_STATUS_KEY)
+        await this.redis.releaseLock(ContentService.REGEN_LOCK_KEY).catch(() => undefined)
+        return { ok: 0, fail: 0, total: 0, count: 0 }
+      }
+      const startedAt = Date.now()
+      await this.redis.setJSON(ContentService.REGEN_STATUS_KEY, {
+        status: 'running', total: targets.length, ok: 0, fail: 0, started_at: startedAt,
+      }, ContentService.REGEN_STATUS_TTL)
+      // 心跳续期：长任务（数千条逐条串行）不会因 TTL 到期被其他实例重复触发。
+      this.regenHeartbeat = setInterval(() => {
+        void this.redis.renewLock(ContentService.REGEN_LOCK_KEY, ContentService.REGEN_LOCK_TTL)
+          .catch((e) => this.log.warn('批量缩略图锁续期失败:', (e as Error)?.message || e))
+      }, ContentService.REGEN_HEARTBEAT_MS)
+      void this.runRegenerateAll(targets, startedAt)
+        .catch((e) => {
+          this.log.error('批量缩略图后台任务异常:', (e as Error)?.message || e)
+          void this.redis.setJSON(ContentService.REGEN_STATUS_KEY, {
+            status: 'error', total: targets.length, ok: 0, fail: 0,
+            started_at: startedAt, finished_at: Date.now(),
+            error: (e as Error)?.message || String(e),
+          }, ContentService.REGEN_STATUS_TTL).catch(() => undefined)
+        })
+        .finally(() => {
+          if (this.regenHeartbeat) {
+            clearInterval(this.regenHeartbeat)
+            this.regenHeartbeat = undefined
+          }
+          void this.redis.releaseLock(ContentService.REGEN_LOCK_KEY).catch(() => undefined)
+        })
+      return { ok: 0, fail: 0, total: targets.length, count: targets.length }
+    } catch (e) {
+      // 查询/状态写入失败：立即释放锁并恢复心跳，避免占用 TTL。
+      if (this.regenHeartbeat) {
+        clearInterval(this.regenHeartbeat)
+        this.regenHeartbeat = undefined
+      }
+      await this.redis.releaseLock(ContentService.REGEN_LOCK_KEY).catch(() => undefined)
+      throw e
+    }
   }
 
-  /** 后台批量重生成：逐条调 worker 并更新 thumb_path（单条失败不中断）。 */
-  private async runRegenerateAll(targets: Array<Content & { file_path: string }>) {
+  /** 后台批量重生成：逐条调 worker 并更新 thumb_path（单条失败不中断），每 10 条与结束时写一次状态。 */
+  private async runRegenerateAll(targets: Array<Content & { file_path: string }>, startedAt: number) {
     let ok = 0
     let fail = 0
-    for (const r of targets) {
+    for (let i = 0; i < targets.length; i++) {
+      const r = targets[i]
       try {
-        const t = await this.worker.generateThumbnail(this.absPath(r.file_path), r.type)
+        const t = await this.worker.generateThumbnail(this.absPath(r.file_path), ContentService.mediaTypeForPath(r.file_path))
         if (t?.success) {
           await this.contentRepo.update(r.id, { thumb_path: t.thumb_path })
+          await this.redis.clearContentCache(r.id).catch(() => undefined)
           ok++
         } else {
           fail++
@@ -530,31 +615,25 @@ export class ContentService implements OnModuleInit {
       } catch {
         fail++
       }
+      if ((i + 1) % 10 === 0 || i === targets.length - 1) {
+        await this.redis.setJSON(ContentService.REGEN_STATUS_KEY, {
+          status: 'running', total: targets.length, ok, fail,
+          started_at: startedAt, updated_at: Date.now(),
+        }, ContentService.REGEN_STATUS_TTL).catch(() => undefined)
+      }
     }
+    await this.redis.setJSON(ContentService.REGEN_STATUS_KEY, {
+      status: 'done', total: targets.length, ok, fail,
+      started_at: startedAt, finished_at: Date.now(),
+    }, ContentService.REGEN_STATUS_TTL).catch(() => undefined)
+    // 全部更新完统一失效列表/标签缓存（缩略图嵌入列表卡片）。
+    await this.redis.clearContentListCache().catch(() => undefined)
     this.log.log(`批量缩略图完成: 成功 ${ok} / 失败 ${fail} / 共 ${targets.length}`)
   }
 
-  /**
-   * 2026-07-29 一次性迁移：把 DB 里 type 为 'video' / 'link' 的旧记录统一改为 'text'。
-   * 设计要点：
-   * - 幂等：再次执行无副作用（剩余 0 条时立刻返回）。
-   * - 不动 file_path / url / content 等字段（保留原数据，view 端用 type 区分是否渲染图片/视频）。
-   * - 旧 'video' 行有 file_path：仍能渲染为视频，但 type 变成 'text'。
-   *   → ContentOverlay.vue 优先看 img / video / url 字段，type 仅用于分类显示/筛选。
-   */
-  async migrateOldTypes() {
-    const oldTypes = ['video', 'link'] as const
-    const result = { video: 0, link: 0 }
-    for (const t of oldTypes) {
-      const r = await this.contentRepo.createQueryBuilder()
-        .update(Content)
-        .set({ type: 'text' })
-        .where('type = :t', { t })
-        .execute()
-      result[t] = r.affected || 0
-    }
-    const total = result.video + result.link
-    console.log(`[migrate] old-types → text: video=${result.video} link=${result.link} total=${total}`)
-    return { ...result, total }
+  /** 查询批量缩略图任务状态（供管理端轮询；无任务/已过期返回 idle）。 */
+  async getRegenerateAllStatus(): Promise<RegenAllStatus> {
+    const st = await this.redis.getJSON<RegenAllStatus>(ContentService.REGEN_STATUS_KEY)
+    return st ?? { status: 'idle', total: 0, ok: 0, fail: 0 }
   }
 }

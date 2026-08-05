@@ -17,6 +17,8 @@ import (
 	"sync"
 	"time"
 
+	// deepteams/webp：chai2010/webp 的活跃后继（纯 Go、零 CGO、MIT），
+	// 已固定 v1.2.7（go.mod pin）；编码 API 为 webp.EncoderOptions（Quality 0-100）。
 	"github.com/deepteams/webp"
 
 	// 额外图像解码器（标准库不含 WebP/BMP/TIFF）。均为纯 Go，无 CGO 依赖。

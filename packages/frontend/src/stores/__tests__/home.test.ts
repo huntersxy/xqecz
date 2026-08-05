@@ -17,7 +17,6 @@ describe('useHomeStore', () => {
 
     expect(store.searchKeyword).toBe('')
     expect(store.selectedTags).toEqual([])
-    expect(store.selectedTypes).toEqual([])
     expect(store.page).toBe(1)
     expect(store.recommendPage).toBe(1)
     expect(store.scrollPosition).toBe(0)
@@ -30,7 +29,6 @@ describe('useHomeStore', () => {
     store.saveState({
       searchKeyword: 'test',
       selectedTags: ['tag1', 'tag2'],
-      selectedTypes: ['video'],
       page: 2,
       recommendPage: 3,
       scrollPosition: 500,
@@ -38,7 +36,6 @@ describe('useHomeStore', () => {
 
     expect(store.searchKeyword).toBe('test')
     expect(store.selectedTags).toEqual(['tag1', 'tag2'])
-    expect(store.selectedTypes).toEqual(['video'])
     expect(store.page).toBe(2)
     expect(store.recommendPage).toBe(3)
     expect(store.scrollPosition).toBe(500)
@@ -52,7 +49,6 @@ describe('useHomeStore', () => {
     store.saveState({
       searchKeyword: 'test',
       selectedTags: ['tag1'],
-      selectedTypes: ['video'],
       page: 2,
       recommendPage: 3,
       scrollPosition: 500,
@@ -63,7 +59,6 @@ describe('useHomeStore', () => {
 
     expect(store.searchKeyword).toBe('')
     expect(store.selectedTags).toEqual([])
-    expect(store.selectedTypes).toEqual([])
     expect(store.page).toBe(1)
     expect(store.recommendPage).toBe(1)
     expect(store.scrollPosition).toBe(0)

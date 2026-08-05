@@ -1,13 +1,5 @@
 import { z } from 'zod'
 
-// ── 基础常量与类型(单一来源,types/index.ts re-export)──
-// 2026-07-29: 上传"去分类"改造后，数据只允许 `image`（有文件）和 `text`（纯描述）两种 type；
-// 旧的 `video` / `link` 已由后端迁移脚本归并为 `text`，前端类型同步收窄。
-// AdminContentDrawer 保留 video/link 展示分支作为历史脏数据兜底。
-const contentTypeValues = ['image', 'text'] as const
-export type ContentType = (typeof contentTypeValues)[number]
-export const CONTENT_TYPES: readonly ContentType[] = ['image', 'text'] as const
-
 // ── 通用宽松 transform(匹配原 normalize 的 `Number()||0` / `typeof==='string'? : ''` 兜底语义)──
 // 用 z.unknown + transform 而不是 z.coerce,避免 NaN 不触发 default 的边界问题;
 // 严格校验留给"值域有界的字段"(type/audit_status)用 enum/catch。
@@ -40,14 +32,9 @@ const UserBriefSchema = z.object({
 })
 
 // ── RecommendContent(推荐页) ──
-// type 非法值兜底 'text'。
 export const RecommendContentSchema = z.object({
   id: num,
   title: str,
-  type: z
-    .any()
-    .transform((v) => (contentTypeValues as readonly string[]).includes(v) ? (v as ContentType) : 'text'),
-  url: str.optional().default(''),
   thumb: str.optional().default(''),
   tags: tagsArr,
   view_count: num.optional().default(0),
@@ -58,15 +45,10 @@ export const RecommendContentSchema = z.object({
 export type RecommendContent = z.infer<typeof RecommendContentSchema>
 
 // ── Content(列表/详情) ──
-// type 非法值兜底 'text'。
 export const ContentSchema = z.object({
   id: num,
   title: str,
-  type: z
-    .any()
-    .transform((v) => (contentTypeValues as readonly string[]).includes(v) ? (v as ContentType) : 'text'),
   text: str.optional().default(''),
-  url: str.optional().default(''),
   thumb: str.optional().default(''),
   video: str.optional().default(''),
   img: str.optional().default(''),

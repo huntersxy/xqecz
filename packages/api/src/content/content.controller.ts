@@ -93,7 +93,7 @@ export class ContentController {
   @Get('list')
   async list(@Query() q: ListContentDto) {
     const data = await this.svc.list({
-      page: q.page, pageSize: q.page_size, tag: q.tag, type: q.type, keyword: q.keyword, sortBy: q.sort_by, order: q.order,
+      page: q.page, pageSize: q.page_size, tag: q.tag, keyword: q.keyword, sortBy: q.sort_by, order: q.order,
       // 公开可见范围：已通过 + 审核中；rejected 不对外展示。
       auditStatuses: q.audit_status ? undefined : ['approved', 'pending'],
       auditStatus: q.audit_status,
@@ -122,7 +122,7 @@ export class ContentController {
   @Get('my')
   @UseGuards(AuthGuard)
   async my(@CurrentUser('uid') uid: number, @Query() q: ListContentDto) {
-    const data = await this.svc.list({ page: q.page, pageSize: q.page_size, userId: uid, auditStatus: q.audit_status, type: q.type })
+    const data = await this.svc.list({ page: q.page, pageSize: q.page_size, userId: uid, auditStatus: q.audit_status })
     return { code: 200, message: 'ok', data }
   }
 
@@ -144,15 +144,14 @@ export class ContentController {
   async upload(@UploadedFile() file: Express.Multer.File | undefined, @Body() dto: UploadContentDto, @CurrentUser('uid') uid: number, @CurrentUser('is_admin') isAdmin: boolean) {
     const tags = Array.isArray(dto.tags) ? dto.tags : typeof dto.tags === 'string' ? dto.tags.split(',').map(s => s.trim()).filter(Boolean) : []
     const { filePath, fileSize, absPath } = await prepareUploadFile(this.svc, file)
-    // 2026-07-29 改造：type 不再由调用方指定；按"是否有 file"自动设 image / text（必须二选一）。
+    // 内容统一模型：type 已移除，内容 = 文本 + 可选媒体文件。
     // 兜底校验：title 必填（DTO 已 @Length(1,200)），content 与 file 至少一个。
     if (!dto.content?.trim() && !file) {
       return { code: 400, message: '描述正文与媒体文件至少填一项', data: null }
     }
-    const type = file ? 'image' : 'text'
     const result = await this.svc.create(
       {
-        title: dto.title, type, content: dto.content, filePath, fileSize, tags, userId: uid,
+        title: dto.title, content: dto.content, filePath, fileSize, tags, userId: uid,
         // 管理员上传直接过审；其余用户进入审核列表。
         auditStatus: isAdmin ? 'approved' : 'pending',
       },
@@ -197,12 +196,10 @@ export class ContentController {
     }
 
     const tags = Array.isArray(dto.tags) ? dto.tags : typeof dto.tags === 'string' ? dto.tags.split(',').map(s => s.trim()).filter(Boolean) : []
-    // 按 mimetype 自动推导类型：video/* → video，image/* → image，无文件 → text
-    const type = !file ? 'text' : file.mimetype?.startsWith('video/') ? 'video' : 'image'
     const { filePath, fileSize, absPath } = await prepareUploadFile(this.svc, file)
     const result = await this.svc.create(
       {
-        title: dto.title, type, content: dto.content,
+        title: dto.title, content: dto.content,
         filePath, fileSize, tags,
         userId: uid || 0,
         // 仅管理员登录上传自动过审；游客与普通用户一律进入审核列表。
@@ -234,13 +231,13 @@ export class ContentController {
     // 内容被编辑后重新进入审核列表；管理员编辑视为过审，并刷新推荐位。
     await this.svc.setAuditStatus(Number(id), isAdmin ? 'approved' : 'pending')
     const data = await this.svc.update(Number(id), {
-      title: dto.title, content: dto.content, url: dto.url, tags,
+      title: dto.title, content: dto.content, tags,
       filePath,
       fileSize,
     })
-    // 替换了文件则异步重建缩略图与压缩图
-    if (file && filePath && (row.type === 'image' || row.type === 'video')) {
-      void this.svc.processMedia(Number(id), absPath!, row.type)
+    // 替换了文件则异步重建缩略图与压缩图（媒体类型按扩展名识别）
+    if (file && absPath && filePath) {
+      void this.svc.processMedia(Number(id), absPath, ContentService.mediaTypeForPath(absPath))
     }
     return { code: 200, message: '更新成功', data }
   }
@@ -276,6 +273,9 @@ export class ContentController {
       const likeCount = await this.likeRepo.count({ where: { content_id: cid } })
       // 点赞变化影响推荐打分（like 权重高），立即刷新推荐位（Redis 分布式锁防抖）
       void this.svc.refreshRecommend().catch((e) => console.warn('[recommend] refresh after unlike failed:', (e as Error)?.message))
+      // 点赞数嵌入列表/详情缓存，变化后必须失效。
+      await this.redis.clearContentCache(cid).catch(() => undefined)
+      await this.redis.clearContentListCache().catch(() => undefined)
       return { code: 200, message: '已取消点赞', data: { liked: false, like_count: likeCount } }
     }
     const row = this.likeRepo.create({ content_id: cid, user_id: uid })
@@ -283,6 +283,9 @@ export class ContentController {
     const likeCount = await this.likeRepo.count({ where: { content_id: cid } })
     // 点赞变化影响推荐打分（like 权重高），立即刷新推荐位（Redis 分布式锁防抖）
     void this.svc.refreshRecommend().catch((e) => console.warn('[recommend] refresh after like failed:', (e as Error)?.message))
+    // 点赞数嵌入列表/详情缓存，变化后必须失效。
+    await this.redis.clearContentCache(cid).catch(() => undefined)
+    await this.redis.clearContentListCache().catch(() => undefined)
     return { code: 200, message: '已点赞', data: { liked: true, like_count: likeCount } }
   }
 

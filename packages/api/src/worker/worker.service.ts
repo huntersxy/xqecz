@@ -11,8 +11,6 @@ const MAX_RETRIES = 5
 interface WorkerGrpcService {
   health(data: {}): any
   generateThumbnail(data: { file_path: string; content_type: string }): any
-  compressImage(data: { file_path: string }): any
-  fetchLinkPreview(data: { url: string }): any
   refreshRecommend(data: { items: { content_id: number; created_at_unix: number; view_count: number; like_count: number }[] }): any
 }
 
@@ -76,14 +74,6 @@ export class WorkerService implements OnModuleInit {
 
   async generateThumbnail(filePath: string, contentType: string): Promise<any> {
     return this.callWithRetry(() => this.svc.generateThumbnail({ file_path: filePath, content_type: contentType }))
-  }
-
-  async compressImage(filePath: string): Promise<any> {
-    return this.callWithRetry(() => this.svc.compressImage({ file_path: filePath }))
-  }
-
-  async fetchLinkPreview(url: string): Promise<any> {
-    return this.callWithRetry(() => this.svc.fetchLinkPreview({ url }))
   }
 
   /**

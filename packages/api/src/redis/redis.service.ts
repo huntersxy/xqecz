@@ -48,6 +48,20 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     try { return JSON.parse(raw) as T } catch { return null }
   }
 
+  /**
+   * 读穿缓存：命中直接返回；未命中执行 loader 并写缓存。
+   * Redis 不可用时自动降级为直查（读写均容错），不影响业务。
+   */
+  async getOrSetJSON<T>(key: string, ttlSeconds: number, loader: () => Promise<T>): Promise<T> {
+    try {
+      const cached = await this.getJSON<T>(key)
+      if (cached !== null) return cached
+    } catch { /* Redis 不可用 → 直查 */ }
+    const data = await loader()
+    try { await this.setJSON(key, data, ttlSeconds) } catch { /* 缓存写失败忽略 */ }
+    return data
+  }
+
   async del(...keys: string[]) {
     if (keys.length) await this.client.del(...keys)
   }
@@ -128,7 +142,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   // ---- cache invalidation ----
 
-  private async clearByPattern(pattern: string) {
+  /** 按模式删除键（SCAN 精确匹配带前缀的真实 key，再去前缀删除）。 */
+  async delByPattern(pattern: string) {
     const fullPattern = this.prefix + pattern
     const keys: string[] = []
     let cursor = '0'
@@ -144,16 +159,25 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async clearCommentCache(contentID: number) {
-    await this.clearByPattern(`comments:${contentID}:*`)
+    await this.delByPattern(`comments:${contentID}:*`)
     await this.del(`comment_count:${contentID}`)
   }
 
-  async clearContentListCache() {
-    await this.clearByPattern('content_list:*')
-  }
-
+  /** 单条内容详情缓存失效（content:{id}）。 */
   async clearContentCache(contentID: number) {
     await this.del(`content:${contentID}`)
+  }
+
+  /** 内容列表/搜索/标签缓存失效（content_list:* + tags）。 */
+  async clearContentListCache() {
+    await this.delByPattern('content_list:*')
+    await this.del('tags')
+  }
+
+  /** 全部内容相关缓存失效（detail + list + tags，用户资料变更影响装饰结果时用）。 */
+  async clearAllContentCaches() {
+    await this.delByPattern('content*')
+    await this.del('tags')
   }
 
   async clearCachesOnStartup() {
@@ -197,5 +221,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   /** 释放分布式锁（DEL，仅在锁仍存在时删除）。 */
   async releaseLock(key: string): Promise<void> {
     await this.client.del(key)
+  }
+
+  /** 续期分布式锁 TTL（长任务心跳用；锁不存在或已过期返回 false）。 */
+  async renewLock(key: string, ttlSeconds: number): Promise<boolean> {
+    const result = await this.client.expire(key, ttlSeconds)
+    return result === 1
   }
 }

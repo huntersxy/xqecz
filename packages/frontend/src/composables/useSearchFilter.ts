@@ -18,7 +18,6 @@ export function useSearchFilter() {
     get: () => homeStore.searchKeyword,
     set: (v: string) => { homeStore.searchKeyword = v },
   })
-  const selectedTypes = ref<string[]>(homeStore.selectedTypes)
 
   const cachedTags = useStorage<{ tags: string[]; date: string } | null>('home_tags_cache', null)
 
@@ -54,25 +53,13 @@ export function useSearchFilter() {
     onFilterChange()
   }
 
-  function selectType(type: string, onFilterChange: () => void) {
-    const index = selectedTypes.value.indexOf(type)
-    if (index > -1) {
-      selectedTypes.value = []
-    } else {
-      selectedTypes.value = [type]
-    }
-    onFilterChange()
-  }
-
   return {
     allTags,
     selectedTags,
     searchKeyword,
-    selectedTypes,
     sortedTags,
     loadTags,
     selectTag,
-    selectType,
     handleSearch,
   }
 }

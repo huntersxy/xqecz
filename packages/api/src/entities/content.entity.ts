@@ -8,12 +8,10 @@ export class Content {
   @Column({ type: 'varchar', length: 200 })
   title!: string
 
-  @Column({ type: 'varchar', length: 20 })
-  type!: string // video | image | text | link
-
   @Column({ type: 'text', nullable: true, default: '' })
   content?: string
 
+  // 媒体文件（展示即原文件，图片为 WebP，视频为原视频）；null = 纯文本内容。
   @Column({ type: 'varchar', length: 500, nullable: true })
   file_path?: string
 
@@ -22,21 +20,6 @@ export class Content {
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   thumb_path?: string
-
-  @Column({ type: 'varchar', length: 500, default: '' })
-  compressed_path?: string
-
-  @Column({ type: 'varchar', length: 500, nullable: true })
-  url?: string
-
-  @Column({ type: 'varchar', length: 20, nullable: true })
-  platform?: string
-
-  @Column({ type: 'varchar', length: 300, nullable: true })
-  og_title?: string
-
-  @Column({ type: 'varchar', length: 500, nullable: true })
-  og_image?: string
 
   @Column({ type: 'bigint', default: 0 })
   view_count!: number

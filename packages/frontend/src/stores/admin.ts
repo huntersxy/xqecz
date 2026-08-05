@@ -85,11 +85,46 @@ const apiDeleteComment = (commentId: number) =>
 const apiRegenerateThumbnail = (id: number) =>
   runAdmin(() => adminApi.regenerateThumbnail(id), '封面更新成功', '封面更新失败')
 
+// 批量缩略图后台任务轮询句柄（模块级，避免重复启动轮询）。
+let regenStatusTimer: ReturnType<typeof setTimeout> | undefined
+
 async function apiRegenerateAllThumbnails() {
   try {
     const r = await adminApi.regenerateAllThumbnails()
-    toast.success(r.data.running ? '批量生成已在后台进行中' : `已开始处理 ${r.data.count} 条`)
+    if (r.data.running) {
+      toast.info('批量生成已在后台进行中')
+      pollRegenerateAllStatus()
+    } else if (r.data.count > 0) {
+      toast.success(`已开始处理 ${r.data.count} 条`)
+      pollRegenerateAllStatus()
+    } else {
+      toast.info('没有需要生成缩略图的内容')
+    }
   } catch (e: unknown) { toast.error((e as Error).message || '操作失败') }
+}
+
+// 后台任务收尾：每 2s 轮询一次状态，完成后 toast 最终结果；最多轮询 10 分钟自动停止。
+function pollRegenerateAllStatus() {
+  if (regenStatusTimer) return
+  let polls = 0
+  const check = async () => {
+    regenStatusTimer = undefined
+    if (polls++ >= 300) return
+    try {
+      const r = await adminApi.getRegenerateAllStatus()
+      const st = r.data
+      if (st.status === 'done') {
+        toast.success(`批量缩略图完成：成功 ${st.ok} / 失败 ${st.fail} / 共 ${st.total}`)
+        return
+      }
+      if (st.status === 'error') {
+        toast.error(st.error || '批量缩略图后台任务异常')
+        return
+      }
+    } catch { /* 网络抖动忽略，继续轮询 */ }
+    regenStatusTimer = setTimeout(check, 2000)
+  }
+  regenStatusTimer = setTimeout(check, 2000)
 }
 
 export const useAdminStore = defineStore('admin', () => {
@@ -186,7 +221,7 @@ export const useAdminStore = defineStore('admin', () => {
   }
 
   async function saveContent(id: number, data: {
-    title: string; content: string; url: string; tags: string[]; file?: File
+    title: string; content: string; tags: string[]; file?: File
   }): Promise<boolean> {
     drawerSaving.value = true
     try {
@@ -218,7 +253,7 @@ export const useAdminStore = defineStore('admin', () => {
     if (createPollForm.value.options.length > 2) createPollForm.value.options.splice(i, 1)
   }
 
-  // 2026-07-29 改造：上传不再让用户选 type，后端按 file 是否存在自动设 image / text。
+  // 内容统一模型：内容 = 标题 + 正文 + 可选媒体文件，不再有类型分类。
   async function uploadContent(data: {
     title: string; content?: string; tags: string[]; file?: File; userId: number
   }): Promise<boolean> {

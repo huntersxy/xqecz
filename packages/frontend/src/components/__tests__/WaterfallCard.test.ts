@@ -7,9 +7,7 @@ function textItem(overrides: Record<string, unknown> = {}) {
   return ContentSchema.parse({
     id: 1,
     title: '纯文本作品',
-    type: 'text',
     text: '**加粗** 的内容摘要，用于测试纯文本卡片展示。',
-    url: '',
     thumb: '',
     video: '',
     img: '',

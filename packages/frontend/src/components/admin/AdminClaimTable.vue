@@ -52,7 +52,7 @@ onMounted(load)
         <a-table :columns="columns" :data="admin.claims.list" :pagination="{ current: admin.claims.page, pageSize: admin.claims.pageSize, total: admin.claims.total }" row-key="id" @page-change="onTableChange">
           <template #content="{ record }">
             <div class="flex items-center gap-3">
-              <div v-if="record.content?.type !== 'text'" class="claim-thumb">
+              <div v-if="record.content?.thumb" class="claim-thumb">
                 <MediaImage :src="record.content?.thumb" :preview="false" loading="lazy" alt="" />
               </div>
               <Tooltip :title="record.content?.title || '未知内容'">
