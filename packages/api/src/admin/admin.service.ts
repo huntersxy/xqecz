@@ -105,7 +105,9 @@ export class AdminService {
       ])
 
     // 热门标签：只统计已通过内容，避免 pending/垃圾数据污染
-    const approvedRows = await this.contentRepo.find({ where: { audit_status: 'approved' }, select: ['tags'] })
+    const approvedRows = await this.contentRepo.find({ where: { audit_status: 'approved' }, select: {
+      tags: true
+    } })
     const tagCount = new Map<string, number>()
     for (const row of approvedRows) {
       let arr: unknown[] = []

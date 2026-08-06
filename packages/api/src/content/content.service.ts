@@ -120,7 +120,10 @@ export class ContentService implements OnModuleInit {
     // 缺缩略图（有原文件但 thumb_path 为空，覆盖历史 video 记录）
     const needThumb = await this.contentRepo.find({
       where: { file_path: Not(IsNull()), thumb_path: IsNull() },
-      select: ['id', 'file_path'],
+      select: {
+        id: true,
+        file_path: true
+      },
     })
     if (needThumb.length) {
       this.log.log(`Found ${needThumb.length} media items missing thumbnail, queuing generation...`)
@@ -196,7 +199,7 @@ export class ContentService implements OnModuleInit {
     const guestUser = row.guest_nickname
       ? { id: 0, username: row.guest_nickname }
       : null
-    const user = guestUser ? null : (userMap?.get(row.user_id) ?? await this.userRepo.findOne({ where: { id: row.user_id } }))
+    const user = guestUser ? null : (userMap?.get(row.user_id) ?? (await this.userRepo.findOne({ where: { id: row.user_id } })))
     // 内容不再分类：媒体类型按 file_path 扩展名识别。
     // 图片 → img 字段；视频文件 → video 字段；无文件的历史行（仅剩缩略图）用缩略图兜底展示。
     const isVideo = !!row.file_path && ContentService.isVideoFile(row.file_path)
@@ -386,7 +389,11 @@ export class ContentService implements OnModuleInit {
     try {
       const rows = await this.contentRepo.find({
         where: { audit_status: 'approved' },
-        select: ['id', 'created_at', 'view_count'],
+        select: {
+          id: true,
+          created_at: true,
+          view_count: true
+        },
       })
       if (!rows.length) {
         console.log('[recommend] no approved contents, skip refresh')
@@ -410,11 +417,13 @@ export class ContentService implements OnModuleInit {
   async getAllTags() {
     return this.redis.getOrSetJSON('tags', ContentService.TAGS_TTL, async () => {
       // 公开可见范围 = 已通过 + 审核中（rejected 不参与标签云）
-      const rows = await this.contentRepo.find({ where: { audit_status: In(['approved', 'pending']) }, select: ['tags'] })
+      const rows = await this.contentRepo.find({ where: { audit_status: In(['approved', 'pending']) }, select: {
+        tags: true
+      } })
       const set = new Set<string>()
       for (const r of rows) for (const t of this.parseTags(r.tags)) set.add(t)
       return [...set]
-    })
+    });
   }
 
   async create(input: { title: string; content?: string; filePath?: string; fileSize?: number; thumbPath?: string; tags?: string[]; userId: number; auditStatus?: string; guestNickname?: string; guestEmail?: string }, opts?: { absPath?: string }) {
@@ -552,7 +561,10 @@ export class ContentService implements OnModuleInit {
     try {
       const rows = await this.contentRepo.find({
         where: { file_path: Not(IsNull()) },
-        select: ['id', 'file_path'],
+        select: {
+          id: true,
+          file_path: true
+        },
       })
       const targets = rows.filter((r): r is Content & { file_path: string } => Boolean(r.file_path))
       if (!targets.length) {
