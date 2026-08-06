@@ -56,7 +56,14 @@ export class AuthService implements OnModuleInit {
   }
 
   async login(username: string, password: string) {
-    const user = await this.userRepo.findOne({ where: { username }, select: ['id', 'username', 'email', 'password', 'is_admin', 'is_banned'] })
+    const user = await this.userRepo.findOne({ where: { username }, select: {
+      id: true,
+      username: true,
+      email: true,
+      password: true,
+      is_admin: true,
+      is_banned: true
+    } })
     if (!user || !(await bcrypt.compare(password, user.password)))
       throw new UnauthorizedException('用户名或密码错误')
     if (user.is_banned) throw new ForbiddenException('账号已被封禁')
@@ -93,7 +100,11 @@ export class AuthService implements OnModuleInit {
 
   /** 修改密码（需验证旧密码）。 */
   async changePassword(uid: number, oldPassword: string, newPassword: string) {
-    const user = await this.userRepo.findOne({ where: { id: uid }, select: ['id', 'username', 'password'] })
+    const user = await this.userRepo.findOne({ where: { id: uid }, select: {
+      id: true,
+      username: true,
+      password: true
+    } })
     if (!user) throw new UnauthorizedException('用户不存在')
     if (!(await bcrypt.compare(oldPassword, user.password)))
       throw new UnauthorizedException('旧密码错误')

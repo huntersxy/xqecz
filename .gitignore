@@ -6,6 +6,7 @@ packages/worker/vendor/
 dist/
 packages/api/dist/
 packages/frontend/dist/
+*.tsbuildinfo
 packages/worker/*.exe
 packages/worker/server.exe
 
