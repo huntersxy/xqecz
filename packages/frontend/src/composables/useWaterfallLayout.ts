@@ -53,20 +53,6 @@ export function useWaterfallLayout(
     positions.value = newPositions
     containerHeight.value = Math.max(...colHeights, 0)
     isLayoutReady.value = true
-
-    // 宽度变化后图片高度会变，等图片加载完再算一次
-    const imgs = el.querySelectorAll('img')
-    let pending = 0
-    const onDone = () => {
-      if (--pending <= 0) relayout()
-    }
-    for (const img of imgs) {
-      if (!img.complete) {
-        pending++
-        img.addEventListener('load', onDone, { once: true })
-        img.addEventListener('error', onDone, { once: true })
-      }
-    }
   }
 
   function appendNewItems(newItems: WaterfallItem[]) {
@@ -96,15 +82,17 @@ export function useWaterfallLayout(
 
       const x = minIdx * (colW + gap)
       const y = colHeights[minIdx]
+      const cardEl = el.querySelector(`[data-wf-id="${item.id}"]`) as HTMLElement | null
+      const h = cardEl ? cardEl.offsetHeight : 0
       positions.value.set(item.id, { x, y, w: colW })
-      colHeights[minIdx] = y + gap
+      colHeights[minIdx] = y + h + gap
     }
 
     containerHeight.value = Math.max(...colHeights, 0)
   }
 
   function onImageLoaded(_id: string | number) {
-    nextTick(() => relayout())
+    scheduleRelayout()
   }
 
   let resizeRaf: number | null = null
@@ -122,6 +110,14 @@ export function useWaterfallLayout(
     resizeObserver?.disconnect()
     resizeObserver = new ResizeObserver(scheduleRelayout)
     resizeObserver.observe(el)
+    // 图片加载/加载失败都会改变卡片高度：用容器级捕获监听统一触发重排，
+    // 避免依赖单个卡片的 ResizeObserver 事件（懒加载图片在视口外时不会触发）。
+    el.addEventListener('load', onMediaLoad, true)
+    el.addEventListener('error', onMediaLoad, true)
+  }
+
+  function onMediaLoad(e: Event) {
+    if (e.target instanceof HTMLImageElement) scheduleRelayout()
   }
 
   // 容器可能在 v-else 上，初始时不存在，需要 watch 等它出现
@@ -141,6 +137,10 @@ export function useWaterfallLayout(
 
   onUnmounted(() => {
     resizeObserver?.disconnect()
+    if (containerRef.value) {
+      containerRef.value.removeEventListener('load', onMediaLoad, true)
+      containerRef.value.removeEventListener('error', onMediaLoad, true)
+    }
     if (resizeRaf) cancelAnimationFrame(resizeRaf)
   })
 
