@@ -131,6 +131,9 @@ async function fetchPage(page: number, append = false) {
         nextTick(() => waterfall.appendNewItems(allContents.value.slice(oldLen)))
       } else {
         allContents.value = parsed
+        // 列表整体替换（同长度/变多时 length watch 不会触发）也要重排，
+        // 否则新卡片没有位置、旧位置残留，产生空白/重叠。
+        nextTick(() => waterfall.relayout())
       }
       // 更新缓存
       if (!homeStore.searchKeyword) {
@@ -283,6 +286,8 @@ onMounted(() => {
       waterfall.containerHeight.value = homeStore.cachedContainerHeight
       waterfall.isLayoutReady.value = true
     }
+    // 缓存的位置是基于"图片已加载"的高度算的；用当前实际高度重排一次，避免占位高度造成空白。
+    nextTick(() => waterfall.relayout())
     nextTick(() => requestAnimationFrame(() => homeStore.restoreScroll()))
     return
   }
@@ -313,6 +318,8 @@ onActivated(() => {
     waterfall.containerHeight.value = homeStore.cachedContainerHeight
     waterfall.isLayoutReady.value = true
   }
+  // 同上：回到首页后先按当前实际高度重排，再恢复滚动。
+  nextTick(() => waterfall.relayout())
 
   // 标记需要在图片加载后恢复滚动
   pendingScrollRestore.value = true
