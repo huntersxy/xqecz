@@ -6,7 +6,7 @@ require (
 	github.com/deepteams/webp v1.2.7
 	golang.org/x/image v0.44.0
 	google.golang.org/grpc v1.72.0
-	google.golang.org/protobuf v1.36.6
+	google.golang.org/protobuf v1.36.11
 )
 
 require (
