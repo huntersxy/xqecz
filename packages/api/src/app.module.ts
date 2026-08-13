@@ -34,10 +34,11 @@ import { WorkerModule } from './worker/worker.module'
         synchronize: false,
         charset: 'utf8mb4',
         // 远程 MySQL 连接池显式配置：防网络波动导致连接泄漏或池爆炸。
+        // 注意：mysql2 3.x 已移除 acquireTimeout（无效选项，会告警），连接等待超时
+        // 由 connectTimeout 覆盖；如需池获取超时可设 waitForConnections=false + queueLimit。
         extra: {
           connectionLimit: cfg.get<number>('MYSQL_POOL_SIZE', 5),
           connectTimeout: cfg.get<number>('MYSQL_CONNECT_TIMEOUT', 10000),
-          acquireTimeout: cfg.get<number>('MYSQL_ACQUIRE_TIMEOUT', 30000),
           waitForConnections: true,
           queueLimit: 0,
           idleTimeout: cfg.get<number>('MYSQL_IDLE_TIMEOUT', 60000),

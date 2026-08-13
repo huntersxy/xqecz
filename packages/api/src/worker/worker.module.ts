@@ -3,6 +3,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { WorkerService } from './worker.service'
 import { join } from 'path'
+import { PROJECT_ROOT } from '../paths'
 
 @Global()
 @Module({
@@ -16,7 +17,9 @@ import { join } from 'path'
           transport: Transport.GRPC,
           options: {
             package: 'xqecz',
-            protoPath: join(__dirname, '../../../../proto/xqecz.proto'),
+            // proto 定位用 PROJECT_ROOT（向上查找 pnpm-workspace.yaml/.git），
+            // 不依赖相对 __dirname 的层数 —— dist 布局变化（如 dist/src 残留）时仍正确。
+            protoPath: join(PROJECT_ROOT, 'proto/xqecz.proto'),
             url: cfg.get('WORKER_URL', '127.0.0.1:50051'),
             // 使用 snake_case 字段名（与 proto 定义、Go worker、worker.service.ts 映射一致）。
             // longs: Number —— proto 的 uint64（如 content_id）默认反序列化成 Long 对象
