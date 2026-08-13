@@ -37,12 +37,14 @@ pnpm --filter ./packages/frontend run test
 | CSS | Tailwind CSS | ^4.3 | 原子类优先，`@theme` 自定义变量 |
 | HTTP | ofetch | ^1.5 | 统一封装，自动重试，超时控制 |
 | Markdown | marked + DOMPurify | ^18.0 / ^3.4 | 渲染 + XSS 防护 |
-| 动画 | motion-v | ^2.2 | 声明式动画 |
+| 编辑器 | vditor | ^3.11 | Markdown 编辑器（上传页/评论） |
 | 图片查看 | viewerjs | ^1.11 | 全屏图片查看器 |
+| 校验 | zod | ^4.4 | 运行时校验（schemas.ts） |
+| 测试 | vitest + @vue/test-utils + jsdom | ^4.1 / ^2.4 / ^30 | 单元测试（components/composables/stores/utils `__tests__/`） |
 | 校验 | oxlint | ~1.60 | Rust 高性能 lint（correctness 规则） |
 | 校验 | ESLint | ^10.2 | vue-ts + oxlint 插件 |
-| 格式化 | Prettier | 3.8 | 统一代码风格 |
-| 图像 | vite-plugin-image-optimizer | ^1.1 | 构建时压缩 PNG/JPEG/WebP/AVIF/SVG |
+| 格式化 | Prettier | 3.9 | 统一代码风格 |
+| 图像 | vite-plugin-image-optimizer | ^2.0 | 构建时压缩 PNG/JPEG/WebP/AVIF/SVG |
 
 ---
 
@@ -55,38 +57,48 @@ src/
 ├── api/              # HTTP 请求层，按业务域分模块导出
 │   └── index.ts      # authApi / contentApi / commentApi / pollApi / adminApi / apiKeyApi
 ├── assets/
-│   └── main.css      # Tailwind 入口 + CSS 变量（:root / html.dark）
+│   ├── main.css      # Tailwind 入口 + CSS 变量（:root / html.dark）
+│   ├── bg.webp       # 背景图
+│   └── logo.webp     # Logo
 ├── components/
 │   ├── admin/        # 后台管理组件（Arco + Sass 控制台设计系统，见「后台设计系统」节）
+│   ├── __tests__/    # 组件单测（ConfirmDialog / MediaImage / WaterfallCard）
 │   └── *.vue         # 通用 UI 组件
 ├── composables/      # 组合式函数
-│   ├── useGlobalSearch.ts   # 全局搜索单例
+│   ├── useGlobalSearch.ts   # 全局搜索单例（watchGlobalSearch 供跨页联动）
+│   ├── useSearchFilter.ts   # 搜索/标签筛选（标签列表 useStorage 按天缓存）
+│   ├── useContentBrowse.ts  # 内容浏览/分页加载（总览或标签模式）
+│   ├── useListCache.ts      # 列表缓存 + diffLists 差量合并
 │   ├── useRecommendLoader.ts # 推荐内容加载
-│   ├── useSearchFilter.ts   # 搜索/标签筛选
-│   └── useToast.ts          # 确认对话框 + toast
+│   ├── useWaterfallLayout.ts # 瀑布流布局（纯算法 computeLayout 与 DOM 解耦）
+│   ├── useFilePicker.ts     # 文件选择/校验（md5 重命名）
+│   ├── useToast.ts          # 确认对话框 + toast
+│   └── __tests__/    # composable 单测（useSearchFilter / useWaterfallLayout）
 ├── router/
 │   └── index.ts      # 路由表 + 导航守卫 + 后台预加载队列
 ├── stores/           # Pinia 全局状态
-│   ├── theme.ts      # 明暗模式（mode: light/dark）
-│   ├── home.ts       # 首页搜索/筛选/分页/滚动位置缓存
-│   ├── admin.ts      # 后台管理状态
-│   └── user.ts       # 登录态 / 用户信息
+│   ├── theme.ts      # 明暗模式（body arco-theme 属性驱动）
+│   ├── home.ts       # 首页搜索/筛选/分页/滚动位置/瀑布流布局缓存
+│   ├── admin.ts      # 后台管理状态（含 pendingCounts 待办角标）
+│   ├── user.ts       # 登录态 / 用户信息
+│   └── __tests__/    # store 单测（home / user）
 ├── types/
 │   ├── index.ts      # 所有 TypeScript 类型定义
 │   └── schemas.ts    # Zod schema（运行时校验 + transform）
 ├── utils/
-│   ├── index.ts      # getImageUrl / formatTime / renderMarkdown / getPreviewText
+│   ├── index.ts      # getImageUrl / getRemoteFallbackUrl / getAvatarUrl / formatTime / getPreviewText / renderMarkdown / toFormData
 │   ├── constants.ts  # CC 协议文本 / 视频条款文本
-│   └── webVitals.ts  # Web Vitals 监控
+│   ├── webVitals.ts  # Web Vitals 监控
+│   └── __tests__/    # utils 单测
 ├── views/            # 页面级组件
-│   ├── HomeView.vue         # 首页（薄层 → <WaterfallTheme />）
-│   ├── WaterfallTheme.vue   # 瀑布流首页（推荐区 + 无限滚动 + 卡片点击路由跳转）
+│   ├── HomeView.vue         # 瀑布流首页（自包含推荐区 + 无限滚动 + 卡片点击路由跳转）
 │   ├── ContentDetailView.vue # 全屏覆盖式详情页（两栏布局 + 评论 + 认领）
 │   ├── QuickUploadView.vue  # 游客快速上传
 │   ├── LoginView.vue        # 登录页
 │   └── AdminView.vue        # 后台管理（控制台外壳：AdminNav 侧栏 + AdminPanel 面板）
 ├── App.vue           # 根组件：导航栏/页脚/Toast/Confirm/路由过渡
 └── main.ts           # 入口：createApp → Pinia → Router → mount
+# 包根另含 env.d.ts（环境变量类型定义）、vite.config.ts、vitest.config.ts
 ```
 
 ### 数据流
@@ -105,17 +117,17 @@ View（薄层，组装组件）
 
 ### 明暗模式
 
-明暗模式通过 `stores/theme.ts` 管理，仅操作 `document.documentElement` 的 `dark` class。CSS 变量值由 `main.css` 中的 `:root` / `html.dark` 控制，纯 CSS 切换，不通过 JS 逐个 setProperty。
+明暗模式通过 `stores/theme.ts` 管理，仅操作 `<body arco-theme="dark">` 属性（`setAttribute`/`removeAttribute`），触发 Arco 原生暗色；亮/暗偏好持久化到 `localStorage`（`theme_mode`）。CSS 变量值由 `main.css` 中的 `:root` / `html.dark`（即 `body[arco-theme='dark']` 选择器）控制，随属性自动翻日/夜，不通过 JS 逐个 setProperty。
 
 - `App.vue` header 下拉切换日间/暗色
-- Arco 暗色通过 `<body arco-theme="dark">` 属性驱动，Arco token（`--color-bg-*` / `--color-text-*` / `--primary-*` 等）自动切换，组件无需逐个适配
+- Arco token（`--color-bg-*` / `--color-text-*` / `--primary-*` 等）随 `<body arco-theme="dark">` 自动切换，组件无需逐个适配
 - Tailwind 组件可用 `dark:` 前缀或 `var(--theme-*)` / `var(--color-*)` CSS 变量
 
 ### 路由
 
 | 路径 | 组件 | 说明 |
 |------|------|------|
-| `/` | HomeView → WaterfallTheme | 瀑布流首页 |
+| `/` | HomeView | 瀑布流首页（推荐区 + 无限滚动） |
 | `/content/:id` | ContentDetailView | 全屏覆盖式详情页 |
 | `/quick-upload` | QuickUploadView | 游客快速上传 |
 | `/login` | LoginView | 登录页 |
@@ -367,7 +379,7 @@ async function load() {
 - **后台预加载**：首页渲染后，低优先级 view 通过 `requestIdleCallback` 按延迟队列预加载
 - **标签缓存**：标签列表用 `localStorage` 按天缓存，减少 API 请求
 - **图片懒加载**：`<img loading="lazy">`（已默认）
-- **构建分包**：vite config 中 `manualChunks` 分离 vue-vendor / arco-vendor / utils-vendor / motion-vendor
+- **构建分包**：vite config 中 `manualChunks` 分离 vue-vendor（vue/pinia）、arco-vendor（@arco-design）、utils-vendor（marked/dompurify/ofetch）；配置文件里仍有 motion-vendor 残留分支（motion-v 依赖已移除，属死代码，勿依赖）
 
 ### 十一、分析规范
 
@@ -381,11 +393,10 @@ async function load() {
 
 ### 十二、CI/CD
 
-项目已有 GitHub Actions 工作流：
+项目已有 GitHub Actions 工作流（`.github/workflows/`）：
 
 | 文件 | 触发条件 | 流程 |
 |------|---------|------|
-| `.github/workflows/deploy.yml` | 推送到 `dev` 分支 | `npm ci` → `npm run build` → 部署到 GitHub Pages |
-| `.github/workflows/deploy-ftp.yml` | 推送到 `master` 分支 | `npm ci` → `npm run build` → FTP 部署到服务器 |
-
-两者均包含 `npm run build`（type-check + vite build），确保推送代码至少能通过编译。
+| `ci.yml` | push 到 `master` / PR | 三端 CI：api typecheck+build、frontend type-check+vitest 测试、worker `go test`（覆盖率上传 Codecov） |
+| `deploy.yml` | push 到 `master` / 手动 | 三端构建 → FTP 部署（api/worker/frontend 三份 dist）→ 宝塔面板 API 重启服务（项目名 `xqecz2`） |
+| `sonarcloud.yml` | push 到 `master` / PR | SonarCloud 静态分析（worker Go 覆盖率 + 前端/后端扫描） |

@@ -37,7 +37,7 @@ D:\xqecz/
 │   │   │   ├── poll/      # 投票模块
 │   │   │   ├── admin/     # 管理后台（含 refresh-recommend / regenerate 端点）
 │   │   │   ├── api-key/   # API 密钥管理
-│   │   │   ├── entities/  # TypeORM Entity（8 张表）
+│   │   │   ├── entities/  # TypeORM Entity（10 张表：users/contents/comments/claims/polls/poll_votes/content_likes/content_favorites/comment_reports/api_keys）
 │   │   │   ├── guards/    # AuthGuard / AdminGuard / OptionalAuthGuard
 │   │   │   ├── redis/     # RedisService（session / cache / view / recommend 读写）
 │   │   │   ├── worker/    # WorkerService（gRPC client → Go worker）
@@ -55,7 +55,12 @@ D:\xqecz/
 │   │   └── go.mod
 │   │
 │   └── frontend/          # Vue 3 前端（本仓内 packages/frontend）
-│       └── src/views/     # 路由页：首页瀑布流 WaterfallTheme；详情页 ContentDetailView 为全屏覆盖式路由页（/content/:id）
+│       └── src/
+│           ├── components/  # 通用组件（WaterfallCard 用 ResizeObserver 监听整卡高度驱动瀑布流重排）
+│           ├── composables/ # 组合式函数；useWaterfallLayout.ts 瀑布流布局（纯算法 computeLayout 与 DOM 解耦）
+│           │   └── __tests__/  # vitest 单测（computeLayout 纯函数可直接测，无需 DOM）
+│           ├── stores/home.ts  # 首页筛选/分页/滚动位置与瀑布流布局缓存（CachedPosition 含 h/col）
+│           └── views/      # 路由页：HomeView 瀑布流首页（自包含布局/加载逻辑）；ContentDetailView 为全屏覆盖式路由页（/content/:id）
 │
 ├── proto/
 │   ├── xqecz.proto        # gRPC protobuf 定义（4 文件处理/推荐方法 + Health）
@@ -93,17 +98,18 @@ pnpm install --shamefully-hoist            # 装依赖（传递依赖需提升�
 # 确认 packages/api/.env 存在（gitignore，含云端 MySQL/Redis 凭据与 UPLOAD_DIR/WORKER_URL）
 
 # ── 一键开发（推荐）──
-pnpm dev                                   # 并发起三端：api(nest --watch :3000) + worker(go run :50051) + 前端(Vite :5173)
+pnpm dev                                   # scripts/dev.mjs 编排器：并发起三端（api :3000 / worker :50051 / 前端 :5173，
+                                           #   端口被占时自适应顺延，通过环境变量注入各端保证互连；退出时递归清理子进程树）
 # 说明：api 读 packages/api/.env；worker 经 scripts/run-worker.mjs 启动，自动从同一 .env 注入 UPLOAD_DIR，两端目录天然一致。
-# 前端 Vite 已把 /api、/uploads 等代理到 http://localhost:3000（可用 VITE_PROXY_TARGET 覆盖）。
+# 前端 Vite 已把 /api、/uploads 等代理到 http://localhost:3000（可用 VITE_PROXY_TARGET 覆盖，dev 编排器按实际端口注入）。
 
 # ── 一键生产运行 ──
 pnpm start                                 # = pnpm build（三端全量构建）+ pnpm start:services
-pnpm start:services                        # 跳过构建直接起：api(node dist/main :3000) + worker + 前端(vite preview :4173)
+pnpm start:services                        # 跳过构建直接起：concurrently 并发 api(node dist/main) + worker + 前端(vite preview :4173)
 
 # ── 拆分命令 ──
 pnpm dev:api                               # 仅 NestJS API 开发（热重载，:3000）
-pnpm dev:worker                            # 仅 Go Worker（go run :50051）
+pnpm dev:worker                            # 仅 Go Worker（= pnpm run worker:run → scripts/run-worker.mjs）
 pnpm dev:fe                                # 仅前端 Vite 开发服务器（:5173）
 pnpm build                                 # 三端全量构建（api dist/ + 前端 dist/ + worker 二进制）
 pnpm worker:build                          # 仅 Worker 构建
@@ -135,7 +141,7 @@ pnpm proto:generate                        # 生成 ts/go stub
 | 前端 | Vue 3.5 + TypeScript + Vite + Tailwind CSS + Arco Design Vue |
 | 通信 | gRPC（NestJS → Worker，snake_case via keepCase） |
 | 数据库 | MySQL + Redis |
-| 运行方式 | pnpm 脚本本地直启（concurrently 并发三端，无 Docker） |
+| 运行方式 | pnpm 脚本本地直启（dev 用 scripts/dev.mjs 编排器，生产用 concurrently，无 Docker） |
 
 ## 修改指南
 
@@ -145,7 +151,53 @@ pnpm proto:generate                        # 生成 ts/go stub
 4. **新增/修改 gRPC 接口** — 先改 `proto/xqecz.proto` → `pnpm --filter @xqecz/proto run generate` 生成 stub → 实现 Go 端 + 在 `packages/api/src/worker/worker.service.ts` 调
 5. **推荐算法改动** — 只改 `packages/worker/server/recommend.go:computeRecommend()`（纯函数，输入 `RecommendItem`，输出 `ScoredItem`）；刷新节奏/落库在 api `content.service.ts:refreshRecommend()`（多实例通过 Redis 分布式锁防抖，见 `RedisService.acquireLock()`）
 6. **数据库变更** — 改 `packages/api/src/entities/`，生产用正式 migration；`synchronize` 仅本地/测试开，勿在生产长期开启
-7. **踩坑记忆** — TypeORM `bigint` 主键返字符串，与 Redis ZSet 数值成员比对需 `String()` 归一化；`tsconfig.json` 需 `esModuleInterop:true`（CJS 默认导入）
+7. **瀑布流布局改动（前端首页）** — 纯布局算法在 `packages/frontend/src/composables/useWaterfallLayout.ts:computeLayout()`（与 DOM 解耦，输出 `Map<id, Position>`，可直接单测，勿写死在组件里）；改布局逻辑优先改纯函数并补 `__tests__/useWaterfallLayout.test.ts`。核心约定：**稳定列**（卡片落列后不再换列，`preserveColumns` 默认 true，仅列数/列宽变化时全量最短列重排）、**单一调度**（图片加载/尺寸/宽度变化合并到一帧 `requestAnimationFrame` 只 layout 一次）、**滚动锚定**（重算前 captureAnchor 固定视口顶部卡片）、卡片高度由 `[data-wf-id]` 批量量取、`restore`/`reset` 管 keep-alive 缓存。HomeView 走 `homeStore` 缓存布局，列表筛选/搜索用自增 `loadSeq` 丢弃过期响应防竞态
+8. **踩坑记忆** — TypeORM `bigint` 主键返字符串，与 Redis ZSet 数值成员比对需 `String()` 归一化；`tsconfig.json` 需 `esModuleInterop:true`（CJS 默认导入）
+
+## 迭代规范（AGENTS.md 自身）
+
+每次完成代码改动、提交前（或随代码改动一并提交）应自检是否需迭代本文件。本规范即**本文件的维护 SOP**：代理由此判断"改动多大、哪些重点值得沉淀"，避免文档过期或过度膨胀。
+
+### 触发条件（满足任一即应迭代）
+
+改动若触及以下任一层面，应更新对应章节：
+
+| 触发点 | 需更新的章节 |
+|--------|--------------|
+| 新增/删除后端模块、`packages/api/src/` 下目录结构变化 | 目录结构 / 修改指南 2 |
+| 新增/修改 gRPC 方法或 proto 字段 | gRPC 接口表 / 修改指南 4 |
+| 新增/删除数据库表、Entity、列语义变化 | 目录结构 entities / 修改指南 6 / 核心约束·内容统一模型 |
+| 新增/删除前端组件、composable、页面或目录调整 | 目录结构 frontend / 修改指南 7 |
+| API 密钥权限、Redis 缓存键、软删除、降级策略等约束变化 | 核心约束对应条目 |
+| 增减依赖版本或换技术栈 | 技术栈表 |
+| 新增/调整根 pnpm 脚本或常用命令 | 快速命令 |
+| 出现新的"踩坑记忆"（类型比对、构建、平台差异等） | 修改指南 8 |
+| 产生新的迭代教训（下文"沉淀原则"命中者） | 视情况新增小节 |
+
+### 沉淀原则（何时才值得写进文档）
+
+- **只沉淀"再次需要时无法轻易从代码/现有文档推出"的信息**：文件级定位（哪个文件哪个函数）、模块依赖关系、隐含约定、踩坑、跨端契约。
+- **可轻易从代码推断的内容不要写**（如某函数签名细节、随版本的常量值）——保持文档精简，避免与代码漂移。
+- **沉淀的应是"约束/约定/推理链"，而非"实现快照"**。实现细节会变，约定长期有效。
+- 一次改动通常**只新增/修订一两条**；多条大改请拆分提交，避免单次 diff 过大难审。
+
+### 迭代流程（每步均可执行命令核实）
+
+1. **定位真实变更**：用 `git status` 看改了哪些文件、`git diff --stat` 看规模，先读改动后再写，禁止凭记忆描述（前端约束同 `packages/frontend/AGENTS.md` 第十一条）。
+2. **对照上表判断命中**：若无命中则不需改本文件（避免为小改动制造噪音）；有命中则找到对应章节。
+3. **最小修订**：只改命中条目，不重排非相关内容；措辞沿用中文、与上下文风格一致。
+4. **同步关联文档**：根 `AGENTS.md` 与 `packages/frontend/AGENTS.md` 各自维护自己的部分；改前端时若两者都命中，注意两边一致性（同一事实不要写矛盾）。
+5. **自校验（提交前必做）**：重新 `git diff AGENTS.md`，确认
+   - 目录树图与实际目录一致（新增文件别漏、删掉的别残留）；
+   - 文件路径/函数名/章节名可被搜索定位到真实代码；
+   - 命令可在仓库内真实执行（不要写不存在/改名过的脚本）；
+   - 全文无自相矛盾（陈旧条目如同名功能须同步更新）。
+6. **保留版式**：本文件用 2 空格缩进、中文说明、markdown 表格与 `code` 块定位关键文件；新增内容沿用此风格。
+
+### 版本与变更记录约定
+
+- 迭代以**流水修订**为主，不维护独立"版本号"或"CHANGELOG 章节"——本文件的 git 历史即版本记录。
+- 一次提交应包含"代码改动 + 相应的 AGENTS.md 迭代"，确保文档与代码同源同步，避免事后追补。
 
 ## 已归档
 
