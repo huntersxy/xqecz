@@ -17,23 +17,37 @@ const previewText = computed(() => {
   return getPreviewText(source, 96)
 })
 
-// Arco <Image> 不对外 emit load 事件（内部吞掉了原生 img 的 onLoad），
-// 而瀑布流 masonry 依赖 imageLoaded 触发重排，故用 ResizeObserver 监听媒体区高度变化来替代。
-const mediaRef = ref<HTMLElement | null>(null)
+// 瀑布流依赖卡片高度变化触发重排：用 ResizeObserver 监听整卡高度，
+// 只在高度发生有意义变化时 emit（初始观察回调不重复触发），图片加载/失败、
+// 字体变化等都会反映到高度上。
+const cardRef = ref<HTMLElement | null>(null)
 let ro: ResizeObserver | null = null
+let lastHeight = 0
+
+function onCardResize(entry: ResizeObserverEntry) {
+  const h = entry.contentRect.height
+  if (h > 0 && Math.abs(h - lastHeight) > 0.5) {
+    lastHeight = h
+    emit('imageLoaded', props.item.id)
+  }
+}
+
 onMounted(() => {
-  if (mediaRef.value) {
-    ro = new ResizeObserver(() => emit('imageLoaded', props.item.id))
-    ro.observe(mediaRef.value)
+  if (cardRef.value) {
+    ro = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (entry) onCardResize(entry)
+    })
+    ro.observe(cardRef.value)
   }
 })
 onBeforeUnmount(() => ro?.disconnect())
 </script>
 
 <template>
-  <div class="wf-card" @click="emit('click', props.item)" @keydown.enter="emit('click', props.item)" tabindex="0">
+  <div ref="cardRef" class="wf-card" @click="emit('click', props.item)" @keydown.enter="emit('click', props.item)" tabindex="0">
     <template v-if="props.item.thumb">
-      <div class="wf-card-media" ref="mediaRef">
+      <div class="wf-card-media">
         <MediaImage :src="props.item.thumb" :alt="props.item.title" :preview="false" loading="lazy" decoding="async" />
         <div v-if="props.item.tags?.some(t => /ai/i.test(t))" class="wf-badge-ai">AI</div>
       </div>

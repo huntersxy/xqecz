@@ -40,7 +40,10 @@ const total = ref(0)
 const totalPages = ref(1)
 const isLoading = ref(false)
 const isLoadingMore = ref(false)
-const hasMore = computed(() => currentPage.value <= totalPages.value)
+// 到底条件：已加载数量达到总数，且页码未越过 total_page（双重兜底，避免边界多拉空页/死循环）
+const hasMore = computed(
+  () => currentPage.value <= totalPages.value && allContents.value.length < total.value,
+)
 const sentinelRef = ref<HTMLElement | null>(null)
 const masonryRef = ref<HTMLElement | null>(null)
 
@@ -49,26 +52,34 @@ const waterfall = useWaterfallLayout(masonryRef, allContents)
 // 是否需要在布局完成后恢复滚动位置
 const pendingScrollRestore = ref(false)
 
-// 首次加载或重置时全量布局
+// 请求序号：每次发起新请求 +1，旧响应返回时若序号已过期则直接丢弃，
+// 避免快速切换搜索/标签时旧列表覆盖新列表（竞态）。
+let loadSeq = 0
+
+// keep-alive 首次挂载时 onActivated 也会触发一次；此时数据已由 onMounted
+// （loadAllPages 或 homeStore/localStorage 缓存恢复）提供，不必再 sync。
+// 首次激活后复位，后续激活（详情页返回等）正常做增量同步。
+let isFirstActivation = true
+
+// 列表长度变化：清空时重置布局；首次加载/列表变短（diff 删除）时全量重排重新平衡。
+// 布局由各写路径显式触发（relayout / appendNewItems），避免同一帧重复量高。
 watch(
   () => allContents.value.length,
   (newLen, oldLen) => {
     if (newLen === 0) {
-      waterfall.positions.value.clear()
-      waterfall.containerHeight.value = 0
+      waterfall.reset()
       return
     }
     if (oldLen === 0 || newLen < oldLen) {
-      nextTick(() => waterfall.relayout())
+      nextTick(() => waterfall.relayout({ full: true }))
     }
-    // 数据变化后检查是否需要加载更多
-    checkAndLoadMore()
+    // 全量加载模式下无需"高度不够自动补拉"；diff 追加时布局由写路径显式触发
   },
 )
 
-function onImageLoaded(id: string | number) {
-  waterfall.onImageLoaded(id)
-  // 如果有待恢复的滚动位置，在图片加载后尝试恢复
+function onCardResized(id: string | number) {
+  waterfall.onCardResized(id)
+  // 如果有待恢复的滚动位置，在卡片尺寸稳定后尝试恢复
   if (pendingScrollRestore.value) {
     requestAnimationFrame(() => {
       const target = homeStore.scrollPosition
@@ -101,10 +112,17 @@ onBeforeRouteLeave(() => {
     positions: new Map(waterfall.positions.value),
     containerHeight: waterfall.containerHeight.value,
   })
+  // localStorage 缓存统一在离开时写一次（搜索模式不缓存），
+  // 运行时加载/diff 不再频繁写，避免每轮全量拉取都序列化几百 KB。
+  if (!homeStore.searchKeyword) {
+    listCache.save(allContents.value, total.value, totalPages.value)
+  }
 })
 
-async function fetchPage(page: number, append = false) {
-  if (isLoading.value || isLoadingMore.value) return
+async function fetchPage(page: number, append = false, force = false) {
+  // 非强制请求沿用"一次只发一个"防抖；强制请求（筛选/搜索重置）可打断在途请求
+  if (!force && (isLoading.value || isLoadingMore.value)) return
+  const seq = ++loadSeq
   if (append) isLoadingMore.value = true
   else isLoading.value = true
 
@@ -120,126 +138,180 @@ async function fetchPage(page: number, append = false) {
       if (searchFilter.selectedTags.value.length > 0) params.tag = searchFilter.selectedTags.value.join(',')
       res = await contentApi.list(params)
     }
+    // 过期响应：已被更新的请求取代，丢弃，避免旧列表覆盖新筛选结果
+    if (seq !== loadSeq) return
     if (res.code === 200) {
       const parsed = res.data.list.map((item: unknown) => ContentSchema.parse(item))
       total.value = res.data.total
       totalPages.value = res.data.total_page
-      currentPage.value = page
       if (append) {
+        // 合并去重：分页数据与现有列表可能重叠（diff / 并发刷新场景）
+        const existing = new Set(allContents.value.map((item) => item.id))
+        const fresh = parsed.filter((item) => !existing.has(item.id))
         const oldLen = allContents.value.length
-        allContents.value.push(...parsed)
-        nextTick(() => waterfall.appendNewItems(allContents.value.slice(oldLen)))
+        allContents.value.push(...fresh)
+        // 仅当实际追加了新卡片才推进页码；若本页全部重叠（fresh 空），
+        // 保持 currentPage 不变，避免 hasMore 的 currentPage<=totalPages 提前耗尽。
+        if (fresh.length > 0) {
+          currentPage.value = page
+          nextTick(() => waterfall.appendNewItems(allContents.value.slice(oldLen)))
+        }
       } else {
+        currentPage.value = page
         allContents.value = parsed
         // 列表整体替换（同长度/变多时 length watch 不会触发）也要重排，
-        // 否则新卡片没有位置、旧位置残留，产生空白/重叠。
-        nextTick(() => waterfall.relayout())
+        // 否则新卡片没有位置、旧位置残留，产生空白/重叠。full 重排重新平衡各列。
+        nextTick(() => waterfall.relayout({ full: true }))
       }
-      // 更新缓存
-      if (!homeStore.searchKeyword) {
-        listCache.save(allContents.value, total.value, totalPages.value)
-      }
+      // 缓存统一在 onBeforeRouteLeave 离开时写入，运行时不再频繁写 localStorage
     }
   } catch (e) { console.error('加载失败:', e) }
-  finally { isLoading.value = false; isLoadingMore.value = false }
+  finally {
+    // 仅最新请求复位加载态；过期请求的复位交给更新的一批
+    if (seq === loadSeq) { isLoading.value = false; isLoadingMore.value = false }
+  }
 }
 
 function resetAndLoad() {
+  // 作废所有在途请求，防止旧响应把新筛选结果覆盖掉
+  loadSeq++
   currentPage.value = 1
   allContents.value = []
+  isLoading.value = false
+  isLoadingMore.value = false
   listCache.clear()
-  fetchPage(1)
+  void fetchPage(1, false, true)
 }
 
 watchGlobalSearch(() => resetAndLoad())
 
-// 增量加载更多时也更新缓存
-async function fetchMore() {
-  if (!hasMore.value || isLoading.value || isLoadingMore.value) return
-  await fetchPage(currentPage.value + 1, true)
-}
-
-// 备用触发：列表高度不够时自动加载更多
-function checkAndLoadMore() {
-  nextTick(() => {
-    if (!hasMore.value || isLoading.value || isLoadingMore.value) return
-    const el = masonryRef.value
-    if (!el) return
-    // 列表高度小于视口高度的 1.5 倍时，自动加载更多
-    if (el.scrollHeight < window.innerHeight * 1.5) {
-      fetchMore()
-    }
-  })
-}
-
-// 异步 diff：拿最新数据与缓存对比，更新列表
-async function diffAndUpdate() {
+// 首次加载：自动连续拉取所有页（1-100 → 101-200 → …），不依赖滚动触发。
+// 图片仍由卡片自身的 loading="lazy" 懒加载，数据量小（每页 100 条）可一次拉满。
+async function loadAllPages() {
+  if (isLoading.value) return
+  isLoading.value = true
+  const seq = ++loadSeq
   try {
-    const res = await contentApi.list({ page: 1, page_size: 100, sort_by: 'created_at', order: 'desc' })
-    if (res.code !== 200) return
-
-    const freshList = res.data.list.map((item: unknown) => ContentSchema.parse(item))
-    const { merged, removed } = diffLists(allContents.value, freshList)
-
-    allContents.value = merged.filter((item) => !removed.has(item.id))
-    total.value = res.data.total
-    totalPages.value = res.data.total_page
-
-    listCache.save(allContents.value, total.value, totalPages.value)
-    nextTick(() => waterfall.relayout())
-  } catch (e) {
-    console.warn('diff 更新失败:', e)
+    // 基于现有列表去重追加（keep-alive/localStorage 恢复后补齐剩余页）
+    const loaded = new Set<number | string>(allContents.value.map((i) => i.id))
+    const all = [...allContents.value]
+    const batchSize = 100 // API 上限，减少请求次数
+    for (let page = 1; ; page++) {
+      const res = await contentApi.list({ page, page_size: batchSize, sort_by: 'created_at', order: 'desc' })
+      // 过期响应（被搜索/筛选重置打断）直接丢弃
+      if (seq !== loadSeq) return
+      if (res.code !== 200) break
+      const parsed = res.data.list.map((item: unknown) => ContentSchema.parse(item))
+      total.value = res.data.total
+      // totalPages 统一按滚动分页的 page_size（pageSize.value=20）计算，
+      // 与 hasMore / fetchMore / fetchFreshList 的页码基准一致。
+      totalPages.value = Math.ceil(res.data.total / pageSize.value)
+      const fresh = parsed.filter((item) => !loaded.has(item.id))
+      for (const item of fresh) { loaded.add(item.id); all.push(item) }
+      // 拉满即停：本页为空或已拿到全部
+      if (parsed.length === 0 || all.length >= res.data.total) break
+    }
+    allContents.value = all
+    currentPage.value = Math.max(1, Math.ceil(allContents.value.length / pageSize.value))
+    nextTick(() => waterfall.relayout({ full: true }))
+  } catch (e) { console.error('加载失败:', e) }
+  finally {
+    if (seq === loadSeq) { isLoading.value = false; isLoadingMore.value = false }
   }
 }
 
-// 返回首页（上传 / 详情页等跳转后）时：拉取最新列表与当前列表 diff，
-// 有新增/删除时重排瀑布流并锚定当前可见内容；仅字段变化时原位更新（不打断滚动）。
+// 增量加载更多时也更新缓存（全量加载后的兜底：diff 期间有新内容时补拉）
+async function fetchMore() {
+  if (!hasMore.value || isLoading.value || isLoadingMore.value) return
+  // 页码由已加载条数推导，而非 currentPage+1：列表可能被 diff 替换，
+  // 按条数推导保证请求的是「已加载范围之后」的页，不会重复请求已存在的页。
+  const nextPage = Math.floor(allContents.value.length / pageSize.value) + 1
+  await fetchPage(nextPage, true)
+}
+
+
+// 拉取最新全量列表（API page_size 上限 100，超过分页拉取），返回解析后的数组。
+// 仅在增量同步检测到"头部有变化"时才需要全量对账（新增/删除可能发生在任意位置）。
+async function fetchFreshList(): Promise<Content[] | null> {
+  const out: Content[] = []
+  for (let p = 1; ; p++) {
+    const res = await contentApi.list({ page: p, page_size: 100, sort_by: 'created_at', order: 'desc' })
+    if (res.code !== 200) return null
+    out.push(...res.data.list.map((item: unknown) => ContentSchema.parse(item)))
+    if (out.length >= res.data.total) break
+  }
+  return out
+}
+
+/** 记录锚点：当前视口顶部第一张卡片（插入新卡片后保持同一内容的阅读位置） */
+function captureViewAnchor(): { id: string | number; y: number; scrollY: number } | null {
+  const scrollY = globalThis.scrollY
+  let anchorId: string | number | null = null
+  let anchorTop = Number.POSITIVE_INFINITY
+  for (const [id, pos] of waterfall.positions.value) {
+    if (pos.y >= scrollY - 4 && pos.y < anchorTop) {
+      anchorId = id
+      anchorTop = pos.y
+    }
+  }
+  return anchorId != null ? { id: anchorId, y: anchorTop, scrollY } : null
+}
+
+/**
+ * 返回首页（上传 / 详情页等跳转后）时增量同步最新列表：
+ * 1. 先拉最新一页（100 条）与本地头部对比 —— 头部 id 一致且 total 未变 → 无结构
+ *    变化，仅原位同步字段（点赞数等），不重排、不打断滚动（1 次请求，O(100)）。
+ * 2. 头部有变化（新增/删除/排序）→ 才全量拉取做 diff，插入/移除并锚定当前可见内容。
+ * 3. 首次激活（keep-alive 首次挂载）由 onActivated 的 isFirstActivation 跳过。
+ */
 async function syncLatestOnActivated() {
   if (homeStore.searchKeyword || allContents.value.length === 0) return
   try {
-    const res = await contentApi.list({ page: 1, page_size: 100, sort_by: 'created_at', order: 'desc' })
-    if (res.code !== 200) return
-    const freshList = res.data.list.map((item: unknown) => ContentSchema.parse(item))
-    const { merged, added, removed } = diffLists(allContents.value, freshList)
+    // 第一步：增量探测 —— 只拉最新一页，对比本地头部
+    const probe = await contentApi.list({ page: 1, page_size: 100, sort_by: 'created_at', order: 'desc' })
+    if (probe.code !== 200) return
+    const head = probe.data.list.map((item: unknown) => ContentSchema.parse(item))
+    const newTotal = probe.data.total
 
-    // 无结构变化：仅原位同步字段（点赞数等），不重排、不打断滚动
-    if (added.size === 0 && removed.size === 0) {
-      const freshMap = new Map(freshList.map((i) => [i.id, i]))
-      let changed = false
+    // 本地头部同样取前 head.length 条，逐 id 对比（顺序即 created_at 倒序，可比）
+    const localHead = allContents.value.slice(0, head.length)
+    const headSame =
+      localHead.length === head.length &&
+      localHead.every((item, i) => item.id === head[i].id)
+    const totalSame = newTotal === total.value
+
+    if (headSame && totalSame) {
+      // 无结构变化：仅原位同步字段（点赞数等），不重排、不打断滚动
+      const headMap = new Map(head.map((i) => [i.id, i]))
       for (const item of allContents.value) {
-        const fresh = freshMap.get(item.id)
+        const fresh = headMap.get(item.id)
         if (fresh && fresh.like_count !== item.like_count) {
           item.like_count = fresh.like_count
-          changed = true
         }
       }
-      if (changed) listCache.save(allContents.value, total.value, totalPages.value)
       return
     }
 
-    // 记录锚点：当前视口顶部第一张卡片（插入新卡片后保持同一内容的阅读位置）
-    const viewTop = globalThis.scrollY
-    let anchorId: string | number | null = null
-    let anchorTop = Number.POSITIVE_INFINITY
-    for (const [id, pos] of waterfall.positions.value) {
-      if (pos.y >= viewTop - 4 && pos.y < anchorTop) {
-        anchorId = id
-        anchorTop = pos.y
-      }
-    }
+    // 第二步：头部有变化 → 全量对账（新增/删除可能发生在任意位置）
+    const freshList = await fetchFreshList()
+    if (!freshList) return
+    const { merged, removed } = diffLists(allContents.value, freshList)
 
+    const anchor = captureViewAnchor()
     allContents.value = merged.filter((item) => !removed.has(item.id))
-    total.value = res.data.total
-    totalPages.value = res.data.total_page
-    listCache.save(allContents.value, total.value, totalPages.value)
+    total.value = freshList.length // fetchFreshList 已拉全量，total 即其长度
+    totalPages.value = Math.ceil(total.value / pageSize.value)
+    currentPage.value = Math.max(1, Math.ceil(allContents.value.length / pageSize.value))
 
     nextTick(() => {
-      waterfall.relayout()
-      if (anchorId != null) {
-        const newPos = waterfall.positions.value.get(anchorId)
+      // 这里自行锚定滚动，禁用布局层二次锚定，避免双重补偿；
+      // full 重排重新平衡各列（diff 增删后避免列底空缺）。
+      waterfall.relayout({ anchor: false, full: true })
+      if (anchor) {
+        const newPos = waterfall.positions.value.get(anchor.id)
         if (newPos) {
-          const delta = newPos.y - anchorTop
-          globalThis.scrollTo({ top: Math.max(0, viewTop + delta) })
+          const delta = newPos.y - anchor.y
+          globalThis.scrollTo({ top: Math.max(0, anchor.scrollY + delta) })
         }
       }
     })
@@ -282,9 +354,7 @@ onMounted(() => {
     recommendLoader.loadedPage.value = homeStore.recommendPage
     // 恢复瀑布流布局缓存
     if (homeStore.cachedPositions.size > 0) {
-      waterfall.positions.value = new Map(homeStore.cachedPositions)
-      waterfall.containerHeight.value = homeStore.cachedContainerHeight
-      waterfall.isLayoutReady.value = true
+      waterfall.restore(homeStore.cachedPositions, homeStore.cachedContainerHeight)
     }
     // 缓存的位置是基于"图片已加载"的高度算的；用当前实际高度重排一次，避免占位高度造成空白。
     nextTick(() => waterfall.relayout())
@@ -292,17 +362,19 @@ onMounted(() => {
     return
   }
 
-  // 尝试从 localStorage 加载缓存
+  // 尝试从 localStorage 加载缓存（先渲染缓存再异步补齐最新数据，不阻塞首屏）
   const cached = listCache.load()
   if (cached && cached.list.length > 0) {
     allContents.value = cached.list
     total.value = cached.total
     totalPages.value = cached.totalPages
     currentPage.value = 1
-    // 异步 diff，不阻塞渲染
-    diffAndUpdate()
+    // 全量加载：基于缓存补齐剩余页（图片仍懒加载），不依赖滚动触发。
+    // 首次 onActivated 由 isFirstActivation 跳过重复 sync。
+    void loadAllPages()
   } else {
-    fetchPage(1)
+    // 无缓存：直接自动拉取全部页（1-100 → 101-200 → …）
+    void loadAllPages()
   }
 
   recommendLoader.loadRecommendContents()
@@ -311,12 +383,9 @@ onMounted(() => {
 
 // keep-alive 激活时恢复滚动位置
 onActivated(() => {
-
   // 恢复瀑布流布局缓存
   if (homeStore.cachedPositions.size > 0) {
-    waterfall.positions.value = new Map(homeStore.cachedPositions)
-    waterfall.containerHeight.value = homeStore.cachedContainerHeight
-    waterfall.isLayoutReady.value = true
+    waterfall.restore(homeStore.cachedPositions, homeStore.cachedContainerHeight)
   }
   // 同上：回到首页后先按当前实际高度重排，再恢复滚动。
   nextTick(() => waterfall.relayout())
@@ -324,10 +393,15 @@ onActivated(() => {
   // 标记需要在图片加载后恢复滚动
   pendingScrollRestore.value = true
 
-  // 延迟恢复滚动，再拉取最新列表 diff（有新增时锚定当前可见内容，不丢阅读位置）
+  // 延迟恢复滚动，再拉取最新列表 diff（有新增时锚定当前可见内容，不丢阅读位置）。
+  // 首次挂载的激活不 sync（数据已由 onMounted 提供），复位标志后后续激活正常增量同步。
   setTimeout(() => {
     pendingScrollRestore.value = false
     homeStore.restoreScroll()
+    if (isFirstActivation) {
+      isFirstActivation = false
+      return
+    }
     void syncLatestOnActivated()
   }, 300)
 })
@@ -366,7 +440,7 @@ onActivated(() => {
             width: (waterfall.positions.value.get(item.id)?.w ?? 0) + 'px',
           }"
           @click="openContent"
-          @image-loaded="onImageLoaded"
+          @image-loaded="onCardResized"
         />
       </div>
       <div v-if="isLoadingMore" class="wf-loadmore"><div class="wf-spinner-sm"></div><span>加载更多...</span></div>

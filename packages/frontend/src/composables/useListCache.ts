@@ -29,13 +29,18 @@ export function diffLists(cached: Content[], fresh: Content[]): DiffResult {
   const removed = new Set<string | number>()
   const updated = new Set<string | number>()
 
+  // removed 判定前提：fresh 必须覆盖 cached 全集（fresh 是"全量快照"）。
+  // 若 fresh 只是部分拉取（数量不足），把 cached 中未覆盖的条目判为已删除是误判，
+  // 会导致已加载列表被截断——此时 removed 恒空，只做新增合并，保证安全。
+  const isFullSnapshot = fresh.length >= cached.length
+
   for (const id of freshMap.keys()) {
     if (!cachedMap.has(id)) added.add(id)
   }
 
   for (const id of cachedMap.keys()) {
     if (!freshMap.has(id)) {
-      removed.add(id)
+      if (isFullSnapshot) removed.add(id)
     } else {
       updated.add(id)
     }

@@ -6,6 +6,8 @@ interface CachedPosition {
   x: number
   y: number
   w: number
+  h?: number
+  col?: number
 }
 
 export const useHomeStore = defineStore('home', () => {
