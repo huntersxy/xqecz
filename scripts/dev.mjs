@@ -161,13 +161,27 @@ function pipePrefixed(name, stream, out) {
 }
 
 function launch(name, command, args, extraEnv) {
-  const child = spawn(command, args, {
-    cwd: root,
-    env: { ...process.env, ...extraEnv, FORCE_COLOR: '1' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-    shell: isWin, // pnpm/go 在 Windows 需经 shell 解析
-    detached: !isWin, // POSIX 独立进程组，便于整组销毁
-  })
+  // Windows：`shell: true` 与 args 数组组合会触发 DEP0190（参数仅拼接、不转义，有注入风险）。
+  // 这里把命令与参数在本地拼成单字符串传给 shell（参数均为代码内常量，无用户输入），
+  // 消除警告且行为不变；POSIX 保持 spawn(command, args) + 独立进程组，便于整组销毁。
+  // NO_COLOR: '' 覆盖系统 NO_COLOR，避免与 FORCE_COLOR 并存触发 Node 噪音警告。
+  const childEnv = { ...process.env, ...extraEnv, FORCE_COLOR: '1', NO_COLOR: '' }
+  const child = isWin
+    ? spawn(
+        [command, ...args].map((a) => (/^[\w./:=@-]+$/.test(a) ? a : JSON.stringify(a))).join(' '),
+        {
+          cwd: root,
+          env: childEnv,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          shell: true, // pnpm/go 在 Windows 需经 shell 解析（.cmd 包装）
+        },
+      )
+    : spawn(command, args, {
+        cwd: root,
+        env: childEnv,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        detached: true, // POSIX 独立进程组，便于整组销毁
+      })
   pipePrefixed(name, child.stdout, process.stdout)
   pipePrefixed(name, child.stderr, process.stderr)
   child.on('exit', (code, signal) => {

@@ -27,11 +27,11 @@ mkdirSync(binDir, { recursive: true })
 const binPath = join(binDir, isWin ? 'worker-dev.exe' : 'worker-dev')
 
 // 1) 编译（增量，秒级）
+// go 是原生可执行文件，无需 shell 包装（shell:true + args 会触发 DEP0190 警告）。
 const build = spawnSync('go', ['build', '-o', binPath, './cmd/server/'], {
   cwd: workerDir,
   env,
   stdio: 'inherit',
-  shell: isWin,
 })
 if (build.status !== 0) {
   console.error('[worker] go build 失败')
