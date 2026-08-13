@@ -68,12 +68,12 @@ src/
 │   ├── useGlobalSearch.ts   # 全局搜索单例（watchGlobalSearch 供跨页联动）
 │   ├── useSearchFilter.ts   # 搜索/标签筛选（标签列表 useStorage 按天缓存）
 │   ├── useContentBrowse.ts  # 内容浏览/分页加载（总览或标签模式）
-│   ├── useListCache.ts      # 列表缓存 + diffLists 差量合并
+│   ├── useListCache.ts      # localStorage 列表缓存 + diffLists 差量合并（快照守卫：部分拉取 removed 恒空）
 │   ├── useRecommendLoader.ts # 推荐内容加载
 │   ├── useWaterfallLayout.ts # 瀑布流布局（纯算法 computeLayout 与 DOM 解耦）
 │   ├── useFilePicker.ts     # 文件选择/校验（md5 重命名）
 │   ├── useToast.ts          # 确认对话框 + toast
-│   └── __tests__/    # composable 单测（useSearchFilter / useWaterfallLayout）
+│   └── __tests__/    # composable 单测（useSearchFilter / useWaterfallLayout / useListCache）
 ├── router/
 │   └── index.ts      # 路由表 + 导航守卫 + 后台预加载队列
 ├── stores/           # Pinia 全局状态
@@ -91,7 +91,7 @@ src/
 │   ├── webVitals.ts  # Web Vitals 监控
 │   └── __tests__/    # utils 单测
 ├── views/            # 页面级组件
-│   ├── HomeView.vue         # 瀑布流首页（自包含推荐区 + 无限滚动 + 卡片点击路由跳转）
+│   ├── HomeView.vue         # 瀑布流首页（自包含推荐区 + 自动全量加载 + 卡片点击路由跳转）
 │   ├── ContentDetailView.vue # 全屏覆盖式详情页（两栏布局 + 评论 + 认领）
 │   ├── QuickUploadView.vue  # 游客快速上传
 │   ├── LoginView.vue        # 登录页
@@ -127,7 +127,7 @@ View（薄层，组装组件）
 
 | 路径 | 组件 | 说明 |
 |------|------|------|
-| `/` | HomeView | 瀑布流首页（推荐区 + 无限滚动） |
+| `/` | HomeView | 瀑布流首页（推荐区 + 自动全量加载，图片懒加载） |
 | `/content/:id` | ContentDetailView | 全屏覆盖式详情页 |
 | `/quick-upload` | QuickUploadView | 游客快速上传 |
 | `/login` | LoginView | 登录页 |
