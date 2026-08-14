@@ -50,3 +50,4 @@ packages/worker/xqecz-worker
 
 # 本地 pnpm store（本机缓存，不入库）
 .pnpm-store/
+/.qoder
