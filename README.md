@@ -63,7 +63,7 @@ xqecz/
 
 ## 技术栈
 
-- **前端**: Vue 3 + Vite + TypeScript + Ant Design Vue 4 + Tailwind CSS 4
+- **前端**: Vue 3 + Vite + TypeScript + Arco Design Vue + Tailwind CSS
 - **后端**: NestJS + TypeORM + MySQL + Redis
 - **Worker**: Go + gRPC + FFmpeg + Tinify
 - **构建**: pnpm workspace + concurrently
@@ -83,4 +83,4 @@ pnpm --filter ./packages/api run typecheck        # API 类型检查
 
 ## License
 
-MIT
+[GPL-3.0](LICENSE)

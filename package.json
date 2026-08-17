@@ -1,6 +1,7 @@
 {
   "name": "xqecz",
   "private": true,
+  "license": "GPL-3.0-or-later",
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "dev:api": "pnpm --filter ./packages/api run start:dev",
