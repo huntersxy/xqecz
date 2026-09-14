@@ -81,6 +81,37 @@ jobs:
           echo "后端二进制已上传为 xqecz-server.new"
 
       # ── 前端：静态站点根目录（增量同步 dist）──
+      # 站点目录若混入 root 属主的文件（例如手工用 root 传过 vditor），FTP 用户 www 写不进去，
+      # 上传会报 553 Permission denied —— 因此上传前统一纠偏，保留宝塔的 .user.ini（root + 不可变）。
+
+      - name: Ensure frontend ownership
+        env:
+          BT_API_TOKEN: ${{ secrets.BT_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          sign() {
+            local t; t=$(date +%s)
+            printf 'request_time=%s&request_token=%s' "$t" \
+              "$(printf '%s%s' "$t" "$(printf '%s' "$BT_API_TOKEN" | md5sum | cut -d' ' -f1)" | md5sum | cut -d' ' -f1)"
+          }
+          TAG="fixown-$(date +%s)"
+          cat > /tmp/fixown.sh <<SH
+          set -e
+          cd /www/wwwroot/xq.xiey.work
+          find . -path ./.user.ini -prune -o ! -user www -print0 | xargs -0 -r chown www:www 2>/dev/null || true
+          echo "$TAG"
+          SH
+
+          curl -sS --fail -m 60 -X POST "$BT_PANEL_URL/files?action=ExecShell&$(sign)" \
+            --data-urlencode "path=/www/wwwroot/xq.xiey.work" \
+            --data-urlencode "shell@/tmp/fixown.sh"
+
+          for i in $(seq 1 15); do
+            out=$(curl -sS -m 30 -X POST "$BT_PANEL_URL/files?action=GetExecShellMsg&$(sign)")
+            case "$out" in *"$TAG"*) echo "站点目录属主已纠偏"; exit 0;; esac
+            sleep 2
+          done
+          echo "属主纠偏未确认，继续部署"
 
       - name: Deploy frontend
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
@@ -91,6 +122,10 @@ jobs:
           local-dir: deploy/frontend/
           server-dir: ./
           state-name: .ftp-state-frontend.json
+          exclude: |
+            **/.user.ini
+            **/.git*
+            **/.DS_Store
 
       # ── 收尾：替换二进制并重启后端 ──
       # 宝塔新版的站点/项目 HTTP 端点已不可用（/project/go/*、/site?action=AddSite 均 404），
