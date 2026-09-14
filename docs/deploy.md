@@ -90,9 +90,9 @@ server {
 流程（两端独立产物，互不依赖）：
 
 1. **构建**：前端 `vite build` → `dist`；后端 `CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w"`
-2. **后端上传**：`curl -T` 单文件直传 `xqecz-server` 到后端 FTP 账号根（＝ Go 项目目录）；只覆盖这一个文件，不触碰同目录的 `.env` 与 `data/`
+2. **后端上传**：`curl -T` 单文件直传为 `xqecz-server.new` 到后端 FTP 账号根（＝ Go 项目目录）；只碰这一个文件，不触碰同目录的 `.env` 与 `data/`。**不能直接覆盖 `xqecz-server`**——正在运行的二进制被内核拒写，pure-ftpd 会返回 `553`（ETXTBSY）
 3. **前端上传**：`FTP-Deploy-Action` 增量同步 `dist` 到静态站点根
-4. **收尾**：经宝塔面板文件接口 `ExecShell` 远程执行「赋可执行位 + 重启」，与面板启动方式一致（`www` 用户、日志追加到 `/www/wwwlogs/go/xqeczserver.log`）
+4. **收尾**：经宝塔面板文件接口 `ExecShell` 远程执行「`mv -f xqecz-server.new xqecz-server` 原子替换 → 重启」，与面板启动方式一致（`www` 用户、日志追加到 `/www/wwwlogs/go/xqeczserver.log`）
 5. **验证**：轮询生产 `HEALTH_URL` 直到返回 200，否则作业失败（面板 `ExecShell` 为异步执行，只能事后校验）
 
 需要的仓库 Secrets（Settings → Secrets and variables → Actions）：

@@ -69,14 +69,16 @@ jobs:
 
       # ── 后端：单文件直传 FTP（账号根＝/www/wwwroot/xqecz-golang）──
       # 用 curl 而非同步 Action：只覆盖 xqecz-server，绝不触碰同目录的 .env、data/
+      # 必须传成 .new：直接覆盖「正在运行的二进制」会被内核拒绝（ETXTBSY，pure-ftpd 回 553），
+      # 服务器侧再用 mv 原子替换（不改变运行中进程持有的 inode）后重启。
 
       - name: Deploy server binary
         run: |
           curl -sS --fail --retry 3 --retry-delay 5 -m 900 \
             -T deploy/xqecz-server \
             -u "bankend:${{ secrets.FTP_PASSWORD }}" \
-            "ftp://${{ secrets.FTP_SERVER }}/xqecz-server"
-          echo "后端二进制已上传"
+            "ftp://${{ secrets.FTP_SERVER }}/xqecz-server.new"
+          echo "后端二进制已上传为 xqecz-server.new"
 
       # ── 前端：静态站点根目录（增量同步 dist）──
 
@@ -90,7 +92,7 @@ jobs:
           server-dir: ./
           state-name: .ftp-state-frontend.json
 
-      # ── 收尾：赋可执行位并重启后端 ──
+      # ── 收尾：替换二进制并重启后端 ──
       # 宝塔新版的站点/项目 HTTP 端点已不可用（/project/go/*、/site?action=AddSite 均 404），
       # 这里改用面板文件接口的 ExecShell 远程执行；重启方式与面板启动一致（www 用户 + 追加上面板日志）。
 
@@ -106,7 +108,13 @@ jobs:
           cat > /tmp/restart.sh <<'SH'
           set -e
           cd /www/wwwroot/xqecz-golang
-          chmod +x xqecz-server
+          if [ ! -f xqecz-server.new ]; then
+            echo "未找到 xqecz-server.new，取消替换与重启"
+            exit 1
+          fi
+          chmod +x xqecz-server.new
+          chown www:www xqecz-server.new
+          mv -f xqecz-server.new xqecz-server
           pkill -f 'xqecz-golang/xqecz-server' || true
           sleep 2
           setsid runuser -u www -- /www/wwwroot/xqecz-golang/xqecz-server \
@@ -119,7 +127,7 @@ jobs:
             "$BT_PANEL_URL/files?action=ExecShell&request_time=$T&request_token=$TK" \
             --data-urlencode "path=/www/wwwroot/xqecz-golang" \
             --data-urlencode "shell@/tmp/restart.sh"
-          echo "重启指令已下发"
+          echo "替换与重启指令已下发"
 
       # 部署是否真的生效，以生产探针为准（面板 ExecShell 为异步执行，只能事后校验）
 
