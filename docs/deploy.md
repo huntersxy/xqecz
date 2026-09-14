@@ -99,11 +99,11 @@ server {
 
 | Secret | 用途 |
 |--------|------|
-| `FTP_SERVER` | FTP 主机地址 |
-| `FTP_USERNAME_BACKEND` | 后端 FTP 账号（其根目录＝ Go 项目目录） |
-| `FTP_PASSWORD` | 上述账号密码（前端账号共用此变量） |
-| `FTP_USERNAME_FRONTEND` | 前端 FTP 账号（其根目录＝静态站点根） |
+| `FTP_SERVER` | FTP 主机地址（面板地址 `BT_PANEL_URL` 也由它拼接） |
+| `FTP_PASSWORD` | FTP 密码，前后端两个账号共用 |
 | `BT_API_TOKEN` | 宝塔面板「API 接口」密钥，用于远程赋权与重启 |
+
+FTP **用户名不算机密**，直接写在 workflow 里：后端 `bankend`（其根目录＝ Go 项目目录）、前端 `xqdm`（其根目录＝静态站点根）。
 
 注意：面板地址与健康检查地址直接写在 workflow 的 `env`（非机密，`BT_PANEL_URL` / `HEALTH_URL`），换服务或换域名时改这里。
 

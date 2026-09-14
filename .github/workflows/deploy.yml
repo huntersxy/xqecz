@@ -74,7 +74,7 @@ jobs:
         run: |
           curl -sS --fail --retry 3 --retry-delay 5 -m 900 \
             -T deploy/xqecz-server \
-            -u "${{ secrets.FTP_USERNAME_BACKEND }}:${{ secrets.FTP_PASSWORD }}" \
+            -u "bankend:${{ secrets.FTP_PASSWORD }}" \
             "ftp://${{ secrets.FTP_SERVER }}/xqecz-server"
           echo "后端二进制已上传"
 
@@ -84,7 +84,7 @@ jobs:
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME_FRONTEND }}
+          username: xqdm
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: deploy/frontend/
           server-dir: ./
