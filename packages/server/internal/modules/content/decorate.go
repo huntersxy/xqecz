@@ -36,7 +36,8 @@ func MediaTypeForPath(p string) string {
 }
 
 // FileURL 把存储的相对路径补全为前端可访问的 URL。
-// 原文件扁平存 uploads，缩略图存 thumbs，压缩图存 images。
+// thumbs/ 前缀对应缩略图目录；images/ 是历史遗留（旧 TinyPNG 压缩图，目录已清空，
+// 仅保留兼容分支以读取尚未迁移的存量记录）；其余裸文件名一律落在 uploads。
 func FileURL(rel string) string {
 	if rel == "" {
 		return ""
