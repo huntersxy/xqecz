@@ -59,7 +59,7 @@ func (w *Worker) Start(ctx context.Context) {
 		return
 	}
 	slog.Info("tinypng 压缩任务已启用",
-		"interval", w.deps.Cfg.CompressEvery.String(),
+		"interval", w.deps.Cfg.CompressEvery,
 		"min_size", w.deps.Cfg.CompressMinSize,
 	)
 	go func() {

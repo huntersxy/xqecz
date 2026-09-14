@@ -42,11 +42,10 @@ func requestLogger() gin.HandlerFunc {
 		start := time.Now()
 		c.Next()
 		if c.Writer.Status() >= 400 {
-			slog.Warn("request",
-				"method", c.Request.Method,
-				"path", c.Request.URL.Path,
+			slog.Warn("http",
+				"req", c.Request.Method+" "+c.Request.URL.Path,
 				"status", c.Writer.Status(),
-				"cost", time.Since(start).String(),
+				"cost", time.Since(start),
 			)
 		}
 	}

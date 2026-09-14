@@ -15,6 +15,7 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/cli"
 	"github.com/huntersxy/xqecz/server/internal/compress"
 	"github.com/huntersxy/xqecz/server/internal/config"
+	"github.com/huntersxy/xqecz/server/internal/logx"
 	"github.com/huntersxy/xqecz/server/internal/modules/content"
 	"github.com/huntersxy/xqecz/server/internal/project"
 	"github.com/huntersxy/xqecz/server/internal/recommend"
@@ -37,7 +38,7 @@ func main() {
 		return
 	}
 
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
+	slog.SetDefault(slog.New(logx.New(os.Stdout)))
 
 	db, err := store.Open(cfg)
 	if err != nil {
