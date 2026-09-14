@@ -36,7 +36,6 @@ func Register(api *gin.RouterGroup, deps app.Deps, contentHandler *content.Handl
 	g.GET("/pending", h.pending)
 	g.GET("/content/all", h.allContent)
 	g.PUT("/content/:id/author", h.updateAuthor)
-	g.DELETE("/content/purge", h.purge)
 	g.GET("/users", h.users)
 	g.GET("/dashboard", h.dashboard)
 	g.PUT("/users/:id/role", h.updateRole)
@@ -159,15 +158,6 @@ func (h *Handler) updateAuthor(c *gin.Context) {
 		return
 	}
 	web.OK(c, gin.H{"content_id": id, "oldUserId": oldUserID, "newUsername": newUsername}, "ok")
-}
-
-func (h *Handler) purge(c *gin.Context) {
-	count, err := h.content.PurgeDeleted(c.Request.Context())
-	if err != nil {
-		web.Fail(c, 500, "服务异常")
-		return
-	}
-	web.OK(c, gin.H{"count": count}, fmt.Sprintf("已清理 %d 条", count))
 }
 
 func (h *Handler) users(c *gin.Context) {
@@ -555,7 +545,7 @@ func (h *Handler) loadClaimRefs(ctx context.Context, rows []store.Claim) (map[ui
 	users := map[uint64]store.User{}
 	if len(contentIDs) > 0 {
 		var cs []store.Content
-		if err := h.deps.DB.WithContext(ctx).Unscoped().Where("id IN ?", contentIDs).Find(&cs).Error; err == nil {
+		if err := h.deps.DB.WithContext(ctx).Where("id IN ?", contentIDs).Find(&cs).Error; err == nil {
 			for _, c := range cs {
 				contents[c.ID] = c
 			}

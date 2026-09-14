@@ -246,7 +246,7 @@ const endpointCards: EndpointCard[] = [
   {
     id: 'ep-delete', method: 'DELETE', methodCls: 'is-delete', path: '/api/content/:id',
     badge: '需 delete 权限', badgeCls: 'is-auth',
-    descHtml: `软删除内容，仅能删除密钥所属账号自己的内容。响应示例：`,
+    descHtml: `删除内容（物理删除，不可恢复），仅能删除密钥所属账号自己的内容。响应示例：`,
     response: `{
   "code": 200,
   "message": "已删除",

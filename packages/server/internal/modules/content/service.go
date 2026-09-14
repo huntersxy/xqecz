@@ -113,17 +113,6 @@ func (h *Handler) UpdateAuthor(ctx context.Context, contentID, userID uint64) (u
 	return oldUserID, u.Username, nil
 }
 
-// PurgeDeleted 物理清理已软删除的内容。
-func (h *Handler) PurgeDeleted(ctx context.Context) (int64, error) {
-	res := h.deps.DB.WithContext(ctx).Unscoped().
-		Where("deleted_at IS NOT NULL").Delete(&store.Content{})
-	if res.Error != nil {
-		return 0, res.Error
-	}
-	h.deps.Redis.ClearContentListCache(ctx)
-	return res.RowsAffected, nil
-}
-
 // DecorateOne 把单行内容装饰为对外形状（管理端认领列表等复用）。
 func (h *Handler) DecorateOne(ctx context.Context, row store.Content, includeViewCount bool) Item {
 	return decorate(row, h.userMapFor(ctx, []store.Content{row}), h.likeCount(ctx, row.ID), includeViewCount)

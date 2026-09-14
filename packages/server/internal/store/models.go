@@ -2,11 +2,10 @@ package store
 
 import (
 	"time"
-
-	"gorm.io/gorm"
 )
 
-// 表结构与现有 MySQL 完全一致（bigint 主键、tinyint 布尔、datetime(3)、软删除列）。
+// 表结构与现有 MySQL 完全一致（bigint 主键、tinyint 布尔、datetime(3)）。
+// 删除一律为物理删除（无 deleted_at 软删除列）。
 
 type User struct {
 	ID        uint64         `gorm:"column:id;primaryKey" json:"id"`
@@ -17,7 +16,6 @@ type User struct {
 	IsBanned  int8           `gorm:"column:is_banned" json:"is_banned"`
 	CreatedAt time.Time      `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt time.Time      `gorm:"column:updated_at" json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"column:deleted_at" json:"-"`
 }
 
 func (User) TableName() string { return "users" }
@@ -37,7 +35,6 @@ type Content struct {
 	AuditStatus   string         `gorm:"column:audit_status" json:"audit_status"`
 	CreatedAt     time.Time      `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt     time.Time      `gorm:"column:updated_at" json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"column:deleted_at" json:"-"`
 }
 
 func (Content) TableName() string { return "contents" }
@@ -51,7 +48,6 @@ type Comment struct {
 	IsBanned  int8           `gorm:"column:is_banned" json:"is_banned"`
 	CreatedAt time.Time      `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt time.Time      `gorm:"column:updated_at" json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"column:deleted_at" json:"-"`
 }
 
 func (Comment) TableName() string { return "comments" }
@@ -79,7 +75,6 @@ type Poll struct {
 	UserID      uint64         `gorm:"column:user_id" json:"user_id"`
 	CreatedAt   time.Time      `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt   time.Time      `gorm:"column:updated_at" json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `gorm:"column:deleted_at" json:"-"`
 }
 
 func (Poll) TableName() string { return "polls" }
@@ -136,7 +131,6 @@ type APIKey struct {
 	ExpiresAt   *time.Time     `gorm:"column:expires_at" json:"expires_at"`
 	CreatedAt   time.Time      `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt   time.Time      `gorm:"column:updated_at" json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `gorm:"column:deleted_at" json:"-"`
 }
 
 func (APIKey) TableName() string { return "api_keys" }

@@ -64,7 +64,7 @@ pnpm-workspace.yaml             # 前端依赖与传递依赖安全覆盖
 
 ## HTTP 接口
 
-全部挂在 `/api` 前缀下，共 60 条；统一响应 `{ code, message, data }`，`code === 200` 为成功。
+全部挂在 `/api` 前缀下，共 52 条；统一响应 `{ code, message, data }`，`code === 200` 为成功。
 
 | 模块 | 路由 | 实现文件 | 说明 |
 |------|------|----------|------|
@@ -134,7 +134,7 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 - **上传约定** — multipart 字段名 `file`；**流式解析边收边写盘**（`Request.MultipartReader`），文件名沿用前端的 `<md5>.<ext>`、不合规则随机兜底；单文件 ≤ 20MB、仅 `image/*` 与 `video/*`；非 GIF 图片上传即无损转 WebP 并删除源文件
 - **共享上传目录** — 物理目录为项目根 `data/`（`UPLOAD_DIR`/`THUMB_DIR`/`IMAGES_DIR` 由 .env 覆盖），媒体处理与静态托管在同一进程内，无需跨进程路径约定
 - **Redis 缓存** — 公开读路径走读穿缓存：`content:{id}`、`content_list:{sha1(规范化参数)}`、`tags`、`comments:{cid}:{page}:{size}`、`comment_count:{cid}`、`admin:dashboard`；TTL 仅作兜底，**所有写路径必须显式失效**（`ClearContentCache` / `ClearContentListCache` / `ClearCommentCache` / `ClearAllContentCaches`）
-- **软删除** — 业务删除写 `deleted_at`；模型用 `gorm.DeletedAt`，GORM 的 Find/First 自动附加 `deleted_at IS NULL`。清理已删除内容用 `Unscoped()`（`admin/content/purge`）
+- **物理删除** — 删除一律是 `Delete()` 真删（无 `deleted_at` 软删除列，模型亦不含 `gorm.DeletedAt`）；历史软删行已由 `scripts/migrations/2026-09-14-drop-soft-delete-columns.sql` 物理清理并删列。删除内容时同步清理关联行（点赞/收藏/评论）与媒体文件
 - **推荐算法单一入口** — 只改 `internal/recommend/recommend.go:ScoreItem()`（纯函数）；刷新节奏与落库在 `Refresher.Refresh()`
 - **降级优先** — ffmpeg 缺失时图片缩略图降级为纯 Go 解码缩放，视频缩略图失败仅告警不影响上传；Redis 不可用时读路径直查 MySQL
 - **迁移期工具** — `cmd/` 下的四个小工具（dbsync/dbinfo/dbsql/rediskeys）是排查与对拍用的，改动数据库相关行为时优先用它们核实，不要凭记忆断言

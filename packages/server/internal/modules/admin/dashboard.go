@@ -101,7 +101,7 @@ func (h *Handler) computeDashboard(ctx context.Context) (dashboardData, error) {
 		       COALESCE(SUM(audit_status = 'approved'), 0) AS approved,
 		       COALESCE(SUM(audit_status = 'rejected'), 0) AS rejected,
 		       COALESCE(SUM(created_at >= ?), 0) AS today
-		FROM contents WHERE deleted_at IS NULL`, today).Scan(&contentRow).Error; err != nil {
+		FROM contents`, today).Scan(&contentRow).Error; err != nil {
 		return dashboardData{}, err
 	}
 
@@ -111,14 +111,14 @@ func (h *Handler) computeDashboard(ctx context.Context) (dashboardData, error) {
 		       COALESCE(SUM(is_admin = 1), 0) AS admins,
 		       COALESCE(SUM(is_banned = 1), 0) AS banned,
 		       COALESCE(SUM(created_at >= ?), 0) AS today
-		FROM users WHERE deleted_at IS NULL`, today).Scan(&userRow).Error; err != nil {
+		FROM users`, today).Scan(&userRow).Error; err != nil {
 		return dashboardData{}, err
 	}
 
 	var commentRow dashboardCommentsStats
 	if err := db.Raw(`
 		SELECT COUNT(*) AS total, COALESCE(SUM(created_at >= ?), 0) AS today
-		FROM comments WHERE deleted_at IS NULL`, today).Scan(&commentRow).Error; err != nil {
+		FROM comments`, today).Scan(&commentRow).Error; err != nil {
 		return dashboardData{}, err
 	}
 
@@ -143,7 +143,7 @@ func (h *Handler) computeDashboard(ctx context.Context) (dashboardData, error) {
 	var pollRow dashboardPollsStats
 	if err := db.Raw(`
 		SELECT COUNT(*) AS total, COALESCE(SUM(vote_count), 0) AS votes
-		FROM polls WHERE deleted_at IS NULL`).Scan(&pollRow).Error; err != nil {
+		FROM polls`).Scan(&pollRow).Error; err != nil {
 		return dashboardData{}, err
 	}
 
@@ -152,7 +152,7 @@ func (h *Handler) computeDashboard(ctx context.Context) (dashboardData, error) {
 	}
 	if err := db.Raw(`
 		SELECT COALESCE(SUM(view_count), 0) AS views
-		FROM contents WHERE deleted_at IS NULL`).Scan(&viewsRow).Error; err != nil {
+		FROM contents`).Scan(&viewsRow).Error; err != nil {
 		return dashboardData{}, err
 	}
 
