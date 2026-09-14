@@ -1,0 +1,45 @@
+# ── 依赖 ──
+node_modules/
+
+# ── 构建产物 ──
+dist/
+packages/frontend/dist/
+packages/server/xqecz-server
+packages/server/xqecz-server.exe
+*.tsbuildinfo
+
+# ── 任务编排缓存（moon）──
+.moon/cache/
+
+# ── 环境变量 / 密钥（绝对不提交）──
+.env
+.env.*
+!.env.example
+.npmrc
+
+# ── 运行时数据（上传目录内容不入库，仅保留占位文件）──
+data/uploads/
+data/thumbs/
+data/images/
+!data/uploads/.gitkeep
+!data/thumbs/.gitkeep
+!data/images/.gitkeep
+
+# ── OS / IDE / 日志 ──
+.DS_Store
+Thumbs.db
+*.log
+coverage/
+.turbo/
+
+# ── 外部工具缓存 ──
+/.workbuddy
+/.zcode
+/.qoder
+/archive
+
+# ── 临时文件 ──
+_tmp_*
+
+# 本地 pnpm store（本机缓存，不入库）
+.pnpm-store/

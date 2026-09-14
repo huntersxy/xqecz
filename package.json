@@ -1,0 +1,27 @@
+{
+  "name": "xqecz",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:server": "go -C packages/server run ./cmd/server",
+    "dev:fe": "pnpm --filter ./packages/frontend run dev",
+    "build": "pnpm run build:server && pnpm --filter ./packages/frontend run build",
+    "build:server": "node scripts/build-server.mjs",
+    "start": "pnpm run build && pnpm run start:services",
+    "start:services": "concurrently -n server,fe -c blue,magenta \"pnpm run start:server\" \"pnpm --filter ./packages/frontend run preview\"",
+    "start:server": "go -C packages/server run ./cmd/server",
+    "start:backend": "packages/server/xqecz-server",
+    "start:backend:node": "node scripts/start-backend.mjs",
+    "server:vet": "go -C packages/server vet ./...",
+    "server:test": "go -C packages/server test ./...",
+    "server:fmt": "go -C packages/server fmt ./...",
+    "fe:test": "pnpm --filter ./packages/frontend run test",
+    "fe:typecheck": "pnpm --filter ./packages/frontend run type-check",
+    "accept": "node scripts/acceptance.mjs"
+  },
+  "devDependencies": {
+    "@moonrepo/cli": "^2.5.4",
+    "concurrently": "^9.2.0"
+  }
+}

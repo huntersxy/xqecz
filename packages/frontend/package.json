@@ -1,0 +1,77 @@
+{
+  "name": "xiaoquanweb",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "run-p type-check \"build-only {@}\" --",
+    "preview": "vite preview",
+    "build-only": "vite build",
+    "type-check": "vue-tsc --build",
+    "lint": "run-s lint:*",
+    "lint:oxlint": "oxlint . --fix",
+    "lint:eslint": "eslint . --fix --cache",
+    "format": "prettier --write --experimental-cli src/",
+    "prepare": "node -e \"try{require('child_process').execSync('node node_modules/husky/bin.js',{stdio:'inherit'})}catch(e){}\"",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@arco-design/web-vue": "^2.58.0",
+    "dayjs": "^1.11.21",
+    "dompurify": "^3.4.13",
+    "highlight.js": "^11.11.1",
+    "marked": "^18.0.3",
+    "ofetch": "^1.5.1",
+    "pinia": "^3.0.4",
+    "remove-markdown": "^0.6.4",
+    "spark-md5": "^3.0.2",
+    "vditor": "^3.11.2",
+    "viewerjs": "^1.11.8",
+    "vue": "^3.5.32",
+    "vue-router": "^5.0.4",
+    "vue-sonner": "^2.0.9",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.0",
+    "@types/node": "^24.12.2",
+    "@types/spark-md5": "^3.0.5",
+    "@vitejs/plugin-vue": "^6.0.6",
+    "@vue/eslint-config-typescript": "^14.7.0",
+    "@vue/test-utils": "^2.4.10",
+    "@vue/tsconfig": "^0.9.1",
+    "@vueuse/core": "^14.4.0",
+    "eslint": "^10.8.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-oxlint": "~1.78.0",
+    "eslint-plugin-vue": "~10.8.0",
+    "husky": "^9.1.7",
+    "jsdom": "^30.0.0",
+    "lint-staged": "^17.3.0",
+    "npm-run-all2": "^9.0.3",
+    "oxlint": "~1.78.0",
+    "prettier": "3.9.6",
+    "sass": "^1.100.0",
+    "sharp": "^0.35.4",
+    "svgo": "^3.3.5",
+    "tailwindcss": "^4.3.0",
+    "typescript": "~6.0.0",
+    "unplugin-auto-import": "^21.1.0",
+    "unplugin-vue-components": "^32.1.0",
+    "vite": "^8.0.8",
+    "vite-plugin-image-optimizer": "^2.0.3",
+    "vite-plugin-vue-devtools": "^8.2.1",
+    "vitest": "^4.1.11",
+    "vue-tsc": "^3.3.9"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "lint-staged": {
+    "*.{vue,ts,js,css}": [
+      "eslint --fix --cache"
+    ]
+  }
+}

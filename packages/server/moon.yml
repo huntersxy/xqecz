@@ -1,0 +1,26 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+language: go
+
+tasks:
+  build:
+    command: 'go build -o xqecz-server ./cmd/server'
+    inputs:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+    outputs:
+      - 'xqecz-server'
+  run:
+    # 常驻服务：preset=server 表示长驻进程、不参与缓存与 CI 执行。
+    command: 'go run ./cmd/server'
+    preset: 'server'
+  test:
+    command: 'go test ./...'
+    inputs:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+  lint:
+    command: 'go vet ./...'
+  fmt:
+    command: 'gofmt -w .'

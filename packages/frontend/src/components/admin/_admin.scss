@@ -1,0 +1,103 @@
+// ============================================================
+// Admin 控制台设计系统（compile-time 层）
+// 运行时令牌定义在 AdminView.vue 的 `.admin-theme` 作用域内
+// （亮/暗双套，经 Arco token 派生），此处仅做编译期别名与混入。
+// ============================================================
+
+// ── 颜色别名（→ 运行时 .admin-theme 作用域变量）──
+$admin-text: var(--admin-text);
+$admin-text-2: var(--admin-text-2);
+$admin-text-3: var(--admin-text-3);
+$admin-border: var(--admin-border);
+$admin-border-soft: var(--admin-border-soft);
+$admin-fill: var(--admin-fill);
+$admin-surface: var(--admin-surface);
+$admin-primary: var(--admin-primary);
+$admin-primary-soft: var(--admin-primary-soft);
+$admin-danger: var(--admin-danger);
+$admin-radius: var(--admin-radius);
+$admin-shadow: var(--admin-shadow);
+
+// ── 通用工具类（随 @use 注入各 admin 组件）──
+.admin-tag-inline {
+  margin: 0;
+}
+
+// ── 间距 ──
+$admin-gap-xs: 4px;
+$admin-gap-sm: 8px;
+$admin-gap-md: 12px;
+$admin-gap-lg: 16px;
+$admin-gap-xl: 24px;
+
+// ── 字号 ──
+$admin-font-xs: 12px;
+$admin-font-sm: 13px;
+$admin-font-base: 14px;
+$admin-font-md: 15px;
+$admin-font-lg: 17px;
+
+// ── 单行截断 ──
+@mixin ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// ── 内容缩略图 ──
+@mixin content-thumb($w: 48px, $h: 36px) {
+  width: $w;
+  height: $h;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: $admin-fill;
+  border: 1px solid $admin-border-soft;
+
+  :deep(.arco-image) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  :deep(.arco-image-img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+// ── 移动端卡片 ──
+@mixin mobile-card {
+  border: 1px solid $admin-border;
+  border-radius: $admin-radius;
+  padding: $admin-gap-md $admin-gap-lg;
+  background: $admin-surface;
+  transition: border-color 0.2s ease;
+}
+
+// ── 移动端列表 ──
+@mixin mobile-list {
+  display: flex;
+  flex-direction: column;
+  gap: $admin-gap-md;
+  padding: $admin-gap-lg;
+}
+
+// ── 移动端操作行 ──
+@mixin mobile-actions {
+  display: flex;
+  gap: $admin-gap-sm;
+  margin-top: $admin-gap-md;
+  padding-top: $admin-gap-md;
+  border-top: 1px solid $admin-border-soft;
+}
+
+// ── 移动端分页 ──
+@mixin mobile-pagination {
+  display: flex;
+  justify-content: center;
+  padding: $admin-gap-lg;
+  border-top: 1px solid $admin-border-soft;
+}

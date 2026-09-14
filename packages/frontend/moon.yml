@@ -1,0 +1,23 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+language: javascript
+
+tasks:
+  dev:
+    command: 'pnpm run dev'
+    preset: 'server'
+  build:
+    command: 'pnpm run build'
+    inputs:
+      - 'src/**/*'
+      - 'public/**/*'
+      - 'index.html'
+      - 'vite.config.ts'
+      - 'package.json'
+    outputs:
+      - 'dist'
+  test:
+    command: 'pnpm run test'
+  type-check:
+    command: 'pnpm run type-check'
+  lint:
+    command: 'pnpm run lint'

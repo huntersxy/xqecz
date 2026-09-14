@@ -1,0 +1,12 @@
+$schema: 'https://moonrepo.dev/schemas/workspace.json'
+
+# 前后端同仓：前端 Vite/Vue 由 pnpm 管依赖，后端 Go 由 go module 管依赖，
+# moon 只负责统一的任务图、增量缓存与变更影响面判定。
+vcs:
+  client: git
+  defaultBranch: master
+  provider: github
+
+projects:
+  frontend: packages/frontend
+  server: packages/server
