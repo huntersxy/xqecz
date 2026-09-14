@@ -148,7 +148,7 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 | 前端 | Vue 3.5 + TypeScript + Vite + Tailwind CSS + Arco Design Vue + zod（响应校验） |
 | 数据 | MySQL（10 张表）+ Redis（会话/缓存/浏览量/推荐 ZSet） |
 | 同仓编排 | moon（任务图与缓存）+ pnpm workspace（前端依赖）+ go module（后端依赖） |
-| 运行方式 | 本地直启（`scripts/dev.mjs` 编排两端）；生产为 Go 单二进制 + 前端静态产物 |
+| 运行方式 | 本地直启（`scripts/dev.mjs` 编排两端）；生产为**前后端分开发布**——宝塔「Go 项目」（只传二进制 + `.env`）+「静态站点」（只传 `dist`），服务器上不跑包管理器；发布流程与 CI 见 `docs/deploy.md` |
 
 ## 修改指南
 
@@ -211,4 +211,4 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 - 旧后端 `xqecz-golang/`、`xqecz-nodejs/` 已完整迁移进本 monorepo，并归档至 `D:/xqecz/archive/`（各自独立 git 仓库，完整历史保留；均打本地 tag `archive/monorepo-migration-2026-07-22`，远程 `xqecz-all.git` 的 `golang`/`nodejs` 分支亦保留）。monorepo 已 gitignore `/archive/`。
 - 独立前端仓库 `xqecz_frontend` 已并入本仓 `packages/frontend`（源文件直接纳入 monorepo，不再独立仓库/symlink）；原独立仓库整体移至 `D:/xqecz/archive/xqecz_frontend` 保留历史（远程 `xqecz_frontend.git` 的 `dev` 分支亦保留）。
 - NestJS 后端（`packages/api`）、Go Worker（`packages/worker`）与 gRPC 定义（`proto/`）已被 Go 单体后端取代并删除，
-  对应实现与迁移记录见 `docs/go-backend-migration.md`；如需回溯旧实现，读 `feat/go-backend` 分支首个提交之前的 git 历史。
+  对应实现与迁移记录见 `docs/go-backend-migration.md`。仓库历史已于 2026-09-14 清洗重建（单一初始提交），旧实现不再可从 git 历史回溯。

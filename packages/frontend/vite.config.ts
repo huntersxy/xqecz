@@ -12,7 +12,7 @@ const buildDate = new Date().toISOString().split('T')[0]
 
 export default defineConfig(async ({ mode }) => {
   const isDev = mode === 'development'
-  // 开发/预览态代理目标：默认 NestJS API（http://localhost:3000），可用 VITE_PROXY_TARGET 覆盖。
+  // 开发/预览态代理目标：默认 Go 后端（http://localhost:3000），可用 VITE_PROXY_TARGET 覆盖。
   // vite preview 的代理默认继承 server.proxy，因此生产预览同样走这里的配置。
   const proxyTarget = process.env.VITE_PROXY_TARGET || 'http://localhost:3000'
   const plugins: import('vite').PluginOption[] = [
