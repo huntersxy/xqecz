@@ -11,8 +11,9 @@
                                 ├─ gin 路由 + 中间件（会话 / API 密钥 / 管理员 / CORS）
                                 ├─ GORM ──────────▶ MySQL（10 张表）
                                 ├─ go-redis ──────▶ Redis（会话 / 读穿缓存 / 浏览量 / 推荐 ZSet）
-                                └─ 进程内媒体处理：缩略图（ffmpeg，缺失时降级纯 Go）、无损 WebP
-静态资源：/uploads、/thumbs、/images 由同一进程托管，物理目录为项目根 data/
+                                ├─ 进程内媒体处理：缩略图（ffmpeg，缺失时降级纯 Go）
+                                └─ 后台压缩：TinyPNG 定时挑最大图压缩，原图入 data/bin
+静态资源：/uploads、/thumbs 由同一进程托管（/images 仅历史兼容），物理目录为项目根 data/
 ```
 
 **推荐链路**：`internal/recommend` 读取已通过内容 → 纯函数打分（时间衰减 + 浏览量 + 点赞）→ 通过「写临时键 + RENAME」原子写入 Redis ZSet；读取优先 ZSet 并按序回表，无数据或异常时降级为 `view_count` 排序。启动刷新一次，之后每 10 分钟一次，多实例经 Redis 锁防抖。
@@ -31,7 +32,7 @@ packages/
     └── src/{api,components,composables,stores,views,router,types,utils}/
 
 scripts/                        # 开发编排、构建包装、部署启动器、一次性 SQL 迁移
-data/                           # 运行期媒体目录（uploads / thumbs / images），不入库
+data/                           # 运行期媒体目录（uploads / thumbs / bin），不入库
 docs/deploy.md                  # 部署与 CI 说明
 AGENTS.md                       # 面向贡献者与 AI 的工程约定（改代码前先读）
 ```
@@ -110,7 +111,8 @@ pnpm exec moon run server:test frontend:test
 - 校验类失败沿用 HTTP 200 + 业务码；鉴权类失败才改 HTTP 状态码
 - 时间字段统一序列化为 UTC 毫秒（与前端 `Date.toJSON()` 逐字节一致）
 - 认证双通道：请求头 `X-API-Key` 优先，其次 Cookie 会话 `session_id`
-- 上传：multipart 字段名 `file`，流式落盘，单文件 ≤ 20MB，仅 `image/*` 与 `video/*`；非 GIF 图片即时无损转 WebP
+- 上传：multipart 字段名 `file`，流式落盘，单文件 ≤ 20MB，仅 `image/*` 与 `video/*`；上传不做转码，压缩由后台 TinyPNG 任务就地替换（GIF 与 <400KB 跳过，压缩后后缀不变）
+- 下载：媒体地址带 `?download=1` 即以附件返回（`Content-Disposition`），文件名取内容标题
 - **前端是契约**：`packages/frontend/src/api/index.ts` 与 `src/types/schemas.ts` 定义接口形状，后端响应必须能被前端 zod schema 直接解析
 
 完整的接口清单与改动约束见 **[AGENTS.md](AGENTS.md)**。

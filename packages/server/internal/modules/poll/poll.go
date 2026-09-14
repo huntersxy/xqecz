@@ -285,7 +285,13 @@ func (h *Handler) remove(c *gin.Context) {
 		web.Fail(c, 403, "无权删除该投票")
 		return
 	}
-	if err := h.deps.DB.WithContext(ctx).Delete(&store.Poll{}, id).Error; err != nil {
+	// 物理删除：投票记录一并清理，避免留下悬空的 poll_votes。
+	if err := h.deps.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("poll_id = ?", id).Delete(&store.PollVote{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&store.Poll{}, id).Error
+	}); err != nil {
 		web.Fail(c, 500, "服务异常")
 		return
 	}

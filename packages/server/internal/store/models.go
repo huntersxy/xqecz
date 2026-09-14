@@ -26,6 +26,7 @@ type Content struct {
 	Content       *string        `gorm:"column:content" json:"content"`
 	FilePath      *string        `gorm:"column:file_path" json:"file_path"`
 	FileSize      int64          `gorm:"column:file_size" json:"file_size"`
+	CompressedAt  *time.Time     `gorm:"column:compressed_at" json:"-"`
 	ThumbPath     *string        `gorm:"column:thumb_path" json:"thumb_path"`
 	ViewCount     int64          `gorm:"column:view_count" json:"view_count"`
 	UserID        uint64         `gorm:"column:user_id" json:"user_id"`

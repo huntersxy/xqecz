@@ -220,7 +220,8 @@ func (h *Handler) update(c *gin.Context) {
 	web.OK(c, item, "更新成功")
 }
 
-// remove 删除内容（软删除）：仅作者或管理员可删。
+// remove 删除内容（物理删除）：仅作者或管理员可删。
+// 一并清理关联数据（评论及其举报、点赞、收藏），并把不再被引用的媒体文件移入垃圾桶。
 func (h *Handler) remove(c *gin.Context) {
 	ctx := c.Request.Context()
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -245,12 +246,66 @@ func (h *Handler) remove(c *gin.Context) {
 		return
 	}
 
-	if err := h.deps.DB.WithContext(ctx).Delete(&store.Content{}, id).Error; err != nil {
+	if err := h.purgeContent(ctx, row); err != nil {
 		web.Fail(c, 500, "服务异常")
 		return
 	}
+	h.removeOrphanMedia(ctx, row.FilePath, row.ThumbPath)
 	h.invalidate(ctx, id)
 	web.OK(c, nil, "已删除")
+}
+
+// purgeContent 在一个事务里物理删除内容及其关联行。
+// 回复的 parent_id 置空而非连带删除，保留他人回复内容、避免悬空引用。
+func (h *Handler) purgeContent(ctx context.Context, row store.Content) error {
+	return h.deps.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var commentIDs []uint64
+		if err := tx.Model(&store.Comment{}).Where("content_id = ?", row.ID).
+			Pluck("id", &commentIDs).Error; err != nil {
+			return err
+		}
+		if len(commentIDs) > 0 {
+			if err := tx.Where("comment_id IN ?", commentIDs).Delete(&store.CommentReport{}).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&store.Comment{}).Where("parent_id IN ?", commentIDs).
+				Update("parent_id", nil).Error; err != nil {
+				return err
+			}
+			if err := tx.Where("content_id = ?", row.ID).Delete(&store.Comment{}).Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Where("content_id = ?", row.ID).Delete(&store.ContentLike{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("content_id = ?", row.ID).Delete(&store.ContentFavorite{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&store.Content{}, row.ID).Error
+	})
+}
+
+// removeOrphanMedia 把媒体文件移入垃圾桶目录（保留而非删除）。
+// 同一文件可能被多条内容共用（历史上存在重复上传），故必须先查引用计数。
+func (h *Handler) removeOrphanMedia(ctx context.Context, paths ...*string) {
+	db := h.deps.DB.WithContext(ctx)
+	for _, p := range paths {
+		if p == nil || *p == "" {
+			continue
+		}
+		col := "file_path"
+		if strings.HasPrefix(*p, "thumbs/") {
+			col = "thumb_path"
+		}
+		var n int64
+		if err := db.Model(&store.Content{}).Where(col+" = ?", *p).Count(&n).Error; err != nil || n > 0 {
+			continue
+		}
+		if err := media.MoveToBin(h.absMediaPath(*p), h.deps.Cfg.BinDir); err != nil {
+			slog.Warn("媒体文件入桶失败", "path", *p, "err", err)
+		}
+	}
 }
 
 // claim 提交认领申请。
@@ -452,20 +507,13 @@ func (h *Handler) processMedia(id uint64, absPath, contentType string) {
 	h.invalidate(ctx, id)
 }
 
-// prepareUploadFile 处理上传文件：必要时无损转 WebP，返回相对路径、大小与绝对路径。
+// prepareUploadFile 返回上传文件的相对路径、大小与绝对路径。
+// 保留原始格式不做转码（压缩交给后台 TinyPNG 任务，压缩后后缀不变）。
 func (h *Handler) prepareUploadFile(f *uploadedFile) (string, int64, string) {
 	if f == nil {
 		return "", 0, ""
 	}
-	relPath := f.RelPath
-	size := f.Size
-	absPath := f.AbsPath
-	if converted := media.ConvertNonGifToWebP(f.AbsPath, f.Mime); converted != nil {
-		absPath = converted.AbsPath
-		size = converted.Size
-		relPath = h.relToUpload(converted.AbsPath)
-	}
-	return relPath, size, absPath
+	return f.RelPath, f.Size, f.AbsPath
 }
 
 // invalidate 失效单条详情与列表缓存（写路径统一调用）。

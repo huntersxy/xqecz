@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -341,4 +342,19 @@ func (h *Handler) RegenerateAllStatus(ctx context.Context) RegenStatus {
 // absUploadPath 把相对路径还原为共享上传目录下的绝对路径。
 func (h *Handler) absUploadPath(rel string) string {
 	return filepath.Join(h.deps.Cfg.UploadDir, filepath.FromSlash(rel))
+}
+
+// absMediaPath 按前缀还原媒体文件的绝对路径：
+// thumbs/ 与 images/ 各自对应独立目录，其余（裸文件名）落在 uploads。
+func (h *Handler) absMediaPath(rel string) string {
+	switch {
+	case strings.HasPrefix(rel, "thumbs/"):
+		return filepath.Join(h.deps.Cfg.ThumbDir, filepath.FromSlash(strings.TrimPrefix(rel, "thumbs/")))
+	case strings.HasPrefix(rel, "images/"):
+		return filepath.Join(h.deps.Cfg.ImagesDir, filepath.FromSlash(strings.TrimPrefix(rel, "images/")))
+	case strings.HasPrefix(rel, "/"):
+		return filepath.FromSlash(rel)
+	default:
+		return h.absUploadPath(rel)
+	}
 }

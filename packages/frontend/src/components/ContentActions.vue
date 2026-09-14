@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { contentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { IconHeart, IconStar, IconShareAlt, IconDownload } from '@arco-design/web-vue/es/icon'
+import { formatFileSize, getImageUrl, getUrlExtension, withDownloadFlag } from '@/utils'
 import type { Content } from '@/types'
 
 const props = defineProps<{ content: Content }>()
@@ -62,17 +63,38 @@ async function shareContent() {
   } catch { /* 用户取消分享，忽略 */ }
 }
 
-function downloadMedia() {
-  const url = props.content.img || props.content.video
+// ── 下载 ──
+// 原文件优先用 origin（未生成缩略图时 img 才可能指向缩略图）；缩略图单独提供入口。
+const originUrl = computed(() =>
+  getImageUrl(props.content.origin || props.content.img || props.content.video || ''),
+)
+const thumbUrl = computed(() => getImageUrl(props.content.thumb || ''))
+const isVideo = computed(() => !!props.content.video)
+const sizeText = computed(() => formatFileSize(props.content.file_size))
+const canDownload = computed(() => !!originUrl.value)
+const showThumbOption = computed(() => !!thumbUrl.value && thumbUrl.value !== originUrl.value)
+
+/** 主文件格式：优先取 URL 后缀，视频无后缀时按 video 标记兜底。 */
+const originExt = computed(() => getUrlExtension(props.content.origin || props.content.img || props.content.video))
+/** 缩略图格式（接口不返回其体积，只展示后缀便于区分）。 */
+const thumbExt = computed(() => getUrlExtension(props.content.thumb))
+
+/** 触发下载：链接尾附 ?download=1，由服务端回 Content-Disposition（文件名取内容标题）。 */
+function triggerDownload(url: string) {
   if (!url) return
   const a = document.createElement('a')
-  a.href = url
-  a.download = props.content.title || 'download'
-  a.target = '_blank'
+  a.href = withDownloadFlag(url)
+  a.rel = 'noopener'
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
 }
+
+function onDownloadSelect(value: string | number | Record<string, unknown> | undefined) {
+  if (value === 'thumb') triggerDownload(thumbUrl.value)
+  else triggerDownload(originUrl.value)
+}
+
 </script>
 
 <template>
@@ -104,10 +126,26 @@ function downloadMedia() {
       <span>分享</span>
     </a-button>
 
-    <a-button class="cd-action" shape="round" @click="downloadMedia">
-      <IconDownload />
-      <span>下载</span>
-    </a-button>
+    <a-dropdown v-if="canDownload" trigger="click" position="tr" @select="onDownloadSelect">
+      <a-button class="cd-action" shape="round" aria-label="下载">
+        <IconDownload />
+        <span>下载{{ sizeText ? ` ${sizeText}` : '' }}</span>
+      </a-button>
+      <template #content>
+        <a-doption value="origin">
+          <span class="flex items-center justify-between gap-4 min-w-[9rem]">
+            <span>原文件{{ isVideo ? '（视频）' : originExt ? ` · ${originExt}` : '' }}</span>
+            <span class="text-xs opacity-60">{{ sizeText || '未知大小' }}</span>
+          </span>
+        </a-doption>
+        <a-doption v-if="showThumbOption" value="thumb">
+          <span class="flex items-center justify-between gap-4 min-w-[9rem]">
+            <span>缩略图{{ thumbExt ? ` · ${thumbExt}` : '' }}</span>
+            <span class="text-xs opacity-60">预览用图</span>
+          </span>
+        </a-doption>
+      </template>
+    </a-dropdown>
   </footer>
 </template>
 

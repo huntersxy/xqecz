@@ -19,6 +19,15 @@ type Config struct {
 	UploadDir   string
 	ThumbDir    string
 	ImagesDir   string
+	// BinDir 是压缩/清理后原图的垃圾桶目录，保留而非直接删除，便于人工回溯。
+	BinDir string
+
+	// TinyPNG 定时压缩：API Key 为空时该任务自动休眠（不报错），便于本地与无配额环境。
+	TinyPNGAPIKey string
+	// CompressMinSize 以下的图片不压缩（字节）。
+	CompressMinSize int64
+	// CompressEvery 压缩任务的执行间隔，每轮只处理一张最大的待压缩图片。
+	CompressEvery time.Duration
 
 	MySQL struct {
 		Host            string
@@ -50,6 +59,12 @@ func Load() Config {
 	c.UploadDir = env("UPLOAD_DIR", filepath.Join(dataDir, "uploads"))
 	c.ThumbDir = env("THUMB_DIR", filepath.Join(dataDir, "thumbs"))
 	c.ImagesDir = env("IMAGES_DIR", filepath.Join(dataDir, "images"))
+	c.BinDir = env("BIN_DIR", filepath.Join(dataDir, "bin"))
+
+	// 压缩链路：Key 缺失即停用（本地开发常无配额）；阈值与节奏可按需覆盖。
+	c.TinyPNGAPIKey = strings.TrimSpace(os.Getenv("TINIFY_API_KEY"))
+	c.CompressMinSize = int64(envInt("COMPRESS_MIN_KB", 400)) << 10
+	c.CompressEvery = time.Duration(envInt("COMPRESS_INTERVAL_SECONDS", 60)) * time.Second
 
 	c.Port = envInt("PORT", 3000)
 	for _, o := range strings.Split(env("CORS_ORIGINS", "http://localhost:5173"), ",") {

@@ -15,15 +15,18 @@ import (
 
 // New 创建 HTTP 引擎并挂载全部模块路由。
 func New(deps app.Deps) *gin.Engine {
-	return web.New(deps, func(api *gin.RouterGroup) {
-		api.GET("/health", func(c *gin.Context) { web.OK(c, gin.H{"ok": true}, "ok") })
-		auth.Register(api, deps)
-		contentHandler := content.Register(api, deps)
-		comment.Register(api, deps)
-		poll.Register(api, deps)
-		apikey.Register(api, deps)
-		admin.Register(api, deps, contentHandler)
-	})
+	return web.New(deps,
+		// 媒体目录：带 ?download=1 时以附件下载，文件名取内容标题。
+		func(r *gin.Engine) { content.New(deps).RegisterMedia(r) },
+		func(api *gin.RouterGroup) {
+			api.GET("/health", func(c *gin.Context) { web.OK(c, gin.H{"ok": true}, "ok") })
+			auth.Register(api, deps)
+			contentHandler := content.Register(api, deps)
+			comment.Register(api, deps)
+			poll.Register(api, deps)
+			apikey.Register(api, deps)
+			admin.Register(api, deps, contentHandler)
+		})
 }
 
 // Run 启动 HTTP 服务并阻塞至退出信号。

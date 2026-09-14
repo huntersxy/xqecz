@@ -14,18 +14,19 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/app"
 )
 
-// New 组装 gin 引擎：中间件、静态目录，业务路由由 registrar 注入。
-func New(deps app.Deps, registrar func(*gin.RouterGroup)) *gin.Engine {
+// New 组装 gin 引擎：中间件、媒体目录，业务路由由 registrar 注入。
+// mediaRegistrar 负责挂载 /uploads、/thumbs、/images（由 content 模块提供，
+// 因为下载文件名需要读库取内容标题，避免 web 包反向依赖业务模块）。
+func New(deps app.Deps, mediaRegistrar func(*gin.Engine), registrar func(*gin.RouterGroup)) *gin.Engine {
 	if deps.Cfg.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.New()
 	r.Use(gin.Recovery(), requestLogger(), CORS(deps.Cfg.CORSOrigins))
 
-	// 上传文件静态服务，挂载点与旧 API 一致。
-	r.Static("/uploads", deps.Cfg.UploadDir)
-	r.Static("/thumbs", deps.Cfg.ThumbDir)
-	r.Static("/images", deps.Cfg.ImagesDir)
+	if mediaRegistrar != nil {
+		mediaRegistrar(r)
+	}
 
 	// 静态目录之外未命中的路径统一返回业务错误包装，前端可读到文案。
 	r.NoRoute(func(c *gin.Context) { Fail(c, 404, "接口不存在") })

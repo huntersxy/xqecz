@@ -177,7 +177,7 @@ const endpointCards: EndpointCard[] = [
         "title": "晓晓自拍",
         "text": "",
         "thumb": "/thumbs/xxx_thumb.webp",
-        "img": "/images/xxx_tinified.webp",
+        "img": "/uploads/xxx.webp",
         "user": { "id": "2", "username": "huntersxy" },
         "tags": [],
         "like_count": 0,
@@ -206,11 +206,11 @@ const endpointCards: EndpointCard[] = [
     id: 'ep-upload', method: 'POST', methodCls: 'is-post', path: '/api/content/upload',
     badge: '需 upload 权限', badgeCls: 'is-auth',
     descHtml: `上传内容，请求体为 <code>multipart/form-data</code>（文本字段与文件可同时携带）。`,
-    noteHtml: `非 GIF 图片上传后由服务端本地无损转为 WebP 作为新原图（源文件删除），随后进入缩略图生成链路。`,
+    noteHtml: `上传后原样保留源文件并立即生成缩略图；后台压缩任务会择机用 TinyPNG 压缩原图（就地替换，压缩后后缀不变，GIF 与小于 400KB 的不处理）。`,
     params: { title: '请求参数（form-data）', head: ['字段', '类型', '必填', '说明'], hasLoc: false, rows: [
       { name: 'title', type: 'string', required: '是', descHtml: `标题，1-200 字` },
       { name: 'content', type: 'string', required: '否', descHtml: `Markdown 描述；与 file 至少填一项` },
-      { name: 'file', type: 'file', required: '否', descHtml: `图片 / 视频文件（≤20MB）；非 GIF 图片自动无损转为 WebP 原图；与 content 至少填一项` },
+      { name: 'file', type: 'file', required: '否', descHtml: `图片 / 视频文件（≤20MB）；上传不做转码，压缩由后台任务完成；与 content 至少填一项` },
       { name: 'tags', type: 'string', required: '否', descHtml: `标签，多个用英文逗号分隔，如 <code>AI,风景</code>` },
     ] },
     response: `{

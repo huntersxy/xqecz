@@ -74,6 +74,30 @@ export function formatTime(ts: number | string, useLocaleDate: boolean = false):
   return useLocaleDate ? d.format('YYYY/MM/DD') : d.format('YYYY/MM/DD HH:mm:ss')
 }
 
+/** 把字节数格式化为可读体积（1 位小数，B 取整）。 */
+export function formatFileSize(bytes?: number): string {
+  if (!bytes || bytes <= 0) return ''
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+/** 从 URL 中取扩展名（大写、去点）；无扩展名返回空串。 */
+export function getUrlExtension(url?: string): string {
+  if (!url) return ''
+  const path = url.split('?')[0].split('#')[0]
+  const base = path.slice(path.lastIndexOf('/') + 1)
+  const dot = base.lastIndexOf('.')
+  if (dot <= 0) return ''
+  return base.slice(dot + 1).toUpperCase()
+}
+
+/** 追加下载参数（保留已有查询参数）。 */
+export function withDownloadFlag(url: string): string {
+  if (!url) return ''
+  return url.includes('?') ? `${url}&download=1` : `${url}?download=1`
+}
+
 export function getPreviewText(content: string, maxLength: number = 100): string {
   if (!content) return ''
   const plainText = removeMarkdown(content).replace(/\s+/g, ' ').trim()

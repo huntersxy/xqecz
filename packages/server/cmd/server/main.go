@@ -13,6 +13,7 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/app"
 	"github.com/huntersxy/xqecz/server/internal/cache"
 	"github.com/huntersxy/xqecz/server/internal/cli"
+	"github.com/huntersxy/xqecz/server/internal/compress"
 	"github.com/huntersxy/xqecz/server/internal/config"
 	"github.com/huntersxy/xqecz/server/internal/modules/content"
 	"github.com/huntersxy/xqecz/server/internal/project"
@@ -50,6 +51,9 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	recommend.NewRefresher(deps).Start(ctx)
+
+	// TinyPNG 后台压缩：每分钟挑一张最大的待压缩图片（未配置 Key 时自动休眠）。
+	compress.NewWorker(deps).Start(ctx)
 
 	// 启动后异步补图（等价于旧实现的启动迁移）：延迟几秒，避免与服务启动争抢 CPU。
 	go func() {
