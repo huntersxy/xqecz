@@ -12,6 +12,7 @@ import (
 
 	"github.com/huntersxy/xqecz/server/internal/app"
 	"github.com/huntersxy/xqecz/server/internal/media"
+	"github.com/huntersxy/xqecz/server/internal/mirror"
 	"github.com/huntersxy/xqecz/server/internal/store"
 )
 
@@ -108,7 +109,7 @@ func (w *Worker) CompressOne(ctx context.Context) error {
 		return w.markProcessed(ctx, row.ID, st.Size())
 	}
 
-	newSize, err := w.shrinkInPlace(ctx, abs, st.Size())
+	newSize, binPath, err := w.shrinkInPlace(ctx, abs, st.Size())
 	if err != nil {
 		// 进入冷却期，避免下一轮又挑中同一条反复消耗 API 配额。
 		w.markFailed(row.ID)
@@ -128,11 +129,16 @@ func (w *Worker) CompressOne(ctx context.Context) error {
 	w.deps.Redis.ClearContentCache(ctx, row.ID)
 	w.deps.Redis.ClearContentListCache(ctx)
 
-	// 压缩图同样备份到 R2：此刻 abs 上已经是压缩后的字节（原位替换已完成），
-	// 推上去的是压缩图；本地垃圾桶里另有一份未压缩的原图，两份都保留。
-	// 失败只记日志 —— 回填任务会按内容 md5 比对后补传，不会漏。
+	// 两份都上 R2，各按各的对象名：
+	//   - 压缩到位图（abs 上已是压缩后的字节）→ <prefix>/<name>，前端按此加载；
+	//   - 压缩前的原图（binPath 即垃圾桶里的同名原件）→ <prefix>/original/<name> 归档。
+	// 归档键由文件名推得（内容寻址），重复调用幂等；失败只记日志，
+	// 回填任务会从垃圾桶补传，不会出现「原图只在本地」的静默缺口。
 	if w.deps.Mirror != nil && row.FilePath != nil && *row.FilePath != "" {
 		w.deps.Mirror.PushAsync(*row.FilePath, abs)
+		if binPath != "" {
+			w.deps.Mirror.ArchiveOriginalAsync(*row.FilePath, binPath)
+		}
 	}
 	slog.Info("tinypng 压缩完成",
 		"id", row.ID, "file", *row.FilePath,
@@ -187,49 +193,54 @@ func (w *Worker) markFailed(id uint64) {
 
 // shrinkInPlace 原地替换为压缩结果：先落临时文件，成功后才把原图移入垃圾桶再改名，
 // 任一步失败都保留原图，不会出现「原图没了、新图没写上」的空缺。
-func (w *Worker) shrinkInPlace(ctx context.Context, abs string, origSize int64) (int64, error) {
+//
+// 第三个返回值是原图在垃圾桶里的落地路径（未发生替换时为空串），
+// 调用方据此把压缩前的原图归档到 R2 的 original/ 命名空间。
+func (w *Worker) shrinkInPlace(ctx context.Context, abs string, origSize int64) (int64, string, error) {
 	body, _, err := w.client.Shrink(ctx, abs)
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	defer body.Close()
 
 	tmp := abs + ".tinify-tmp"
 	out, err := os.Create(tmp)
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	written, copyErr := io.Copy(out, body)
 	closeErr := out.Close()
 	if copyErr != nil {
 		_ = os.Remove(tmp)
-		return 0, copyErr
+		return 0, "", copyErr
 	}
 	if closeErr != nil {
 		_ = os.Remove(tmp)
-		return 0, closeErr
+		return 0, "", closeErr
 	}
 	if written == 0 {
 		_ = os.Remove(tmp)
-		return 0, io.ErrUnexpectedEOF
+		return 0, "", io.ErrUnexpectedEOF
 	}
 	if written >= origSize {
 		// 结果没有更小：丢弃临时文件，交由调用方保留原图。
 		_ = os.Remove(tmp)
-		return written, nil
+		return written, "", nil
 	}
 
 	if err := media.MoveToBin(abs, w.deps.Cfg.BinDir); err != nil {
 		_ = os.Remove(tmp)
-		return 0, err
+		return 0, "", err
 	}
 	if err := os.Rename(tmp, abs); err != nil {
 		_ = os.Remove(tmp)
-		return 0, err
+		return 0, "", err
 	}
 	// 原文件属主可能被替换，保持与目录一致的权限，避免 Web 进程读不到。
 	_ = os.Chmod(abs, 0o644)
-	return written, nil
+	// MoveToBin 保留文件名（同秒同名才加时间戳前缀），这里按文件名回找落地路径。
+	binPath, _ := mirror.FindInBin(w.deps.Cfg.BinDir, filepath.Base(abs))
+	return written, binPath, nil
 }
 
 // markProcessed 记录「已处理」并把 file_size 校准为磁盘真实值。

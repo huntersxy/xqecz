@@ -9,8 +9,9 @@ import (
 
 // fakeMirror 是测试用的镜像替身：只按固定前缀拼地址，能记下推送调用。
 type fakeMirror struct {
-	base   string
-	pushed []string
+	base     string
+	pushed   []string
+	archived []string
 }
 
 func (f *fakeMirror) PublicURL(rel string) string {
@@ -22,6 +23,11 @@ func (f *fakeMirror) PublicURL(rel string) string {
 
 func (f *fakeMirror) PushAsync(rel, absPath string) {
 	f.pushed = append(f.pushed, rel)
+}
+
+// ArchiveOriginalAsync 记录归档调用：本包只关心「有没有被调用」，不校验 R2 侧细节。
+func (f *fakeMirror) ArchiveOriginalAsync(rel, origPath string) {
+	f.archived = append(f.archived, rel)
 }
 
 // TestDecorateWithMirrorExposesBackupURL 图片行的 R2 备份地址与主地址同路径、仅换 host。

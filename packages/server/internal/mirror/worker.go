@@ -72,7 +72,7 @@ func (w *Worker) runRound(ctx context.Context) {
 	defer w.deps.Redis.ReleaseLock(ctx, lockKey)
 
 	var lastID uint64
-	var scanned, uploaded, failed int
+	var scanned, uploaded, archived, failed int
 	for {
 		if ctx.Err() != nil {
 			return
@@ -110,8 +110,69 @@ func (w *Worker) runRound(ctx context.Context) {
 			}
 		}
 	}
-	if uploaded > 0 || failed > 0 {
-		slog.Info("r2 回填完成", "scanned", scanned, "uploaded", uploaded, "failed", failed)
+	archived = w.archiveBackfill(ctx)
+	if uploaded > 0 || archived > 0 || failed > 0 {
+		slog.Info("r2 回填完成", "scanned", scanned, "uploaded", uploaded,
+			"archived", archived, "failed", failed)
+	}
+}
+
+// archiveBackfill 补齐「压缩前的原图」归档：只扫 compressed_at 非空的行
+//（只有这些行发生过原地替换，原图才在垃圾桶里），远端已有则直接跳过。
+// 这是压缩时归档失败的兜底：那一刻原图只剩垃圾桶一份，丢了就再也补不回来。
+func (w *Worker) archiveBackfill(ctx context.Context) int {
+	if w.m.BinDir() == "" {
+		return 0
+	}
+	var lastID uint64
+	done := 0
+	for {
+		if ctx.Err() != nil {
+			return done
+		}
+		var rows []store.Content
+		err := w.deps.DB.WithContext(ctx).
+			Select("id", "file_path").
+			Where("compressed_at IS NOT NULL").
+			Where("file_path IS NOT NULL AND file_path <> ''").
+			Where("id > ?", lastID).
+			Order("id ASC").Limit(batch).Find(&rows).Error
+		if err != nil {
+			slog.Warn("r2 原图归档查询失败", "err", err)
+			return done
+		}
+		if len(rows) == 0 {
+			return done
+		}
+		for _, row := range rows {
+			if ctx.Err() != nil {
+				return done
+			}
+			lastID = row.ID
+			if row.FilePath == nil || *row.FilePath == "" {
+				continue
+			}
+			rel := normRel(*row.FilePath)
+			if w.m.archivedRemotely(rel) {
+				continue
+			}
+			if _, found, err := w.m.store.Head(w.m.ArchiveKey(rel)); err != nil {
+				slog.Warn("r2 原图归档探测失败", "id", row.ID, "rel", rel, "err", err)
+				continue
+			} else if found {
+				w.m.MarkArchived(rel)
+				continue
+			}
+			binPath, ok := FindInBin(w.m.BinDir(), rel)
+			if !ok {
+				continue // 原件已不在垃圾桶（人工清理过），无从补传
+			}
+			if _, err := w.m.ArchiveOriginal(rel, binPath); err != nil {
+				slog.Warn("r2 原图归档失败", "id", row.ID, "rel", rel, "err", err)
+				continue
+			}
+			done++
+		}
 	}
 }
 

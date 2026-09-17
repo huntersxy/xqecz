@@ -23,7 +23,9 @@ func newFakeStore() *fakeStore {
 	return &fakeStore{objects: map[string][]byte{}, md5s: map[string]string{}}
 }
 
-func (f *fakeStore) Put(rel, absPath, contentType string) error {
+// Put 的第一个参数是桶内对象名：生产侧由 mirror 算好（含 uploads/ 与 original/ 命名空间），
+// 测试侧直接用这个名字记账，避免测试跟着生产实现一起算错。
+func (f *fakeStore) Put(key, absPath, contentType string) error {
 	f.puts++
 	if f.putErr != nil {
 		return f.putErr
@@ -32,7 +34,6 @@ func (f *fakeStore) Put(rel, absPath, contentType string) error {
 	if err != nil {
 		return err
 	}
-	key := "uploads/" + filepath.Base(rel)
 	f.objects[key] = data
 	f.md5s[key] = md5Hex(data)
 	return nil
@@ -223,7 +224,7 @@ func TestPushPropagatesRealErrors(t *testing.T) {
 
 // TestDisabledSetupIsNoop 未配置凭据时全部方法都是安全空操作。
 func TestDisabledSetupIsNoop(t *testing.T) {
-	s := New(config.R2Config{})
+	s := New(config.R2Config{}, "")
 	if s.Enabled() {
 		t.Fatal("缺凭据时不应启用")
 	}
@@ -281,6 +282,97 @@ func TestLocalMD5UsesContentAddressedName(t *testing.T) {
 	rand := writeFile(t, dir, "1730000000_abcdef.png", []byte("hello"))
 	if got := localMD5("1730000000_abcdef.png", rand); got != md5Sum([]byte("hello")) {
 		t.Fatalf("随机名应计算内容 md5，得到 %q", got)
+	}
+}
+
+// TestArchiveOriginalKeepsBothCopies 是「原图与压缩图两份都保留」这条要求的核心断言：
+// 压缩前的原图归档到 uploads/original/<name>，压缩图仍占 uploads/<name>，互不覆盖。
+func TestArchiveOriginalKeepsBothCopies(t *testing.T) {
+	store := newFakeStore()
+	s, dir := testSetup(t, store)
+	s.binDir = filepath.Join(dir, "bin")
+
+	const name = "d41d8cd98f00b204e9800998ecf8427e.webp"
+	// 压缩后的现役文件（原地替换后的字节）。
+	abs := writeFile(t, dir, name, []byte("tiny-compressed"))
+	if _, err := s.Push(name, abs); err != nil {
+		t.Fatal(err)
+	}
+	// 压缩前的原图：被 MoveToBin 留在垃圾桶里，文件名不变。
+	if err := os.MkdirAll(s.binDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	binPath := writeFile(t, s.binDir, name, []byte("uncompressed-original-bytes"))
+
+	if _, err := s.ArchiveOriginal(name, binPath); err != nil {
+		t.Fatalf("归档失败: %v", err)
+	}
+	if got := string(store.objects["uploads/"+name]); got != "tiny-compressed" {
+		t.Fatalf("现役对象应为压缩图，实际 %q", got)
+	}
+	if got := string(store.objects["uploads/original/"+name]); got != "uncompressed-original-bytes" {
+		t.Fatalf("归档对象应为压缩前原图，实际 %q", got)
+	}
+}
+
+// TestArchiveOriginalSkipsSecondTime 归档键由内容寻址文件名推得，重复调用幂等：
+// 第二次只走进程内状态，不再发请求（回填任务每轮扫一遍也不会产生额外流量）。
+func TestArchiveOriginalSkipsSecondTime(t *testing.T) {
+	store := newFakeStore()
+	s, dir := testSetup(t, store)
+	s.binDir = filepath.Join(dir, "bin")
+	if err := os.MkdirAll(s.binDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	const name = "d41d8cd98f00b204e9800998ecf8427e.webp"
+	binPath := writeFile(t, s.binDir, name, []byte("orig"))
+
+	if _, err := s.ArchiveOriginal(name, binPath); err != nil {
+		t.Fatal(err)
+	}
+	puts, heads := store.puts, store.heads
+	uploaded, err := s.ArchiveOriginal(name, binPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if uploaded || store.puts != puts || store.heads != heads {
+		t.Fatalf("第二次归档不应再发请求：uploaded=%v puts=%d->%d heads=%d->%d",
+			uploaded, puts, store.puts, heads, store.heads)
+	}
+}
+
+// TestArchiveKeyNamespace 归档落在 uploads/original/ 下，键名保持与本地文件名一致。
+func TestArchiveKeyNamespace(t *testing.T) {
+	s := newWithStore(config.R2Config{Prefix: "uploads"}, newFakeStore())
+	if got := s.ArchiveKey("ab12.webp"); got != "uploads/original/ab12.webp" {
+		t.Fatalf("ArchiveKey = %q", got)
+	}
+	// 空前缀时回落到 uploads，保证归档与现役对象仍在同一命名空间下。
+	noPrefix := newWithStore(config.R2Config{}, newFakeStore())
+	if got := noPrefix.ArchiveKey("ab12.webp"); got != "uploads/original/ab12.webp" {
+		t.Fatalf("空前缀 ArchiveKey = %q", got)
+	}
+}
+
+// TestFindInBin 垃圾桶查找：同名优先，其次兼容 MoveToBin 为防同秒覆盖而加的时间戳前缀版本。
+func TestFindInBin(t *testing.T) {
+	dir := t.TempDir()
+	if _, ok := FindInBin(dir, "missing.webp"); ok {
+		t.Fatal("不存在时不应命中")
+	}
+	plain := writeFile(t, dir, "a.webp", []byte("x"))
+	writeFile(t, dir, "1700000000000_a.webp", []byte("old"))
+	got, ok := FindInBin(dir, "a.webp")
+	if !ok || got != plain {
+		t.Fatalf("同名文件应优先命中，得到 %q ok=%v", got, ok)
+	}
+	// 只有时间戳前缀版本时也要能找回原件。
+	if got, ok := FindInBin(dir, "b.webp"); ok {
+		t.Fatalf("无任何匹配不应命中，得到 %q", got)
+	}
+	writeFile(t, dir, "1700000000001_b.webp", []byte("orig"))
+	if got, ok := FindInBin(dir, "b.webp"); !ok || filepath.Base(got) != "1700000000001_b.webp" {
+		t.Fatalf("时间戳前缀版本应命中，得到 %q ok=%v", got, ok)
 	}
 }
 

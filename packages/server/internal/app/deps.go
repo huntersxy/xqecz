@@ -15,6 +15,9 @@ type MediaMirror interface {
 	PublicURL(rel string) string
 	// PushAsync 在后台把本地文件推送到 R2，失败只记日志（由回填任务兜底）。
 	PushAsync(rel, absPath string)
+	// ArchiveOriginalAsync 在后台把压缩前的原图归档到 R2 的 original/ 命名空间，
+	// 与现役对象各留一份；失败只记日志（由回填任务从垃圾桶兜底）。
+	ArchiveOriginalAsync(rel, origPath string)
 }
 
 type Deps struct {

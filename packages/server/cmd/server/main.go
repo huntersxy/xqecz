@@ -48,7 +48,7 @@ func main() {
 	}
 	// R2 媒体镜像：原图与压缩图各在 R2 留一份（缩略图纯本地）。
 	// 凭据不全时为停用态，Enabled()==false，后续推送与回填都自动跳过。
-	mediaMirror := mirror.New(cfg.R2)
+	mediaMirror := mirror.New(cfg.R2, cfg.BinDir)
 	deps := app.Deps{Cfg: cfg, DB: db, Redis: cache.Open(cfg), Mirror: mediaMirror}
 	web.Check(deps)
 

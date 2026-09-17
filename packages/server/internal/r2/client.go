@@ -129,13 +129,13 @@ func (c *Client) Head(key string) (ObjectMeta, bool, error) {
 	}, true, nil
 }
 
-// Put 用文件流上传对象。
+// Put 上传对象到指定 key（key 由调用方给全，便于归档到 original/ 等其它命名空间）。
 //
 // 为兼顾「内容寻址去重」与「不被原地压缩打断」，这里只读文件一次：
 // 同一遍读出内容算 md5，再作为请求体发出；请求体与签名哈希共用这份内容。
 // 上传前后各 stat 一次，若大小/修改时间变了说明压缩任务正在原地覆盖同一个文件，
 // 此时放弃本次上传（不回写任何状态），下一轮回填会自动重传。
-func (c *Client) Put(rel, absPath, contentType string) error {
+func (c *Client) Put(key, absPath, contentType string) error {
 	before, err := os.Stat(absPath)
 	if err != nil {
 		return err
@@ -153,7 +153,6 @@ func (c *Client) Put(rel, absPath, contentType string) error {
 	}
 
 	sum := md5.Sum(body)
-	key := c.ObjectKey(rel)
 	req, err := http.NewRequest(http.MethodPut, c.urlFor(key), bytes.NewReader(body))
 	if err != nil {
 		return err
