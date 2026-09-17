@@ -82,9 +82,19 @@ func (c *Client) ObjectKey(rel string) string {
 }
 
 // urlFor 返回虚拟主机风格的对象地址（R2 只支持 virtual-hosted style）。
+//
+// 对象名拼在 bucket 段之后，**只在两段之间保留一个斜杠**：这里若复用
+// canonicalURI（它会给整条路径补前导斜杠），拼出来就是 /bucket//key，
+// R2 会把多出来的那个斜杠当成对象名的一部分，对象名变成 "/key" ——
+// 私有读写毫无异常，但公开地址（r2.dev / 自定义域名）永远 404。
 func (c *Client) urlFor(key string) string {
 	base := strings.TrimSuffix(c.cfg.Endpoint, "/")
-	return base + "/" + c.cfg.Bucket + "/" + canonicalURI(key)
+	path := "/" + c.cfg.Bucket
+	if key != "" {
+		// canonicalURI 会给路径补前导斜杠（签名侧需要），此处拼对象名要去掉它。
+		path += "/" + strings.TrimPrefix(canonicalURI(key), "/")
+	}
+	return base + path
 }
 
 // ObjectMeta 是 HeadObject 的关键字段。

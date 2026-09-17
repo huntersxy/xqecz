@@ -75,6 +75,29 @@ func expectedSignature(t *testing.T, method, rawURL, payloadHash string, headers
 	return hex.EncodeToString(hmacSHA256(k, []byte(toSign))), scope
 }
 
+// TestURLForKeepsSingleSlashBetweenBucketAndKey 钉死对象地址的拼接形状。
+//
+// 曾经的 bug：key 也走 canonicalURI（会给整条路径补前导斜杠），拼出 /bucket//key，
+// R2 于是把多余斜杠算进对象名（真实对象名变成 "/key"）：私有读写全对，
+// 公开地址却永远 404 —— 只有断言 URL 本身才能拦住这类「签名没错但地址错」的问题。
+func TestURLForKeepsSingleSlashBetweenBucketAndKey(t *testing.T) {
+	c, err := New(Config{Endpoint: "https://acc.r2.cloudflarestorage.com", AccessKey: "ak", SecretKey: "sk", Bucket: "xqecz"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct{ key, want string }{
+		{"uploads/ab12.webp", "https://acc.r2.cloudflarestorage.com/xqecz/uploads/ab12.webp"},
+		{"uploads/original/ab12.webp", "https://acc.r2.cloudflarestorage.com/xqecz/uploads/original/ab12.webp"},
+		{"/uploads/ab12.webp", "https://acc.r2.cloudflarestorage.com/xqecz/uploads/ab12.webp"},
+		{"中文 名.webp", "https://acc.r2.cloudflarestorage.com/xqecz/%E4%B8%AD%E6%96%87%20%E5%90%8D.webp"},
+	}
+	for _, tc := range cases {
+		if got := c.urlFor(tc.key); got != tc.want {
+			t.Errorf("urlFor(%q) = %q，期望 %q", tc.key, got, tc.want)
+		}
+	}
+}
+
 // TestEmptyPayloadHashMatchesSpec 空 body 的 SHA-256 是公开常量，先钉死它。
 func TestEmptyPayloadHashMatchesSpec(t *testing.T) {
 	sum := sha256.Sum256(nil)
