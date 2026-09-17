@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { getImageUrl, renderMarkdown } from '@/utils'
+import { cachedMediaSource, pickImageUrl, probeMediaSources, type MediaSource } from '@/utils/mediaSpeed'
 import MediaImage from '@/components/MediaImage.vue'
 import Viewer from 'viewerjs'
 import 'viewerjs/dist/viewer.css'
@@ -14,16 +15,55 @@ const props = defineProps<Props>()
 
 let viewerInstance: Viewer | null = null
 
-const mediaUrl = computed(() => {
+/** 源站上的大图地址。 */
+const localUrl = computed(() => {
   if (props.content.img) return getImageUrl(props.content.img)
   if (props.content.video) return getImageUrl(props.content.video)
   return ''
 })
+
+/** R2 上的同一份副本（后端给的是绝对地址）；未接入 R2 时为空。 */
+const mirrorUrl = computed(() => {
+  if (props.content.img) return props.content.mirror_img || ''
+  if (props.content.video) return props.content.mirror_video || ''
+  return ''
+})
+
 const mediaKind = computed<'image' | 'video' | 'text'>(() => {
   if (props.content.img) return 'image'
   if (props.content.video) return 'video'
   return 'text'
 })
+
+/**
+ * 用户网络二选一的偏好：命中本机缓存时首帧就是正确源；未命中先用源站渲染，
+ * 测速完成后切换（换源会重新加载一次，所以只在这里做一次判断）。
+ */
+const source = ref<MediaSource | null>(cachedMediaSource(localUrl.value, mirrorUrl.value))
+let probeSeq = 0
+
+const mediaUrl = computed(() => pickImageUrl(localUrl.value, mirrorUrl.value, source.value))
+
+async function chooseSource() {
+  const local = localUrl.value
+  const mirror = mirrorUrl.value
+  if (!local || !mirror) {
+    source.value = 'origin'
+    return
+  }
+  const known = cachedMediaSource(local, mirror)
+  if (known) {
+    source.value = known
+    return
+  }
+  const seq = ++probeSeq
+  const result = await probeMediaSources(local, mirror)
+  // 测速期间又切换了内容（上一/下一个）时丢弃这次结果，避免张冠李戴。
+  if (seq !== probeSeq) return
+  source.value = result.winner
+}
+
+watch(() => [props.content.id, localUrl.value, mirrorUrl.value] as const, chooseSource, { immediate: true })
 
 const renderedText = computed(() => {
   const t = props.content.text
@@ -33,7 +73,12 @@ const renderedText = computed(() => {
 function openViewerInline() {
   const img = document.querySelector('.cd-media-image img') as HTMLImageElement | null
   if (!img) return
-  const originUrl = props.content.origin ? getImageUrl(props.content.origin) : ''
+  // 查看原图同样跟随测速结果，避免「预览快、点开慢」的割裂。
+  const originUrl = pickImageUrl(
+    props.content.origin ? getImageUrl(props.content.origin) : '',
+    props.content.mirror_img || '',
+    source.value,
+  )
   if (originUrl) img.dataset.origin = originUrl
   viewerInstance = new Viewer(img, {
     navbar: false, zIndex: 10000, zIndexInline: 10000,

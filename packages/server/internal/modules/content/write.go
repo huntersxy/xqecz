@@ -216,7 +216,7 @@ func (h *Handler) update(c *gin.Context) {
 		web.Fail(c, 500, "服务异常")
 		return
 	}
-	item := decorate(updated, h.userMapFor(ctx, []store.Content{updated}), h.likeCount(ctx, id), false)
+	item := decorateWith(h.mirror, updated, h.userMapFor(ctx, []store.Content{updated}), h.likeCount(ctx, id), false)
 	web.OK(c, item, "更新成功")
 }
 
@@ -486,7 +486,7 @@ func (h *Handler) createContent(ctx context.Context, in createInput) (Item, erro
 			userMap[u.ID] = u
 		}
 	}
-	return decorate(row, userMap, 0, false), nil
+	return decorateWith(h.mirror, row, userMap, 0, false), nil
 }
 
 // processMedia 异步生成缩略图并回写 thumb_path（失败仅告警，不影响上传结果）。
@@ -509,9 +509,15 @@ func (h *Handler) processMedia(id uint64, absPath, contentType string) {
 
 // prepareUploadFile 返回上传文件的相对路径、大小与绝对路径。
 // 保留原始格式不做转码（压缩交给后台 TinyPNG 任务，压缩后后缀不变）。
+//
+// 落盘成功即异步把这一份推到 R2（本地为主、R2 为备份，两份都留）。
+// 推送失败不影响上传结果，由回填任务兜底。
 func (h *Handler) prepareUploadFile(f *uploadedFile) (string, int64, string) {
 	if f == nil {
 		return "", 0, ""
+	}
+	if h.mirror != nil {
+		h.mirror.PushAsync(f.RelPath, f.AbsPath)
 	}
 	return f.RelPath, f.Size, f.AbsPath
 }

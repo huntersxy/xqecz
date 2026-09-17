@@ -107,6 +107,38 @@ FTP **用户名不算机密**，直接写在 workflow 里：后端 `bankend`（�
 
 注意：面板地址与健康检查地址直接写在 workflow 的 `env`（非机密，`BT_PANEL_URL` / `HEALTH_URL`），换服务或换域名时改这里。
 
+## Cloudflare R2 媒体镜像（可选）
+
+原图与压缩图各在 R2 留一份（缩略图纯本地），用于给访问 R2 更快的用户做详情页大图加速。
+
+**启用方式**：在部署目录的 `.env`（不是仓库里的 `.env.example`）补上 R2 段并重启后端：
+
+```bash
+R2_ACCOUNT_ID=<Cloudflare 账号 ID>
+R2_ACCESS_KEY_ID=<R2 令牌的 Access Key ID>
+R2_SECRET_ACCESS_KEY=<R2 令牌的 Secret Access Key>
+R2_BUCKET=<桶名>
+R2_PREFIX=uploads                 # 桶内公共前缀，默认 uploads
+R2_PUBLIC_BASE=https://file.example.com   # 对象公开域名（自定义域名或 r2.dev）
+```
+
+要点：
+
+- **四项凭据任一为空即整体停用**：任务静默休眠、`mirror_img` 字段为空，前端自动走源站，行为与未接入时完全一致。
+- **`R2_PUBLIC_BASE` 决定前端能否测速**：留空 = 只镜像不对外暴露（纯备份）；填了才会开启「详情页大图在源站与 R2 之间择快」。换域名只改这里，**不需要重新构建前端**。
+- **R2 是 append-only 的**：内容删除时本地文件进 `data/bin` 保留，R2 对象不删，便于回溯。
+- **首次部署会回填存量**：启动后立即扫描全部内容并补齐缺失对象（每批 500 条，经 Redis 锁保证多实例只有一个在跑），之后每 `R2_SYNC_INTERVAL_SECONDS`（默认 300s）扫一轮兜住偶发失败。
+- **服务器需能出网到 `*.r2.cloudflarestorage.com`**（实测该服务器到 Cloudflare 通，`api.cloudflare.com` 约 0.8s）。若走不通，镜像会持续失败重试但不影响上传与访问——本地始终是权威副本。
+- 对象名与本地同构：`<R2_PREFIX>/<文件名>`，桶内可直接与 `data/uploads` 对账。
+- 压缩是**原地改写**（路径不变、内容变），因此 R2 上的对象名不变、内容会随压缩更新；判重只认内容 md5，不认「传过没有」。
+
+排查用命令（部署机上直接跑，无需 Go）：
+
+```bash
+grep -iE 'R2_' /www/wwwroot/xqecz-golang/.env          # 确认配置已就位
+tail -f /www/wwwlogs/go/xqeczserver.log | grep -E 'r2 '  # 看镜像/回填日志
+```
+
 ## 初始化与维护
 
 ```bash

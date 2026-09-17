@@ -29,18 +29,30 @@ const (
 	TagsTTL    = 300 * time.Second
 )
 
-type Handler struct {
-	deps app.Deps
-	rec  *recommend.Refresher
+// Options 是内容模块的可选依赖，用零值即「不启用」。
+type Options struct {
+	// Mirror 为 R2 媒体镜像：只影响对外返回的备份地址与上传后的异步推送，
+	// 为 nil 时行为与接入 R2 之前完全一致。
+	Mirror app.MediaMirror
 }
 
-func New(deps app.Deps) *Handler {
-	return &Handler{deps: deps, rec: recommend.NewRefresher(deps)}
+type Handler struct {
+	deps   app.Deps
+	rec    *recommend.Refresher
+	mirror app.MediaMirror
+}
+
+func New(deps app.Deps, opts ...Options) *Handler {
+	h := &Handler{deps: deps, rec: recommend.NewRefresher(deps)}
+	if len(opts) > 0 {
+		h.mirror = opts[0].Mirror
+	}
+	return h
 }
 
 // Register 挂载 /content 路由并返回处理器实例（管理端复用同一实例）。
-func Register(api *gin.RouterGroup, deps app.Deps) *Handler {
-	h := New(deps)
+func Register(api *gin.RouterGroup, deps app.Deps, opts ...Options) *Handler {
+	h := New(deps, opts...)
 	g := api.Group("/content")
 	g.GET("/list", h.list)
 	g.GET("/search", h.search)
@@ -296,7 +308,7 @@ func (h *Handler) detail(c *gin.Context) {
 	h.deps.DB.WithContext(ctx).Model(&store.ContentLike{}).
 		Where("content_id = ?", id).Count(&likeCount)
 
-	item := decorate(row, h.userMapFor(ctx, []store.Content{row}), likeCount, false)
+	item := decorateWith(h.mirror, row, h.userMapFor(ctx, []store.Content{row}), likeCount, false)
 
 	// 仅缓存公开可见（非 rejected）内容；rejected 的权限需实时判断，不缓存。
 	if !hasViewer && row.AuditStatus != "rejected" {
@@ -435,7 +447,7 @@ func (h *Handler) decorateRows(ctx context.Context, rows []store.Content) ([]Ite
 	userMap := h.userMapFor(ctx, rows)
 	list := make([]Item, 0, len(rows))
 	for _, r := range rows {
-		list = append(list, decorate(r, userMap, likeMap[r.ID], false))
+		list = append(list, decorateWith(h.mirror, r, userMap, likeMap[r.ID], false))
 	}
 	return list, nil
 }

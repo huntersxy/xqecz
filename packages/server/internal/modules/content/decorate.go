@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/huntersxy/xqecz/server/internal/app"
 	"github.com/huntersxy/xqecz/server/internal/store"
 	"github.com/huntersxy/xqecz/server/internal/web"
 )
@@ -52,6 +53,22 @@ func FileURL(rel string) string {
 		return "/" + rel
 	}
 	return "/uploads/" + rel
+}
+
+// isMirrorablePath 判定该存储路径是否参与 R2 镜像：
+// 只有 uploads 目录（裸文件名，含原图与压缩图）会被镜像，缩略图与历史 images/ 不镜像。
+func isMirrorablePath(rel string) bool {
+	if rel == "" {
+		return false
+	}
+	return !strings.HasPrefix(rel, "thumbs/") && !strings.HasPrefix(rel, "images/")
+}
+
+// mirrorKey 把存储路径换算成「相对上传目录」的对象名（镜像侧的键）。
+func mirrorKey(rel string) string {
+	rel = strings.TrimPrefix(rel, "/")
+	// 裸文件名即上传目录下的文件；带 uploads/ 前缀的（若历史数据有）去掉前缀。
+	return strings.TrimPrefix(rel, "uploads/")
 }
 
 var qqMailPattern = regexp.MustCompile(`^(\d{5,11})@qq\.com$`)
@@ -119,6 +136,12 @@ type Item struct {
 	Video       string    `json:"video"`
 	Img         string    `json:"img"`
 	Origin      string    `json:"origin,omitempty"`
+	// MirrorImg / MirrorVideo 是同一份文件在 R2 上的**绝对地址**（未启用 R2 时为空）。
+	// R2 与源站不同 origin，无法用相对路径推导，因此这里给完整地址：
+	// 换公开域名只改服务端 .env，前端不必重新构建。
+	// 前端据此在「源站」与「R2」之间测速二选一，本地缩略图不受影响。
+	MirrorImg   string `json:"mirror_img,omitempty"`
+	MirrorVideo string `json:"mirror_video,omitempty"`
 	FileSize    int64     `json:"file_size"`
 	User        UserBrief `json:"user"`
 	AvatarURL   string    `json:"avatar_url,omitempty"`
@@ -139,9 +162,15 @@ type Page struct {
 	TotalPage int    `json:"total_page"`
 }
 
-// decorate 把一行内容转换为对外形状。
-// userMap 为批量预取的用户表（nil 时按需单查）；likeCount 为已统计的点赞数。
+// decorate 把一行内容转换为对外形状（不带 R2 镜像地址，供内部/测试使用）。
 func decorate(row store.Content, userMap map[uint64]store.User, likeCount int64, includeViewCount bool) Item {
+	return decorateWith(nil, row, userMap, likeCount, includeViewCount)
+}
+
+// decorateWith 在 decorate 的基础上补 R2 备份地址。
+// mirror 为 nil（未启用 R2）时与 decorate 完全等价。
+// userMap 为批量预取的用户表（nil 时按需单查）；likeCount 为已统计的点赞数。
+func decorateWith(mm app.MediaMirror, row store.Content, userMap map[uint64]store.User, likeCount int64, includeViewCount bool) Item {
 	var author UserBrief
 	var avatar string
 
@@ -196,6 +225,17 @@ func decorate(row store.Content, userMap map[uint64]store.User, likeCount int64,
 	}
 	if isVideo {
 		item.Video = FileURL(filePath)
+	}
+	// R2 备份地址：与主地址同源同路径，只是换了 host，前端据此测速择快。
+	// 缩略图保持纯本地，不参与镜像，也就没有候选。
+	if mm != nil && isMirrorablePath(filePath) {
+		if mirrorURL := mm.PublicURL(mirrorKey(filePath)); mirrorURL != "" {
+			if isVideo {
+				item.MirrorVideo = mirrorURL
+			} else {
+				item.MirrorImg = mirrorURL
+			}
+		}
 	}
 	if includeViewCount {
 		v := row.ViewCount

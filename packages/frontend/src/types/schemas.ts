@@ -65,6 +65,10 @@ export const ContentSchema = z.object({
   video: str.optional().default(''),
   img: str.optional().default(''),
   origin: str.optional().default(''),
+  // R2 备份地址（未接入 R2 时为空）。详情页据此在源站与 R2 之间测速择快；
+  // 缩略图不镜像，因此 thumb 没有对应字段。
+  mirror_img: str.optional().default(''),
+  mirror_video: str.optional().default(''),
   file_size: num.optional().default(0),
   user: UserSchema,
   avatar_url: str.optional().default(''),

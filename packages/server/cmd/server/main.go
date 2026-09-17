@@ -16,6 +16,7 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/compress"
 	"github.com/huntersxy/xqecz/server/internal/config"
 	"github.com/huntersxy/xqecz/server/internal/logx"
+	"github.com/huntersxy/xqecz/server/internal/mirror"
 	"github.com/huntersxy/xqecz/server/internal/modules/content"
 	"github.com/huntersxy/xqecz/server/internal/project"
 	"github.com/huntersxy/xqecz/server/internal/recommend"
@@ -45,7 +46,10 @@ func main() {
 		slog.Error("mysql init failed", "err", err)
 		os.Exit(1)
 	}
-	deps := app.Deps{Cfg: cfg, DB: db, Redis: cache.Open(cfg)}
+	// R2 媒体镜像：原图与压缩图各在 R2 留一份（缩略图纯本地）。
+	// 凭据不全时为停用态，Enabled()==false，后续推送与回填都自动跳过。
+	mediaMirror := mirror.New(cfg.R2)
+	deps := app.Deps{Cfg: cfg, DB: db, Redis: cache.Open(cfg), Mirror: mediaMirror}
 	web.Check(deps)
 
 	// 推荐位：启动即刷新一次，之后每 10 分钟刷新（与旧实现节奏一致）。
@@ -56,6 +60,9 @@ func main() {
 	// TinyPNG 后台压缩：每分钟挑一张最大的待压缩图片（未配置 Key 时自动休眠）。
 	compress.NewWorker(deps).Start(ctx)
 
+	// R2 回填：启动即补齐存量，之后周期扫描（未配置 R2 凭据时不启动）。
+	mirror.NewWorker(deps, mediaMirror).Start(ctx)
+
 	// 启动后异步补图（等价于旧实现的启动迁移）：延迟几秒，避免与服务启动争抢 CPU。
 	go func() {
 		select {
@@ -63,10 +70,10 @@ func main() {
 		case <-ctx.Done():
 			return
 		}
-		content.New(deps).SweepMissingThumbnails(ctx)
+		content.New(deps, content.Options{Mirror: deps.Mirror}).SweepMissingThumbnails(ctx)
 	}()
 
-	if err := api.Run(deps); err != nil {
+	if err := api.Run(deps, content.Options{Mirror: deps.Mirror}); err != nil {
 		slog.Error("server exited", "err", err)
 		os.Exit(1)
 	}

@@ -14,7 +14,8 @@
                              ├─ GORM ──────────→ MySQL
                              ├─ go-redis ──────→ Redis（session / 读穿缓存 / 浏览量 / 推荐 ZSet）
                              ├─ 进程内计算：缩略图（ffmpeg，缺失降级纯 Go 缩放）、推荐打分（纯函数）
-                             └─ 后台任务：TinyPNG 定时压缩（每轮挑最大的待压缩图，原图入 data/bin）
+                             ├─ 后台任务：TinyPNG 定时压缩（每轮挑最大的待压缩图，原图入 data/bin）
+                             └─ 可选：媒体镜像到 Cloudflare R2（S3 兼容，手写 SigV4）
 静态资源：/uploads、/thumbs 由同一进程托管（/images 仅历史兼容），物理目录为项目根 data/
 ```
 
@@ -39,6 +40,8 @@ packages/
 │   ├── internal/cache/         # Redis 封装：前缀、会话、读穿缓存、ZSet、失效、限频、锁
 │   ├── internal/web/           # 响应包装、身份中间件、CORS、静态目录、端口自适应与优雅关停
 │   ├── internal/media/         # 缩略图生成、垃圾桶目录搬运
+│   ├── internal/r2/            # Cloudflare R2 客户端（S3 子集 + 手写 SigV4，不引 AWS SDK）
+│   ├── internal/mirror/        # R2 媒体镜像：推送判定与存量回填任务
 │   ├── internal/compress/      # TinyPNG 后台压缩（客户端 + 单张调度）
 │   ├── internal/recommend/     # 推荐打分与刷新任务
 │   ├── internal/cli/           # 运维子命令（admin：创建/重置管理员，由二进制自身提供）
@@ -139,6 +142,8 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 - **Redis 缓存** — 公开读路径走读穿缓存：`content:{id}`、`content_list:{sha1(规范化参数)}`、`tags`、`comments:{cid}:{page}:{size}`、`comment_count:{cid}`、`admin:dashboard`；TTL 仅作兜底，**所有写路径必须显式失效**（`ClearContentCache` / `ClearContentListCache` / `ClearCommentCache` / `ClearAllContentCaches`）
 - **物理删除** — 删除一律是 `Delete()` 真删（无 `deleted_at` 软删除列，模型亦不含 `gorm.DeletedAt`）；历史软删行已由 `scripts/migrations/2026-09-14-drop-soft-delete-columns.sql` 物理清理并删列。删内容走 `purgeContent`（同一事务清评论及其举报、点赞、收藏；回复的 `parent_id` 置空而非连带删除），再经 `removeOrphanMedia` 把**无其它引用的**媒体文件移入 `data/bin`（同一文件可能被多条内容共用，必须先查引用计数）
 - **TinyPNG 后台压缩** — `internal/compress`：每 `COMPRESS_INTERVAL_SECONDS`（默认 60s）挑一张最大的待压缩图片，就地替换（先落 `.tinify-tmp` 再 `MoveToBin` 原图后改名，任一步失败都保留原图）；跳过 GIF 与 `< COMPRESS_MIN_KB`（默认 400KB）；`compressed_at` 非空即视为已处理（压缩未变小也标记，避免反复消耗配额）；**未配置 `TINIFY_API_KEY` 时任务静默休眠**
+- **R2 媒体镜像** — `internal/mirror`：本地落盘后异步推一份到 R2（`prepareUploadFile` → `PushAsync`），TinyPNG 压缩成功后把**压缩图**也推上去（`compress/worker.go`），**缩略图保持纯本地**；R2 侧 append-only（内容删除时本地进垃圾桶、对象不删）。幂等判定只认「本地内容 md5 == 远端对象 md5」（压缩是原地改写，路径不变内容变，任何「传过就跳过」的标记都会在压缩后变成谎言）；`R2_SYNC_INTERVAL_SECONDS` 的启动任务做存量回填并兜住偶发失败。凭据不全即整体停用（`Enabled()==false`，与 TinyPNG 缺 Key 同一策略）。SigV4 签名的规范化 URI 必须用**已解码**的 `URL.Path`——用 `EscapedPath()` 会把中文/空格对象名二次编码成 `%25E4…`，服务端必然拒签
+- **详情页大图源选择** — 后端在 `img`/`video` 之外给 **绝对地址** `mirror_img`/`mirror_video`（换 R2 公开域名只改服务端 .env，前端不必重建）；前端 `utils/mediaSpeed.ts` 对两侧各发一次带 `Range` 的真实请求测速，按 0.4×延迟 + 0.6×吞吐 打分择快，结果按本机缓存 30 分钟（`cachedMediaSource`）；**任何一侧缺失、失败或环境不支持都退回源站**，绝不猜
 - **推荐算法单一入口** — 只改 `internal/recommend/recommend.go:ScoreItem()`（纯函数）；刷新节奏与落库在 `Refresher.Refresh()`
 - **降级优先** — ffmpeg 缺失时图片缩略图降级为纯 Go 解码缩放，视频缩略图失败仅告警不影响上传；Redis 不可用时读路径直查 MySQL
 - **迁移期工具** — `cmd/` 下的四个小工具（dbsync/dbinfo/dbsql/rediskeys）是排查与对拍用的，改动数据库相关行为时优先用它们核实，不要凭记忆断言
@@ -160,7 +165,7 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 2. **后端模块改动** — 在 `packages/server/internal/modules/<模块>/` 内改；Handler 依赖 `app.Deps`（Cfg/DB/Redis），路由在各自 `Register()` 中挂载，再由 `internal/api/router.go` 统一装配（web 包不反向依赖业务模块，避免循环依赖）
 3. **新增接口** — 响应统一走 `web.OK` / `web.Fail`（校验类失败用 `web.SoftFail`）；身份从 `web.MustIdentity(c)` 取；列表查询若同时要 Count 与 Find，必须共用同一份条件会话（`db.Session(&gorm.Session{})`），否则总数与列表会不一致
 4. **数据库变更** — 改 `internal/store/models.go`（显式 `column` 标签 + `TableName()`）；生产用正式 migration（存 `scripts/migrations/`），勿开 `AutoMigrate`。热点查询的索引见 `scripts/migrations/2026-09-13-add-hot-path-indexes.sql`
-5. **媒体管线** — `internal/media/`：缩略图优先 ffmpeg、失败降级纯 Go（WebP 质量 85）；`MoveToBin` 负责把文件搬进垃圾桶目录。**上传不再做 WebP 无损转换**（`internal/media/webp.go` 已删除），压缩交给 `internal/compress` 的 TinyPNG 任务；改压缩策略只需动 `compress/worker.go` 的候选筛选与 `shrinkInPlace`
+5. **媒体管线** — `internal/media/`：缩略图优先 ffmpeg、失败降级纯 Go（WebP 质量 85）；R2 镜像见 `internal/mirror`，`Push` 与回填共用同一判定，改镜像范围只需动 `mirrorable()`；`MoveToBin` 负责把文件搬进垃圾桶目录。**上传不再做 WebP 无损转换**（`internal/media/webp.go` 已删除），压缩交给 `internal/compress` 的 TinyPNG 任务；改压缩策略只需动 `compress/worker.go` 的候选筛选与 `shrinkInPlace`
 6. **推荐算法** — 见「核心约束」单一入口条目
 7. **瀑布流布局改动（前端首页）** — 纯布局算法在 `packages/frontend/src/composables/useWaterfallLayout.ts:computeLayout()`（与 DOM 解耦，输出 `Map<id, Position>`，可直接单测，勿写死在组件里）；改布局逻辑优先改纯函数并补 `__tests__/useWaterfallLayout.test.ts`。核心约定：**稳定列**（卡片落列后不再换列，`preserveColumns` 默认 true，仅列数/列宽变化时全量最短列重排）、**full 全量重排**（数据集合变化——分页追加/diff 更新/列表替换——时强制重新平衡列底，避免增量分配被懒加载测量失真带偏导致短列空缺；图片尺寸变化仍走增量顺移）、**列底失衡收敛**（增量后 max-min 列高差超过 `IMBALANCE_THRESHOLD` 时自动补一次带锚定的全量重排）、**单一调度**（图片加载/尺寸/宽度变化合并到一帧 `requestAnimationFrame` 只 layout 一次）、**滚动锚定**（重算前 captureAnchor 固定视口顶部卡片）、卡片高度由 `[data-wf-id]` 批量量取、`restore`/`reset` 管 keep-alive 缓存。**加载策略**：首页进入即自动连续拉取全部页（`loadAllPages`，每页 100 条），不依赖滚动触发，图片保持懒加载；keep-alive 往返用**增量同步**（`syncLatestOnActivated`）。**缓存**：`listCache`（localStorage）统一在 `onBeforeRouteLeave` 离开时写一次；`diffLists` 有全量快照守卫。列表筛选/搜索用自增 `loadSeq` 丢弃过期响应防竞态
 8. **踩坑记忆** — `MYSQL_POOL_SIZE` 过小会在并发下成为瓶颈（实测 20 并发 × 每请求 3 次查询：池 5 → p50 616ms、池 30 → p50 304ms），示例值见 `.env.example`；`silent=1` 的详情请求**按旧语义跳过缓存读**（只写不读），因此会比命中缓存的请求多出三次回表，评估时延时要分开看；`contents.file_path` 表示「无媒体」时**既有 NULL 也有空串**两种写法，过滤必须同时判 `IS NOT NULL AND <> ''`，否则会把纯文本行当成缺图内容；`moon` 的常驻任务用 `preset: 'server'`（不是 `local: true`，后者在 2.x 已移除会直接解析失败）；GORM 的 `Count` 与 `Find` 若不共用条件会话，会出现「总数带过滤、列表不带过滤」的错位；`bigint` 主键在 JSON 与 ZSet 之间比对要显式转字符串；**pnpm 11 起不再读取 `package.json` 的 `pnpm` 字段**——`overrides` 等设置必须写在 `pnpm-workspace.yaml`；Windows 下 git-bash 会把命令行里的中文按 GBK 传给 curl，导致 MySQL 拒收非法 UTF-8（`Incorrect string value`），涉及中文的接口测试要用 `-F "field=<文件"` 或 `--data-binary @文件` 传参；**控制台里跑 `taskkill /PID` 可能静默失败**，清理占用端口的旧服务改用 `powershell Stop-Process` 并复核 `netstat`；**不要用 `taskkill /T`**（会连带杀掉自身会话）

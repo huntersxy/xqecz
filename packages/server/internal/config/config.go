@@ -22,6 +22,11 @@ type Config struct {
 	// BinDir 是压缩/清理后原图的垃圾桶目录，保留而非直接删除，便于人工回溯。
 	BinDir string
 
+	// R2 对象存储镜像：原图与压缩图各存一份，缩略图仍只留在本地。
+	// 四项凭据任一为空即整体停用（与 TinyPNG 同样的「缺配置即休眠」策略），
+	// 便于本地开发与未开通 R2 的环境照常运行。
+	R2 R2Config
+
 	// TinyPNG 定时压缩：API Key 为空时该任务自动休眠（不报错），便于本地与无配额环境。
 	TinyPNGAPIKey string
 	// CompressMinSize 以下的图片不压缩（字节）。
@@ -60,6 +65,9 @@ func Load() Config {
 	c.ThumbDir = env("THUMB_DIR", filepath.Join(dataDir, "thumbs"))
 	c.ImagesDir = env("IMAGES_DIR", filepath.Join(dataDir, "images"))
 	c.BinDir = env("BIN_DIR", filepath.Join(dataDir, "bin"))
+
+	// R2 镜像：凭据不全即停用（本地开发常未开通）。
+	c.R2 = loadR2()
 
 	// 压缩链路：Key 缺失即停用（本地开发常无配额）；阈值与节奏可按需覆盖。
 	c.TinyPNGAPIKey = strings.TrimSpace(os.Getenv("TINIFY_API_KEY"))

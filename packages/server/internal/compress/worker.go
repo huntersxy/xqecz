@@ -127,6 +127,13 @@ func (w *Worker) CompressOne(ctx context.Context) error {
 	}
 	w.deps.Redis.ClearContentCache(ctx, row.ID)
 	w.deps.Redis.ClearContentListCache(ctx)
+
+	// 压缩图同样备份到 R2：此刻 abs 上已经是压缩后的字节（原位替换已完成），
+	// 推上去的是压缩图；本地垃圾桶里另有一份未压缩的原图，两份都保留。
+	// 失败只记日志 —— 回填任务会按内容 md5 比对后补传，不会漏。
+	if w.deps.Mirror != nil && row.FilePath != nil && *row.FilePath != "" {
+		w.deps.Mirror.PushAsync(*row.FilePath, abs)
+	}
 	slog.Info("tinypng 压缩完成",
 		"id", row.ID, "file", *row.FilePath,
 		"before", st.Size(), "after", newSize,
