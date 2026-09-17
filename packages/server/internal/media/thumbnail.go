@@ -42,6 +42,10 @@ var ffmpegAvailable = sync.OnceValue(func() bool {
 //
 // 图片：ffmpeg 可用时优先用 ffmpeg；缺失或失败时降级为纯 Go 解码缩放。
 // 视频：只能依赖 ffmpeg 抽帧，缺失即返回错误（由调用方降级，不阻断上传）。
+//
+// 两种实现都只写同目录临时文件，成功后才原子改名覆盖正式缩略图。
+// 因此任何失败（源图损坏、ffmpeg 超时、编码中断）都不会在 thumbs/ 里留下半截或 0 字节
+// 的文件，也不会破坏该内容原有的可用缩略图。
 func GenerateThumbnail(ctx context.Context, absPath, contentType, thumbDir string) (string, error) {
 	if err := os.MkdirAll(thumbDir, 0o755); err != nil {
 		return "", fmt.Errorf("create thumb dir: %w", err)
@@ -49,23 +53,58 @@ func GenerateThumbnail(ctx context.Context, absPath, contentType, thumbDir strin
 
 	outPath := filepath.Join(thumbDir, thumbName(absPath, "webp"))
 
+	// 临时文件保留 .webp 后缀：ffmpeg 依赖输出扩展名推断封装格式。
+	tmp, err := os.CreateTemp(thumbDir, ".thumb-*.webp")
+	if err != nil {
+		return "", fmt.Errorf("create temp thumb: %w", err)
+	}
+	tmpPath := tmp.Name()
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return "", err
+	}
+	// 改名成功后临时文件已不存在，这里的清理只会命中失败路径。
+	defer func() { _ = os.Remove(tmpPath) }()
+
 	if contentType == "video" {
 		if !ffmpegAvailable() {
 			return "", fmt.Errorf("ffmpeg not found in PATH; cannot generate video thumbnail")
 		}
-		if err := runFFmpeg(ctx, absPath, outPath); err != nil {
+		if err := runFFmpeg(ctx, absPath, tmpPath); err != nil {
 			return "", err
 		}
-		return relThumb(thumbDir, outPath), nil
+		return commitThumb(tmpPath, outPath, thumbDir)
 	}
 
+	var ffErr error
 	if ffmpegAvailable() {
-		if err := runFFmpeg(ctx, absPath, outPath); err == nil {
-			return relThumb(thumbDir, outPath), nil
+		if ffErr = runFFmpeg(ctx, absPath, tmpPath); ffErr == nil {
+			return commitThumb(tmpPath, outPath, thumbDir)
 		}
+		// ffmpeg（-y）在解码前就会建出输出文件，失败时先清掉它再降级。
+		_ = os.Remove(tmpPath)
 	}
-	if err := generateWithGo(absPath, outPath); err != nil {
+	if err := generateWithGo(absPath, tmpPath); err != nil {
+		if ffErr != nil {
+			// 两个实现都失败时把 ffmpeg 的原因一并抛出，避免被静默吞掉。
+			return "", fmt.Errorf("%w (ffmpeg: %v)", err, ffErr)
+		}
 		return "", err
+	}
+	return commitThumb(tmpPath, outPath, thumbDir)
+}
+
+// commitThumb 把生成好的临时缩略图原子替换为正式文件，并返回相对 data 目录的路径。
+func commitThumb(tmpPath, outPath, thumbDir string) (string, error) {
+	if _, err := os.Stat(tmpPath); err != nil {
+		return "", fmt.Errorf("thumbnail not produced: %w", err)
+	}
+	// 临时文件属主可能与目录不一致，统一权限，避免 Web 进程读不到。
+	if err := os.Chmod(tmpPath, 0o644); err != nil {
+		return "", err
+	}
+	if err := os.Rename(tmpPath, outPath); err != nil {
+		return "", fmt.Errorf("commit thumbnail: %w", err)
 	}
 	return relThumb(thumbDir, outPath), nil
 }

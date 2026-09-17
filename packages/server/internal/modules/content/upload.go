@@ -1,6 +1,8 @@
 package content
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"errors"
 	"io"
 	"mime/multipart"
@@ -88,7 +90,16 @@ func (h *Handler) parseMultipart(c *gin.Context) (*form, error) {
 }
 
 // savePart 把一个文件分区流式写入 UPLOAD_DIR。
-// 文件名合规（32 位十六进制）直接沿用，否则服务端兜底生成随机名，保证任何来源都能落盘。
+//
+// 落盘一律先写同目录临时文件、边写边算内容 md5，全部成功后才原子改名到最终路径。
+// 因此中断、截断或半途失败的上传绝不会触碰已存在的文件——同名文件只有在内容校验
+// 一致时才会被替换，不会再出现「打开即清空、写了一半」把旧文件毁掉的情况。
+//
+// 文件名规则：
+//   - 客户端按内容寻址传了 <md5>.<ext> 且与服务端算出的内容 md5 一致 → 沿用该名（同内容天然去重）；
+//   - 传了 <md5>.<ext> 但与内容不符（旧客户端、被截断或篡改）→ 改用服务端算出的 md5，
+//     绝不写入可能已被其它内容占用的路径；
+//   - 其他名字 → 随机名兜底，保证任何来源都能落盘。
 func (h *Handler) savePart(part *multipart.Part) (*uploadedFile, error) {
 	mime := part.Header.Get("Content-Type")
 	if !strings.HasPrefix(mime, "image/") && !strings.HasPrefix(mime, "video/") {
@@ -100,35 +111,63 @@ func (h *Handler) savePart(part *multipart.Part) (*uploadedFile, error) {
 		return nil, err
 	}
 
-	orig := filepath.Base(part.FileName())
-	filename := strings.ToLower(orig)
-	if !md5NamePattern.MatchString(filename) {
-		ext := strings.ToLower(filepath.Ext(orig))
-		if ext == "" {
-			ext = ".bin"
-		}
-		filename = randomName() + ext
+	declared := strings.ToLower(filepath.Base(part.FileName()))
+	ext := strings.ToLower(filepath.Ext(declared))
+	if ext == "" {
+		ext = ".bin"
 	}
 
-	abs := filepath.Join(dir, filename)
-	f, err := os.Create(abs)
+	// 临时文件与最终文件同目录，保证 rename 是同一文件系统内的原子操作。
+	tmp, err := os.CreateTemp(dir, ".upload-*.part")
 	if err != nil {
 		return nil, err
 	}
-	// 多读 1 字节用于判定超限；超限即删除残文件，避免留下半截文件。
-	n, err := io.Copy(f, io.LimitReader(part, maxUploadSize+1))
-	closeErr := f.Close()
+	tmpPath := tmp.Name()
+	committed := false
+	// 任何提前返回都清掉临时文件；改名成功后它已不存在，这里不再命中。
+	defer func() {
+		if !committed {
+			_ = os.Remove(tmpPath)
+		}
+	}()
+
+	sum := md5.New()
+	// 多读 1 字节用于判定超限；超限即整单放弃，磁盘上不留残文件。
+	n, err := io.Copy(io.MultiWriter(tmp, sum), io.LimitReader(part, maxUploadSize+1))
+	closeErr := tmp.Close()
 	if err == nil {
 		err = closeErr
 	}
 	if err != nil {
-		_ = os.Remove(abs)
 		return nil, err
 	}
 	if n > maxUploadSize {
-		_ = os.Remove(abs)
 		return nil, errTooLarge
 	}
+
+	digest := hex.EncodeToString(sum.Sum(nil))
+	filename := randomName() + ext
+	if md5NamePattern.MatchString(declared) {
+		if strings.TrimSuffix(declared, filepath.Ext(declared)) == digest {
+			filename = declared
+		} else {
+			filename = digest + ext
+		}
+	}
+
+	abs := filepath.Join(dir, filename)
+	if st, statErr := os.Stat(abs); statErr == nil && st.Size() == n {
+		// 同内容文件已存在，直接复用，不做无谓替换。
+		return &uploadedFile{AbsPath: abs, RelPath: filename, Size: n, Mime: mime}, nil
+	}
+	// 文件属主可能被替换，保持与目录一致的权限，避免 Web 进程读不到。
+	if err := os.Chmod(tmpPath, 0o644); err != nil {
+		return nil, err
+	}
+	if err := os.Rename(tmpPath, abs); err != nil {
+		return nil, err
+	}
+	committed = true
 
 	return &uploadedFile{AbsPath: abs, RelPath: filename, Size: n, Mime: mime}, nil
 }
