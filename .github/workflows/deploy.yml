@@ -185,10 +185,10 @@ jobs:
       # 健康检查只看「服务活着」，而 FTP 覆盖、面板异步 exec、pkill/setsid 任何一环
       # 静默失败时服务照样健康：此时上线的是上一版二进制，健康检查不会报错，若接口形状变了
       # 就会以「成功」的姿态停留在旧产物上。这里直接比对「被判活的进程」与本次上传的二进制。
-      # 健康检查只看「服务活着」，FTP 覆盖 / 面板异步 exec / pkill+setsid 任何一环静默失败时
-      # 服务照样健康，于是以「成功」的姿态停在上一版二进制上。这里直接问服务器：
-      # 被判活的那个进程，跑的到底是本次上传的二进制，还是上一版。
-      # 输出形如：ASSERT bin=<md5> running=<md5> count=1
+      # 健康检查只看「服务活着」：FTP 覆盖、面板异步 exec、pkill+setsid 任一环静默失败时，
+      # 服务照样 200，实际跑的还是上一版二进制（本轮就发生过一次，接口形状没变回旧版才发现）。
+      # 这里直接问服务器：被判活的那个进程，跑的到底是本次上传的二进制，还是上一版。
+      # 写成文件再取回，是因为面板 exec 的异步输出不便解析（本步骤初版就卡在这里）。
       - name: Verify running binary is this build
         env:
           BT_API_TOKEN: ${{ secrets.BT_API_TOKEN }}
@@ -196,57 +196,52 @@ jobs:
           set -euo pipefail
           T=$(date +%s)
           TK=$(printf '%s%s' "$T" "$(printf '%s' "$BT_API_TOKEN" | md5sum | cut -d' ' -f1)" | md5sum | cut -d' ' -f1)
-          TAG="assert-$(date +%s)"
+          SIGN="request_time=$T&request_token=$TK"
           cat > /tmp/assert.sh <<'SH'
-          set -e
-          bin=/www/wwwroot/xqecz-golang/xqecz-server
-          timeout=30
-          while [ "$timeout" -gt 0 ]; do
-            n=$(pgrep -fc 'xqecz-golang/xqecz-server' || true)
-            case "$n" in ''|0) timeout=$((timeout-1)); sleep 2; continue;; esac
-            pid=$(pgrep -f 'xqecz-golang/xqecz-server' | head -1)
-            a=$(md5sum "$bin" | cut -d' ' -f1)
-            b=$(md5sum "/proc/$pid/exe" 2>/dev/null | cut -d' ' -f1 || echo "")
-            echo "ASSERT bin=$a running=$b count=$n"
-            case "$b" in
-              '') timeout=$((timeout-1)); sleep 2;;
-              *) break;;
-            esac
-          done
-          echo "$TAG"
+          OUT=/www/wwwroot/xqecz-golang/.deploy-assert.txt
+          BIN=/www/wwwroot/xqecz-golang/xqecz-server
+          : > "$OUT"
+          n=$(pgrep -fc 'xqecz-golang/xqecz-server' || true)
+          [ -n "$n" ] || n=0
+          pid=$(pgrep -f 'xqecz-golang/xqecz-server' | head -1 || true)
+          binmd5=$(md5sum "$BIN" | cut -d' ' -f1)
+          exe=$(readlink /proc/$pid/exe 2>/dev/null || true)
+          runmd5=""
+          if [ -n "$exe" ]; then
+            runmd5=$(setpriv --reuid=www --regid=www --clear-groups md5sum "$exe" 2>/dev/null | cut -d' ' -f1 || true)
+          fi
+          {
+            echo "count=$n"
+            echo "bin=$binmd5"
+            echo "exe=${exe:-unknown}"
+            echo "running=${runmd5:-unknown}"
+          } > "$OUT"
           SH
 
+          posted=$(curl -sS -m 60 -X POST "$BT_PANEL_URL/files?action=ExecShell&$SIGN" \
+            --data-urlencode "path=/www/wwwroot/xqecz-golang" \
+            --data-urlencode "shell@/tmp/assert.sh" || true)
+          echo "exec 响应：$posted"
+
+          body=""
           for i in $(seq 1 10); do
-            curl -sS --fail -m 60 -X POST \
-              "$BT_PANEL_URL/files?action=ExecShell&request_time=$T&request_token=$TK" \
-              --data-urlencode "path=/www/wwwroot/xqecz-golang" \
-              --data-urlencode "shell@/tmp/assert.sh" > /dev/null || true
             sleep 3
-            msg=$(curl -sS -m 30 -X POST "$BT_PANEL_URL/files?action=GetExecShellMsg&request_time=$T&request_token=$TK" || true)
-            case "$msg" in
-              *"$TAG"*) ;;
-              *) echo "第 $i 次等待校验脚本执行完成"; sleep 3; continue;;
-            esac
-            line=$(printf '%s' "$msg" | tr -d '\r' | grep -o 'ASSERT [^ ]* [^ ]* [^ ]*' | tail -1 || true)
-            if [ -z "$line" ]; then
-              echo "未拿到断言输出，第 $i 次重试"
-              sleep 3
-              continue
+            body=$(curl -sS -m 30 -X POST "$BT_PANEL_URL/files?action=GetFileBody&$SIGN" \
+              --data-urlencode "path=/www/wwwroot/xqecz-golang/.deploy-assert.txt" || true)
+            if printf '%s' "$body" | grep -q 'count='; then
+              break
             fi
-            echo "服务器上报：$line"
-            binmd5=$(printf '%s' "$line" | awk '{print $2}' | cut -d= -f2)
-            runmd5=$(printf '%s' "$line" | awk '{print $3}' | cut -d= -f2)
-            count=$(printf '%s' "$line" | awk '{print $4}' | cut -d= -f2)
-            if [ "$count" != "1" ]; then
-              echo "后端实例数=$count（应为 1）"
-              exit 1
-            fi
-            if [ "$binmd5" != "$runmd5" ]; then
-              echo "运行中的不是本次上传的二进制：bin=$binmd5 running=$runmd5"
-              exit 1
-            fi
-            echo "产物校验通过：进程即为本次部署的二进制（md5=$binmd5）"
-            exit 0
+            echo "第 $i 次等待服务器写回校验结果：$(printf '%s' "$body" | head -c 120)"
           done
-          echo "产物校验超时"
-          exit 1
+          printf '%s\n' "$body"
+
+          get() { printf '%s' "$body" | tr -d '\r' | grep -o "$1=[^ ]*" | head -1 | cut -d= -f2; }
+          count=$(get count); binmd5=$(get bin); runmd5=$(get running)
+          if [ -z "$count" ]; then echo "没读到校验结果"; exit 1; fi
+          if [ "$count" != "1" ]; then echo "后端实例数=$count（应为 1）"; exit 1; fi
+          if [ -z "$runmd5" ] || [ "$runmd5" = "unknown" ]; then echo "读不到运行进程的二进制"; exit 1; fi
+          if [ "$binmd5" != "$runmd5" ]; then
+            echo "运行中的不是本次上传的二进制：bin=$binmd5 running=$runmd5"
+            exit 1
+          fi
+          echo "产物校验通过：被判活的进程就是本次部署的二进制（md5=$binmd5）"
