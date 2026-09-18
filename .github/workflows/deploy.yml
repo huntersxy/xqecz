@@ -200,10 +200,13 @@ jobs:
           cat > /tmp/assert.sh <<'SH'
           OUT=/www/wwwroot/xqecz-golang/.deploy-assert.txt
           BIN=/www/wwwroot/xqecz-golang/xqecz-server
+          # 前缀锚定 ^：面板启动方式是 runuser -u www -- <bin>，cmdline 里同时存在
+          # runuser 与真实进程两条；只认以部署路径开头的那个，免得数成 2 个实例、
+          # 还把 runuser 的 /proc/<pid>/exe 当成后端二进制去比对。
+          PAT='^/www/wwwroot/xqecz-golang/xqecz-server'
           : > "$OUT"
-          n=$(pgrep -fc 'xqecz-golang/xqecz-server' || true)
-          [ -n "$n" ] || n=0
-          pid=$(pgrep -f 'xqecz-golang/xqecz-server' | head -1 || true)
+          n=$(pgrep -f "$PAT" | wc -l)
+          pid=$(pgrep -f "$PAT" | head -1)
           binmd5=$(md5sum "$BIN" | cut -d' ' -f1)
           exe=$(readlink /proc/$pid/exe 2>/dev/null || true)
           runmd5=""
