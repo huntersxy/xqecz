@@ -238,7 +238,11 @@ jobs:
           done
           printf '%s\n' "$body"
 
-          get() { printf '%s' "$body" | tr -d '\r' | grep -o "$1=[^ ]*" | head -1 | cut -d= -f2; }
+          # 面板 GetFileBody 返回的是 JSON 包装，换行是字面 \n：先解出 data 字符串，
+          # 再把字面 \n 还原成真换行，否则行式解析会把相邻字段粘在一起
+          # （曾把 count 解析成 "1\nbin"，实例数明明正确却判失败）。
+          body=$(printf '%s' "$body" | sed -e 's/.*"data": "//' -e 's/", *"historys".*//' -e 's/\\n/\n/g')
+          get() { printf '%s\n' "$body" | grep -o "$1=[^ ]*" | head -1 | cut -d= -f2; }
           count=$(get count); binmd5=$(get bin); runmd5=$(get running)
           if [ -z "$count" ]; then echo "没读到校验结果"; exit 1; fi
           if [ "$count" != "1" ]; then echo "后端实例数=$count（应为 1）"; exit 1; fi
