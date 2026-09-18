@@ -94,11 +94,16 @@ func (s *Setup) Enabled() bool { return s != nil && s.store != nil }
 // PublicURL 返回对象的公开访问地址；未配置公开域名时返回空串，
 // 前端的「本地 vs R2 测速」也就无从谈起，直接走本地。
 // 对 nil 接收者安全：调用方无需先判空（与 Push 一致的取向）。
+//
+// 公开地址必须走 ObjectKey：对象在桶内叫 <prefix>/<name>，而调用方传进来的是
+// 「相对上传目录」的裸文件名（decorate 的 mirrorKey 已剥掉 uploads/）。
+// 直接拼 rel 会得到 <PublicBase>/<name>，与真实对象名差一个前缀 ——
+// 私有读写照样 200，公开地址却永远 404。
 func (s *Setup) PublicURL(rel string) string {
 	if s == nil || !s.cfg.Exposed() || rel == "" {
 		return ""
 	}
-	return s.cfg.ObjectURL(rel)
+	return s.cfg.ObjectURL(s.ObjectKey(rel))
 }
 
 // ObjectKey 返回对象在桶内的名字（供对账/排障使用）。

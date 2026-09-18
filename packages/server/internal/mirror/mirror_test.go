@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/huntersxy/xqecz/server/internal/config"
@@ -253,8 +254,29 @@ func TestPublicURLWithoutExposedBase(t *testing.T) {
 		t.Fatalf("未配置 PublicBase 时不应返回地址，实际 %q", got)
 	}
 	s.cfg.PublicBase = "https://file.example.com/"
-	if got := s.PublicURL("a.webp"); got != "https://file.example.com/a.webp" {
-		t.Fatalf("公开地址拼接有误: %q", got)
+	// 公开地址的路径必须等于桶内对象名：本用例没配前缀，对象就叫 a.webp。
+	if got := s.PublicURL("a.webp"); got != "https://file.example.com/"+s.ObjectKey("a.webp") {
+		t.Fatalf("公开地址拼接有误: %q（对象名 %q）", got, s.ObjectKey("a.webp"))
+	}
+	// 配了前缀后，对象名与公开地址都必须带上它（生产环境即 uploads/）。
+	s.cfg.Prefix = "uploads"
+	if got := s.PublicURL("a.webp"); got != "https://file.example.com/uploads/a.webp" {
+		t.Fatalf("带前缀的公开地址有误: %q", got)
+	}
+}
+
+// TestPublicURLPathMatchesObjectKey 公开地址的路径必须与桶内对象名逐字一致。
+// 这两者曾各算各的（一个带前缀、一个不带），导致对象明明上传成功、公开地址却 404。
+func TestPublicURLPathMatchesObjectKey(t *testing.T) {
+	s := newWithStore(config.R2Config{
+		AccountID: "a", AccessKey: "k", SecretKey: "s", Bucket: "b",
+		Prefix: "uploads", PublicBase: "https://file.example.com",
+	}, newFakeStore())
+	for _, rel := range []string{"ab12.webp", "uploads/ab12.webp", "/uploads/ab12.webp"} {
+		u := s.PublicURL(rel)
+		if !strings.HasSuffix(u, "/"+s.ObjectKey("ab12.webp")) {
+			t.Fatalf("PublicURL(%q) = %q，其路径应等于对象名 %q", rel, u, s.ObjectKey("ab12.webp"))
+		}
 	}
 }
 
