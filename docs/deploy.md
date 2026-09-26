@@ -109,7 +109,7 @@ SSH 输出是同步的，读回即可，不必像旧版（宝塔 `ExecShell` 异
 |--------|------|
 | `DEPLOY_HOST` | 部署机地址（仓库内不出现服务器 IP） |
 | `DEPLOY_SSH_KEY` | 专用部署私钥；对应公钥写进目标机的 `~/.ssh/authorized_keys` |
-| `DEPLOY_PORT` | SSH 端口，**可选**，缺省 22 |
+| `DEPLOY_PORT` | SSH 端口，**可选**，workflow 缺省 22；当前目标机设为 **20222**（见下节） |
 
 用户名不是机密，直接写在 workflow 里：`alpine`（其家目录含 `authorized_keys`）。
 
@@ -132,6 +132,7 @@ SSH 输出是同步的，读回即可，不必像旧版（宝塔 `ExecShell` 异
 |----|-----|
 | 服务管理 | `/etc/init.d/xqecz`（OpenRC，`command_user=alpine`，日志 `/var/log/xqecz-server.log`） |
 | 自启 | `rc-update add xqecz default`，与 `chronyd` 同 runlevel |
+| SSH 端口 | **20222**（定义在 `/etc/ssh/sshd_config.d/20-port.conf`）。安全组**未放行 2222**——实测 22/20222/29418/40022 通、2222 不通，改端口别想当然选 2222。原 22 上常态有爆破连接（一排 `sshd [accepted]` 子进程），换掉后降到个位数 |
 | 数据库 | TiDB Cloud Serverless（`MYSQL_TLS=true`，独立库 `xqecz`） |
 | Redis | 共享实例，**独立前缀 `xqeczgo:`**（与旧实例 `xqecz:` 隔离） |
 | 媒体 | 本地 `data/` 托管；`thumbs` 不镜像 R2，必须随库一起迁移 |
@@ -149,6 +150,7 @@ doas chronyc tracking                       # 时钟偏移（R2 403 时先查这
 
 - **时钟必须先同步**：该机首次启动时钟慢了 13.7 小时，导致 R2 签名全部 403（凭据无误也照拒）。`chronyc makestep` 校正，并在 `chrony.conf` 补 `makestep 1.0 3` 让开机也步进。
 - **媒体不会自动出现**：`thumbs` 是纯本地资源且首页瀑布流全靠它，迁库时必须一并搬 `data/uploads` 与 `data/thumbs`（`bin` 是垃圾桶，可不搬）。
+- **改 SSH 端口必须双端口过渡**：先 `Port 22` + `Port 20222` 并存 → 从外部用密钥认证新口成功 → 改 `~/.dsh/dsh-ssh.json` 与 `DEPLOY_PORT` secret → 最后才撤 22。安全组在云控制台、这里改不了，一旦新口没放行就是把自己关在外面。验证端口是否放行的廉价办法：在机器上绑几个候选端口、从外部逐个 TCP 连一下（**只读、不碰 sshd**）。
 
 ## 从 MySQL/MariaDB 迁移到 TiDB
 
