@@ -1,8 +1,15 @@
 name: Build & Deploy
 
-# 生产形态（2026-09 起）：后端与前端分开部署，不经 pnpm/npm 在服务器上运行。
-#   后端 → 宝塔「Go 项目」目录，只传单文件二进制（FTP 账号根即项目目录）
-#   前端 → 宝塔「静态站点」根目录，传 dist 产物
+# 生产形态（2026-09 起）：CI 只管后端，前端交给 EdgeOne Makers。
+#
+#   后端 → 部署机（Alpine + OpenRC，服务名 xqecz，目录 /opt/xqecz）：
+#          SSH 直传单文件 → 原子 mv 替换 → rc-service restart → 探 API 域名
+#   前端 → EdgeOne Makers 自行构建（xq.xiey.work）。仓库根 .env 被 gitignore，
+#          VITE_API_BASE_URL / VITE_MEDIA_BASE_URL 只能在 Makers 控制台配，
+#          所以 CI 既不构建也不发布前端；前端构建失败在 Makers 的构建日志里可见。
+#
+# 旧形态（宝塔「Go 项目」+「静态站点」，FTP + 面板 ExecShell）已随迁移废弃：
+# 目标机没有面板、没有 FTP，只有 SSH 与 OpenRC，故三段式面板调用全部删除。
 on:
   push:
     branches: ["master"]
@@ -19,9 +26,14 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # 面板地址由 FTP_SERVER（secret）拼接，仓库内不出现服务器 IP；健康检查走生产域名的同源 /api
-  BT_PANEL_URL: http://${{ secrets.FTP_SERVER }}:13634
-  HEALTH_URL: https://xq.xiey.work/api/health
+  # 主机与密钥都从 Secrets 注入，仓库内不出现服务器地址与凭据
+  DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+  DEPLOY_USER: alpine
+  DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+  DEPLOY_DIR: /opt/xqecz
+  # 健康检查必须打 API 源站：xq.xiey.work 已是 Makers 静态站且不反代，
+  # /api/* 在那里返回 404，拿它当探针会「服务明明是好的却判失败」
+  HEALTH_URL: https://api39.xiey.work/api/health
 
 jobs:
   build-and-deploy:
@@ -30,27 +42,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: "22"
-
-      - name: Setup pnpm
-        run: corepack enable && corepack prepare pnpm@latest --activate
-
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
           go-version-file: packages/server/go.mod
           cache: true
           cache-dependency-path: packages/server/go.sum
-
-      # ── 构建（两端独立产物，互不依赖）──
-
-      - name: Build frontend
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm --filter ./packages/frontend run build
 
       - name: Build server
         working-directory: packages/server
@@ -60,195 +57,109 @@ jobs:
           GOARCH: amd64
         run: go build -ldflags="-s -w" -o xqecz-server ./cmd/server
 
-      - name: Prepare artifacts
-        run: |
-          mkdir -p deploy/frontend
-          cp packages/server/xqecz-server deploy/xqecz-server
-          cp -r packages/frontend/dist/. deploy/frontend/
-          ls -la deploy deploy/frontend | head -30
+      # ── SSH：私钥与主机地址只从 Secrets 来 ──
 
-      # ── 后端：单文件直传 FTP（账号根＝/www/wwwroot/xqecz-golang）──
-      # 用 curl 而非同步 Action：只覆盖 xqecz-server，绝不触碰同目录的 .env、data/
-      # 必须传成 .new：直接覆盖「正在运行的二进制」会被内核拒绝（ETXTBSY，pure-ftpd 回 553），
-      # 服务器侧再用 mv 原子替换（不改变运行中进程持有的 inode）后重启。
-
-      - name: Deploy server binary
-        run: |
-          curl -sS --fail --retry 3 --retry-delay 5 -m 900 \
-            -T deploy/xqecz-server \
-            -u "bankend:${{ secrets.FTP_PASSWORD }}" \
-            "ftp://${{ secrets.FTP_SERVER }}/xqecz-server.new"
-          echo "后端二进制已上传为 xqecz-server.new"
-
-      # ── 前端：静态站点根目录（增量同步 dist）──
-      # 站点目录若混入 root 属主的文件（例如手工用 root 传过 vditor），FTP 用户 www 写不进去，
-      # 上传会报 553 Permission denied —— 因此上传前统一纠偏，保留宝塔的 .user.ini（root + 不可变）。
-
-      - name: Ensure frontend ownership
+      - name: Configure SSH
         env:
-          BT_API_TOKEN: ${{ secrets.BT_API_TOKEN }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
           set -euo pipefail
-          sign() {
-            local t; t=$(date +%s)
-            printf 'request_time=%s&request_token=%s' "$t" \
-              "$(printf '%s%s' "$t" "$(printf '%s' "$BT_API_TOKEN" | md5sum | cut -d' ' -f1)" | md5sum | cut -d' ' -f1)"
-          }
-          TAG="fixown-$(date +%s)"
-          cat > /tmp/fixown.sh <<SH
-          set -e
-          cd /www/wwwroot/xq.xiey.work
-          find . -path ./.user.ini -prune -o ! -user www -print0 | xargs -0 -r chown www:www 2>/dev/null || true
-          echo "$TAG"
-          SH
+          if [ -z "$DEPLOY_HOST" ]; then echo "缺少 secret: DEPLOY_HOST"; exit 1; fi
+          if [ -z "$SSH_KEY" ]; then echo "缺少 secret: DEPLOY_SSH_KEY"; exit 1; fi
+          mkdir -p ~/.ssh
+          umask 077
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          # 托管 IP 会变，用 accept-new 而非首次信任的密钥固定，避免轮换后卡死部署
+          ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" -o StrictHostKeyChecking=accept-new \
+            "$DEPLOY_USER@$DEPLOY_HOST" 'echo "ssh 连通：$(hostname)"'
 
-          curl -sS --fail -m 60 -X POST "$BT_PANEL_URL/files?action=ExecShell&$(sign)" \
-            --data-urlencode "path=/www/wwwroot/xq.xiey.work" \
-            --data-urlencode "shell@/tmp/fixown.sh"
+      # ── 上传：写成 .new，绝不同目录的 .env、data/ ──
+      # 直接覆盖「正在运行的二进制」会被内核拒绝（ETXTBSY），
+      # 服务器侧再用 mv 原子替换（不改变运行中进程持有的 inode）后重启。
 
-          for i in $(seq 1 15); do
-            out=$(curl -sS -m 30 -X POST "$BT_PANEL_URL/files?action=GetExecShellMsg&$(sign)")
-            case "$out" in *"$TAG"*) echo "站点目录属主已纠偏"; exit 0;; esac
-            sleep 2
-          done
-          echo "属主纠偏未确认，继续部署"
-
-      - name: Deploy frontend
-        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: xqdm
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: deploy/frontend/
-          server-dir: ./
-          state-name: .ftp-state-frontend.json
-          exclude: |
-            **/.user.ini
-            **/.git*
-            **/.DS_Store
-
-      # ── 收尾：替换二进制并重启后端 ──
-      # 宝塔新版的站点/项目 HTTP 端点已不可用（/project/go/*、/site?action=AddSite 均 404），
-      # 这里改用面板文件接口的 ExecShell 远程执行；重启方式与面板启动一致（www 用户 + 追加上面板日志）。
+      - name: Upload backend binary
+        run: |
+          set -euo pipefail
+          scp -i ~/.ssh/deploy_key -p -P "$DEPLOY_PORT" -o StrictHostKeyChecking=accept-new \
+            packages/server/xqecz-server "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/xqecz-server.new"
+          echo "后端二进制已上传为 $DEPLOY_DIR/xqecz-server.new"
 
       - name: Activate & restart backend
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.restart }}
-        env:
-          BT_API_TOKEN: ${{ secrets.BT_API_TOKEN }}
         run: |
           set -euo pipefail
-          T=$(date +%s)
-          TK=$(printf '%s%s' "$T" "$(printf '%s' "$BT_API_TOKEN" | md5sum | cut -d' ' -f1)" | md5sum | cut -d' ' -f1)
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" '
+            set -e
+            cd /opt/xqecz
+            if [ ! -f xqecz-server.new ]; then
+              echo "未找到 xqecz-server.new，取消替换与重启"
+              exit 1
+            fi
+            chmod +x xqecz-server.new
+            doas mv -f xqecz-server.new xqecz-server
+            doas rc-service xqecz restart
+          '
+          echo "替换与重启完成"
 
-          cat > /tmp/restart.sh <<'SH'
-          set -e
-          cd /www/wwwroot/xqecz-golang
-          if [ ! -f xqecz-server.new ]; then
-            echo "未找到 xqecz-server.new，取消替换与重启"
-            exit 1
-          fi
-          chmod +x xqecz-server.new
-          chown www:www xqecz-server.new
-          mv -f xqecz-server.new xqecz-server
-          pkill -f 'xqecz-golang/xqecz-server' || true
-          sleep 2
-          setsid runuser -u www -- /www/wwwroot/xqecz-golang/xqecz-server \
-            >> /www/wwwlogs/go/xqeczserver.log 2>&1 &
-          sleep 3
-          echo "restart-done"
-          SH
-
-          curl -sS --fail -m 60 -X POST \
-            "$BT_PANEL_URL/files?action=ExecShell&request_time=$T&request_token=$TK" \
-            --data-urlencode "path=/www/wwwroot/xqecz-golang" \
-            --data-urlencode "shell@/tmp/restart.sh"
-          echo "替换与重启指令已下发"
-
-      # 部署是否真的生效，以生产探针为准（面板 ExecShell 为异步执行，只能事后校验）
+      # 部署是否真的生效，以生产探针为准。
+      # 注意：这里探的是 API 域名，不是前端域名——前端在 Makers 上，没有 /api 反代。
 
       - name: Verify production health
         run: |
+          set -euo pipefail
           for i in $(seq 1 20); do
             code=$(curl -s -o /dev/null -w '%{http_code}' -m 10 "$HEALTH_URL" || true)
             if [ "$code" = "200" ]; then
               echo "健康检查通过：$HEALTH_URL"
-              break
+              exit 0
             fi
             echo "第 $i 次探测返回 $code，3s 后重试"
             sleep 3
           done
-          if [ "${code:-}" != "200" ]; then
-            echo "健康检查失败：$HEALTH_URL 未返回 200"
-            exit 1
-          fi
+          echo "健康检查失败：$HEALTH_URL 未返回 200"
+          exit 1
 
-      # 健康检查只看「服务活着」，而 FTP 覆盖、面板异步 exec、pkill/setsid 任何一环
-      # 静默失败时服务照样健康：此时上线的是上一版二进制，健康检查不会报错，若接口形状变了
-      # 就会以「成功」的姿态停留在旧产物上。这里直接比对「被判活的进程」与本次上传的二进制。
-      # 健康检查只看「服务活着」：FTP 覆盖、面板异步 exec、pkill+setsid 任一环静默失败时，
-      # 服务照样 200，实际跑的还是上一版二进制（本轮就发生过一次，接口形状没变回旧版才发现）。
-      # 这里直接问服务器：被判活的那个进程，跑的到底是本次上传的二进制，还是上一版。
-      # 写成文件再取回，是因为面板 exec 的异步输出不便解析（本步骤初版就卡在这里）。
+      # 健康检查只看「服务活着」：mv 静默失败、restart 失败时服务照样 200，
+      # 实际跑的还是上一版二进制（旧 CI 轮就踩过这个坑，接口形状没变才没发现）。
+      # SSH 输出是同步的，直接读回「文件」与「运行进程」两份 md5 比对即可，
+      # 不必再像旧版那样写文件→面板 GetFileBody 取回→解析 JSON 包装。
       - name: Verify running binary is this build
-        env:
-          BT_API_TOKEN: ${{ secrets.BT_API_TOKEN }}
         run: |
           set -euo pipefail
-          T=$(date +%s)
-          TK=$(printf '%s%s' "$T" "$(printf '%s' "$BT_API_TOKEN" | md5sum | cut -d' ' -f1)" | md5sum | cut -d' ' -f1)
-          SIGN="request_time=$T&request_token=$TK"
-          cat > /tmp/assert.sh <<'SH'
-          OUT=/www/wwwroot/xqecz-golang/.deploy-assert.txt
-          BIN=/www/wwwroot/xqecz-golang/xqecz-server
-          # 前缀锚定 ^：面板启动方式是 runuser -u www -- <bin>，cmdline 里同时存在
-          # runuser 与真实进程两条；只认以部署路径开头的那个，免得数成 2 个实例、
-          # 还把 runuser 的 /proc/<pid>/exe 当成后端二进制去比对。
-          PAT='^/www/wwwroot/xqecz-golang/xqecz-server'
-          : > "$OUT"
-          n=$(pgrep -f "$PAT" | wc -l)
-          pid=$(pgrep -f "$PAT" | head -1)
-          binmd5=$(md5sum "$BIN" | cut -d' ' -f1)
-          exe=$(readlink /proc/$pid/exe 2>/dev/null || true)
-          runmd5=""
-          if [ -n "$exe" ]; then
-            runmd5=$(setpriv --reuid=www --regid=www --clear-groups md5sum "$exe" 2>/dev/null | cut -d' ' -f1 || true)
-          fi
-          {
-            echo "count=$n"
-            echo "bin=$binmd5"
-            echo "exe=${exe:-unknown}"
-            echo "running=${runmd5:-unknown}"
-          } > "$OUT"
-          SH
-
-          posted=$(curl -sS -m 60 -X POST "$BT_PANEL_URL/files?action=ExecShell&$SIGN" \
-            --data-urlencode "path=/www/wwwroot/xqecz-golang" \
-            --data-urlencode "shell@/tmp/assert.sh" || true)
-          echo "exec 响应：$posted"
-
-          body=""
-          for i in $(seq 1 10); do
-            sleep 3
-            body=$(curl -sS -m 30 -X POST "$BT_PANEL_URL/files?action=GetFileBody&$SIGN" \
-              --data-urlencode "path=/www/wwwroot/xqecz-golang/.deploy-assert.txt" || true)
-            if printf '%s' "$body" | grep -q 'count='; then
-              break
+          local_md5=$(md5sum packages/server/xqecz-server | cut -d' ' -f1)
+          out=$(ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" '
+            set -u
+            B=$(cd /opt/xqecz && md5sum xqecz-server 2>/dev/null | cut -d" " -f1)
+            P=$(cat /run/xqecz-server.pid 2>/dev/null || true)
+            R="unknown"
+            if [ -n "$P" ] && [ -r "/proc/$P/exe" ]; then
+              R=$(md5sum "/proc/$P/exe" 2>/dev/null | cut -d" " -f1)
             fi
-            echo "第 $i 次等待服务器写回校验结果：$(printf '%s' "$body" | head -c 120)"
-          done
-          printf '%s\n' "$body"
+            # 用 pidof 按可执行文件名计数：busybox 的 pgrep 没有 -c，
+            # 而 pgrep -f 会匹配到执行这段脚本的 shell 自身（cmdline 里含本文件名），多算一个。
+            N=$(pidof xqecz-server 2>/dev/null | wc -w)
+            echo "bin=${B:-unknown}"
+            echo "running=${R:-unknown}"
+            echo "count=${N:-0}"
+          ')
+          echo "$out"
 
-          # 面板 GetFileBody 返回的是 JSON 包装，换行是字面 \n：先解出 data 字符串，
-          # 再把字面 \n 还原成真换行，否则行式解析会把相邻字段粘在一起
-          # （曾把 count 解析成 "1\nbin"，实例数明明正确却判失败）。
-          body=$(printf '%s' "$body" | sed -e 's/.*"data": "//' -e 's/", *"historys".*//' -e 's/\\n/\n/g')
-          get() { printf '%s\n' "$body" | grep -o "$1=[^ ]*" | head -1 | cut -d= -f2; }
-          count=$(get count); binmd5=$(get bin); runmd5=$(get running)
-          if [ -z "$count" ]; then echo "没读到校验结果"; exit 1; fi
-          if [ "$count" != "1" ]; then echo "后端实例数=$count（应为 1）"; exit 1; fi
-          if [ -z "$runmd5" ] || [ "$runmd5" = "unknown" ]; then echo "读不到运行进程的二进制"; exit 1; fi
-          if [ "$binmd5" != "$runmd5" ]; then
-            echo "运行中的不是本次上传的二进制：bin=$binmd5 running=$runmd5"
+          get() { printf '%s\n' "$out" | grep "^$1=" | head -1 | cut -d= -f2; }
+          bin=$(get bin); running=$(get running); count=$(get count)
+
+          if [ -z "$bin" ] || [ "$bin" = "unknown" ]; then echo "读不到部署后的文件"; exit 1; fi
+          if [ "$bin" != "$local_md5" ]; then
+            echo "部署目录里的不是本次产物：file=$bin local=$local_md5"
             exit 1
           fi
-          echo "产物校验通过：被判活的进程就是本次部署的二进制（md5=$binmd5）"
+          if [ -z "$running" ] || [ "$running" = "unknown" ]; then echo "读不到运行进程的二进制"; exit 1; fi
+          if [ "$running" != "$local_md5" ]; then
+            echo "运行中的不是本次产物（多半是替换或重启静默失败）：running=$running local=$local_md5"
+            exit 1
+          fi
+          if [ "${count:-0}" != "1" ]; then
+            echo "后端实例数=${count}（应为 1）"
+            exit 1
+          fi
+          echo "产物校验通过：被判活的进程就是本次部署的二进制（md5=$local_md5）"

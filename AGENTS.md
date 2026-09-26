@@ -161,7 +161,7 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 | 前端 | Vue 3.5 + TypeScript + Vite + Tailwind CSS + Arco Design Vue + zod（响应校验） |
 | 数据 | MySQL（10 张表）+ Redis（会话/缓存/浏览量/推荐 ZSet） |
 | 同仓编排 | moon（任务图与缓存）+ pnpm workspace（前端依赖）+ go module（后端依赖） |
-| 运行方式 | 本地直启（`scripts/dev.mjs` 编排两端）；生产为**前后端分开发布**——宝塔「Go 项目」（只传二进制 + `.env`）+「静态站点」（只传 `dist`），服务器上不跑包管理器；发布流程与 CI 见 `docs/deploy.md` |
+| 运行方式 | 本地直启（`scripts/dev.mjs` 编排两端）；生产**前后端分开发布**——后端是 Go 单二进制，CI 经 SSH 直传部署机后由 OpenRC 接管（`doas rc-service xqecz`），服务器上不跑包管理器；前端由 EdgeOne Makers 自行构建（`VITE_API_BASE_URL` / `VITE_MEDIA_BASE_URL` 只能在其控制台配，仓库根 `.env` 被 gitignore），发布流程与 CI 见 `docs/deploy.md` |
 
 ## 修改指南
 

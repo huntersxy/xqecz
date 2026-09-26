@@ -87,25 +87,34 @@ server {
 
 触发：push 到 `master`，或在 Actions 页手动触发（可取消勾选「部署后重启后端进程」）。
 
-流程（两端独立产物，互不依赖）：
+**CI 只发后端**。前端由 EdgeOne Makers 自行构建（`xq.xiey.work` 已绑到 Makers）：仓库根 `.env` 被 gitignore，
+`VITE_API_BASE_URL` / `VITE_MEDIA_BASE_URL` 只能在 Makers 控制台配置，因此 CI 既不构建也不发布前端，
+前端构建失败在 Makers 的构建日志里可见。构建因此只需要 Go，不必再装 Node/pnpm。
 
-1. **构建**：前端 `vite build` → `dist`；后端 `CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w"`
-2. **后端上传**：`curl -T` 单文件直传为 `xqecz-server.new` 到后端 FTP 账号根（＝ Go 项目目录）；只碰这一个文件，不触碰同目录的 `.env` 与 `data/`。**不能直接覆盖 `xqecz-server`**——正在运行的二进制被内核拒写，pure-ftpd 会返回 `553`（ETXTBSY）
-3. **前端上传**：`FTP-Deploy-Action` 增量同步 `dist` 到静态站点根
-4. **收尾**：经宝塔面板文件接口 `ExecShell` 远程执行「`mv -f xqecz-server.new xqecz-server` 原子替换 → 重启」，与面板启动方式一致（`www` 用户、日志追加到 `/www/wwwlogs/go/xqeczserver.log`）
-5. **验证**：轮询生产 `HEALTH_URL` 直到返回 200，否则作业失败（面板 `ExecShell` 为异步执行，只能事后校验）
+流程（目标机没有面板、没有 FTP，只有 SSH 与 OpenRC，故旧的三段式面板调用已删除）：
+
+1. **构建**：`CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w"`
+2. **上传**：`scp` 直传为 `xqecz-server.new`——**不能直接覆盖 `xqecz-server`**，正在运行的二进制被内核拒写（`ETXTBSY`）；只碰这一个文件，不触碰同目录的 `.env` 与 `data/`
+3. **收尾**：`doas mv -f xqecz-server.new xqecz-server` 原子替换（不改变运行中进程持有的 inode）→ `doas rc-service xqecz restart`
+4. **验证健康**：轮询 `HEALTH_URL` 直到 200
+5. **验证产物**：读回**部署目录**与**运行进程**（`/proc/<pid>/exe`）两份 md5，与本次构建比对
+
+第 5 步不能省：`mv` 或 `restart` 静默失败时服务照样 200，实际跑的还是上一版二进制——只有比对「运行中的那个」才暴露。
+SSH 输出是同步的，读回即可，不必像旧版（宝塔 `ExecShell` 异步）那样写文件→`GetFileBody` 取回→解析 JSON 包装。
+计数用 `pidof` 而非 `pgrep -c`：**busybox 的 `pgrep` 没有 `-c`**，且 `pgrep -f` 会匹配到执行该脚本的 shell 自身。
 
 需要的仓库 Secrets（Settings → Secrets and variables → Actions）：
 
 | Secret | 用途 |
 |--------|------|
-| `FTP_SERVER` | FTP 主机地址（面板地址 `BT_PANEL_URL` 也由它拼接） |
-| `FTP_PASSWORD` | FTP 密码，前后端两个账号共用 |
-| `BT_API_TOKEN` | 宝塔面板「API 接口」密钥，用于远程赋权与重启 |
+| `DEPLOY_HOST` | 部署机地址（仓库内不出现服务器 IP） |
+| `DEPLOY_SSH_KEY` | 专用部署私钥；对应公钥写进目标机的 `~/.ssh/authorized_keys` |
+| `DEPLOY_PORT` | SSH 端口，**可选**，缺省 22 |
 
-FTP **用户名不算机密**，直接写在 workflow 里：后端 `bankend`（其根目录＝ Go 项目目录）、前端 `xqdm`（其根目录＝静态站点根）。
+用户名不是机密，直接写在 workflow 里：`alpine`（其家目录含 `authorized_keys`）。
 
-注意：面板地址与健康检查地址直接写在 workflow 的 `env`（非机密，`BT_PANEL_URL` / `HEALTH_URL`），换服务或换域名时改这里。
+注意：`HEALTH_URL` 写在 workflow 的 `env`（非机密），换服务或换域名时改这里。**必须打 API 源站**——
+`xq.xiey.work` 是 Makers 静态站且不反代，`/api/*` 在那里返回 404，拿它当探针会「服务明明好的却判失败」。
 
 ## 另一台生产机：Alpine + OpenRC（39.101.76.249）
 
