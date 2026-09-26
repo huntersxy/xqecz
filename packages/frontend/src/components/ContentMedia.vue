@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { getImageUrl, renderMarkdown } from '@/utils'
-import { cachedMediaSource, pickImageUrl, probeMediaSources, type MediaSource } from '@/utils/mediaSpeed'
+import { cachedImageSource, markMirrorUnreachable, pickImageUrl, probeMirror, recheckNetwork, type MediaSource } from '@/utils/imageSource'
 import MediaImage from '@/components/MediaImage.vue'
 import Viewer from 'viewerjs'
 import 'viewerjs/dist/viewer.css'
@@ -36,34 +36,53 @@ const mediaKind = computed<'image' | 'video' | 'text'>(() => {
 })
 
 /**
- * 用户网络二选一的偏好：命中本机缓存时首帧就是正确源；未命中先用源站渲染，
- * 测速完成后切换（换源会重新加载一次，所以只在这里做一次判断）。
+ * 来源确定后才渲染。原先「先用源站渲染、测速完再换源」会让同一张图被请求两次
+ * （源站一次 + 镜像一次），F12 里就是 api39 → r2 → api39 的来回跳。
+ * 现在：本机已有同一网络的结论就同步渲染（零等待、零重复请求）；
+ * 没有结论才等一次镜像探测——这是冷启动唯一的一次等待。
  */
-const source = ref<MediaSource | null>(cachedMediaSource(localUrl.value, mirrorUrl.value))
-let probeSeq = 0
+const source = ref<MediaSource | null>(cachedImageSource())
+const resolved = computed(() => source.value !== null)
 
-const mediaUrl = computed(() => pickImageUrl(localUrl.value, mirrorUrl.value, source.value))
+const mediaUrl = computed(() =>
+  source.value ? pickImageUrl(localUrl.value, mirrorUrl.value, source.value) : '',
+)
+/** 源站地址：仅当当前用的是镜像时，作为渲染层的兜底目标。 */
+const fallbackUrl = computed(() => (source.value === 'mirror' ? localUrl.value : ''))
 
-async function chooseSource() {
-  const local = localUrl.value
+let resolveSeq = 0
+
+async function resolveSource() {
   const mirror = mirrorUrl.value
-  if (!local || !mirror) {
+  const seq = ++resolveSeq
+  if (!mirror) {
+    // 没接镜像（R2 未启用 / 该内容没有副本）：立即用源站，不必探测。
     source.value = 'origin'
     return
   }
-  const known = cachedMediaSource(local, mirror)
+  const known = cachedImageSource()
   if (known) {
     source.value = known
-    return
+  } else {
+    const v = await probeMirror(mirror)
+    if (seq !== resolveSeq) return // 期间切了内容则丢弃，避免张冠李戴
+    source.value = v
   }
-  const seq = ++probeSeq
-  const result = await probeMediaSources(local, mirror)
-  // 测速期间又切换了内容（上一/下一个）时丢弃这次结果，避免张冠李戴。
-  if (seq !== probeSeq) return
-  source.value = result.winner
+  // 后台校验公网 IP：网络变了（典型是代理开/关）就推翻旧结论再探一次。
+  const changed = await recheckNetwork()
+  if (!changed || seq !== resolveSeq || !mirrorUrl.value) return
+  const v = await probeMirror(mirrorUrl.value)
+  if (seq !== resolveSeq) return
+  source.value = v
 }
 
-watch(() => [props.content.id, localUrl.value, mirrorUrl.value] as const, chooseSource, { immediate: true })
+/** 渲染层发现镜像取不到：标记当前网络不可达，并立刻退回源站。 */
+function onMirrorBroken() {
+  markMirrorUnreachable()
+  if (source.value === 'mirror') source.value = 'origin'
+}
+
+watch(() => [props.content.id, localUrl.value, mirrorUrl.value] as const, resolveSource, { immediate: true })
 
 const renderedText = computed(() => {
   const t = props.content.text
@@ -93,8 +112,27 @@ defineExpose({ mediaKind, mediaUrl })
 
 <template>
   <section class="cd-media-wrap">
-    <div v-if="mediaKind === 'image'" class="cd-media-image" @click="openViewerInline">
-      <MediaImage :src="mediaUrl" :alt="content.title" class="cd-image" :preview="false" draggable="false" />
+    <div
+      v-if="(mediaKind === 'image' || mediaKind === 'video') && !resolved"
+      class="cd-media-loading"
+      aria-busy="true"
+    >
+      <span class="cd-media-loading-dot" />
+    </div>
+    <div
+      v-else-if="mediaKind === 'image'"
+      class="cd-media-image"
+      @click="openViewerInline"
+    >
+      <MediaImage
+        :src="mediaUrl"
+        :fallback-src="fallbackUrl"
+        :alt="content.title"
+        class="cd-image"
+        :preview="false"
+        draggable="false"
+        @fallback="onMirrorBroken"
+      />
     </div>
     <video v-else-if="mediaKind === 'video'" :src="mediaUrl" controls playsinline class="cd-video">
       您的浏览器不支持视频播放。
@@ -112,6 +150,10 @@ defineExpose({ mediaKind, mediaUrl })
   background: var(--color-bg); padding: 1rem; overflow: hidden;
 }
 .cd-media-image { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: zoom-in; min-height: 0; }
+/* 冷启动唯一一次等待：镜像可达性尚未有结论时不渲染媒体，避免「先源站后换源」的重复请求 */
+.cd-media-loading { width: 100%; height: 100%; min-height: 12rem; display: flex; align-items: center; justify-content: center; }
+.cd-media-loading-dot { width: 1.25rem; height: 1.25rem; border-radius: 50%; background: var(--color-text-3); animation: cd-media-pulse 1s ease-in-out infinite alternate; }
+@keyframes cd-media-pulse { from { opacity: 0.25; } to { opacity: 0.85; } }
 /* Arco <Image> 的 .arco-image 包裹层：填满媒体区并居中，作为内部 .arco-image-img 的百分比高度基准 */
 .cd-image {
   width: 100%;

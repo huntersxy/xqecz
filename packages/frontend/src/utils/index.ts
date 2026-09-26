@@ -35,10 +35,21 @@ export function getRemoteFallbackUrl(url: string, origin?: string): string {
     return ''
   }
   const remoteHost = new URL(REMOTE_MEDIA_BASE).hostname
+  // 部署时若设了 VITE_MEDIA_BASE_URL（指向 API 源站，与页面跨域），媒体地址就不在页面源站下，
+  // 不认这个域名的话整条兜底链会静默返回空串、直接变坏图。
+  let mediaHost = ''
+  if (MEDIA_BASE) {
+    try {
+      mediaHost = new URL(MEDIA_BASE).hostname
+    } catch {
+      mediaHost = ''
+    }
+  }
   const isOwnHost =
     u.hostname === 'localhost' ||
     u.hostname === '127.0.0.1' ||
     u.hostname === remoteHost ||
+    (mediaHost !== '' && u.hostname === mediaHost) ||
     u.origin === baseOrigin
   if (!isOwnHost) return ''
   const target = `${REMOTE_MEDIA_BASE}${u.pathname}${u.search}`

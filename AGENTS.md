@@ -36,6 +36,7 @@ packages/
 │   ├── internal/app/           # Deps：各层共享依赖集（避免 web ↔ modules 循环依赖）
 │   ├── internal/api/           # 路由装配：创建 gin 引擎并挂载全部模块
 │   ├── internal/config/        # env 配置（.env + .env.local 覆盖）
+│   ├── internal/mysqldsn/      # MySQL/TiDB 连接串统一组装（TLS 参数收敛到一处）
 │   ├── internal/store/         # GORM 模型（10 张表）与连接
 │   ├── internal/cache/         # Redis 封装：前缀、会话、读穿缓存、ZSet、失效、限频、锁
 │   ├── internal/web/           # 响应包装、身份中间件、CORS、静态目录、端口自适应与优雅关停
@@ -135,6 +136,7 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 - **前端是契约** — `packages/frontend/src/api/index.ts` 与 `src/types/schemas.ts` 定义接口形状；后端响应必须能被前端 zod schema 直接解析（改接口后跑契约冒烟）
 - **统一响应** — `{ code, message, data }`；错误文案放 `message`（前端直接展示）。**校验类失败沿用 HTTP 200 + 业务码**（如 `{code:400,message:"描述正文与媒体文件至少填一项"}`），鉴权类失败才改 HTTP 状态码
 - **时间字段** — 一律用 `web.Time` 序列化为 UTC 毫秒（`2026-09-13T11:28:04.865Z`），与前端 `Date.toJSON()` 逐字节一致
+- **CORS 白名单** — `internal/web/middleware.go` 按 `CORS_ORIGINS`（逗号分隔，由 `config.Load` 拆分）放行，**命中才回 `ACAO` + `Allow-Credentials`，未命中不回任何 CORS 头**；`OPTIONS` 一律 204。两种条目：精确 origin（`https://xq.xiey.work`，整串比对，端口也算在内）与子域通配（`*.edgeone.cool` 或带协议 `https://*.edgeone.cool`）——通配按主机名后缀匹配，**不覆盖裸域、要求点边界**（防 `notedgeone.cool` 借尾巴），忽略端口、主机名大小写不敏感。通配只用于平台按项目动态分配的调试域名，生产来源应写精确条目
 - **认证双通道** — 请求头 `X-API-Key`（sha256 比对 `api_keys.key_hash`，权限数组随身份注入）优先，其次 Session Cookie（`session_id`）；`web.RequireAPIKeyPermission` 仅约束密钥调用，Session 用户不受限。新增受保护接口按此挂中间件
 - **上传约定** — multipart 字段名 `file`；**流式解析边收边写盘**（`Request.MultipartReader`），文件名沿用前端的 `<md5>.<ext>`、不合规则随机兜底；单文件 ≤ 20MB、仅 `image/*` 与 `video/*`；**上传不做转码**（保留源格式与后缀），压缩统一由后台 TinyPNG 任务就地替换
 - **媒体下载** — `/uploads`、`/thumbs`、`/images` 由 `content.RegisterMedia` 挂载（非 gin `r.Static`）：带 `?download=1` 时以附件返回，文件名取内容标题（ASCII 回退名 + RFC 5987 UTF-8 名）；`.html`/`.svg`/`.js` 等可直接执行或注入的扩展名拒绝下载（403），避免上传目录变分发通道
@@ -143,10 +145,12 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 - **物理删除** — 删除一律是 `Delete()` 真删（无 `deleted_at` 软删除列，模型亦不含 `gorm.DeletedAt`）；历史软删行已由 `scripts/migrations/2026-09-14-drop-soft-delete-columns.sql` 物理清理并删列。删内容走 `purgeContent`（同一事务清评论及其举报、点赞、收藏；回复的 `parent_id` 置空而非连带删除），再经 `removeOrphanMedia` 把**无其它引用的**媒体文件移入 `data/bin`（同一文件可能被多条内容共用，必须先查引用计数）
 - **TinyPNG 后台压缩** — `internal/compress`：每 `COMPRESS_INTERVAL_SECONDS`（默认 60s）挑一张最大的待压缩图片，就地替换（先落 `.tinify-tmp` 再 `MoveToBin` 原图后改名，任一步失败都保留原图）；跳过 GIF 与 `< COMPRESS_MIN_KB`（默认 400KB）；`compressed_at` 非空即视为已处理（压缩未变小也标记，避免反复消耗配额）；**未配置 `TINIFY_API_KEY` 时任务静默休眠**
 - **R2 媒体镜像** — `internal/mirror`：本地落盘后异步推一份到 R2（`prepareUploadFile` → `PushAsync`），TinyPNG 压缩成功后把**压缩图**也推上去（`compress/worker.go`），**缩略图保持纯本地**；R2 侧 append-only（内容删除时本地进垃圾桶、对象不删）。幂等判定只认「本地内容 md5 == 远端对象 md5」（压缩是原地改写，路径不变内容变，任何「传过就跳过」的标记都会在压缩后变成谎言）；`R2_SYNC_INTERVAL_SECONDS` 的启动任务做存量回填并兜住偶发失败。凭据不全即整体停用（`Enabled()==false`，与 TinyPNG 缺 Key 同一策略）。SigV4 签名的规范化 URI 必须用**已解码**的 `URL.Path`——用 `EscapedPath()` 会把中文/空格对象名二次编码成 `%25E4…`，服务端必然拒签
-- **详情页大图源选择** — 后端在 `img`/`video` 之外给 **绝对地址** `mirror_img`/`mirror_video`（换 R2 公开域名只改服务端 .env，前端不必重建）；前端 `utils/mediaSpeed.ts` 对两侧各发一次带 `Range` 的真实请求测速，按 0.4×延迟 + 0.6×吞吐 打分择快，结果按本机缓存 30 分钟（`cachedMediaSource`）；**任何一侧缺失、失败或环境不支持都退回源站**，绝不猜
+- **详情页大图源选择** — 后端在 `img`/`video` 之外给 **绝对地址** `mirror_img`/`mirror_video`（换 R2 公开域名只改服务端 .env，前端不必重建）；前端 `utils/imageSource.ts` **只探测镜像侧**（源站本来就是回退目标，探它白发一次整图请求），**可达即用 R2、不可达回源站**——取舍由「服务器出网额度 20GB/月」决定，**不再按速度择快**，且探测流量是「浏览器→Cloudflare」，不占源站额度。结论存本机 `localStorage`（键 `xqecz:image-source`，不上传），判定键是**网络标识**：公网 IP（`1.1.1.1/cdn-cgi/trace`，识别代理开/关）为主 + `navigator.connection` 本地指纹为辅（仅 Chromium，接口失败就只用本地指纹、**拿不准不推翻旧结论**），**标识没变就复用、变了才重探**。因为 IP 是异步取的，同步读只能先比本地指纹，IP 回来发现变了再重探。**来源未确定时不渲染媒体**（`ContentMedia` 的 `resolved` 门），避免「先源站渲染、换源再取一次」的重复请求——F12 里表现为 `api39 → r2 → api39` 来回跳。渲染层逐级兜底（`MediaImage`，用 `fallbackSrc` 传源站）：镜像 → 源站（emit `fallback`，调用方据此 `markMirrorUnreachable()` 回写不可达）→ 生产同路径 → 坏图；**任何一侧缺失、失败都退回源站**，绝不猜
 - **推荐算法单一入口** — 只改 `internal/recommend/recommend.go:ScoreItem()`（纯函数）；刷新节奏与落库在 `Refresher.Refresh()`
 - **降级优先** — ffmpeg 缺失时图片缩略图降级为纯 Go 解码缩放，视频缩略图失败仅告警不影响上传；Redis 不可用时读路径直查 MySQL
 - **迁移期工具** — `cmd/` 下的四个小工具（dbsync/dbinfo/dbsql/rediskeys）是排查与对拍用的，改动数据库相关行为时优先用它们核实，不要凭记忆断言
+- **数据库连接单一来源** — DSN 一律经 `internal/mysqldsn.Format()` 组装（服务端与四个 cmd 工具共用），不要在调用点各写一份：新增连接参数时分散写法必然漏配。加密由 `MYSQL_TLS` 控制（透传驱动的 `tls` 参数，留空=不加密）；**TiDB Cloud Serverless 强制加密**，明文连接报 `1105 insecure transport`，必须设 `MYSQL_TLS=true`。逐字节搬运数据（迁移校验）时须关 `ParseTime`，否则驱动做时区换算会改写时间值
+- **TiDB 兼容性** — 生产库为 TiDB 时有三处与 MySQL/MariaDB 不同：① `TEXT`/`BLOB`/`JSON` 列**不允许 DEFAULT**（报 1101），建表须去掉默认值（业务代码对这些列总是显式赋值，故无语义变化）；② 不支持 `CHECKSUM TABLE`，一致性校验改用「按主键有序导出后比对 md5」（见 `scripts/migrations/2026-09-26-migrate-to-tidb.sh`）；③ `sys`/`mysql` 等系统库对业务账号**只读**，必须建独立库
 
 ## 技术栈
 
@@ -168,7 +172,7 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 5. **媒体管线** — `internal/media/`：缩略图优先 ffmpeg、失败降级纯 Go（WebP 质量 85）；R2 镜像见 `internal/mirror`，`Push` 与回填共用同一判定，改镜像范围只需动 `mirrorable()`；`MoveToBin` 负责把文件搬进垃圾桶目录。**上传不再做 WebP 无损转换**（`internal/media/webp.go` 已删除），压缩交给 `internal/compress` 的 TinyPNG 任务；改压缩策略只需动 `compress/worker.go` 的候选筛选与 `shrinkInPlace`
 6. **推荐算法** — 见「核心约束」单一入口条目
 7. **瀑布流布局改动（前端首页）** — 纯布局算法在 `packages/frontend/src/composables/useWaterfallLayout.ts:computeLayout()`（与 DOM 解耦，输出 `Map<id, Position>`，可直接单测，勿写死在组件里）；改布局逻辑优先改纯函数并补 `__tests__/useWaterfallLayout.test.ts`。核心约定：**稳定列**（卡片落列后不再换列，`preserveColumns` 默认 true，仅列数/列宽变化时全量最短列重排）、**full 全量重排**（数据集合变化——分页追加/diff 更新/列表替换——时强制重新平衡列底，避免增量分配被懒加载测量失真带偏导致短列空缺；图片尺寸变化仍走增量顺移）、**列底失衡收敛**（增量后 max-min 列高差超过 `IMBALANCE_THRESHOLD` 时自动补一次带锚定的全量重排）、**单一调度**（图片加载/尺寸/宽度变化合并到一帧 `requestAnimationFrame` 只 layout 一次）、**滚动锚定**（重算前 captureAnchor 固定视口顶部卡片）、卡片高度由 `[data-wf-id]` 批量量取、`restore`/`reset` 管 keep-alive 缓存。**加载策略**：首页进入即自动连续拉取全部页（`loadAllPages`，每页 100 条），不依赖滚动触发，图片保持懒加载；keep-alive 往返用**增量同步**（`syncLatestOnActivated`）。**缓存**：`listCache`（localStorage）统一在 `onBeforeRouteLeave` 离开时写一次；`diffLists` 有全量快照守卫。列表筛选/搜索用自增 `loadSeq` 丢弃过期响应防竞态
-8. **踩坑记忆** — `MYSQL_POOL_SIZE` 过小会在并发下成为瓶颈（实测 20 并发 × 每请求 3 次查询：池 5 → p50 616ms、池 30 → p50 304ms），示例值见 `.env.example`；`silent=1` 的详情请求**按旧语义跳过缓存读**（只写不读），因此会比命中缓存的请求多出三次回表，评估时延时要分开看；`contents.file_path` 表示「无媒体」时**既有 NULL 也有空串**两种写法，过滤必须同时判 `IS NOT NULL AND <> ''`，否则会把纯文本行当成缺图内容；`moon` 的常驻任务用 `preset: 'server'`（不是 `local: true`，后者在 2.x 已移除会直接解析失败）；GORM 的 `Count` 与 `Find` 若不共用条件会话，会出现「总数带过滤、列表不带过滤」的错位；`bigint` 主键在 JSON 与 ZSet 之间比对要显式转字符串；**pnpm 11 起不再读取 `package.json` 的 `pnpm` 字段**——`overrides` 等设置必须写在 `pnpm-workspace.yaml`；Windows 下 git-bash 会把命令行里的中文按 GBK 传给 curl，导致 MySQL 拒收非法 UTF-8（`Incorrect string value`），涉及中文的接口测试要用 `-F "field=<文件"` 或 `--data-binary @文件` 传参；**控制台里跑 `taskkill /PID` 可能静默失败**，清理占用端口的旧服务改用 `powershell Stop-Process` 并复核 `netstat`；**不要用 `taskkill /T`**（会连带杀掉自身会话）
+8. **踩坑记忆** — `MYSQL_POOL_SIZE` 过小会在并发下成为瓶颈（实测 20 并发 × 每请求 3 次查询：池 5 → p50 616ms、池 30 → p50 304ms），示例值见 `.env.example`；`silent=1` 的详情请求**按旧语义跳过缓存读**（只写不读），因此会比命中缓存的请求多出三次回表，评估时延时要分开看；`contents.file_path` 表示「无媒体」时**既有 NULL 也有空串**两种写法，过滤必须同时判 `IS NOT NULL AND <> ''`，否则会把纯文本行当成缺图内容；`moon` 的常驻任务用 `preset: 'server'`（不是 `local: true`，后者在 2.x 已移除会直接解析失败）；GORM 的 `Count` 与 `Find` 若不共用条件会话，会出现「总数带过滤、列表不带过滤」的错位；`bigint` 主键在 JSON 与 ZSet 之间比对要显式转字符串；**pnpm 11 起不再读取 `package.json` 的 `pnpm` 字段**——`overrides` 等设置必须写在 `pnpm-workspace.yaml`；Windows 下 git-bash 会把命令行里的中文按 GBK 传给 curl，导致 MySQL 拒收非法 UTF-8（`Incorrect string value`），涉及中文的接口测试要用 `-F "field=<文件"` 或 `--data-binary @文件` 传参；**控制台里跑 `taskkill /PID` 可能静默失败**，清理占用端口的旧服务改用 `powershell Stop-Process` 并复核 `netstat`；**不要用 `taskkill /T`**（会连带杀掉自身会话）；**SigV4 对时钟敏感**——新机器未同步时间时 R2 全部请求返回 403（实测偏差 13.7 小时，`HEAD`/`PUT` 一律 403，日志刷 `r2 回填失败`），表现为「凭据明明没错却全部被拒」，排查 R2 403 先看 `chronyc tracking` 的 offset，用 `chronyc makestep` 校正并在 `chrony.conf` 补 `makestep 1.0 3` 让开机也步进
 
 ## 迭代规范（AGENTS.md 自身）
 
