@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
-	"time"
 
-	"github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/huntersxy/xqecz/server/internal/config"
+	"github.com/huntersxy/xqecz/server/internal/mysqldsn"
 	"github.com/huntersxy/xqecz/server/internal/project"
 	"github.com/joho/godotenv"
 )
@@ -19,17 +19,16 @@ func main() {
 	_ = godotenv.Load(filepath.Join(root, ".env"))
 	cfg := config.Load()
 
-	c := mysql.NewConfig()
-	c.User = cfg.MySQL.User
-	c.Passwd = cfg.MySQL.Password
-	c.Net = "tcp"
-	c.Addr = fmt.Sprintf("%s:%d", cfg.MySQL.Host, cfg.MySQL.Port)
-	c.DBName = cfg.MySQL.Database
-	c.ParseTime = true
-	c.Loc = time.Local
-	c.Params = map[string]string{"charset": "utf8mb4"}
-
-	db, err := sql.Open("mysql", c.FormatDSN())
+	db, err := sql.Open("mysql", mysqldsn.Format(mysqldsn.Options{
+		Host:     cfg.MySQL.Host,
+		Port:     cfg.MySQL.Port,
+		User:     cfg.MySQL.User,
+		Password: cfg.MySQL.Password,
+		Database: cfg.MySQL.Database,
+		TLS:      cfg.MySQL.TLS,
+		// 排查工具需要可读的 time.Time，故开启解析
+		ParseTime: true,
+	}))
 	if err != nil {
 		log.Fatal(err)
 	}

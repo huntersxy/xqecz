@@ -42,6 +42,10 @@ type Config struct {
 		Database        string
 		PoolSize        int
 		ConnMaxLifetime time.Duration
+		// TLS 是连接的加密模式，直接透传给 go-sql-driver 的 tls DSN 参数：
+		// 空 = 不加密（自建 MySQL 默认），true = 校验服务端证书，skip-verify = 加密但不校验。
+		// TiDB Cloud Serverless 强制加密（明文连接报 1105 insecure transport），必须设为 true。
+		TLS string
 	}
 
 	Redis struct {
@@ -88,6 +92,8 @@ func Load() Config {
 	c.MySQL.Database = env("MYSQL_DATABASE", "xqecz")
 	c.MySQL.PoolSize = envInt("MYSQL_POOL_SIZE", 10)
 	c.MySQL.ConnMaxLifetime = time.Duration(envInt("MYSQL_CONNECT_TIMEOUT", 10)) * time.Second
+	// 空值保持不加密，兼容既有自建 MySQL；托管实例（TiDB Cloud 等）按需开启。
+	c.MySQL.TLS = strings.TrimSpace(os.Getenv("MYSQL_TLS"))
 
 	c.Redis.Host = env("REDIS_HOST", "127.0.0.1")
 	c.Redis.Port = envInt("REDIS_PORT", 6379)

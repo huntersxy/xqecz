@@ -107,6 +107,54 @@ FTP **用户名不算机密**，直接写在 workflow 里：后端 `bankend`（�
 
 注意：面板地址与健康检查地址直接写在 workflow 的 `env`（非机密，`BT_PANEL_URL` / `HEALTH_URL`），换服务或换域名时改这里。
 
+## 另一台生产机：Alpine + OpenRC（39.101.76.249）
+
+除宝塔形态外，后端也可直接跑在精简 Linux 上。当前 39.101.76.249 即此形态（Alpine 3.20、非 root 用户 `alpine` 配免密 `doas`、无 Docker/宝塔）：
+
+```
+/opt/xqecz/
+├── xqecz-server          # Linux amd64 二进制（chmod +x）
+├── .env                  # 生产配置（600，alpine 属主）
+├── migrate-to-tidb.sh    # 库迁移脚本副本
+└── data/                 # uploads / thumbs / bin（媒体本地托管，缩略图纯本地）
+```
+
+| 项 | 值 |
+|----|-----|
+| 服务管理 | `/etc/init.d/xqecz`（OpenRC，`command_user=alpine`，日志 `/var/log/xqecz-server.log`） |
+| 自启 | `rc-update add xqecz default`，与 `chronyd` 同 runlevel |
+| 数据库 | TiDB Cloud Serverless（`MYSQL_TLS=true`，独立库 `xqecz`） |
+| Redis | 共享实例，**独立前缀 `xqeczgo:`**（与旧实例 `xqecz:` 隔离） |
+| 媒体 | 本地 `data/` 托管；`thumbs` 不镜像 R2，必须随库一起迁移 |
+| 日志轮转 | `/etc/periodic/daily/xqecz-logrotate`（超 5MB 轮转，保留 7 份，copytruncate 免重启） |
+
+常用命令：
+
+```bash
+doas rc-service xqecz status|restart        # 服务状态与控制
+doas tail -f /var/log/xqecz-server.log      # 日志（中文正常，勿用 GBK 工具读）
+doas chronyc tracking                       # 时钟偏移（R2 403 时先查这里）
+```
+
+两个坑：
+
+- **时钟必须先同步**：该机首次启动时钟慢了 13.7 小时，导致 R2 签名全部 403（凭据无误也照拒）。`chronyc makestep` 校正，并在 `chrony.conf` 补 `makestep 1.0 3` 让开机也步进。
+- **媒体不会自动出现**：`thumbs` 是纯本地资源且首页瀑布流全靠它，迁库时必须一并搬 `data/uploads` 与 `data/thumbs`（`bin` 是垃圾桶，可不搬）。
+
+## 从 MySQL/MariaDB 迁移到 TiDB
+
+用 `scripts/migrations/2026-09-26-migrate-to-tidb.sh`（需 `mysql`/`mysqldump` CLI，两端凭据走环境变量）：
+
+```bash
+SRC_HOST=<源> SRC_USER=<u> SRC_PASS=<p> SRC_DB=xqv2 \
+TGT_HOST=<tidb网关> TGT_PORT=4000 TGT_USER=<u> TGT_PASS=<p> TGT_DB=xqecz \
+sh scripts/migrations/2026-09-26-migrate-to-tidb.sh        # 目标库已有同名表会拒绝，加 RECREATE=1 才重建
+```
+
+脚本自动处理三处差异并做逐字节校验：去掉 `TEXT`/`BLOB`/`JSON` 的 `DEFAULT`（TiDB 报 1101）、丢弃 MariaDB 私有 `/*M!` 指令、按主键有序导出后比对 md5（TiDB 不支持 `CHECKSUM TABLE`）。任一张表不一致即非零退出。
+
+TiDB 侧另两点：`sys`/`mysql` 等系统库对业务账号**只读**，必须建独立库；连接强制加密，`.env` 需 `MYSQL_TLS=true`。
+
 ## Cloudflare R2 媒体镜像（可选）
 
 原图与压缩图各在 R2 留一份（缩略图纯本地），用于给访问 R2 更快的用户做详情页大图加速。

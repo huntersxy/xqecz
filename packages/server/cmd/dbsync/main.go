@@ -15,10 +15,10 @@ import (
 	"log"
 	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/huntersxy/xqecz/server/internal/config"
+	"github.com/huntersxy/xqecz/server/internal/mysqldsn"
 	"github.com/huntersxy/xqecz/server/internal/project"
 	"github.com/joho/godotenv"
 )
@@ -118,14 +118,13 @@ func main() {
 }
 
 func dsn(cfg config.Config, database string) string {
-	c := mysql.NewConfig()
-	c.User = cfg.MySQL.User
-	c.Passwd = cfg.MySQL.Password
-	c.Net = "tcp"
-	c.Addr = fmt.Sprintf("%s:%d", cfg.MySQL.Host, cfg.MySQL.Port)
-	c.DBName = database
-	c.ParseTime = true
-	c.Loc = time.Local
-	c.Params = map[string]string{"charset": "utf8mb4"}
-	return c.FormatDSN()
+	return mysqldsn.Format(mysqldsn.Options{
+		Host:      cfg.MySQL.Host,
+		Port:      cfg.MySQL.Port,
+		User:      cfg.MySQL.User,
+		Password:  cfg.MySQL.Password,
+		Database:  database,
+		TLS:       cfg.MySQL.TLS,
+		ParseTime: true,
+	})
 }
