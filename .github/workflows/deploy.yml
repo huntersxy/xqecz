@@ -31,6 +31,9 @@ env:
   DEPLOY_USER: alpine
   DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
   DEPLOY_DIR: /opt/xqecz
+  # 一律非交互：CI 没有 TTY，认证失败时若不禁用交互，ssh 会停下来询问而卡到作业超时。
+  # 目标机是公网 22，常态有爆破连接，密钥失败要立刻红而不是挂着。
+  SSH_OPTS: -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new
   # 健康检查必须打 API 源站：xq.xiey.work 已是 Makers 静态站且不反代，
   # /api/* 在那里返回 404，拿它当探针会「服务明明是好的却判失败」
   HEALTH_URL: https://api39.xiey.work/api/health
@@ -71,7 +74,7 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           # 托管 IP 会变，用 accept-new 而非首次信任的密钥固定，避免轮换后卡死部署
           ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
-          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" -o StrictHostKeyChecking=accept-new \
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" $SSH_OPTS \
             "$DEPLOY_USER@$DEPLOY_HOST" 'echo "ssh 连通：$(hostname)"'
 
       # ── 上传：写成 .new，绝不同目录的 .env、data/ ──
@@ -81,7 +84,7 @@ jobs:
       - name: Upload backend binary
         run: |
           set -euo pipefail
-          scp -i ~/.ssh/deploy_key -p -P "$DEPLOY_PORT" -o StrictHostKeyChecking=accept-new \
+          scp -i ~/.ssh/deploy_key $SSH_OPTS -p -P "$DEPLOY_PORT" \
             packages/server/xqecz-server "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/xqecz-server.new"
           echo "后端二进制已上传为 $DEPLOY_DIR/xqecz-server.new"
 
@@ -89,7 +92,7 @@ jobs:
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.restart }}
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" '
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" '
             set -e
             cd /opt/xqecz
             if [ ! -f xqecz-server.new ]; then
@@ -128,7 +131,7 @@ jobs:
         run: |
           set -euo pipefail
           local_md5=$(md5sum packages/server/xqecz-server | cut -d' ' -f1)
-          out=$(ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" '
+          out=$(ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" '
             set -u
             B=$(cd /opt/xqecz && md5sum xqecz-server 2>/dev/null | cut -d" " -f1)
             P=$(cat /run/xqecz-server.pid 2>/dev/null || true)
