@@ -10,11 +10,14 @@ import (
 	"time"
 )
 
-// TestLiveCertDetail 读证书状态，判断能否自动续签、还有多久到期。
+// TestLiveCertDetail 读证书状态：能否自动续签、还有多久到期。
 //
 // 只解出需要的字段：证书记录里带**私钥**（`pri`）与完整证书链（`ca`），
 // 按原始响应打印必然把凭据甩进日志，所以这里用结构体白名单，从形状上杜绝外泄。
-// 一次性排查工具。
+// 续签后可用它确认新证书真的绑上了、到期日确实往后推了。
+//
+//	QINIU_AK=... QINIU_SK=... QINIU_CERT_ID=<绑定的 certId> \
+//	  go test ./internal/qiniu/ -run TestLiveCertDetail -v
 func TestLiveCertDetail(t *testing.T) {
 	ak := os.Getenv("QINIU_AK")
 	sk := os.Getenv("QINIU_SK")

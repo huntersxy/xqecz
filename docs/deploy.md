@@ -198,6 +198,31 @@ grep -iE 'R2_' /www/wwwroot/xqecz-golang/.env          # 确认配置已就位
 tail -f /www/wwwlogs/go/xqeczserver.log | grep -E 'r2 '  # 看镜像/回填日志
 ```
 
+### 七牛云替补镜像（可选）
+
+R2 之上再挂一级替补：详情页按 **R2 → 七牛 → 源站** 逐级回退，只有前一级不可达才用下一级。
+凭据不全即整体停用，不影响 R2 单独工作。
+
+```bash
+QINIU_ACCESS_KEY=...
+QINIU_SECRET_KEY=...
+QINIU_BUCKET=xy996
+QINIU_REGION=cn-south-1                # 决定 S3 端点 s3.cn-south-1.qiniucs.com
+QINIU_PUBLIC_BASE=https://img.xiey.work  # CDN 加速域名，与推送端点不同
+QINIU_PREFIX=uploads
+QINIU_QUOTA_THRESHOLD=0.9              # 免费额度到 90% 即整层停用，次月自动恢复
+```
+
+三个容易踩的点：
+
+- **免费额度按月发放、不结转**。任一项（存储 10GB / CDN 回源 10GB / GET 100 万 / PUT 10 万）到
+  90% 即停用该层。外网流出（S3 直连）**没有免费额度**，0.26 元/GB 从第一字节起计，故桶应保持私有，
+  或用 `QINIU_EGRESS_CAP_GB` 自设上限。
+- **额度检查依赖两套签名**：存储/回源/GET/PUT 走 `api.qiniuapi.com`（Qiniu 内容签名），
+  CDN 下载流量走 `fusion.qiniuapi.com/v2/tune/flux`（QBox 路径签名）。用错任一必 401。
+- **闸门启动初值是关闭**（没查过就不开），查询失败保留上次结论。配置后先看日志里的
+  「七牛额度检查通过」，确认闸门真的开了再观察地址下发。
+
 ## 初始化与维护
 
 ```bash
@@ -212,6 +237,77 @@ cd packages/server && go run ./cmd/dbinfo
 ```
 
 管理员初始化必须由二进制自身提供子命令——部署机没有 Go 工具链，`go run` 形式的命令在服务器上不可用。
+
+## 七牛 CDN 的证书自动续签
+
+`img.xiey.work` 的证书是 TrustAsia DV，有效期 90 天。
+
+**七牛不会全自动续签**：证书记录里 `auto_renew:false`、`renewable:false`；官方口径是
+「到期前 30 天自动启动续签流程，并通过短信/邮件/站内信提醒您，**您需在此期限内配合完成必要的操作**」。
+也就是说七牛只负责发起和提醒，验证那一步要人工点，漏了就过期、HTTPS 断。因此改为自建。
+
+### 为什么挑战文件要写进桶
+
+ACME 的 HTTP-01 校验要访问 `http://img.xiey.work/.well-known/acme-challenge/<token>`，
+而该域名指向七牛 CDN、回源到桶，**请求根本到不了部署机**，标准的 `--webroot` 模式无从生效。
+所以由 `xqecz-server acme plant` 把挑战文件写进桶，让 CDN 自己回源出来。
+
+同一原因导致一个互斥关系：**时间戳防盗链一旦开启，校验请求会因为不带签名被判 403**，
+续签必然失败。二者不可兼得（当前取证书，故时间戳防盗链处于关闭状态）。
+
+### 证书状态与前置检查
+
+```bash
+cd /opt/xqecz
+./xqecz-server acme check          # 打印七牛凭据/桶/区域/公开域名是否齐备
+```
+
+### 安装与首次签发
+
+```bash
+apk add certbot
+
+install -d /opt/xqecz/scripts/acme
+cp /path/to/repo/scripts/acme/*.sh /opt/xqecz/scripts/acme/
+chmod +x /opt/xqecz/scripts/acme/*.sh
+
+certbot certonly --manual --preferred-challenges http-01 \
+  --manual-auth-hook   /opt/xqecz/scripts/acme/hook-auth.sh \
+  --manual-cleanup-hook /opt/xqecz/scripts/acme/hook-cleanup.sh \
+  --deploy-hook        /opt/xqecz/scripts/acme/hook-deploy.sh \
+  -d img.xiey.work
+```
+
+certbot 会把三个 hook 与 `--manual` 模式记进 renewal conf，之后 `renew` 自动复用，无需重复传参。
+
+### 每日 cron
+
+```cron
+17 3 * * * /opt/xqecz/scripts/acme/renew.sh >> /var/log/xqecz-acme.log 2>&1
+```
+
+`renew.sh` **先 `prune` 再 `renew`**，顺序不能反：`prune` 判断的是「当前绑定」，
+放在续签前才能清掉上一轮换绑留下的旧证书；放在之后会撞上同样的问题——
+换绑要 5-10 分钟下发，期间证书侧仍认为旧证书被域名占用，删除返回 `400611`。
+不回收的话证书会一直攒，攒到上限以 `400500` 挡住下一次续签。
+
+### 手动排障
+
+```bash
+./xqecz-server acme plant <token> <内容文件>   # 写桶并回读 CDN 校验内容一致
+./xqecz-server acme clean <token>              # 删除挑战文件
+./xqecz-server acme deploy <fullchain> <key>   # 上传新证书并绑定（换绑后旧证书待回收）
+./xqecz-server acme prune                      # 回收已换绑的旧证书
+```
+
+`deploy` 的两个接口分属两套鉴权，用错任意一个都是 401：
+上传 `POST fusion.qiniuapi.com/sslcert`（QBox 路径签名）、
+绑定 `PUT api.qiniu.com/domain/<Name>/httpsconf`（Qiniu 内容签名）。
+
+### 备用方案
+
+若自建链路长期故障，可在七牛控制台走官方免费证书：**CDN → 域名管理 → HTTPS 配置**，
+按提示完成域名验证。注意该路径需要人工点，且不保证自动续期。
 
 ## 回滚
 
