@@ -176,7 +176,7 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 
 ## 修改指南
 
-1. **先读 `packages/frontend/AGENTS.md`** — 理解前端接口契约与规范
+1. **前端改动** — 接口形状以 `packages/frontend/src/types/schemas.ts` 与 `src/api/index.ts` 为准（后端响应必须能被 zod schema 直接解析，改接口后跑契约冒烟）；前端相关约定分散在本文「核心约束」与修改指南 7。**本仓只有这一份 `AGENTS.md`**，前端不另设分册——新增前端约定直接补进本文对应章节，不要另起文件
 2. **后端模块改动** — 在 `packages/server/internal/modules/<模块>/` 内改；Handler 依赖 `app.Deps`（Cfg/DB/Redis），路由在各自 `Register()` 中挂载，再由 `internal/api/router.go` 统一装配（web 包不反向依赖业务模块，避免循环依赖）
 3. **新增接口** — 响应统一走 `web.OK` / `web.Fail`（校验类失败用 `web.SoftFail`）；身份从 `web.MustIdentity(c)` 取；列表查询若同时要 Count 与 Find，必须共用同一份条件会话（`db.Session(&gorm.Session{})`），否则总数与列表会不一致
 4. **数据库变更** — 改 `internal/store/models.go`（显式 `column` 标签 + `TableName()`）；生产用正式 migration（存 `scripts/migrations/`），勿开 `AutoMigrate`。热点查询的索引见 `scripts/migrations/2026-09-13-add-hot-path-indexes.sql`
@@ -214,10 +214,10 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 
 ### 迭代流程（每步均可执行命令核实）
 
-1. **定位真实变更**：用 `git status` 看改了哪些文件、`git diff --stat` 看规模，先读改动后再写，禁止凭记忆描述（前端约束同 `packages/frontend/AGENTS.md` 第十一条）。
+1. **定位真实变更**：用 `git status` 看改了哪些文件、`git diff --stat` 看规模，先读改动后再写，禁止凭记忆描述。
 2. **对照上表判断命中**：若无命中则不需改本文件（避免为小改动制造噪音）；有命中则找到对应章节。
 3. **最小修订**：只改命中条目，不重排非相关内容；措辞沿用中文、与上下文风格一致。
-4. **同步关联文档**：根 `AGENTS.md` 与 `packages/frontend/AGENTS.md` 各自维护自己的部分；改前端时若两者都命中，注意两边一致性（同一事实不要写矛盾）。
+4. **单一来源**：本仓只有这一份 `AGENTS.md`，前后端约定都在本文内。改前端时同样更新本文对应章节（前端契约见「核心约束」首条、瀑布流见修改指南 7），不要新建前端分册——同一事实写两遍必然有一天互相矛盾。
 5. **自校验（提交前必做）**：重新 `git diff AGENTS.md`，确认
    - 目录树图与实际目录一致（新增文件别漏、删掉的别残留）；
    - 文件路径/函数名/章节名可被搜索定位到真实代码；
