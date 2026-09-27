@@ -27,6 +27,11 @@ type Config struct {
 	// 便于本地开发与未开通 R2 的环境照常运行。
 	R2 R2Config
 
+	// Qiniu 是七牛云镜像，作为 R2 与源站之间的**一级替补**：
+	// R2 探测不通时用它，它也不通才回源站。额度由 internal/qiniu 的闸门管着，
+	// 当月免费额度任一项到 90% 即整层停用，次月自动恢复。
+	Qiniu QiniuConfig
+
 	// TinyPNG 定时压缩：API Key 为空时该任务自动休眠（不报错），便于本地与无配额环境。
 	TinyPNGAPIKey string
 	// CompressMinSize 以下的图片不压缩（字节）。
@@ -72,6 +77,9 @@ func Load() Config {
 
 	// R2 镜像：凭据不全即停用（本地开发常未开通）。
 	c.R2 = loadR2()
+
+	// 七牛替补镜像：同样凭据不全即停用。
+	c.Qiniu = loadQiniu()
 
 	// 压缩链路：Key 缺失即停用（本地开发常无配额）；阈值与节奏可按需覆盖。
 	c.TinyPNGAPIKey = strings.TrimSpace(os.Getenv("TINIFY_API_KEY"))

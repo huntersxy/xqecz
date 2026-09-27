@@ -15,7 +15,7 @@
                              ├─ go-redis ──────→ Redis（session / 读穿缓存 / 浏览量 / 推荐 ZSet）
                              ├─ 进程内计算：缩略图（ffmpeg，缺失降级纯 Go 缩放）、推荐打分（纯函数）
                              ├─ 后台任务：TinyPNG 定时压缩（每轮挑最大的待压缩图，原图入 data/bin）
-                             └─ 可选：媒体镜像到 Cloudflare R2（S3 兼容，手写 SigV4）
+                             └─ 可选：媒体镜像到对象存储（主 Cloudflare R2 + 一级替补七牛云，S3 兼容，手写 SigV4）
 静态资源：/uploads、/thumbs 由同一进程托管（/images 仅历史兼容），物理目录为项目根 data/
 ```
 
@@ -41,11 +41,12 @@ packages/
 │   ├── internal/cache/         # Redis 封装：前缀、会话、读穿缓存、ZSet、失效、限频、锁
 │   ├── internal/web/           # 响应包装、身份中间件、CORS、静态目录、端口自适应与优雅关停
 │   ├── internal/media/         # 缩略图生成、垃圾桶目录搬运
-│   ├── internal/r2/            # Cloudflare R2 客户端（S3 子集 + 手写 SigV4，不引 AWS SDK）
-│   ├── internal/mirror/        # R2 媒体镜像：推送判定与存量回填任务
+│   ├── internal/r2/            # S3 子集客户端（手写 SigV4，不引 AWS SDK）；R2 与七牛共用
+│   ├── internal/qiniu/         # 七牛管理面：Qiniu/QBox 两套签名、用量统计、额度闸门、时间戳签名
+│   ├── internal/mirror/        # 媒体镜像链：目标抽象、主+替补编排、推送判定与存量回填
 │   ├── internal/compress/      # TinyPNG 后台压缩（客户端 + 单张调度）
 │   ├── internal/recommend/     # 推荐打分与刷新任务
-│   ├── internal/cli/           # 运维子命令（admin：创建/重置管理员，由二进制自身提供）
+│   ├── internal/cli/           # 运维子命令（admin：管理员初始化；acme：证书续签辅助）
 │   └── internal/modules/       # 业务模块：auth / content / comment / poll / admin / apikey
 │
 └── frontend/                   # Vue 3 前端
@@ -60,6 +61,7 @@ scripts/
 ├── dev.mjs                     # 开发编排器（Go 后端 + 前端，端口自适应 + 进程树自愈）
 ├── build-server.mjs            # 后端构建包装：按平台选产物名（Windows 必须 .exe）并剥离符号表
 ├── start-backend.mjs           # 部署启动器（宝塔 Node 项目用，把二进制作为子进程拉起）
+├── acme/                       # 证书自动续签：certbot 三个 hook + 每日 cron 入口（见 docs/deploy.md）
 └── migrations/                 # 一次性 SQL 迁移（历史归档，如内容统一模型清理脚本）
 
 .moon/workspace.yml             # moon 工作区定义（工程映射：frontend / server）
@@ -112,6 +114,12 @@ cd packages/server && go run ./cmd/dbinfo      # 查看账号权限与表规模
 cd packages/server && go run ./cmd/dbsql "SELECT 1"
 ./packages/server/xqecz-server admin -username admin [-email a@b.com] [-reset]
                                                # 运维子命令：创建管理员 / 重置密码（部署机无 Go 工具链也可用）
+./packages/server/xqecz-server acme plant <token> <内容文件>   # 把 ACME HTTP-01 挑战写进七牛桶并回读校验
+./packages/server/xqecz-server acme clean <token>              # 删除挑战文件
+./packages/server/xqecz-server acme deploy <fullchain> <key>   # 上传新证书并绑定 CDN 域名
+./packages/server/xqecz-server acme prune                      # 回收已换绑的旧证书
+./packages/server/xqecz-server acme check                      # 打印续签前置条件
+                                               # 四条 acme 子命令由 scripts/acme/ 的 hook 调用，人工排查也可直接用
                                                # 部署方式与回滚见 docs/deploy.md
 
 # ── 端到端验收 ──
@@ -144,8 +152,11 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 - **Redis 缓存** — 公开读路径走读穿缓存：`content:{id}`、`content_list:{sha1(规范化参数)}`、`tags`、`comments:{cid}:{page}:{size}`、`comment_count:{cid}`、`admin:dashboard`；TTL 仅作兜底，**所有写路径必须显式失效**（`ClearContentCache` / `ClearContentListCache` / `ClearCommentCache` / `ClearAllContentCaches`）
 - **物理删除** — 删除一律是 `Delete()` 真删（无 `deleted_at` 软删除列，模型亦不含 `gorm.DeletedAt`）；历史软删行已由 `scripts/migrations/2026-09-14-drop-soft-delete-columns.sql` 物理清理并删列。删内容走 `purgeContent`（同一事务清评论及其举报、点赞、收藏；回复的 `parent_id` 置空而非连带删除），再经 `removeOrphanMedia` 把**无其它引用的**媒体文件移入 `data/bin`（同一文件可能被多条内容共用，必须先查引用计数）
 - **TinyPNG 后台压缩** — `internal/compress`：每 `COMPRESS_INTERVAL_SECONDS`（默认 60s）挑一张最大的待压缩图片，就地替换（先落 `.tinify-tmp` 再 `MoveToBin` 原图后改名，任一步失败都保留原图）；跳过 GIF 与 `< COMPRESS_MIN_KB`（默认 400KB）；`compressed_at` 非空即视为已处理（压缩未变小也标记，避免反复消耗配额）；**未配置 `TINIFY_API_KEY` 时任务静默休眠**
-- **R2 媒体镜像** — `internal/mirror`：本地落盘后异步推一份到 R2（`prepareUploadFile` → `PushAsync`），TinyPNG 压缩成功后把**压缩图**也推上去（`compress/worker.go`），**缩略图保持纯本地**；R2 侧 append-only（内容删除时本地进垃圾桶、对象不删）。幂等判定只认「本地内容 md5 == 远端对象 md5」（压缩是原地改写，路径不变内容变，任何「传过就跳过」的标记都会在压缩后变成谎言）；`R2_SYNC_INTERVAL_SECONDS` 的启动任务做存量回填并兜住偶发失败。凭据不全即整体停用（`Enabled()==false`，与 TinyPNG 缺 Key 同一策略）。SigV4 签名的规范化 URI 必须用**已解码**的 `URL.Path`——用 `EscapedPath()` 会把中文/空格对象名二次编码成 `%25E4…`，服务端必然拒签
-- **详情页大图源选择** — 后端在 `img`/`video` 之外给 **绝对地址** `mirror_img`/`mirror_video`（换 R2 公开域名只改服务端 .env，前端不必重建）；前端 `utils/imageSource.ts` **只探测镜像侧**（源站本来就是回退目标，探它白发一次整图请求），**可达即用 R2、不可达回源站**——取舍由「服务器出网额度 20GB/月」决定，**不再按速度择快**，且探测流量是「浏览器→Cloudflare」，不占源站额度。结论存本机 `localStorage`（键 `xqecz:image-source`，不上传），判定键是**网络标识**：公网 IP（`1.1.1.1/cdn-cgi/trace`，识别代理开/关）为主 + `navigator.connection` 本地指纹为辅（仅 Chromium，接口失败就只用本地指纹、**拿不准不推翻旧结论**），**标识没变就复用、变了才重探**。因为 IP 是异步取的，同步读只能先比本地指纹，IP 回来发现变了再重探。**来源未确定时不渲染媒体**（`ContentMedia` 的 `resolved` 门），避免「先源站渲染、换源再取一次」的重复请求——F12 里表现为 `api39 → r2 → api39` 来回跳。渲染层逐级兜底（`MediaImage`，用 `fallbackSrc` 传源站）：镜像 → 源站（emit `fallback`，调用方据此 `markMirrorUnreachable()` 回写不可达）→ 生产同路径 → 坏图；**任何一侧缺失、失败都退回源站**，绝不猜
+- **媒体镜像链** — `internal/mirror`：`Target` 抽象出「端点/凭据/桶/公开基址」，R2 与七牛同一套推送去重与回填逻辑（唯一差别是签名区域：R2 固定 `auto`，七牛必须真实 region）。`Chain` 编排**主目标（R2）+ 一级替补（七牛）**：本地落盘后异步推一份（`prepareUploadFile` → `PushAsync`），TinyPNG 压缩成功后把**压缩图**也推上去（`compress/worker.go`），**缩略图保持纯本地**；两侧 append-only（内容删除时本地进垃圾桶、对象不删）。幂等判定只认「本地内容 md5 == 远端对象 md5」（压缩是原地改写，路径不变内容变，任何「传过就跳过」的标记都会在压缩后变成谎言）；回填任务**每个目标各一个、各持一把锁**（`lock:mirror:<目标名>`），互不阻塞。凭据不全即整体停用（`Enabled()==false`，与 TinyPNG 缺 Key 同一策略）。SigV4 签名的规范化 URI 必须用**已解码**的 `URL.Path`——用 `EscapedPath()` 会把中文/空格对象名二次编码成 `%25E4…`，服务端必然拒签
+- **替补层额度闸门** — `internal/qiniu`：七牛免费额度按月发放、不结转，任一项到 **90%** 即整层停用，次月额度重发后自动恢复（用量本身按月统计，无需跨月特殊处理）。闸门**下沉在 `Setup.open()` 上而非只放在 `Chain`**——回填任务直接持有 `*Setup`，闸门若只在 Chain 层，触顶后回填仍会继续推送，额度照样被吃掉。查询失败**保留上次结论**（拿半份数据开闸的代价是真金白银），启动初值**关闭**（没查过就不开）。四项额度接口（存储/CDN 回源/GET/PUT）走 `api.qiniuapi.com` + **Qiniu 签名**；CDN 下载流量走 `fusion.qiniuapi.com/v2/tune/flux` + **QBox 签名**——两套签名不可混用，用错任意一个都是 401。`CDNKnown=false`（未配域名）时该项**不参与判定**，绝不把「查不到」当成「用量为 0」
+- **时间戳防盗链** — 七牛 CDN 域名的可选访问控制。签名算法：`S = key + url_encode(path) + T`、`SIGN = lower_hex(md5(S))`、URL 追加 `sign=<SIGN>&t=<T>`（**sign 在前、t 在后**）。两个坑：`T` 必须是**过期时刻的 16 进制小写**（直接用十进制会被当成极大过期时间，等于完全没开鉴权）；`url_encode` 是「斜线不编码」的 UTF-8 编码，与 Go 的 `url.PathEscape` 不同。开启后**所有**七牛地址都必须带签名，故 CDN 缓存必须忽略 `sign`/`t` 参数，否则 URL 每次不同会把缓存键打散。**当前未开启**（关了它 ACME 的 HTTP-01 挑战才能通、证书才能自动续）；签名代码保留在 `internal/qiniu/timesign.go`，配 `QINIU_TIME_KEY` 即生效
+- **详情页大图源选择** — 后端在 `img`/`video` 之外给**绝对地址** `mirror_img`/`mirror_video`（主 R2）与 `mirror2_img`/`mirror2_video`（替补七牛），两级**各自独立下发**（替补停用时只是少一个候选，不影响主目标）；换公开域名只改服务端 .env，前端不必重建。前端 `utils/imageSource.ts` 按 **R2 → 七牛 → 源站** 逐级回退：**串行短路探测**（主镜像通了就不再探替补，主力可达是常态，并行探两个等于每次冷启动都白付一倍探测流量）、**只探测镜像侧**（源站本来就是回退目标，探它白发一次整图请求）。取舍由「服务器出网额度 20GB/月」决定，**不按速度择快**，且探测流量是「浏览器→云厂商」，不占源站额度。结论存本机 `localStorage`（键 `xqecz:image-source`，结构 `{r2, qiniu?}`，不上传），判定键是**网络标识**：公网 IP（`1.1.1.1/cdn-cgi/trace`，识别代理开/关）为主 + `navigator.connection` 本地指纹为辅（仅 Chromium，接口失败就只用本地指纹、**拿不准不推翻旧结论**），**标识没变就复用、变了才重探**。因为 IP 是异步取的，同步读只能先比本地指纹，IP 回来发现变了再重探。缓存命中的那一级若**当前没有地址**（如替补被额度闸门停用后 `mirror2_*` 变空）即视为失效并重探，否则会一直指着一个不存在的源。**来源未确定时不渲染媒体**（`ContentMedia` 的 `resolved` 门），避免「先源站渲染、换源再取一次」的重复请求——F12 里表现为 `api39 → r2 → api39` 来回跳。渲染层兜底走**链式回退**（`MediaImage` 的 `fallbackSrc` 传数组，`@fallback` 回传失败地址）：调用方据此判断是**哪一级**失败，用 `markUnreachable(tier)` 只标死那一级——主镜像挂了不连累替补，那正是它该顶上的时候；再不行退生产同路径 → 坏图
+- **证书自动续签** — `img.xiey.work` 的证书是 TrustAsia DV（90 天），**七牛不会全自动续签**（证书记录 `auto_renew:false`，官方口径是到期前 30 天发起流程但需人工配合验证）。故自建：`xqecz-server acme` 子命令 + `scripts/acme/` 的 certbot hook。**HTTP-01 挑战必须写进七牛桶**——该域名回源到桶，标准 webroot 模式收不到请求（也正因如此，时间戳防盗链一旦开启就会把校验请求 403，二者不可兼得）。`deploy` 换绑后**删不掉旧证书**（`400611`：换绑下发期间证书侧仍认为它被占用），回收拆到独立 `prune`，由每日 cron 在续签**之前**执行；不回收会攒到 `400500` 挡住下次续签。两个接口分属两套鉴权：上传 `POST fusion.qiniuapi.com/sslcert`（QBox）、绑定 `PUT api.qiniu.com/domain/<Name>/httpsconf`（Qiniu）
 - **推荐算法单一入口** — 只改 `internal/recommend/recommend.go:ScoreItem()`（纯函数）；刷新节奏与落库在 `Refresher.Refresh()`
 - **降级优先** — ffmpeg 缺失时图片缩略图降级为纯 Go 解码缩放，视频缩略图失败仅告警不影响上传；Redis 不可用时读路径直查 MySQL
 - **迁移期工具** — `cmd/` 下的四个小工具（dbsync/dbinfo/dbsql/rediskeys）是排查与对拍用的，改动数据库相关行为时优先用它们核实，不要凭记忆断言
@@ -169,10 +180,10 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 2. **后端模块改动** — 在 `packages/server/internal/modules/<模块>/` 内改；Handler 依赖 `app.Deps`（Cfg/DB/Redis），路由在各自 `Register()` 中挂载，再由 `internal/api/router.go` 统一装配（web 包不反向依赖业务模块，避免循环依赖）
 3. **新增接口** — 响应统一走 `web.OK` / `web.Fail`（校验类失败用 `web.SoftFail`）；身份从 `web.MustIdentity(c)` 取；列表查询若同时要 Count 与 Find，必须共用同一份条件会话（`db.Session(&gorm.Session{})`），否则总数与列表会不一致
 4. **数据库变更** — 改 `internal/store/models.go`（显式 `column` 标签 + `TableName()`）；生产用正式 migration（存 `scripts/migrations/`），勿开 `AutoMigrate`。热点查询的索引见 `scripts/migrations/2026-09-13-add-hot-path-indexes.sql`
-5. **媒体管线** — `internal/media/`：缩略图优先 ffmpeg、失败降级纯 Go（WebP 质量 85）；R2 镜像见 `internal/mirror`，`Push` 与回填共用同一判定，改镜像范围只需动 `mirrorable()`；`MoveToBin` 负责把文件搬进垃圾桶目录。**上传不再做 WebP 无损转换**（`internal/media/webp.go` 已删除），压缩交给 `internal/compress` 的 TinyPNG 任务；改压缩策略只需动 `compress/worker.go` 的候选筛选与 `shrinkInPlace`
+5. **媒体管线** — `internal/media/`：缩略图优先 ffmpeg、失败降级纯 Go（WebP 质量 85）；镜像链见 `internal/mirror`（`Target` 定义目标、`Chain` 编排主+替补），`Push` 与回填共用同一判定，**改镜像范围只需动 `mirrorable()`**；新增一个镜像目标只需加一个 `TargetFrom*` 映射，不必碰推送与回填逻辑。`MoveToBin` 负责把文件搬进垃圾桶目录。**上传不再做 WebP 无损转换**（`internal/media/webp.go` 已删除），压缩交给 `internal/compress` 的 TinyPNG 任务；改压缩策略只需动 `compress/worker.go` 的候选筛选与 `shrinkInPlace`
 6. **推荐算法** — 见「核心约束」单一入口条目
 7. **瀑布流布局改动（前端首页）** — 纯布局算法在 `packages/frontend/src/composables/useWaterfallLayout.ts:computeLayout()`（与 DOM 解耦，输出 `Map<id, Position>`，可直接单测，勿写死在组件里）；改布局逻辑优先改纯函数并补 `__tests__/useWaterfallLayout.test.ts`。核心约定：**稳定列**（卡片落列后不再换列，`preserveColumns` 默认 true，仅列数/列宽变化时全量最短列重排）、**full 全量重排**（数据集合变化——分页追加/diff 更新/列表替换——时强制重新平衡列底，避免增量分配被懒加载测量失真带偏导致短列空缺；图片尺寸变化仍走增量顺移）、**列底失衡收敛**（增量后 max-min 列高差超过 `IMBALANCE_THRESHOLD` 时自动补一次带锚定的全量重排）、**单一调度**（图片加载/尺寸/宽度变化合并到一帧 `requestAnimationFrame` 只 layout 一次）、**滚动锚定**（重算前 captureAnchor 固定视口顶部卡片）、卡片高度由 `[data-wf-id]` 批量量取、`restore`/`reset` 管 keep-alive 缓存。**加载策略**：首页进入即自动连续拉取全部页（`loadAllPages`，每页 100 条），不依赖滚动触发，图片保持懒加载；keep-alive 往返用**增量同步**（`syncLatestOnActivated`）。**缓存**：`listCache`（localStorage）统一在 `onBeforeRouteLeave` 离开时写一次；`diffLists` 有全量快照守卫。列表筛选/搜索用自增 `loadSeq` 丢弃过期响应防竞态
-8. **踩坑记忆** — `MYSQL_POOL_SIZE` 过小会在并发下成为瓶颈（实测 20 并发 × 每请求 3 次查询：池 5 → p50 616ms、池 30 → p50 304ms），示例值见 `.env.example`；`silent=1` 的详情请求**按旧语义跳过缓存读**（只写不读），因此会比命中缓存的请求多出三次回表，评估时延时要分开看；`contents.file_path` 表示「无媒体」时**既有 NULL 也有空串**两种写法，过滤必须同时判 `IS NOT NULL AND <> ''`，否则会把纯文本行当成缺图内容；`moon` 的常驻任务用 `preset: 'server'`（不是 `local: true`，后者在 2.x 已移除会直接解析失败）；GORM 的 `Count` 与 `Find` 若不共用条件会话，会出现「总数带过滤、列表不带过滤」的错位；`bigint` 主键在 JSON 与 ZSet 之间比对要显式转字符串；**pnpm 11 起不再读取 `package.json` 的 `pnpm` 字段**——`overrides` 等设置必须写在 `pnpm-workspace.yaml`；Windows 下 git-bash 会把命令行里的中文按 GBK 传给 curl，导致 MySQL 拒收非法 UTF-8（`Incorrect string value`），涉及中文的接口测试要用 `-F "field=<文件"` 或 `--data-binary @文件` 传参；**控制台里跑 `taskkill /PID` 可能静默失败**，清理占用端口的旧服务改用 `powershell Stop-Process` 并复核 `netstat`；**不要用 `taskkill /T`**（会连带杀掉自身会话）；**SigV4 对时钟敏感**——新机器未同步时间时 R2 全部请求返回 403（实测偏差 13.7 小时，`HEAD`/`PUT` 一律 403，日志刷 `r2 回填失败`），表现为「凭据明明没错却全部被拒」，排查 R2 403 先看 `chronyc tracking` 的 offset，用 `chronyc makestep` 校正并在 `chrony.conf` 补 `makestep 1.0 3` 让开机也步进
+8. **踩坑记忆** — `MYSQL_POOL_SIZE` 过小会在并发下成为瓶颈（实测 20 并发 × 每请求 3 次查询：池 5 → p50 616ms、池 30 → p50 304ms），示例值见 `.env.example`；`silent=1` 的详情请求**按旧语义跳过缓存读**（只写不读），因此会比命中缓存的请求多出三次回表，评估时延时要分开看；`contents.file_path` 表示「无媒体」时**既有 NULL 也有空串**两种写法，过滤必须同时判 `IS NOT NULL AND <> ''`，否则会把纯文本行当成缺图内容；`moon` 的常驻任务用 `preset: 'server'`（不是 `local: true`，后者在 2.x 已移除会直接解析失败）；GORM 的 `Count` 与 `Find` 若不共用条件会话，会出现「总数带过滤、列表不带过滤」的错位；`bigint` 主键在 JSON 与 ZSet 之间比对要显式转字符串；**pnpm 11 起不再读取 `package.json` 的 `pnpm` 字段**——`overrides` 等设置必须写在 `pnpm-workspace.yaml`；Windows 下 git-bash 会把命令行里的中文按 GBK 传给 curl，导致 MySQL 拒收非法 UTF-8（`Incorrect string value`），涉及中文的接口测试要用 `-F "field=<文件"` 或 `--data-binary @文件` 传参；**控制台里跑 `taskkill /PID` 可能静默失败**，清理占用端口的旧服务改用 `powershell Stop-Process` 并复核 `netstat`；**不要用 `taskkill /T`**（会连带杀掉自身会话）；**SigV4 对时钟敏感**——新机器未同步时间时 R2 全部请求返回 403（实测偏差 13.7 小时，`HEAD`/`PUT` 一律 403，日志刷 `r2 回填失败`），表现为「凭据明明没错却全部被拒」，排查 R2 403 先看 `chronyc tracking` 的 offset，用 `chronyc makestep` 校正并在 `chrony.conf` 补 `makestep 1.0 3` 让开机也步进；**七牛有两套并存的签名**——kodo 管理/统计接口（`api.qiniuapi.com`）用 `Qiniu` 内容签名（签名串含 Method/Path/Host/Content-Type/X-Qiniu-*），fusion/CDN 接口（`fusion.qiniuapi.com`）与带 body 的 `api.qiniu.com` 域名配置用 `QBox` 路径签名（签名串只有路径+查询），**用错必 401**，两者共用同一对 AK/SK 但不可互相替代；**本仓库工作区文件是 CRLF**（`git` autocrlf 检出所致，仓库内存的是 LF），因此 `gofmt -l` 会把大批未改动文件报成「未格式化」——**不要对目录跑 `gofmt -w`**，那会把无关文件的行尾从 CRLF 改成 LF 造成大面积污染，只对本次改动的具体文件执行
 
 ## 迭代规范（AGENTS.md 自身）
 

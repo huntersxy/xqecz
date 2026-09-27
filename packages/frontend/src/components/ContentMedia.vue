@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { getImageUrl, renderMarkdown } from '@/utils'
-import { cachedImageSource, markMirrorUnreachable, pickImageUrl, probeMirror, recheckNetwork, type MediaSource } from '@/utils/imageSource'
+import { cachedImageSource, fallbackChain, markUnreachable, pickImageUrl, probeMirror, recheckNetwork, type MediaSource } from '@/utils/imageSource'
 import MediaImage from '@/components/MediaImage.vue'
 import Viewer from 'viewerjs'
 import 'viewerjs/dist/viewer.css'
@@ -29,6 +29,13 @@ const mirrorUrl = computed(() => {
   return ''
 })
 
+/** 一级替补（七牛）上的同一份副本；额度触顶或签名失败时为空。 */
+const mirror2Url = computed(() => {
+  if (props.content.img) return props.content.mirror2_img || ''
+  if (props.content.video) return props.content.mirror2_video || ''
+  return ''
+})
+
 const mediaKind = computed<'image' | 'video' | 'text'>(() => {
   if (props.content.img) return 'image'
   if (props.content.video) return 'video'
@@ -45,44 +52,65 @@ const source = ref<MediaSource | null>(cachedImageSource())
 const resolved = computed(() => source.value !== null)
 
 const mediaUrl = computed(() =>
-  source.value ? pickImageUrl(localUrl.value, mirrorUrl.value, source.value) : '',
+  source.value ? pickImageUrl(localUrl.value, mirrorUrl.value, mirror2Url.value, source.value) : '',
 )
-/** 源站地址：仅当当前用的是镜像时，作为渲染层的兜底目标。 */
-const fallbackUrl = computed(() => (source.value === 'mirror' ? localUrl.value : ''))
+/** 兜底链：当前这级挂掉后按序退到下一级（主镜像 → 替补 → 源站）。 */
+const fallbackUrl = computed(() =>
+  fallbackChain(localUrl.value, mirrorUrl.value, mirror2Url.value, source.value),
+)
 
 let resolveSeq = 0
 
 async function resolveSource() {
-  const mirror = mirrorUrl.value
+  const r2 = mirrorUrl.value
+  const qn = mirror2Url.value
   const seq = ++resolveSeq
-  if (!mirror) {
-    // 没接镜像（R2 未启用 / 该内容没有副本）：立即用源站，不必探测。
+  if (!r2 && !qn) {
+    // 两级都没地址（镜像未启用 / 该内容没有副本）：立即用源站，不必探测。
     source.value = 'origin'
     return
   }
+  // 缓存里选中的那一级必须**当前真的有地址**，否则视为失效（比如替补被额度闸门
+  // 停用后 mirror2_* 变空，而本机还留着上次「替补可达」的结论）。
   const known = cachedImageSource()
-  if (known) {
+  const usable =
+    known === 'origin' ||
+    (known === 'mirror' && !!r2) ||
+    (known === 'mirror2' && !!qn)
+  if (known && usable) {
     source.value = known
   } else {
-    const v = await probeMirror(mirror)
+    const v = await probeMirror(r2, qn)
     if (seq !== resolveSeq) return // 期间切了内容则丢弃，避免张冠李戴
     source.value = v
   }
   // 后台校验公网 IP：网络变了（典型是代理开/关）就推翻旧结论再探一次。
   const changed = await recheckNetwork()
-  if (!changed || seq !== resolveSeq || !mirrorUrl.value) return
-  const v = await probeMirror(mirrorUrl.value)
+  if (!changed || seq !== resolveSeq || (!mirrorUrl.value && !mirror2Url.value)) return
+  const v = await probeMirror(mirrorUrl.value, mirror2Url.value)
   if (seq !== resolveSeq) return
   source.value = v
 }
 
-/** 渲染层发现镜像取不到：标记当前网络不可达，并立刻退回源站。 */
-function onMirrorBroken() {
-  markMirrorUnreachable()
-  if (source.value === 'mirror') source.value = 'origin'
+/**
+ * 渲染层发现某一级取不到：把**那一级**标记为不可达并立刻往下退一级。
+ * 主镜像失败不会顺手把替补也标死——替补可能仍然好着，正是它该顶上的时候。
+ */
+function onMirrorBroken(failedUrl: string) {
+  if (failedUrl && failedUrl === mirror2Url.value) {
+    markUnreachable('mirror2')
+    if (source.value === 'mirror2') source.value = 'origin'
+    return
+  }
+  markUnreachable('mirror')
+  if (source.value === 'mirror') source.value = mirror2Url.value ? 'mirror2' : 'origin'
 }
 
-watch(() => [props.content.id, localUrl.value, mirrorUrl.value] as const, resolveSource, { immediate: true })
+watch(
+  () => [props.content.id, localUrl.value, mirrorUrl.value, mirror2Url.value] as const,
+  resolveSource,
+  { immediate: true },
+)
 
 const renderedText = computed(() => {
   const t = props.content.text
@@ -92,10 +120,11 @@ const renderedText = computed(() => {
 function openViewerInline() {
   const img = document.querySelector('.cd-media-image img') as HTMLImageElement | null
   if (!img) return
-  // 查看原图同样跟随测速结果，避免「预览快、点开慢」的割裂。
+  // 查看原图同样跟随来源选择，避免「预览快、点开慢」的割裂。
   const originUrl = pickImageUrl(
     props.content.origin ? getImageUrl(props.content.origin) : '',
     props.content.mirror_img || '',
+    props.content.mirror2_img || '',
     source.value,
   )
   if (originUrl) img.dataset.origin = originUrl

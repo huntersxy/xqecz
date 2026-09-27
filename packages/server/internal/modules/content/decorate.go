@@ -136,12 +136,17 @@ type Item struct {
 	Video       string    `json:"video"`
 	Img         string    `json:"img"`
 	Origin      string    `json:"origin,omitempty"`
-	// MirrorImg / MirrorVideo 是同一份文件在 R2 上的**绝对地址**（未启用 R2 时为空）。
-	// R2 与源站不同 origin，无法用相对路径推导，因此这里给完整地址：
+	// MirrorImg / MirrorVideo 是同一份文件在**主目标**（R2）上的绝对地址（未启用时为空）。
+	// 与源站不同 origin，无法用相对路径推导，因此这里给完整地址：
 	// 换公开域名只改服务端 .env，前端不必重新构建。
-	// 前端据此在「源站」与「R2」之间测速二选一，本地缩略图不受影响。
+	// 前端据此在「源站」与「镜像」之间做可达性选择，本地缩略图不受影响。
 	MirrorImg   string `json:"mirror_img,omitempty"`
 	MirrorVideo string `json:"mirror_video,omitempty"`
+	// Mirror2Img / Mirror2Video 是同一份文件在**一级替补**（七牛）上的地址。
+	// 取值规则与主目标一致，另加两条：额度触顶时为空；开启时间戳防盗链时带签名参数。
+	// 前端按 R2 → 七牛 → 源站 逐级回退，任一为空即跳过该级。
+	Mirror2Img   string `json:"mirror2_img,omitempty"`
+	Mirror2Video string `json:"mirror2_video,omitempty"`
 	FileSize    int64     `json:"file_size"`
 	User        UserBrief `json:"user"`
 	AvatarURL   string    `json:"avatar_url,omitempty"`
@@ -226,14 +231,24 @@ func decorateWith(mm app.MediaMirror, row store.Content, userMap map[uint64]stor
 	if isVideo {
 		item.Video = FileURL(filePath)
 	}
-	// R2 备份地址：与主地址同源同路径，只是换了 host，前端据此测速择快。
+	// 镜像地址：与主地址同源同路径，只是换了 host。
 	// 缩略图保持纯本地，不参与镜像，也就没有候选。
 	if mm != nil && isMirrorablePath(filePath) {
-		if mirrorURL := mm.PublicURL(mirrorKey(filePath)); mirrorURL != "" {
+		key := mirrorKey(filePath)
+		if mirrorURL := mm.PublicURL(key); mirrorURL != "" {
 			if isVideo {
 				item.MirrorVideo = mirrorURL
 			} else {
 				item.MirrorImg = mirrorURL
+			}
+		}
+		// 替补地址独立取：额度触顶或签名失败时它自己就是空串，
+		// 不必（也不应）跟着主目标一起判空。
+		if mirrorURL := mm.Mirror2URL(key); mirrorURL != "" {
+			if isVideo {
+				item.Mirror2Video = mirrorURL
+			} else {
+				item.Mirror2Img = mirrorURL
 			}
 		}
 	}

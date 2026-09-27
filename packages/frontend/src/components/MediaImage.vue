@@ -1,21 +1,32 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { IconImageClose } from '@arco-design/web-vue/es/icon'
 import { getImageUrl, getRemoteFallbackUrl } from '@/utils'
 
 defineOptions({ inheritAttrs: false })
 
 const props = withDefaults(
-  defineProps<{ src?: string; alt?: string; fallbackSrc?: string }>(),
+  defineProps<{ src?: string; alt?: string; fallbackSrc?: string | string[] }>(),
   { src: '', alt: '', fallbackSrc: '' },
 )
 
-const emit = defineEmits<{ error: []; fallback: [] }>()
+/**
+ * `fallback` 会带上**失败的那个地址**，调用方据此判断是哪一级不可达
+ *（主镜像还是替补），从而只修正那一级的结论。
+ */
+const emit = defineEmits<{ error: []; fallback: [failedUrl: string] }>()
+
+/** 兜底链：调用方给的候选，按顺序尝试。单串写法等价于只有一个候选。 */
+const fallbacks = computed(() => {
+  const raw = props.fallbackSrc
+  const list = Array.isArray(raw) ? raw : [raw]
+  return list.filter((u) => typeof u === 'string' && u !== '')
+})
 
 const currentSrc = ref(getImageUrl(props.src))
 const finalFailed = ref(false)
-/** 是否已试过调用方给的兜底地址（源站） */
-let triedFallback = false
+/** 已经试过并失败的地址，避免兜底链里出现环（A→B→A 无限重试）。 */
+let attempted: string[] = []
 /** 是否已试过生产服务器同路径地址 */
 let triedRemote = false
 
@@ -23,7 +34,7 @@ watch(
   () => props.src,
   (value) => {
     currentSrc.value = getImageUrl(value)
-    triedFallback = false
+    attempted = []
     triedRemote = false
     finalFailed.value = false
   },
@@ -31,27 +42,28 @@ watch(
 
 /**
  * 加载失败时逐级回退，前一级没地址或已经试过才试下一级：
- *   1. 调用方给的兜底地址（通常是源站）——镜像可达性判断再准也可能出错，这里才是真兜底；
+ *   1. 调用方给的兜底链（主镜像 → 替补 → 源站），逐项尝试；
  *   2. 生产服务器同路径地址；
  *   3. 都失败才对外 emit error 并展示坏图。
  *
- * 两级都试完仍失败后才 emit error；只要用上了第 1 级就会 emit fallback，
- * 供调用方据此判定「这一侧确实取不到」并修正来源决策。
+ * 每次用上兜底链里的一项就 emit fallback 并带上失败地址，
+ * 供调用方据此判定「这一级确实取不到」并修正来源决策。
  */
 function onLoadError() {
   if (finalFailed.value) return
-  if (!triedFallback) {
-    const fb = props.fallbackSrc
-    if (fb && fb !== currentSrc.value) {
-      triedFallback = true
+  const failed = currentSrc.value
+  attempted.push(failed)
+
+  for (const fb of fallbacks.value) {
+    if (!attempted.includes(fb)) {
       currentSrc.value = fb
-      emit('fallback')
+      emit('fallback', failed)
       return
     }
   }
   if (!triedRemote) {
-    const remote = getRemoteFallbackUrl(currentSrc.value)
-    if (remote && remote !== currentSrc.value) {
+    const remote = getRemoteFallbackUrl(failed)
+    if (remote && !attempted.includes(remote)) {
       triedRemote = true
       currentSrc.value = remote
       return

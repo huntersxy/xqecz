@@ -52,9 +52,13 @@ const archiveCachePrefix = "archive:"
 
 // Setup 是镜像能力的集合；Enabled 为 false 时所有方法都是安全的空操作。
 type Setup struct {
-	cfg    config.R2Config
+	cfg    Target
 	binDir string
 	store  ObjectStore
+	// gate 是该目标的放行闸门（七牛额度闸门）；nil 表示不设闸。
+	// 放在 Setup 而不是只放在 Chain 上，是因为回填任务直接持有 *Setup ——
+	// 闸门若只在 Chain 层，触顶后回填仍会继续推送，额度照样被吃掉。
+	gate Availability
 
 	mu     sync.Mutex
 	synced map[string]int64 // 本地相对路径 → 最近一次确认已同步的字节数
@@ -64,24 +68,25 @@ type Setup struct {
 	archived map[string]bool
 }
 
-// New 按配置构造镜像。凭据不全或客户端构造失败时返回停用态（Enabled()==false），
+// New 按目标构造镜像。凭据不全或客户端构造失败时返回停用态（Enabled()==false），
 // 调用方无需分支判断 —— 与 TinyPNG 缺 Key 即休眠同一套思路。
 // binDir 是本地垃圾桶目录：压缩后的原图留在那里，归档失败时回填任务据此补传。
-func New(cfg config.R2Config, binDir string) *Setup {
-	s := &Setup{cfg: cfg, binDir: binDir, synced: map[string]int64{}, archived: map[string]bool{}}
-	if !cfg.Enabled() {
+func New(t Target, binDir string) *Setup {
+	s := &Setup{cfg: t, binDir: binDir, synced: map[string]int64{}, archived: map[string]bool{}}
+	if !t.Enabled() {
 		return s
 	}
 	client, err := r2.New(r2.Config{
-		Endpoint:  cfg.Endpoint,
-		AccessKey: cfg.AccessKey,
-		SecretKey: cfg.SecretKey,
-		Bucket:    cfg.Bucket,
-		Prefix:    cfg.Prefix,
-		Timeout:   cfg.UploadTimeout,
+		Endpoint:  t.Endpoint,
+		AccessKey: t.AccessKey,
+		SecretKey: t.SecretKey,
+		Bucket:    t.Bucket,
+		Region:    t.Region,
+		Prefix:    t.Prefix,
+		Timeout:   t.Timeout,
 	})
 	if err != nil {
-		slog.Warn("r2 镜像已停用：客户端构造失败", "err", err)
+		slog.Warn("镜像已停用：客户端构造失败", "target", t.LogName(), "err", err)
 		return s
 	}
 	s.store = client
@@ -90,6 +95,18 @@ func New(cfg config.R2Config, binDir string) *Setup {
 
 // Enabled 表示镜像是否处于工作状态。
 func (s *Setup) Enabled() bool { return s != nil && s.store != nil }
+
+// open 表示该目标当前是否放行：未设闸视为放行，设了闸则听闸门的。
+// 没查过额度时闸门返回 false（fail-closed），因此启动初期替补层是停的。
+func (s *Setup) open() bool {
+	if s == nil {
+		return false
+	}
+	if s.gate == nil {
+		return true
+	}
+	return s.gate.Available()
+}
 
 // PublicURL 返回对象的公开访问地址；未配置公开域名时返回空串，
 // 前端的「本地 vs R2 测速」也就无从谈起，直接走本地。
@@ -120,7 +137,8 @@ func (s *Setup) ObjectKey(rel string) string {
 // 返回 uploaded=true 表示本次真的发出了 PUT（回填统计用）；已同步时只发一次 HEAD。
 // 任何错误都返回给调用方记录，绝不影响上传/压缩主流程。
 func (s *Setup) Push(rel, absPath string) (uploaded bool, err error) {
-	if !s.Enabled() || rel == "" || absPath == "" {
+	// open() 为假表示额度触顶或闸门未放行：静默跳过，与停用态同一取向。
+	if !s.Enabled() || !s.open() || rel == "" || absPath == "" {
 		return false, nil
 	}
 	rel = normRel(rel)
@@ -159,7 +177,7 @@ func (s *Setup) ArchiveKey(rel string) string {
 //
 // 失败必须冒泡（调用方只记日志不中断压缩），回填任务会从垃圾桶补传，原图不会丢。
 func (s *Setup) ArchiveOriginal(rel, origPath string) (uploaded bool, err error) {
-	if !s.Enabled() || rel == "" || origPath == "" {
+	if !s.Enabled() || !s.open() || rel == "" || origPath == "" {
 		return false, nil
 	}
 	if err := mirrorable(normRel(rel)); err != nil {
@@ -220,18 +238,18 @@ func (s *Setup) upload(rel, key, absPath string) (bool, error) {
 		return false, err
 	}
 	s.markSynced(rel, info.Size())
-	slog.Info("r2 镜像完成", "key", key, "bytes", info.Size())
+	slog.Info(s.cfg.LogName()+" 镜像完成", "key", key, "bytes", info.Size())
 	return true, nil
 }
 
 // ArchiveOriginalAsync 后台归档原图（压缩任务用，不阻塞调度）。
 func (s *Setup) ArchiveOriginalAsync(rel, origPath string) {
-	if !s.Enabled() || rel == "" {
+	if !s.Enabled() || !s.open() || rel == "" {
 		return
 	}
 	go func() {
 		if _, err := s.ArchiveOriginal(rel, origPath); err != nil {
-			slog.Warn("r2 原图归档失败，留待回填重试", "rel", rel, "err", err)
+			slog.Warn(s.cfg.LogName()+" 原图归档失败，留待回填重试", "rel", rel, "err", err)
 		}
 	}()
 }
@@ -276,12 +294,12 @@ func FindInBin(binDir, rel string) (string, bool) {
 // PushAsync 在后台镜像单个文件（上传/更新接口用，不阻塞响应）。
 // 失败只告警：回填任务会兜住，不会漏传。
 func (s *Setup) PushAsync(rel, absPath string) {
-	if !s.Enabled() || rel == "" {
+	if !s.Enabled() || !s.open() || rel == "" {
 		return
 	}
 	go func() {
 		if _, err := s.Push(rel, absPath); err != nil {
-			slog.Warn("r2 镜像失败，留待回填重试", "rel", rel, "err", err)
+			slog.Warn(s.cfg.LogName()+" 镜像失败，留待回填重试", "rel", rel, "err", err)
 		}
 	}()
 }
@@ -384,12 +402,18 @@ func (s *Setup) BinDir() string {
 	return s.binDir
 }
 
-// newWithStore 供同包测试注入假存储。
+// newWithStore 供同包测试注入假存储（沿用 R2 形状的配置，内部映射为目标）。
 func newWithStore(cfg config.R2Config, store ObjectStore) *Setup {
-	return &Setup{cfg: cfg, store: store, synced: map[string]int64{}, archived: map[string]bool{}}
+	return newWithStoreTarget(TargetFromR2(cfg), store)
+}
+
+// newWithStoreTarget 供同包测试注入任意目标。
+func newWithStoreTarget(t Target, store ObjectStore) *Setup {
+	return &Setup{cfg: t, store: store, synced: map[string]int64{}, archived: map[string]bool{}}
 }
 
 // newWithStoreAndBin 供同包测试注入假存储与垃圾桶目录。
 func newWithStoreAndBin(cfg config.R2Config, store ObjectStore, binDir string) *Setup {
-	return &Setup{cfg: cfg, binDir: binDir, store: store, synced: map[string]int64{}, archived: map[string]bool{}}
+	return &Setup{cfg: TargetFromR2(cfg), binDir: binDir, store: store,
+		synced: map[string]int64{}, archived: map[string]bool{}}
 }

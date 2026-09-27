@@ -1,10 +1,15 @@
 /**
- * 详情页大图的来源决策：**可达性优先，失败回退源站**。
+ * 详情页大图的来源决策：**可达性优先，逐级回退**。
  *
- * 与旧的「测速择快」不同，这里的取舍由业务约束决定：
- * - 服务器出网额度（20GB/月）是瓶颈 → 镜像（R2）只要可达就用，哪怕它更慢；
+ * 两级镜像 + 源站，顺序固定：**主镜像（R2）→ 一级替补（七牛）→ 源站**。
+ * 与旧的「测速择快」不同，取舍由业务约束决定：
+ * - 服务器出网额度（20GB/月）是瓶颈 → 镜像只要可达就用，哪怕它更慢；
  * - 只探测镜像侧：源站本来就是回退目标，探它既没有决策价值，还会白发一次整图请求；
- * - 探测流量是「浏览器 → Cloudflare」，**不占服务器的出网额度**。
+ * - 探测流量是「浏览器 → 云厂商」，**不占服务器的出网额度**。
+ *
+ * 探测是**串行且短路**的：主镜像通了就不探替补。多数网络下主力可达，
+ * 因此常规路径只多一次请求；只有主镜像不通时才会再等一个超时去试替补。
+ * 这是刻意的——并行探两个会在每次冷启动都白付一倍探测流量。
  *
  * 结论按「网络标识」记在本机 `localStorage`（不上传），以便同一网络回访时直接复用：
  * 首图零等待、也不用重复探测。网络标识 = 公网 IP（主，能识别代理开/关）
@@ -12,12 +17,15 @@
  * IP 是异步取的，所以同步读取时只能先用本地指纹判断，IP 回来后若发现网络已变
  * 再重新探测——宁可多探测一次，也不让旧结论一直挂在错误的网络上。
  *
- * 结论永远可能出错（R2 中途挂、指纹太粗），因此渲染层还有第二道兜底：
- * `markMirrorUnreachable()` 在镜像加载失败时把当前网络标记为不可达。
+ * 结论永远可能出错（镜像中途挂、指纹太粗），因此渲染层还有第二道兜底：
+ * `markUnreachable()` 在某一级加载失败时把它标记为不可达，并立刻往下退一级。
  */
 
-/** 图片来源。`origin` 是权威副本（源站），`mirror` 是镜像（R2）。 */
-export type MediaSource = 'origin' | 'mirror'
+/** 图片来源。`origin` 是权威副本（源站），另两级是镜像。 */
+export type MediaSource = 'origin' | 'mirror' | 'mirror2'
+
+/** 可达性探测的目标级，用于回写失败结论。 */
+export type MirrorTier = 'mirror' | 'mirror2'
 
 /** 本机记录的有效期：网络标识没变时最多复用这么久。 */
 export const SOURCE_TTL_MS = 7 * 24 * 60 * 60 * 1000
@@ -37,8 +45,10 @@ const IP_TIMEOUT_MS = 3000
 const RECORD_KEY = 'xqecz:image-source'
 
 interface SourceRecord {
-  /** 镜像是否可达 */
-  reachable: boolean
+  /** 主镜像（R2）是否可达 */
+  r2: boolean
+  /** 替补镜像（七牛）是否可达；`undefined` 表示本次没探（未配置替补或主镜像已通） */
+  qiniu?: boolean
   /** 记录时间（用于 TTL） */
   at: number
   /** 本地网络指纹（同步可算），变了就不再信任本条记录 */
@@ -59,7 +69,7 @@ function readRecord(): SourceRecord | null {
     const raw = localStorage.getItem(RECORD_KEY)
     if (!raw) return null
     const r = JSON.parse(raw) as SourceRecord
-    if (typeof r?.reachable !== 'boolean' || typeof r?.net !== 'string') return null
+    if (typeof r?.r2 !== 'boolean' || typeof r?.net !== 'string') return null
     return r
   } catch {
     return null
@@ -80,6 +90,13 @@ function clearRecord(): void {
   } catch {
     /* 同上 */
   }
+}
+
+/** 按记录挑最优可达来源：主镜像优先，其次替补，都不可达则源站。 */
+function bestSource(rec: SourceRecord): MediaSource {
+  if (rec.r2) return 'mirror'
+  if (rec.qiniu) return 'mirror2'
+  return 'origin'
 }
 
 /**
@@ -108,34 +125,50 @@ export function cachedImageSource(now: number = Date.now()): MediaSource | null 
   if (!rec) return null
   if (rec.net !== localNetFingerprint()) return null
   if (now - rec.at > SOURCE_TTL_MS) return null
-  return rec.reachable ? 'mirror' : 'origin'
+  return bestSource(rec)
 }
 
 /**
  * 探测镜像可达性：一次带 `Range` 的小请求，成功即认为可达。
  * 失败（超时 / 非 2xx206 / 网络错误）一律判为不可达，并把结论记到本机。
- * 源站不参与探测——它就是回退目标。
+ *
+ * 串行短路：主镜像通了就不再探替补——主力可达是常态，不该为此每次多付一次请求。
+ * 任一侧地址为空（未配置）即跳过该级。源站不参与探测：它就是回退目标。
  */
-export async function probeMirror(mirrorUrl: string): Promise<MediaSource> {
+export async function probeMirror(r2Url: string, qiniuUrl = ''): Promise<MediaSource> {
   // 注意不要用与模块函数 `reachable` 同名的局部常量——会遮蔽它并触发 TDZ。
-  const ok = await reachable(mirrorUrl)
-  writeRecord({
-    reachable: ok,
+  let r2 = false
+  if (r2Url) r2 = await reachable(r2Url)
+
+  let qiniu: boolean | undefined
+  if (!r2 && qiniuUrl) qiniu = await reachable(qiniuUrl)
+
+  const rec: SourceRecord = {
+    r2,
+    ...(qiniu === undefined ? {} : { qiniu }),
     at: Date.now(),
     net: localNetFingerprint(),
     ...(knownIp ? { ip: knownIp } : {}),
-  })
-  return ok ? 'mirror' : 'origin'
+  }
+  writeRecord(rec)
+  return bestSource(rec)
 }
 
-/** 渲染层兜底：镜像加载失败时把当前网络标记为不可达，后续一律走源站。 */
-export function markMirrorUnreachable(): void {
-  writeRecord({
-    reachable: false,
+/**
+ * 渲染层兜底：某一级加载失败时把它标记为不可达，并沿用其余结论。
+ * 主镜像失败**不会**顺手把替补也标死——替补可能仍然好着，正是它该顶上的时候。
+ */
+export function markUnreachable(tier: MirrorTier): void {
+  const rec = readRecord() ?? { r2: false, at: Date.now(), net: localNetFingerprint() }
+  const next: SourceRecord = {
+    ...rec,
     at: Date.now(),
     net: localNetFingerprint(),
     ...(knownIp ? { ip: knownIp } : {}),
-  })
+  }
+  if (tier === 'mirror') next.r2 = false
+  else next.qiniu = false
+  writeRecord(next)
 }
 
 /**
@@ -206,10 +239,40 @@ async function reachable(url: string): Promise<boolean> {
 /**
  * 按已定的来源选地址；`source` 尚未确定（null）时用源站，
  * 因为源站是权威副本——不确定就先出不会出错的那一侧，绝不猜。
+ * 某一级地址为空时继续往后落，避免「选了替补却没有替补地址」直接渲染成空。
  */
-export function pickImageUrl(local: string, mirror: string, source: MediaSource | null): string {
+export function pickImageUrl(
+  local: string,
+  mirror: string,
+  mirror2: string,
+  source: MediaSource | null,
+): string {
   if (source === 'mirror' && mirror) return mirror
-  return local || mirror
+  if (source === 'mirror2' && mirror2) return mirror2
+  // 落到这里说明来源未定或选中的那一级没地址：按 源站 → 主镜像 → 替补 兜，
+  // 顺序与镜像链一致（主镜像优先于替补），不是随便取一个非空值。
+  return local || mirror || mirror2
+}
+
+/**
+ * 当前来源之后还能退的地址，**按顺序**排列（渲染层兜底链）。
+ * 主镜像 → [替补, 源站]；替补 → [源站]；已是源站则空。
+ * 空串一律剔除：没配替补时不该在链里留一个注定失败的占位。
+ */
+export function fallbackChain(
+  local: string,
+  mirror: string,
+  mirror2: string,
+  source: MediaSource | null,
+): string[] {
+  const chain: string[] = []
+  if (source === 'mirror') {
+    if (mirror2) chain.push(mirror2)
+    if (local) chain.push(local)
+  } else if (source === 'mirror2') {
+    if (local) chain.push(local)
+  }
+  return chain
 }
 
 /** 测试与手动重测用：清空本机记录与内存状态。 */

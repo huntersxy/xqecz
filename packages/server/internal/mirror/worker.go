@@ -12,21 +12,24 @@ import (
 )
 
 const (
-	// lockKey 与压缩/推荐任务同一套机制：多实例部署时只有一个实例在回填。
-	lockKey = "lock:r2-mirror"
 	// lockTTL 覆盖「扫描一批 + 上传若干对象」的耗时；进程被强杀时靠 TTL 自愈。
 	lockTTL = 10 * time.Minute
 	// batch 是每轮扫描的内容条数，逐批推进，不会一次性把库拉满。
 	batch = 500
 )
 
-// Worker 负责把「本地有、R2 上没有（或内容不一致）」的文件补齐。
+// Worker 负责把「本地有、远端没有（或内容不一致）」的文件补齐。
 //
-// 首次启动立即跑一轮：R2 接入之前的历史数据全部在此时补齐，
-// 之后按 R2_SYNC_INTERVAL_SECONDS 周期扫描，兜住上传/压缩时的偶发失败。
+// 首次启动立即跑一轮：镜像接入之前的历史数据全部在此时补齐，
+// 之后按目标各自的回填间隔扫描，兜住上传/压缩时的偶发失败。
+//
+// 每个目标一个 Worker、一把锁：两个目标的锁 key 不同，
+// 所以它们各自独立回填，不会互相抢锁导致替补层永远补不齐。
 type Worker struct {
 	deps app.Deps
 	m    *Setup
+	// lockKey 按目标区分（lock:mirror:r2 / lock:mirror:qiniu）。
+	lockKey string
 }
 
 // NewWorker 构造回填任务；镜像未启用时返回 nil，调用方无需启动。
@@ -34,7 +37,7 @@ func NewWorker(deps app.Deps, m *Setup) *Worker {
 	if !m.Enabled() {
 		return nil
 	}
-	return &Worker{deps: deps, m: m}
+	return &Worker{deps: deps, m: m, lockKey: "lock:mirror:" + m.cfg.LogName()}
 }
 
 // Start 启动周期回填（立即跑一轮，之后按配置间隔重复）。
@@ -42,7 +45,7 @@ func (w *Worker) Start(ctx context.Context) {
 	if w == nil {
 		return
 	}
-	slog.Info("r2 镜像任务已启用",
+	slog.Info(w.m.cfg.LogName()+" 镜像任务已启用",
 		"prefix", w.m.cfg.Prefix,
 		"public_base", w.m.cfg.PublicBase,
 		"interval", w.m.cfg.SyncEvery,
@@ -55,7 +58,7 @@ func (w *Worker) Start(ctx context.Context) {
 			select {
 			case <-ctx.Done():
 				// 退出时主动释放锁，避免残留到 TTL 到期。
-				w.deps.Redis.ReleaseLock(context.Background(), lockKey)
+				w.deps.Redis.ReleaseLock(context.Background(), w.lockKey)
 				return
 			case <-ticker.C:
 				w.runRound(ctx)
@@ -66,10 +69,10 @@ func (w *Worker) Start(ctx context.Context) {
 
 // runRound 扫描一轮全量内容并补齐缺失对象。
 func (w *Worker) runRound(ctx context.Context) {
-	if !w.deps.Redis.AcquireLock(ctx, lockKey, lockTTL) {
+	if !w.deps.Redis.AcquireLock(ctx, w.lockKey, lockTTL) {
 		return // 另一实例正在回填
 	}
-	defer w.deps.Redis.ReleaseLock(ctx, lockKey)
+	defer w.deps.Redis.ReleaseLock(ctx, w.lockKey)
 
 	var lastID uint64
 	var scanned, uploaded, archived, failed int
@@ -118,7 +121,7 @@ func (w *Worker) runRound(ctx context.Context) {
 }
 
 // archiveBackfill 补齐「压缩前的原图」归档：只扫 compressed_at 非空的行
-//（只有这些行发生过原地替换，原图才在垃圾桶里），远端已有则直接跳过。
+// （只有这些行发生过原地替换，原图才在垃圾桶里），远端已有则直接跳过。
 // 这是压缩时归档失败的兜底：那一刻原图只剩垃圾桶一份，丢了就再也补不回来。
 func (w *Worker) archiveBackfill(ctx context.Context) int {
 	if w.m.BinDir() == "" {

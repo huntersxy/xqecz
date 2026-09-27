@@ -112,7 +112,7 @@ func TestPushSkipsWhenRemoteMatches(t *testing.T) {
 	}
 	before := store.puts
 	// 换一个新的 Setup（清掉进程内缓存），模拟重启后再次扫描同一文件。
-	s2 := newWithStore(s.cfg, store)
+	s2 := newWithStoreTarget(s.cfg, store)
 	uploaded, err := s2.Push("b.webp", abs)
 	if err != nil {
 		t.Fatal(err)
@@ -225,7 +225,7 @@ func TestPushPropagatesRealErrors(t *testing.T) {
 
 // TestDisabledSetupIsNoop 未配置凭据时全部方法都是安全空操作。
 func TestDisabledSetupIsNoop(t *testing.T) {
-	s := New(config.R2Config{}, "")
+	s := New(Target{}, "")
 	if s.Enabled() {
 		t.Fatal("缺凭据时不应启用")
 	}
