@@ -1,0 +1,4 @@
+# shell 脚本必须以 LF 结尾：CRLF 的 shebang（`#!/bin/sh\r`）在 Linux 上会
+# 直接报 bad interpreter 而起不来。这两个部署机上的 hook 是 cron 调的，
+# 出事时没有任何人盯着，所以在仓库层面钉死。
+*.sh text eol=lf
