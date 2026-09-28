@@ -148,3 +148,29 @@ html:has(.cd-root) {
     animation-iteration-count: infinite !important;
   }
 }
+
+/* ── 主题切换的圆形揭示（View Transition） ──────────────────────────
+   根快照的裁剪动画由 utils/viewTransition.ts 用 WAAPI 打在伪元素上，这里只负责
+   把 UA 默认的整页交叉淡出关掉：不关的话圆内是「新主题」、圆外还叠着一层正在淡出
+   的「旧主题」，两层同时在动，比瞬时切换更花。
+   plus-lighter 是 UA 给新旧快照定的混合模式（为了交叉淡出时不闪白），圆形揭示是
+   上下两层都要完整不透明的，故改回 normal 并用 z-index 钉死「新的在上」。
+   这些伪元素只在过渡期间存在；不认识的浏览器会丢弃整条规则，不影响其它样式。 */
+::view-transition-image-pair(root) {
+  isolation: auto;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  display: block;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 2;
+}

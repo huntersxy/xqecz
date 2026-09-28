@@ -37,12 +37,23 @@ import {
 import type { Component } from 'vue'
 import ErrorBoundary from './components/ErrorBoundary.vue'
 import { getAvatarUrl } from '@/utils'
+import { revealOriginFrom, withRevealTransition } from '@/utils/viewTransition'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const themeStore = useThemeStore()
 const isMobileMenuOpen = ref(false)
+
+/**
+ * 日/夜切换。包一层 View Transition：主题翻转改的是 body 属性，全站颜色一起变，
+ * 直接翻是「啪」的一下；圆形揭示让新主题从按钮位置长出来，眼睛跟着圆心找变化。
+ * 不支持 / 要求减少动效时由 withRevealTransition 内部降级为原来的瞬时切换。
+ */
+function onThemeToggle(event: MouseEvent) {
+  const btn = ((event.target as Element | null)?.closest?.('.app-theme-btn') as Element | null) ?? null
+  withRevealTransition(() => themeStore.toggleMode(), revealOriginFrom(event, btn))
+}
 
 // 全局搜索：把输入框和瀑布流查询接起来
 const { searchKeyword, triggerSearch } = useGlobalSearch()
@@ -178,7 +189,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
               type="text"
               class="app-theme-btn"
               :aria-label="themeStore.mode === 'dark' ? '切换到日间模式' : '切换到暗色模式'"
-              @click="themeStore.toggleMode()"
+              @click="onThemeToggle"
             >
               <IconSun v-if="themeStore.mode === 'dark'" />
               <IconMoon v-else />
