@@ -8,6 +8,7 @@ import powershell from 'highlight.js/lib/languages/powershell'
 import json from 'highlight.js/lib/languages/json'
 import 'highlight.js/styles/github-dark.css'
 import { toast } from '@/composables/useToast'
+import { scrollBehavior } from '@/utils'
 
 hljs.registerLanguage('bash', bash)
 hljs.registerLanguage('python', python)
@@ -260,7 +261,7 @@ const currentCard = computed(() => endpointCards.find((c) => c.id === activeToc.
 function scrollToSection(id: string) {
   activeToc.value = id
   nextTick(() => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    document.getElementById(id)?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
   })
 }
 

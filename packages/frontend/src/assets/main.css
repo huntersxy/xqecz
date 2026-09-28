@@ -67,6 +67,11 @@ body[arco-theme='dark']::before {
     font-size: 14px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* 常驻滚动条槽位。详情页覆盖层锁住背景滚动时滚动条会消失、内容横向跳动，
+       预留槽位吸收这个跳动，替代原先在 JS 里读 innerWidth-clientWidth 补
+       padding-right 的写法（见下方 html:has(.cd-root)）。不支持该属性的浏览器
+       只是退回跳动，不影响功能。 */
+    scrollbar-gutter: stable;
   }
 
   body {
@@ -109,4 +114,37 @@ body[arco-theme='dark']::before {
    .arco-image-error > .arco-image-error-icon（图标）+ .arco-image-error-alt（alt||description 文字）。 */
 .arco-image .arco-image-error-alt {
   display: none;
+}
+
+/* ── 详情页全屏覆盖：锁定背景滚动 ─────────────────────────
+   由「覆盖层在不在 DOM 里」直接决定，不再 onMounted 改内联样式、onBeforeUnmount
+   还原——那套要先把旧值存下来再恢复，漏一处就把全站锁死在 overflow:hidden。
+   锁在 html 而非 body：内联样式改 body 依赖「body 的 overflow 传播到视口」这条
+   规则，而视口的滚动条槽由 html 的 scrollbar-gutter 常驻，两者分层容易对不上。 */
+html:has(.cd-root) {
+  overflow: hidden;
+}
+
+/* ── 跟随系统「减少动态效果」偏好 ─────────────────────────
+   位移与缩放类过渡会诱发晕动症，按偏好把时长压掉。特异性高于组件 scoped
+   样式（.wf-card[data-v-x]），故必须 !important。
+   只压时长、不写 transform: none —— Arco 的居中偏移与走马灯位移都靠
+   transform 承担定位职责，全局归零会直接把布局打坏。
+   例外：加载指示器不能冻结，它表达的是「正在进行」，停了等于把加载态变成
+   无反馈的空白，故保留其循环动画（节奏放慢）。 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  [class*='spinner'],
+  [class*='spin-'],
+  [class*='loading'] {
+    animation-duration: 1.1s !important;
+    animation-iteration-count: infinite !important;
+  }
 }

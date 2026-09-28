@@ -2,6 +2,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { contentApi } from '@/api'
 import { useListCache } from '@/composables/useListCache'
+import { scrollBehavior } from '@/utils'
 import type { Content } from '@/types'
 
 const THUMB_H = 64
@@ -53,7 +54,7 @@ export function useContentBrowse() {
   function scrollThumbIntoView() {
     nextTick(() => {
       const el = previewRef.value?.querySelector('.cd-thumb-current')
-      el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+      el?.scrollIntoView({ behavior: scrollBehavior(), inline: 'center', block: 'nearest' })
     })
   }
 

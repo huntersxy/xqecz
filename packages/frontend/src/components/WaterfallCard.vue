@@ -85,6 +85,16 @@ onBeforeUnmount(() => ro?.disconnect())
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   box-sizing: border-box;
+  /* 卡片宽度由瀑布流按列数算出（JS 写死内联 width），与视口宽度并不等价：
+     同样 375px 的窄屏，2 列时每列 ~170px、单列时整屏宽。故这里声明为容器，
+     内部排版按「这张卡片实际多宽」自适应，而不是按媒体查询猜视口。
+     inline-size 只隔离行内方向，块高仍由内容决定 —— 瀑布流靠 ResizeObserver
+     量卡片高度重排，这一点不能被 contain 掉。
+      另：inline-size 包含只让「固有宽度」不再由内容撑出，而卡片宽度自始至终是 JS
+      写死的内联 px（未布局那一帧为 0px，与加容器前一致），故不改变既有几何；
+      卡片本就是 position:absolute，成为包含块/层叠上下文也不是新事。 */
+  container-type: inline-size;
+  container-name: wfc;
 }
 .wf-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
 .wf-card:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
@@ -176,5 +186,26 @@ body[arco-theme='dark'] .wf-card-media::after {
 .wf-mini-tag {
   font-size: 0.5625rem; padding: 0.0625rem 0.375rem; border-radius: 1rem;
   background: var(--color-hover); color: var(--color-text-secondary);
+}
+
+/* ── 按卡片自身宽度（而非视口）自适应排版 ──
+   窄列（多列大屏、2 列手机）下省字号省留白，避免标签把标题挤成纯省略号；
+   宽列（1-2 列）下放开字号与摘要行数，否则整屏宽的单列卡片只有 13px 正文，
+   读起来像缩略图。阈值取当前列宽分布的两端，不是随手数字。 */
+@container wfc (max-width: 190px) {
+  .wf-card-info { padding: 0.375rem 0.5rem 0.5rem; }
+  .wf-card-title { font-size: 0.75rem; }
+  .wf-card-user { font-size: 0.625rem; }
+  .wf-card-views { font-size: 0.5625rem; }
+  .wf-mini-tag { font-size: 0.5rem; padding: 0.0625rem 0.25rem; }
+  .wf-card-text-body { min-height: 120px; padding: 0.75rem 0.625rem 0.5rem; }
+  .wf-card-text-excerpt { -webkit-line-clamp: 3; font-size: 0.75rem; }
+}
+
+@container wfc (min-width: 260px) {
+  .wf-card-info { padding: 0.625rem 0.875rem 0.75rem; }
+  .wf-card-title { font-size: 0.9375rem; }
+  .wf-card-text-body { min-height: 170px; padding: 1.25rem 1.125rem 0.875rem; }
+  .wf-card-text-excerpt { -webkit-line-clamp: 7; font-size: 0.875rem; }
 }
 </style>

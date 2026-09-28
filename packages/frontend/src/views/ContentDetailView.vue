@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import { contentApi } from '@/api'
@@ -55,16 +55,8 @@ watch(() => route.params.id, () => {
 onMounted(() => {
   userStore.checkAuth()
   loadContent()
-  // 全屏覆盖时锁定背景滚动，并补偿滚动条宽度
-  const scrollBarW = window.innerWidth - document.documentElement.clientWidth
-  const prevOverflow = document.body.style.overflow
-  const prevPadding = document.body.style.paddingRight
-  document.body.style.overflow = 'hidden'
-  if (scrollBarW > 0) document.body.style.paddingRight = `${scrollBarW}px`
-  onBeforeUnmount(() => {
-    document.body.style.overflow = prevOverflow
-    if (scrollBarW > 0) document.body.style.paddingRight = prevPadding
-  })
+  // 背景滚动锁定改由 main.css 的 `html:has(.cd-root)` 声明式接管：
+  // 覆盖层挂载即锁、卸载即解，无需存旧值再恢复。
 })
 </script>
 
@@ -199,7 +191,10 @@ onMounted(() => {
 
 .cd-shell {
   position: relative;
-  width: 100vw;
+  /* 用 100% 而非 100vw：vw 把滚动条/槽位宽度算在内，父级 .cd-root 是 inset:0，
+     写 100vw 会让壳子比可视区宽一个滚动条、两侧各溢出半截。html 现已常驻
+     scrollbar-gutter，这个偏差会长期存在，故一并修正。 */
+  width: 100%;
   height: 100vh;
   height: 100dvh;
   display: flex;

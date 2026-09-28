@@ -115,6 +115,20 @@ export function getPreviewText(content: string, maxLength: number = 100): string
   return plainText.length > maxLength ? plainText.substring(0, maxLength) + '...' : plainText
 }
 
+/**
+ * 系统是否要求「减少动态效果」。
+ * CSS 侧已由 main.css 的媒体查询统一压掉过渡时长，但 JS 里显式传 `behavior: 'smooth'`
+ * 的滚动会绕过 CSS（显式参数优先于 scroll-behavior），故这类调用点必须自行判定。
+ */
+export function prefersReducedMotion(): boolean {
+  return globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+}
+
+/** 平滑滚动的 behavior：按系统偏好降级为瞬时。配合 scrollIntoView / scrollTo 使用。 */
+export function scrollBehavior(): ScrollBehavior {
+  return prefersReducedMotion() ? 'auto' : 'smooth'
+}
+
 export function renderMarkdown(text: string): string {
   try {
     return DOMPurify.sanitize(marked(text) as string)
