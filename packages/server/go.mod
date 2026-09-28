@@ -3,7 +3,7 @@ module github.com/huntersxy/xqecz/server
 go 1.26.5
 
 require (
-	github.com/deepteams/webp v1.2.7
+	github.com/deepteams/webp v1.2.8
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/joho/godotenv v1.5.1
