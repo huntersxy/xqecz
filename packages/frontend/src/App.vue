@@ -652,15 +652,4 @@ body[arco-theme='dark'] .app-nav-item.app-nav-item-active:hover {
     gap: 8px;
   }
 }
-
-/* 路由切换淡入淡出 */
-.route-fade-enter-active,
-.route-fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.route-fade-enter-from,
-.route-fade-leave-to {
-  opacity: 0;
-}
 </style>
