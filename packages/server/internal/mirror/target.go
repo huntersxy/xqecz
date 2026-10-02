@@ -23,7 +23,7 @@ type Target struct {
 	Region     string
 	Prefix     string
 	PublicBase string
-	// SyncEvery 是回填周期，仅主目标（R2）用得到；替补目标共用主目标的节奏。
+	// SyncEvery 是回填周期；两目标共用同一节奏，取首个非零值。
 	SyncEvery time.Duration
 	Timeout   time.Duration
 }

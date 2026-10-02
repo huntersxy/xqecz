@@ -22,7 +22,7 @@ func (f *fakeMirror) PublicURL(rel string) string {
 	return f.base + "/" + rel
 }
 
-// Mirror2URL 模拟一级替补：base2 为空即代表「替补未启用 / 额度触顶 / 签名失败」。
+// Mirror2URL 模拟七牛（首选）那一级：base2 为空即代表「未启用 / 额度触顶 / 签名失败」。
 func (f *fakeMirror) Mirror2URL(rel string) string {
 	if f.base2 == "" || rel == "" {
 		return ""
@@ -138,8 +138,8 @@ func TestPrepareUploadFileWithoutMirror(t *testing.T) {
 	}
 }
 
-// TestDecorateWithMirror2ExposesFallbackURL 一级替补（七牛）与主目标并列下发，
-// 前端据此做 R2 → 七牛 → 源站 的逐级回退。
+// TestDecorateWithMirror2ExposesFallbackURL 七牛（首选镜像）与 R2 并列下发，
+// 前端据此做 七牛 → R2 → 源站 的逐级回退。
 func TestDecorateWithMirror2ExposesFallbackURL(t *testing.T) {
 	now := time.Now()
 	mm := &fakeMirror{base: "https://r2.example.com", base2: "https://qiniu.example.com"}

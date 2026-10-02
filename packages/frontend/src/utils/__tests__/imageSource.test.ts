@@ -14,9 +14,9 @@ import {
 const R2 = 'https://img.xqecz.bond/uploads/ab12.webp'
 const QN = 'https://img.xiey.work/uploads/ab12.webp?sign=abc&t=55bb9b80'
 const LOCAL = 'https://api39.xiey.work/uploads/ab12.webp'
-const STORE_KEY = 'xqecz:image-source'
+const STORE_KEY = 'xqecz:image-source-v2'
 
-function seed(rec: { r2: boolean; qiniu?: boolean; at?: number; net?: string; ip?: string }) {
+function seed(rec: { qiniu?: boolean; r2?: boolean; at?: number; net?: string; ip?: string }) {
   localStorage.setItem(
     STORE_KEY,
     JSON.stringify({
@@ -60,78 +60,90 @@ describe('cachedImageSource（同步读本机结论）', () => {
     expect(cachedImageSource()).toBeNull()
   })
 
-  it('同一网络下主镜像可达 → mirror', () => {
-    seed({ r2: true })
-    expect(cachedImageSource()).toBe('mirror')
-  })
-
-  it('主镜像不可达但替补可达 → mirror2（用七牛，不回源站）', () => {
-    seed({ r2: false, qiniu: true })
+  it('首选镜像（七牛）可达 → mirror2', () => {
+    seed({ qiniu: true })
     expect(cachedImageSource()).toBe('mirror2')
   })
 
+  it('首发不可达但 R2 可达 → mirror（用 R2，不回源站）', () => {
+    seed({ qiniu: false, r2: true })
+    expect(cachedImageSource()).toBe('mirror')
+  })
+
   it('两级都不可达 → origin', () => {
-    seed({ r2: false, qiniu: false })
+    seed({ qiniu: false, r2: false })
     expect(cachedImageSource()).toBe('origin')
   })
 
   it('本地网络指纹变了 → 视作换网，返回 null 重新探测', () => {
-    seed({ r2: true, net: '0||-1|-1' })
+    seed({ qiniu: true, net: '0||-1|-1' })
     expect(cachedImageSource()).toBeNull()
   })
 
   it('超过有效期 → 返回 null 重新探测', () => {
-    seed({ r2: true, at: Date.now() - SOURCE_TTL_MS - 1 })
+    seed({ qiniu: true, at: Date.now() - SOURCE_TTL_MS - 1 })
     expect(cachedImageSource()).toBeNull()
   })
 })
 
-describe('probeMirror（串行短路地探镜像侧）', () => {
-  it('主镜像可达 → mirror，且不再探替补（省一次请求）', async () => {
+describe('probeMirror（按优先级串行短路地探镜像侧）', () => {
+  it('首选（七牛）可达 → mirror2，且不再探次选（省一次请求）', async () => {
     const calls = stubFetch(() => new Response(null, { status: 206 }))
-    await expect(probeMirror(R2, QN)).resolves.toBe('mirror')
+    await expect(probeMirror(QN, R2)).resolves.toBe('mirror2')
     expect(calls).toHaveLength(1)
-    expect(calls[0].url).toBe(R2)
-    expect(readStore()?.r2).toBe(true)
+    expect(calls[0].url).toBe(QN)
+    expect(readStore()?.qiniu).toBe(true)
   })
 
-  it('主镜像不通、替补可达 → mirror2', async () => {
-    stubFetch((url) => new Response(null, { status: url === QN ? 206 : 500 }))
-    await expect(probeMirror(R2, QN)).resolves.toBe('mirror2')
-    expect(readStore()?.r2).toBe(false)
-    expect(readStore()?.qiniu).toBe(true)
+  it('首选已通时不把次选记成不可达（否则首选失效会直接掉到源站）', async () => {
+    stubFetch(() => new Response(null, { status: 206 }))
+    await probeMirror(QN, R2)
+    expect(readStore()?.r2).toBeUndefined()
+  })
+
+  it('首选不通、次选可达 → mirror', async () => {
+    stubFetch((url) => new Response(null, { status: url === R2 ? 206 : 500 }))
+    await expect(probeMirror(QN, R2)).resolves.toBe('mirror')
+    expect(readStore()?.qiniu).toBe(false)
+    expect(readStore()?.r2).toBe(true)
   })
 
   it('两级都不通 → origin', async () => {
     stubFetch(() => new Response(null, { status: 500 }))
-    await expect(probeMirror(R2, QN)).resolves.toBe('origin')
-    expect(readStore()?.r2).toBe(false)
+    await expect(probeMirror(QN, R2)).resolves.toBe('origin')
     expect(readStore()?.qiniu).toBe(false)
+    expect(readStore()?.r2).toBe(false)
   })
 
   it('请求抛错（网络错误 / 超时中断）同样判为不可达', async () => {
     stubFetch(() => {
       throw new Error('blocked by network')
     })
-    await expect(probeMirror(R2, QN)).resolves.toBe('origin')
+    await expect(probeMirror(QN, R2)).resolves.toBe('origin')
   })
 
-  it('没配替补时只探主镜像', async () => {
+  it('没配次选时只探首选', async () => {
     const calls = stubFetch(() => new Response(null, { status: 500 }))
-    await expect(probeMirror(R2)).resolves.toBe('origin')
+    await expect(probeMirror(QN)).resolves.toBe('origin')
     expect(calls).toHaveLength(1)
-    expect(readStore()?.qiniu).toBeUndefined()
+    expect(readStore()?.r2).toBeUndefined()
+  })
+
+  it('首选未配置时直接探次选，不空转', async () => {
+    const calls = stubFetch(() => new Response(null, { status: 206 }))
+    await expect(probeMirror('', R2)).resolves.toBe('mirror')
+    expect(calls.map((c) => c.url)).toEqual([R2])
   })
 
   it('从不请求源站（源站是回退目标，探它纯浪费）', async () => {
     const calls = stubFetch(() => new Response(null, { status: 200 }))
-    await probeMirror(R2, QN)
+    await probeMirror(QN, R2)
     expect(calls.map((c) => c.url)).not.toContain(LOCAL)
   })
 
   it('探测带 Range 头且绕过缓存', async () => {
     const calls = stubFetch(() => new Response(null, { status: 206 }))
-    await probeMirror(R2)
+    await probeMirror(QN)
     expect(calls[0].init?.headers).toMatchObject({ Range: 'bytes=0-32767' })
     expect(calls[0].init?.cache).toBe('no-store')
   })
@@ -184,27 +196,34 @@ describe('recheckNetwork（IP 变了才推翻旧结论）', () => {
 })
 
 describe('markUnreachable（渲染层兜底的回写）', () => {
-  it('主镜像取不到 → 只标主镜像，替补可达时改判为 mirror2', async () => {
-    seed({ r2: true, qiniu: true })
-    expect(cachedImageSource()).toBe('mirror')
-    markUnreachable('mirror')
+  it('首选（七牛）取不到 → 只标七牛，R2 可达时改判为 mirror', async () => {
+    seed({ qiniu: true, r2: true })
     expect(cachedImageSource()).toBe('mirror2')
-    expect(readStore()?.r2).toBe(false)
-    expect(readStore()?.qiniu).toBe(true)
+    markUnreachable('mirror2')
+    expect(cachedImageSource()).toBe('mirror')
+    expect(readStore()?.qiniu).toBe(false)
+    expect(readStore()?.r2).toBe(true)
   })
 
-  it('两组都取不到 → origin', () => {
-    seed({ r2: true, qiniu: true })
-    markUnreachable('mirror')
+  it('两级都取不到 → origin', () => {
+    seed({ qiniu: true, r2: true })
     markUnreachable('mirror2')
+    markUnreachable('mirror')
     expect(cachedImageSource()).toBe('origin')
   })
 
-  it('替补取不到不会连累主镜像的结论', () => {
-    seed({ r2: true, qiniu: true })
-    markUnreachable('mirror2')
-    expect(readStore()?.r2).toBe(true)
-    expect(cachedImageSource()).toBe('mirror')
+  it('R2 取不到不会连累七牛的结论', () => {
+    seed({ qiniu: false, r2: true })
+    markUnreachable('mirror')
+    expect(readStore()?.qiniu).toBe(false)
+    expect(cachedImageSource()).toBe('origin')
+  })
+
+  it('首选结论保留、只标死 R2 时仍回到首选', () => {
+    seed({ qiniu: true, r2: true })
+    markUnreachable('mirror')
+    expect(readStore()?.qiniu).toBe(true)
+    expect(cachedImageSource()).toBe('mirror2')
   })
 
   it('没有任何记录时兜底标记也安全，且写在「当前」网络指纹下', () => {
@@ -216,11 +235,11 @@ describe('markUnreachable（渲染层兜底的回写）', () => {
 })
 
 describe('pickImageUrl', () => {
-  it('来源为 mirror 且确有地址时用主镜像', () => {
+  it('来源为 mirror（R2）且确有地址时用 R2', () => {
     expect(pickImageUrl(LOCAL, R2, QN, 'mirror')).toBe(R2)
   })
 
-  it('来源为 mirror2 时用替补', () => {
+  it('来源为 mirror2（七牛）时用七牛', () => {
     expect(pickImageUrl(LOCAL, R2, QN, 'mirror2')).toBe(QN)
   })
 
@@ -237,22 +256,22 @@ describe('pickImageUrl', () => {
     expect(pickImageUrl('', R2, '', 'mirror2')).toBe(R2)
   })
 
-  it('没有源站地址时才用镜像', () => {
-    expect(pickImageUrl('', R2, QN, null)).toBe(R2)
+  it('没有源站地址时才用镜像，且优先首选（七牛）', () => {
+    expect(pickImageUrl('', R2, QN, null)).toBe(QN)
   })
 })
 
 describe('fallbackChain（渲染层逐级回退）', () => {
-  it('主镜像 → [替补, 源站]', () => {
-    expect(fallbackChain(LOCAL, R2, QN, 'mirror')).toEqual([QN, LOCAL])
+  it('首选七牛 → [R2, 源站]', () => {
+    expect(fallbackChain(LOCAL, R2, QN, 'mirror2')).toEqual([R2, LOCAL])
   })
 
-  it('没配替补时链里不留注定失败的占位', () => {
-    expect(fallbackChain(LOCAL, R2, '', 'mirror')).toEqual([LOCAL])
+  it('没配 R2 时链里不留注定失败的占位', () => {
+    expect(fallbackChain(LOCAL, '', QN, 'mirror2')).toEqual([LOCAL])
   })
 
-  it('替补 → [源站]', () => {
-    expect(fallbackChain(LOCAL, R2, QN, 'mirror2')).toEqual([LOCAL])
+  it('R2 → [源站]', () => {
+    expect(fallbackChain(LOCAL, R2, QN, 'mirror')).toEqual([LOCAL])
   })
 
   it('已在源站则无可退', () => {

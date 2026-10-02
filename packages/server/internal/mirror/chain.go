@@ -13,16 +13,19 @@ type Availability interface {
 	Available() bool
 }
 
-// Chain 把「主镜像 + 一级替补镜像」编排成一条取用链。
+// Chain 把两条镜像目标编排成一条取用链。
 //
-// 语义与产品的三级兜底一一对应：
-//   - 推送：主目标始终推；替补目标只在额度闸门放行时推（省得出网与存储额度）；
-//   - 取址：PublicURL 给主目标（R2，无需签名）；
-//     Mirror2URL 给替补目标（七牛，须按时间戳防盗链签名，闸门关闭时返回空串，
+// **推送侧不分主次**：两边都推，取用优先级只体现在前端（详见
+// `packages/frontend/src/utils/imageSource.ts` 的 `bestSource()`）。
+// 这里的 primary/secondary 只区分「哪一路」，不代表谁优先：
+//
+//   - 推送：R2 那一路始终推；七牛那一路只在额度闸门放行时推（省出网与存储额度）；
+//   - 取址：PublicURL 给 R2 那一路（无需签名）；
+//     Mirror2URL 给七牛那一路（须按时间戳防盗链签名，闸门关闭时返回空串，
 //     前端据此连候选都不拿到，探测自然不会打到一个注定 403 的地址）；
-//   - 归档：两侧都留一份，替补侧同样受闸门约束。
+//   - 归档：两侧都留一份，七牛侧同样受闸门约束。
 //
-// 闸门为 nil 表示不设闸（替补层恒放行），便于只配主目标的环境。
+// 闸门为 nil 表示不设闸（七牛那一路恒放行），便于只配一个目标的环境。
 type Chain struct {
 	primary   *Setup
 	secondary *Setup
@@ -73,7 +76,8 @@ func (c *Chain) secondaryOpen() bool {
 	return c != nil && c.secondary != nil && c.secondary.Enabled() && c.secondary.open()
 }
 
-// PublicURL 返回主目标（R2）的公开地址，不签名——R2 没有时间戳防盗链。
+// PublicURL 返回 R2 那一路的公开地址，不签名——R2 没有时间戳防盗链。
+// 注意它是**次选**：前端拿到后先看七牛，七牛不可达才用它。
 func (c *Chain) PublicURL(rel string) string {
 	if c == nil || c.primary == nil {
 		return ""
@@ -81,7 +85,7 @@ func (c *Chain) PublicURL(rel string) string {
 	return c.primary.PublicURL(rel)
 }
 
-// Mirror2URL 返回替补目标（七牛）的公开地址：闸门关闭时为空串，
+// Mirror2URL 返回七牛那一路的公开地址（前端**首选**它）：闸门关闭时为空串，
 // 开启时按时间戳防盗链签名。签名失败同样返回空串——
 // 宁可少给一个候选，也不给一个必然 403 的地址让前端白探测一轮。
 func (c *Chain) Mirror2URL(rel string) string {

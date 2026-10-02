@@ -29,7 +29,7 @@ const mirrorUrl = computed(() => {
   return ''
 })
 
-/** 一级替补（七牛）上的同一份副本；额度触顶或签名失败时为空。 */
+/** 首选镜像（七牛）上的同一份副本；额度触顶或签名失败时为空。 */
 const mirror2Url = computed(() => {
   if (props.content.img) return props.content.mirror2_img || ''
   if (props.content.video) return props.content.mirror2_video || ''
@@ -54,7 +54,7 @@ const resolved = computed(() => source.value !== null)
 const mediaUrl = computed(() =>
   source.value ? pickImageUrl(localUrl.value, mirrorUrl.value, mirror2Url.value, source.value) : '',
 )
-/** 兜底链：当前这级挂掉后按序退到下一级（主镜像 → 替补 → 源站）。 */
+/** 兜底链：当前这级挂掉后按序退到下一级（七牛 → R2 → 源站）。 */
 const fallbackUrl = computed(() =>
   fallbackChain(localUrl.value, mirrorUrl.value, mirror2Url.value, source.value),
 )
@@ -80,30 +80,32 @@ async function resolveSource() {
   if (known && usable) {
     source.value = known
   } else {
-    const v = await probeMirror(r2, qn)
+    const v = await probeMirror(qn, r2)
     if (seq !== resolveSeq) return // 期间切了内容则丢弃，避免张冠李戴
     source.value = v
   }
   // 后台校验公网 IP：网络变了（典型是代理开/关）就推翻旧结论再探一次。
   const changed = await recheckNetwork()
   if (!changed || seq !== resolveSeq || (!mirrorUrl.value && !mirror2Url.value)) return
-  const v = await probeMirror(mirrorUrl.value, mirror2Url.value)
+  const v = await probeMirror(mirror2Url.value, mirrorUrl.value)
   if (seq !== resolveSeq) return
   source.value = v
 }
 
 /**
  * 渲染层发现某一级取不到：把**那一级**标记为不可达并立刻往下退一级。
- * 主镜像失败不会顺手把替补也标死——替补可能仍然好着，正是它该顶上的时候。
+ * 只标死失败的那一级——七牛挂了不连累 R2，R2 挂着也不影响七牛的结论，
+ * 它正是链上该顶上的下一级。
  */
 function onMirrorBroken(failedUrl: string) {
   if (failedUrl && failedUrl === mirror2Url.value) {
     markUnreachable('mirror2')
-    if (source.value === 'mirror2') source.value = 'origin'
+    // 首选失败 → 退次选（R2），没有次选才回源站。
+    if (source.value === 'mirror2') source.value = mirrorUrl.value ? 'mirror' : 'origin'
     return
   }
   markUnreachable('mirror')
-  if (source.value === 'mirror') source.value = mirror2Url.value ? 'mirror2' : 'origin'
+  if (source.value === 'mirror') source.value = 'origin'
 }
 
 watch(

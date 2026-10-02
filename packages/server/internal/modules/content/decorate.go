@@ -142,9 +142,9 @@ type Item struct {
 	// 前端据此在「源站」与「镜像」之间做可达性选择，本地缩略图不受影响。
 	MirrorImg   string `json:"mirror_img,omitempty"`
 	MirrorVideo string `json:"mirror_video,omitempty"`
-	// Mirror2Img / Mirror2Video 是同一份文件在**一级替补**（七牛）上的地址。
-	// 取值规则与主目标一致，另加两条：额度触顶时为空；开启时间戳防盗链时带签名参数。
-	// 前端按 R2 → 七牛 → 源站 逐级回退，任一为空即跳过该级。
+	// Mirror2Img / Mirror2Video 是同一份文件在七牛（首选镜像）上的地址。
+	// 取值规则与 R2 那一组一致，另加两条：额度触顶时为空；开启时间戳防盗链时带签名参数。
+	// 前端按 七牛 → R2 → 源站 逐级回退，任一为空即跳过该级。
 	Mirror2Img   string `json:"mirror2_img,omitempty"`
 	Mirror2Video string `json:"mirror2_video,omitempty"`
 	FileSize    int64     `json:"file_size"`
