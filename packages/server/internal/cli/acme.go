@@ -314,7 +314,10 @@ func pruneCerts(cfg config.Config) {
 		}
 		removed++
 	}
-	fmt.Printf("prune 完成：回收 %d 张，跳过 %d 张（当前绑定 %s）\n", removed, skipped, bound)
+	// 一并报出列表规模：否则「列表为空」与「有若干条但全被过滤」看起来都是
+	// 「跳过 0 张」，排查时只能靠猜。
+	fmt.Printf("prune 完成：回收 %d 张，跳过 %d 张（列表共 %d 张，当前绑定 %s）\n",
+		removed, skipped, len(list.Certs), bound)
 }
 
 // requestJSON 发一次带凭证的 JSON 请求。qbox 为 true 用 QBox 路径签名（fusion），
