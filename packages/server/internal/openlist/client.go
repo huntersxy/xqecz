@@ -92,10 +92,8 @@ func fsPath(key string) string { return "/" + strings.TrimPrefix(key, "/") }
 
 // Put 上传一份本地文件，覆盖写同路径是幂等的。
 //
-// 不做全量读内存（R2 需要签名载荷才那样做）：这里直接把 *os.File 交给 net/http
-// 流式发送，显式设置 ContentLength，避免退化成 chunked 编码。
-// 前后各 stat 一次比对大小与 mtime，中途被 TinyPNG 就地替换则返回
-// objstore.ErrCorrupted，交给上层下一轮重传。
+// 不做全量读内存（R2 需要签名载荷才那样做）：这里把文件流式交给 net/http，
+// 显式设置 ContentLength，避免退化成 chunked 编码。
 func (c *Client) Put(key, absPath, contentType string) error {
 	f, err := os.Open(absPath)
 	if err != nil {
@@ -111,7 +109,13 @@ func (c *Client) Put(key, absPath, contentType string) error {
 		return fmt.Errorf("openlist put %s: %s 是目录", key, absPath)
 	}
 
-	req, err := http.NewRequest(http.MethodPut, c.cfg.Endpoint+"/api/fs/put", f)
+	// 请求体必须包一层 io.NopCloser，不能把 *os.File 直接交出去。
+	// net/http 在请求结束后一定会 Close 请求体（见 net/http/request.go：
+	// 非 ReadCloser 的 body 会被自动包成 NopCloser），若直接传 *os.File，
+	// Transport 会把它关掉，后面那次 f.Stat() 就只能拿到
+	// `file already closed`，上传明明成功却被记成失败、每轮全量重传。
+	// 关句柄的责任因此回到这里的 defer f.Close()。
+	req, err := http.NewRequest(http.MethodPut, c.cfg.Endpoint+"/api/fs/put", io.NopCloser(f))
 	if err != nil {
 		return fmt.Errorf("openlist put %s: %w", key, err)
 	}
@@ -143,7 +147,10 @@ func (c *Client) Put(key, absPath, contentType string) error {
 	_ = body
 
 	// 上传期间文件被改写：内容已发出去但不再是本地当前那份，本轮作废。
-	after, err := f.Stat()
+	// 按路径 stat（与 internal/r2/client.go 一致）而不是复用 f：句柄指向的是
+	// 打开那一刻的 inode，若压缩任务用「写临时文件再改名覆盖」的方式替换，
+	// f.Stat() 仍是旧 inode 的元数据，会漏判。
+	after, err := os.Stat(absPath)
 	if err != nil {
 		return fmt.Errorf("openlist put %s: %w", key, err)
 	}
@@ -185,16 +192,25 @@ func (c *Client) Head(key string) (objstore.ObjectMeta, bool, error) {
 		return objstore.ObjectMeta{}, false, apiErr
 	}
 
-	var data struct {
-		Size int64 `json:"size"`
-		// Modified 是 RFC3339 字符串，解析失败留零值即可（不参与判定）。
-		Modified string `json:"modified"`
+	// 真实响应把文件元数据放在 data 层：成功是
+	// `{"code":200,"data":{"size":813433,"modified":"2026-…+08:00","hashinfo":"null"}}`，
+	// 失败是 `{"code":500,"message":"…not found","data":null}`。
+	// 按扁平解会把 size 解成 0，而 size 是 OpenList 侧唯一的幂等判据
+	// （Local 驱动 hashinfo 恒为 "null"，没有 md5），0 会让每轮回填都把
+	// 全量媒体重推一遍。
+	var metaResp struct {
+		Data struct {
+			Size int64 `json:"size"`
+			// Modified 带纳秒（2026-10-06T13:27:37.302477504+08:00），
+			// time.RFC3339 能吃下；解析失败留零值即可（不参与判定）。
+			Modified string `json:"modified"`
+		} `json:"data"`
 	}
-	if err := json.Unmarshal(raw, &data); err != nil {
+	if err := json.Unmarshal(raw, &metaResp); err != nil {
 		return objstore.ObjectMeta{}, false, fmt.Errorf("openlist head %s: %w", key, err)
 	}
-	meta := objstore.ObjectMeta{ContentLen: data.Size}
-	if t, err := time.Parse(time.RFC3339, data.Modified); err == nil {
+	meta := objstore.ObjectMeta{ContentLen: metaResp.Data.Size}
+	if t, err := time.Parse(time.RFC3339, metaResp.Data.Modified); err == nil {
 		meta.LastModified = t
 	}
 	return meta, true, nil
