@@ -5,7 +5,7 @@
 //   - 压缩图另传一份到同一对象名（压缩是原地改写，本地路径不变），因此远端
 //     "uploads/<name>" 始终是最新（通常即压缩后）的一份。
 //   - 压缩前的原图额外归档到 "uploads/original/<name>"，两份都保留。
-//     归档键由压缩后的记录路径推得（文件名是内容寻址的，天然幂等）；
+//     归档键只由记录里的路径推得、与内容是否已压缩无关，故天然幂等；
 //     这一步不做且失败也不影响主流程，回填任务会按「本地垃圾桶里的同名原件」补齐。
 //   - 缩略图纯本地，本包不碰 thumbs/。
 //   - 远端 append-only：内容删除时本地文件进垃圾桶保留，远端对象同样不删。
@@ -44,7 +44,9 @@ import (
 // 归档命名空间因此也能复用同一个实现。
 type ObjectStore = objstore.Store
 
-// contentMD5Name 匹配内容寻址文件名（前端上传前把文件重命名为 <md5>.<ext>）。
+// contentMD5Name 匹配「内容寻址」形态的名字（前端上传前把文件重命名为 <md5>.<ext>）。
+// 只用于校验远端 ETag 是不是单段上传留下的裸 md5（见 md5OfMeta），
+// **不参与判定本地内容**——文件名在压缩原地改写后就失信了，见 localMD5。
 var contentMD5Name = regexp.MustCompile("^([a-f0-9]{32})\\.[a-z0-9]{1,8}$")
 
 // archiveDir 是压缩前原图在远端内的归档子目录：
@@ -220,7 +222,7 @@ func (s *Setup) upload(rel, key, absPath string) (bool, error) {
 		return false, nil
 	}
 
-	want := localMD5(rel, absPath)
+	want := localMD5(absPath)
 	meta, found, err := s.store.Head(key)
 	if err != nil {
 		return false, err
@@ -344,12 +346,20 @@ func mirrorable(rel string) error {
 	return nil
 }
 
-// localMD5 取本地内容 md5：文件名已是内容寻址时直接沿用（省一次全文件哈希），
-// 否则老实算一遍。
-func localMD5(rel, absPath string) string {
-	if m := contentMD5Name.FindStringSubmatch(filepath.Base(rel)); m != nil {
-		return m[1]
-	}
+// localMD5 取本地**当前**内容的 md5，一律实读文件计算。
+//
+// 这里曾经有个「省一次全文件哈希」的快路径：文件名是内容寻址的（前端上传前把文件
+// 重命名为 <md5>.<ext>），于是直接沿用文件名里的 md5。它在原地压缩面前是错的——
+// TinyPNG 只改内容不改路径，压缩之后文件名描述的仍是**压缩前**那一份，快路径给出的
+// 是两个不同时代的答案，且两个方向都会出事：
+//   - 远端已换成压缩图时：文件名 md5（压缩前）≠ 远端 md5（压缩后），sameObject 的
+//     md5 分支直接判「不同步」，于是一批对象每轮回填都被重传，永不收敛；
+//   - 远端还停在原图时：文件名 md5（压缩前）== 远端 md5（原图），被误判成「已同步」，
+//     压缩图永远推不上去——公开域名会一直供着未压缩的大图。
+//
+// 代价是对变更过的文件每轮多读一遍内容；走到这里之前，isSynced 的字节数缓存已经挡掉
+// 绝大多数文件，实测全场 35MB 量级开销可忽略，换来的是两个方向都不再撒谎。
+func localMD5(absPath string) string {
 	return fileMD5(absPath)
 }
 

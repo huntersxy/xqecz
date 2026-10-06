@@ -314,18 +314,73 @@ func TestObjectKeyKeepsUploadsLayout(t *testing.T) {
 	}
 }
 
-// TestLocalMD5UsesContentAddressedName 内容寻址文件名直接沿用（不必读全文件）。
-func TestLocalMD5UsesContentAddressedName(t *testing.T) {
+// TestLocalMD5HashesContentNotName 名字不再是判据：即使文件名长得像内容寻址，
+// 也必须实读内容。前端上传前会把文件重命名为 <md5>.<ext>，但压缩是原地改写——
+// 改名不改路径，压缩之后文件名描述的仍是压缩前那一份，只有实读内容才是当前真相。
+func TestLocalMD5HashesContentNotName(t *testing.T) {
 	dir := t.TempDir()
+
+	// 名字声称是空串的 md5，内容却不是 → 必须以内容为准。
 	name := "d41d8cd98f00b204e9800998ecf8427e.webp"
 	abs := writeFile(t, dir, name, []byte("not-the-empty-string"))
-	if got := localMD5(name, abs); got != "d41d8cd98f00b204e9800998ecf8427e" {
-		t.Fatalf("内容寻址名应直接沿用，得到 %q", got)
+	if got, want := localMD5(abs), md5Sum([]byte("not-the-empty-string")); got != want {
+		t.Fatalf("内容寻址名不得沿用文件名：得到 %q，期望内容 md5 %q", got, want)
 	}
-	// 随机名则老实算内容 md5。
-	rand := writeFile(t, dir, "1730000000_abcdef.png", []byte("hello"))
-	if got := localMD5("1730000000_abcdef.png", rand); got != md5Sum([]byte("hello")) {
-		t.Fatalf("随机名应计算内容 md5，得到 %q", got)
+
+	// 名字与内容恰好一致时，结果同样是内容 md5（两条路径在此重合）。
+	same := writeFile(t, dir, md5Sum([]byte("hello"))+".png", []byte("hello"))
+	if got, want := localMD5(same), md5Sum([]byte("hello")); got != want {
+		t.Fatalf("名字与内容一致时应得到内容 md5：得到 %q，期望 %q", got, want)
+	}
+}
+
+// TestPushReuploadsCompressedContentAddressedFile 是「原地压缩 + 内容寻址文件名」
+// 这个组合的回归用例，也是生产上一个真实漏判的复现：
+//
+// 文件名是上传时的内容寻址名（即**压缩前**原图的 md5），而远端此时存着同一份原图。
+// 若判重沿用文件名里的 md5，就会得出「本地 md5 == 远端 md5」的结论而误判已同步，
+// 压缩图永远推不上去——公开域名会一直供着未压缩的大图。必须以实读内容为准：
+// 远端仍在原图 → 内容已变 → 必须重传。
+func TestPushReuploadsCompressedContentAddressedFile(t *testing.T) {
+	store := newFakeStore()
+	s, dir := testSetup(t, store)
+
+	const original = "uncompressed-original-bytes"
+	name := md5Sum([]byte(original)) + ".webp"
+	abs := writeFile(t, dir, name, []byte(original))
+
+	if _, err := s.Push(name, abs); err != nil {
+		t.Fatal(err)
+	}
+	if string(store.objects["uploads/"+name]) != original {
+		t.Fatal("首次应为原图内容")
+	}
+
+	// TinyPNG 原地替换：路径与文件名都不动，内容变短。文件名里的 md5 就此失信。
+	const compressed = "tiny"
+	if err := os.WriteFile(abs, []byte(compressed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	uploaded, err := s.Push(name, abs)
+	if err != nil {
+		t.Fatalf("压缩后重传失败: %v", err)
+	}
+	if !uploaded {
+		t.Fatal("原图已换成压缩图，即便文件名未变也必须重传")
+	}
+	if string(store.objects["uploads/"+name]) != compressed {
+		t.Fatalf("远端应换成压缩后的内容，实际 %q", string(store.objects["uploads/"+name]))
+	}
+
+	// 再扫一轮必须收敛：同一内容不得反复重传。
+	before := store.puts
+	s2 := newWithStoreTarget(s.cfg, store)
+	again, err := s2.Push(name, abs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again || store.puts != before {
+		t.Fatalf("内容一致后每轮都应收敛为不传：uploaded=%v puts=%d->%d", again, before, store.puts)
 	}
 }
 
