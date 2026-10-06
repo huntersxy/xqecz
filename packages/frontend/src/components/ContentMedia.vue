@@ -29,7 +29,7 @@ const mirrorUrl = computed(() => {
   return ''
 })
 
-/** 首选镜像（七牛）上的同一份副本；额度触顶或签名失败时为空。 */
+/** 首选镜像（自建 OpenList）上的同一份副本；未配公开域名时为空。 */
 const mirror2Url = computed(() => {
   if (props.content.img) return props.content.mirror2_img || ''
   if (props.content.video) return props.content.mirror2_video || ''
@@ -54,7 +54,7 @@ const resolved = computed(() => source.value !== null)
 const mediaUrl = computed(() =>
   source.value ? pickImageUrl(localUrl.value, mirrorUrl.value, mirror2Url.value, source.value) : '',
 )
-/** 兜底链：当前这级挂掉后按序退到下一级（七牛 → R2 → 源站）。 */
+/** 兜底链：当前这级挂掉后按序退到下一级（OpenList → R2 → 源站）。 */
 const fallbackUrl = computed(() =>
   fallbackChain(localUrl.value, mirrorUrl.value, mirror2Url.value, source.value),
 )
@@ -70,8 +70,8 @@ async function resolveSource() {
     source.value = 'origin'
     return
   }
-  // 缓存里选中的那一级必须**当前真的有地址**，否则视为失效（比如替补被额度闸门
-  // 停用后 mirror2_* 变空，而本机还留着上次「替补可达」的结论）。
+  // 缓存里选中的那一级必须**当前真的有地址**，否则视为失效（比如首选未配公开
+  // 域名后 mirror2_* 变空，而本机还留着上次「首选可达」的结论）。
   const known = cachedImageSource()
   const usable =
     known === 'origin' ||
@@ -94,7 +94,7 @@ async function resolveSource() {
 
 /**
  * 渲染层发现某一级取不到：把**那一级**标记为不可达并立刻往下退一级。
- * 只标死失败的那一级——七牛挂了不连累 R2，R2 挂着也不影响七牛的结论，
+ * 只标死失败的那一级——OpenList 挂了不连累 R2，R2 挂着也不影响 OpenList 的结论，
  * 它正是链上该顶上的下一级。
  */
 function onMirrorBroken(failedUrl: string) {

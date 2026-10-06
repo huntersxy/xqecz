@@ -1,111 +1,74 @@
 package mirror
 
-import (
-	"log/slog"
-	"time"
-
-	"github.com/huntersxy/xqecz/server/internal/qiniu"
-)
-
-// Availability 决定替补层当前是否放行（由七牛额度闸门实现）。
-// 用接口而非具体类型，避免镜像包反向依赖额度实现，也便于测试注入。
-type Availability interface {
-	Available() bool
-}
-
-// Chain 把两条镜像目标编排成一条取用链。
+// Chain 把若干镜像目标编排成一条链：推送侧不分主次（两边都推），
+// 优先级只体现在前端取用顺序上（见 frontend/src/utils/imageSource.ts）。
 //
-// **推送侧不分主次**：两边都推，取用优先级只体现在前端（详见
-// `packages/frontend/src/utils/imageSource.ts` 的 `bestSource()`）。
-// 这里的 primary/secondary 只区分「哪一路」，不代表谁优先：
+// 两级各有独立的公开基址，某一级停用时只是少一个候选，不影响另一级：
+// 前端据此逐级回退 OpenList → R2 → 源站。
 //
-//   - 推送：R2 那一路始终推；七牛那一路只在额度闸门放行时推（省出网与存储额度）；
-//   - 取址：PublicURL 给 R2 那一路（无需签名）；
-//     Mirror2URL 给七牛那一路（须按时间戳防盗链签名，闸门关闭时返回空串，
-//     前端据此连候选都不拿到，探测自然不会打到一个注定 403 的地址）；
-//   - 归档：两侧都留一份，七牛侧同样受闸门约束。
-//
-// 闸门为 nil 表示不设闸（七牛那一路恒放行），便于只配一个目标的环境。
+// 历史上这里有第三个组件——一个七牛的额度闸门（internal/qiniu 的 Gate），
+// 用来在免费额度触顶前整层停用。七牛已下线，闸门随之删除：
+// 剩下的两个目标（自建 OpenList、Cloudflare R2）没有按量计费的免费额度，
+// 不需要一个「到 90% 就关掉」的开关。
 type Chain struct {
+	// primary 是 R2，secondary 是 OpenList——顺序只影响日志与 Setups 的排列，
+	// 不代表任何优先级。
 	primary   *Setup
 	secondary *Setup
-	// sign 给替补层地址加时间戳防盗链签名；nil 表示不签名。
-	sign func(rawURL string) (string, error)
 }
 
-// NewChain 构造取用链。primary 为 nil 时返回空链（所有方法安全空转）。
-// gate / sign 均可为 nil。
-func NewChain(primary, secondary *Setup, gate Availability, sign func(string) (string, error)) *Chain {
+// NewChain 组装镜像链；两级都不可用时返回 nil（调用方据此整体跳过镜像装配）。
+func NewChain(primary, secondary *Setup) *Chain {
 	if primary == nil && secondary == nil {
 		return nil
 	}
-	// 闸门下沉到替补 Setup 上：回填任务直接持有 *Setup，
-	// 若只在 Chain 层判闸，触顶后回填仍会继续往替补层推送。
-	if secondary != nil {
-		secondary.gate = gate
-	}
-	return &Chain{primary: primary, secondary: secondary, sign: sign}
+	return &Chain{primary: primary, secondary: secondary}
 }
 
-// Enabled 表示链上至少有一个目标可用。
-func (c *Chain) Enabled() bool {
-	if c == nil {
-		return false
-	}
-	return c.primary.Enabled() || c.secondary.Enabled()
-}
+// Enabled 表示至少有一个目标可用。
+func (c *Chain) Enabled() bool { return c != nil && (c.primary.Enabled() || c.secondary.Enabled()) }
 
-// Setups 返回参与回填的目标（主在前、替补在后，已过滤停用者）。
-// 每个目标跑自己的回填任务与分布式锁，互不阻塞。
+// Setups 返回可用目标，供回填任务逐个启动（每个目标各持一把锁）。
 func (c *Chain) Setups() []*Setup {
 	if c == nil {
 		return nil
 	}
 	var out []*Setup
-	for _, s := range []*Setup{c.primary, c.secondary} {
-		if s.Enabled() {
-			out = append(out, s)
-		}
+	if c.primary.Enabled() {
+		out = append(out, c.primary)
+	}
+	if c.secondary.Enabled() {
+		out = append(out, c.secondary)
 	}
 	return out
 }
 
-// secondaryOpen 表示替补层当前是否放行。
-// 没配闸门时视为放行——不设闸就是不设限，由调用方（未接入额度管理的环境）负责。
+// secondaryOpen 表示第二级可用于下发地址。
 func (c *Chain) secondaryOpen() bool {
-	return c != nil && c.secondary != nil && c.secondary.Enabled() && c.secondary.open()
+	return c != nil && c.secondary != nil && c.secondary.Enabled()
 }
 
-// PublicURL 返回 R2 那一路的公开地址，不签名——R2 没有时间戳防盗链。
-// 注意它是**次选**：前端拿到后先看七牛，七牛不可达才用它。
-func (c *Chain) PublicURL(rel string) string {
+// R2URL 返回 R2 侧的公开地址（未配置公开基址时为空）。
+func (c *Chain) R2URL(rel string) string {
 	if c == nil || c.primary == nil {
 		return ""
 	}
 	return c.primary.PublicURL(rel)
 }
 
-// Mirror2URL 返回七牛那一路的公开地址（前端**首选**它）：闸门关闭时为空串，
-// 开启时按时间戳防盗链签名。签名失败同样返回空串——
-// 宁可少给一个候选，也不给一个必然 403 的地址让前端白探测一轮。
-func (c *Chain) Mirror2URL(rel string) string {
+// OpenListURL 返回 OpenList 侧的公开地址（未配置公开基址时为空）。
+//
+// 注意这里不再有签名环节：七牛的替补层曾需要时间戳防盗链签名，
+// OpenList 的直链靠服务端 sign_all=false 免签开放，
+// 由 nginx 侧限制写入类接口（见 docs/deploy.md）。
+func (c *Chain) OpenListURL(rel string) string {
 	if !c.secondaryOpen() {
 		return ""
 	}
-	raw := c.secondary.PublicURL(rel)
-	if raw == "" || c.sign == nil {
-		return raw
-	}
-	signed, err := c.sign(raw)
-	if err != nil {
-		slog.Warn("替补层地址签名失败，本轮不下发", "target", c.secondary.cfg.LogName(), "err", err)
-		return ""
-	}
-	return signed
+	return c.secondary.PublicURL(rel)
 }
 
-// PushAsync 后台推送：主目标始终推，替补目标受闸门约束。
-// 任一目标失败只记日志，由各自回填任务兜底。
+// PushAsync 异步把一份本地文件推到所有可用目标。
 func (c *Chain) PushAsync(rel, absPath string) {
 	if c == nil {
 		return
@@ -118,7 +81,7 @@ func (c *Chain) PushAsync(rel, absPath string) {
 	}
 }
 
-// ArchiveOriginalAsync 后台归档压缩前的原图，规则与 PushAsync 一致。
+// ArchiveOriginalAsync 异步把原图归档到所有可用目标。
 func (c *Chain) ArchiveOriginalAsync(rel, origPath string) {
 	if c == nil {
 		return
@@ -131,20 +94,16 @@ func (c *Chain) ArchiveOriginalAsync(rel, origPath string) {
 	}
 }
 
-// BinDir 返回垃圾桶目录（回填任务据此查找原图），取自主目标。
+// BinDir 返回垃圾桶目录（取首个可用目标上的值，两级共享同一份配置）。
 func (c *Chain) BinDir() string {
-	if c == nil || c.primary == nil {
+	if c == nil {
 		return ""
 	}
-	return c.primary.BinDir()
-}
-
-// Signer 返回七牛时间戳签名函数；未配密钥时返回 nil（替补层地址不签名）。
-func Signer(timeKey string) func(string) (string, error) {
-	if timeKey == "" {
-		return nil
+	if c.primary.Enabled() {
+		return c.primary.BinDir()
 	}
-	return func(rawURL string) (string, error) {
-		return qiniu.SignURL(rawURL, timeKey, time.Now().Add(qiniu.SignTTL))
+	if c.secondary.Enabled() {
+		return c.secondary.BinDir()
 	}
+	return ""
 }

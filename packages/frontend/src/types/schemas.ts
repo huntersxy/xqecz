@@ -66,11 +66,11 @@ export const ContentSchema = z.object({
   img: str.optional().default(''),
   origin: str.optional().default(''),
   // R2 地址（未接入 R2 时为空）。与 mirror2_* 平级、各自独立；
-  // 详情页按 七牛 → R2 → 源站 的可达性选择取用，缩略图不镜像故 thumb 无对应字段。
+  // 详情页按 OpenList → R2 → 源站 的可达性选择取用，缩略图不镜像故 thumb 无对应字段。
   mirror_img: str.optional().default(''),
   mirror_video: str.optional().default(''),
-  // 首选镜像（七牛）地址。与 mirror_* 平级、各自独立：
-  // 额度触顶或签名失败时为空，前端跳过该级继续往下回退。
+  // 首选镜像（自建 OpenList）地址。与 mirror_* 平级、各自独立：
+  // 未配公开域名时为空，前端跳过该级继续往下回退。
   mirror2_img: str.optional().default(''),
   mirror2_video: str.optional().default(''),
   file_size: num.optional().default(0),

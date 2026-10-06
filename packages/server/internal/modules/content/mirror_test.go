@@ -15,15 +15,15 @@ type fakeMirror struct {
 	archived []string
 }
 
-func (f *fakeMirror) PublicURL(rel string) string {
+func (f *fakeMirror) R2URL(rel string) string {
 	if f.base == "" || rel == "" {
 		return ""
 	}
 	return f.base + "/" + rel
 }
 
-// Mirror2URL 模拟七牛（首选）那一级：base2 为空即代表「未启用 / 额度触顶 / 签名失败」。
-func (f *fakeMirror) Mirror2URL(rel string) string {
+// OpenListURL 模拟自建 OpenList（首选）那一级：base2 为空即代表「未启用 / 未配公开域名」。
+func (f *fakeMirror) OpenListURL(rel string) string {
 	if f.base2 == "" || rel == "" {
 		return ""
 	}
@@ -138,11 +138,11 @@ func TestPrepareUploadFileWithoutMirror(t *testing.T) {
 	}
 }
 
-// TestDecorateWithMirror2ExposesFallbackURL 七牛（首选镜像）与 R2 并列下发，
-// 前端据此做 七牛 → R2 → 源站 的逐级回退。
+// TestDecorateWithMirror2ExposesFallbackURL 自建 OpenList（首选镜像）与 R2 并列下发，
+// 前端据此做 OpenList → R2 → 源站 的逐级回退。
 func TestDecorateWithMirror2ExposesFallbackURL(t *testing.T) {
 	now := time.Now()
-	mm := &fakeMirror{base: "https://r2.example.com", base2: "https://qiniu.example.com"}
+	mm := &fakeMirror{base: "https://r2.example.com", base2: "https://drive.example.com"}
 	row := store.Content{
 		ID: 5, Title: "i", FilePath: ptr("ab12.webp"), Tags: "[]",
 		AuditStatus: "approved", CreatedAt: now, UpdatedAt: now,
@@ -152,19 +152,19 @@ func TestDecorateWithMirror2ExposesFallbackURL(t *testing.T) {
 	if item.MirrorImg != "https://r2.example.com/ab12.webp" {
 		t.Fatalf("主目标地址错误: %q", item.MirrorImg)
 	}
-	if item.Mirror2Img != "https://qiniu.example.com/ab12.webp" {
-		t.Fatalf("替补地址错误: %q", item.Mirror2Img)
+	if item.Mirror2Img != "https://drive.example.com/ab12.webp" {
+		t.Fatalf("首选镜像地址错误: %q", item.Mirror2Img)
 	}
 	if item.Mirror2Video != "" {
-		t.Fatalf("图片行不应有视频替补地址: %q", item.Mirror2Video)
+		t.Fatalf("图片行不应有视频首选镜像地址: %q", item.Mirror2Video)
 	}
 }
 
-// TestDecorateMirror2EmptyWhenClosed 替补层被额度闸门停用时只是少一个候选，
-// 主目标不受影响——两级各自独立下发，不共用判空。
+// TestDecorateMirror2EmptyWhenClosed 首选镜像未配公开域名时只是少一个候选，
+// R2 不受影响——两级各自独立下发，不共用判空。
 func TestDecorateMirror2EmptyWhenClosed(t *testing.T) {
 	now := time.Now()
-	mm := &fakeMirror{base: "https://r2.example.com"} // base2 空 = 替补未放行
+	mm := &fakeMirror{base: "https://r2.example.com"} // base2 空 = 首选未启用
 	row := store.Content{
 		ID: 6, Title: "i", FilePath: ptr("ab12.webp"), Tags: "[]",
 		AuditStatus: "approved", CreatedAt: now, UpdatedAt: now,
@@ -172,27 +172,27 @@ func TestDecorateMirror2EmptyWhenClosed(t *testing.T) {
 	item := decorateWith(mm, row, nil, 0, false)
 
 	if item.MirrorImg == "" {
-		t.Fatal("主目标不应受替补状态影响")
+		t.Fatal("R2 不应受首选镜像状态影响")
 	}
 	if item.Mirror2Img != "" {
-		t.Fatalf("替补停用时不应下发地址: %q", item.Mirror2Img)
+		t.Fatalf("首选停用时不应下发地址: %q", item.Mirror2Img)
 	}
 }
 
-// TestDecorateMirror2Video 视频行的替补地址走 mirror2_video。
+// TestDecorateMirror2Video 视频行的首选镜像地址走 mirror2_video。
 func TestDecorateMirror2Video(t *testing.T) {
 	now := time.Now()
-	mm := &fakeMirror{base: "https://r2.example.com", base2: "https://qiniu.example.com"}
+	mm := &fakeMirror{base: "https://r2.example.com", base2: "https://drive.example.com"}
 	row := store.Content{
 		ID: 7, Title: "v", FilePath: ptr("clip.mp4"), Tags: "[]",
 		AuditStatus: "approved", CreatedAt: now, UpdatedAt: now,
 	}
 	item := decorateWith(mm, row, nil, 0, false)
 
-	if item.Mirror2Video != "https://qiniu.example.com/clip.mp4" {
-		t.Fatalf("视频替补地址错误: %q", item.Mirror2Video)
+	if item.Mirror2Video != "https://drive.example.com/clip.mp4" {
+		t.Fatalf("视频首选镜像地址错误: %q", item.Mirror2Video)
 	}
 	if item.Mirror2Img != "" {
-		t.Fatalf("视频行不应有图片替补地址: %q", item.Mirror2Img)
+		t.Fatalf("视频行不应有图片首选镜像地址: %q", item.Mirror2Img)
 	}
 }

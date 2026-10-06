@@ -142,9 +142,9 @@ type Item struct {
 	// 前端据此在「源站」与「镜像」之间做可达性选择，本地缩略图不受影响。
 	MirrorImg   string `json:"mirror_img,omitempty"`
 	MirrorVideo string `json:"mirror_video,omitempty"`
-	// Mirror2Img / Mirror2Video 是同一份文件在七牛（首选镜像）上的地址。
-	// 取值规则与 R2 那一组一致，另加两条：额度触顶时为空；开启时间戳防盗链时带签名参数。
-	// 前端按 七牛 → R2 → 源站 逐级回退，任一为空即跳过该级。
+	// Mirror2Img / Mirror2Video 是同一份文件在自建 OpenList（首选镜像）上的地址。
+	// 取值规则与 R2 那一组一致，只是对象落在自己的机器上。
+	// 前端按 OpenList → R2 → 源站 逐级回退，任一为空即跳过该级。
 	Mirror2Img   string `json:"mirror2_img,omitempty"`
 	Mirror2Video string `json:"mirror2_video,omitempty"`
 	FileSize    int64     `json:"file_size"`
@@ -235,16 +235,16 @@ func decorateWith(mm app.MediaMirror, row store.Content, userMap map[uint64]stor
 	// 缩略图保持纯本地，不参与镜像，也就没有候选。
 	if mm != nil && isMirrorablePath(filePath) {
 		key := mirrorKey(filePath)
-		if mirrorURL := mm.PublicURL(key); mirrorURL != "" {
+		if mirrorURL := mm.R2URL(key); mirrorURL != "" {
 			if isVideo {
 				item.MirrorVideo = mirrorURL
 			} else {
 				item.MirrorImg = mirrorURL
 			}
 		}
-		// 替补地址独立取：额度触顶或签名失败时它自己就是空串，
-		// 不必（也不应）跟着主目标一起判空。
-		if mirrorURL := mm.Mirror2URL(key); mirrorURL != "" {
+		// 首选地址独立取：未配置公开域名时它自己就是空串，
+		// 不必（也不应）跟着 R2 那一级一起判空。
+		if mirrorURL := mm.OpenListURL(key); mirrorURL != "" {
 			if isVideo {
 				item.Mirror2Video = mirrorURL
 			} else {

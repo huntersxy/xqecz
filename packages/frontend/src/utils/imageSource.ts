@@ -1,14 +1,16 @@
 /**
  * 详情页大图的来源决策：**可达性优先，逐级回退**。
  *
- * 两级镜像 + 源站，顺序固定：**首选镜像（七牛）→ 次选镜像（R2）→ 源站**。
- * 七牛在前是因为它走国内 CDN；R2 走 Cloudflare，国内访问常被拖慢甚至不通。
+ * 两级镜像 + 源站，顺序固定：**首选镜像（自建 OpenList）→ 次选镜像（R2）→ 源站**。
+ * OpenList 在前是因为它由我们自己的机器直出、没有第三方额度与计费；
+ * R2 走 Cloudflare，国内访问常被拖慢甚至不通（实测 `img.xqecz.bond` 明显更差），
+ * 故排在源站之前、OpenList 之后。
  * 与旧的「测速择快」不同，取舍由业务约束决定：
- * - 服务器出网额度（20GB/月）是瓶颈 → 镜像只要可达就用，哪怕它更慢；
+ * - 服务器出网额度是瓶颈 → 镜像只要可达就用，哪怕它更慢；
  * - 只探测镜像侧：源站本来就是回退目标，探它既没有决策价值，还会白发一次整图请求；
- * - 探测流量是「浏览器 → 云厂商」，**不占服务器的出网额度**。
+ * - 探测流量是「浏览器 → 镜像」，**不占源站的出网带宽**。
  *
- * 探测是**按优先级串行且短路**的：首选（七牛）通了就不探次选（R2）。
+ * 探测是**按优先级串行且短路**的：首选（OpenList）通了就不探次选（R2）。
  * 多数网络下首选可达，因此常规路径只多一次请求；只有首选不通时才会再等一个超时去试次选。
  * 这是刻意的——并行探两个会在每次冷启动都白付一倍探测流量。
  *
@@ -43,13 +45,18 @@ const IP_ECHO_URL = 'https://1.1.1.1/cdn-cgi/trace'
 /** IP 接口自身的超时：它只用于「网络是否变了」的校验，不该拖慢首图。 */
 const IP_TIMEOUT_MS = 3000
 
-// 带 v2：优先级翻转后，旧记录里「R2 可达」的结论会把人继续引到慢的那一侧，
-// 换个键让它们整体作废、重新探测一次，比逐条迁移旧结论干净。
-const RECORD_KEY = 'xqecz:image-source-v2'
+// 带 v3：首选镜像从七牛换成自建 OpenList，旧记录里「七牛可达」的结论会把
+// 用户继续引向一个已经下线的域名，换个键让它们整体作废、重新探测一次。
+// （v2 那次是优先级翻转，同样是为了不让旧结论继续误导。）浏览器只会留着旧键，
+// 不读了而已；条目本身很小，等 localStorage 自然淘汰即可。
+const RECORD_KEY = 'xqecz:image-source-v3'
 
 interface SourceRecord {
-  /** 首选镜像（七牛）是否可达；`undefined` 表示本次没探（未配置或更高优先级的已通） */
-  qiniu?: boolean
+  /**
+   * 首选镜像（自建 OpenList）是否可达；
+   * `undefined` 表示本次没探（未配置或更高优先级的已通）
+   */
+  openlist?: boolean
   /** 次选镜像（R2）是否可达；`undefined` 同上 */
   r2?: boolean
   /** 记录时间（用于 TTL） */
@@ -73,7 +80,7 @@ function readRecord(): SourceRecord | null {
     if (!raw) return null
     const r = JSON.parse(raw) as SourceRecord
     // 至少得有一级的结论，否则这条记录没有任何信息量
-    const hasTier = typeof r?.qiniu === 'boolean' || typeof r?.r2 === 'boolean'
+    const hasTier = typeof r?.openlist === 'boolean' || typeof r?.r2 === 'boolean'
     if (!hasTier || typeof r?.net !== 'string') return null
     return r
   } catch {
@@ -100,12 +107,13 @@ function clearRecord(): void {
 /**
  * 按记录挑最优可达来源。
  *
- * **七牛（mirror2）优先于 R2（mirror）**：七牛走国内 CDN，对主要用户群体才稳；
- * R2 走 Cloudflare，国内访问常被拖慢甚至不通（实测 img.xqecz.bond 体验明显更差）。
- * R2 仍比源站优先——源站出网额度（20GB/月）是最稀缺的资源，能用镜像就不回源。
+ * **OpenList（mirror2）优先于 R2（mirror）**：OpenList 是我们自己的机器直出，
+ * 不受第三方计费与额度影响；R2 走 Cloudflare，国内访问常被拖慢甚至不通
+ * （实测 `img.xqecz.bond` 体验明显更差）。R2 仍比源站优先——
+ * 源站出网带宽是最稀缺的资源，能用镜像就不回源。
  */
 function bestSource(rec: SourceRecord): MediaSource {
-  if (rec.qiniu) return 'mirror2'
+  if (rec.openlist) return 'mirror2'
   if (rec.r2) return 'mirror'
   return 'origin'
 }
@@ -143,13 +151,13 @@ export function cachedImageSource(now: number = Date.now()): MediaSource | null 
  * 探测镜像可达性：一次带 `Range` 的小请求，成功即认为可达。
  * 失败（超时 / 非 2xx206 / 网络错误）一律判为不可达，并把结论记到本机。
  *
- * **按优先级串行短路**：七牛（首选）通了就不再探 R2——首选可达是常态，
+ * **按优先级串行短路**：首选（OpenList）通了就不再探 R2——首选可达是常态，
  * 不该为每次冷启动多付一次请求。任一侧地址为空（未配置）即跳过该级。
  * 源站不参与探测：它就是回退目标。
  *
  * 入参顺序即优先级（首选在前），与 `bestSource` 保持一致。
  */
-export async function probeMirror(qiniuUrl: string, r2Url = ''): Promise<MediaSource> {
+export async function probeMirror(openlistUrl: string, r2Url = ''): Promise<MediaSource> {
   // 注意不要用与模块函数 `reachable` 同名的局部常量——会遮蔽它并触发 TDZ。
   const rec: SourceRecord = {
     at: Date.now(),
@@ -157,12 +165,12 @@ export async function probeMirror(qiniuUrl: string, r2Url = ''): Promise<MediaSo
     ...(knownIp ? { ip: knownIp } : {}),
   }
 
-  if (qiniuUrl) {
-    rec.qiniu = await reachable(qiniuUrl)
+  if (openlistUrl) {
+    rec.openlist = await reachable(openlistUrl)
   }
   // 首选已通就不再探次选：那一级的结论留空（undefined），别把「没探」记成「不可达」——
   // 记错了会让首选中途失效时直接掉到源站，白白绕开还能用的 R2。
-  if (!rec.qiniu && r2Url) {
+  if (!rec.openlist && r2Url) {
     rec.r2 = await reachable(r2Url)
   }
 
@@ -172,7 +180,7 @@ export async function probeMirror(qiniuUrl: string, r2Url = ''): Promise<MediaSo
 
 /**
  * 渲染层兜底：某一级加载失败时把它标记为不可达，并沿用其余结论。
- * **只标失败的那一级**——七牛挂了不连累 R2，它正是链上该顶上的下一级。
+ * **只标失败的那一级**——OpenList 挂了不连累 R2，它正是链上该顶上的下一级。
  */
 export function markUnreachable(tier: MirrorTier): void {
   const rec = readRecord() ?? { at: Date.now(), net: localNetFingerprint() }
@@ -183,7 +191,7 @@ export function markUnreachable(tier: MirrorTier): void {
     ...(knownIp ? { ip: knownIp } : {}),
   }
   if (tier === 'mirror') next.r2 = false
-  else next.qiniu = false
+  else next.openlist = false
   writeRecord(next)
 }
 
@@ -266,13 +274,13 @@ export function pickImageUrl(
   if (source === 'mirror' && mirror) return mirror
   if (source === 'mirror2' && mirror2) return mirror2
   // 落到这里说明来源未定或选中的那一级没地址：按 源站 → 首选 → 次选 兜，
-  // 顺序与镜像链一致（七牛优先于 R2），不是随便取一个非空值。
+  // 顺序与镜像链一致（OpenList 优先于 R2），不是随便取一个非空值。
   return local || mirror2 || mirror
 }
 
 /**
  * 当前来源之后还能退的地址，**按优先级**排列（渲染层兜底链）。
- * 首选七牛 → [R2, 源站]；次选 R2 → [源站]；已是源站则空。
+ * 首选 OpenList → [R2, 源站]；次选 R2 → [源站]；已是源站则空。
  * 空串一律剔除：没配镜像时不该在链里留一个注定失败的占位。
  */
 export function fallbackChain(

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/huntersxy/xqecz/server/internal/config"
@@ -12,12 +13,29 @@ import (
 )
 
 // fakeStore 是内存版对象存储：记录调用次数与对象内容，用于断言镜像行为。
+// 加锁是必需的：PushAsync / ArchiveOriginalAsync 各起 goroutine，
+// 同一目标的推送与归档会并发落到这里，裸 map 会 concurrent map writes 直接崩掉。
 type fakeStore struct {
+	mu      sync.Mutex
 	objects map[string][]byte
 	md5s    map[string]string
 	heads   int
 	puts    int
 	putErr  error
+}
+
+// putCount / headCount / failWith 是并发安全的读改写入口，
+// 供跨 goroutine 的断言使用（同目标内推送与归档是并发的）。
+func (f *fakeStore) putCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.puts
+}
+
+func (f *fakeStore) failWith(err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.putErr = err
 }
 
 func newFakeStore() *fakeStore {
@@ -27,6 +45,8 @@ func newFakeStore() *fakeStore {
 // Put 的第一个参数是桶内对象名：生产侧由 mirror 算好（含 uploads/ 与 original/ 命名空间），
 // 测试侧直接用这个名字记账，避免测试跟着生产实现一起算错。
 func (f *fakeStore) Put(key, absPath, contentType string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.puts++
 	if f.putErr != nil {
 		return f.putErr
@@ -41,6 +61,8 @@ func (f *fakeStore) Put(key, absPath, contentType string) error {
 }
 
 func (f *fakeStore) Head(key string) (r2.ObjectMeta, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.heads++
 	data, ok := f.objects[key]
 	if !ok {
@@ -191,7 +213,7 @@ func TestPushSkipsThumbnailsAndTemp(t *testing.T) {
 // 下一轮仍会重试（不能假装成功）。
 func TestPushTreatsCorruptedAsSkip(t *testing.T) {
 	store := newFakeStore()
-	store.putErr = r2.ErrCorrupted
+	store.failWith(r2.ErrCorrupted)
 	s, dir := testSetup(t, store)
 	abs := writeFile(t, dir, "d.webp", []byte("bytes"))
 
@@ -204,7 +226,7 @@ func TestPushTreatsCorruptedAsSkip(t *testing.T) {
 	}
 
 	// 恢复可上传后应能重试成功（说明上一轮没有写入「已同步」缓存）。
-	store.putErr = nil
+	store.failWith(nil)
 	uploaded, err = s.Push("d.webp", abs)
 	if err != nil || !uploaded {
 		t.Fatalf("下一轮应重试成功: uploaded=%v err=%v", uploaded, err)
@@ -214,7 +236,7 @@ func TestPushTreatsCorruptedAsSkip(t *testing.T) {
 // TestPushPropagatesRealErrors 真实错误必须冒泡，交给回填任务记录并重试。
 func TestPushPropagatesRealErrors(t *testing.T) {
 	store := newFakeStore()
-	store.putErr = errors.New("network down")
+	store.failWith(errors.New("network down"))
 	s, dir := testSetup(t, store)
 	abs := writeFile(t, dir, "e.webp", []byte("bytes"))
 

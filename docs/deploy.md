@@ -135,7 +135,7 @@ SSH 输出是同步的，读回即可，不必像旧版（宝塔 `ExecShell` 异
 | SSH 端口 | **20222**（定义在 `/etc/ssh/sshd_config.d/20-port.conf`）。安全组**未放行 2222**——实测 22/20222/29418/40022 通、2222 不通，改端口别想当然选 2222。原 22 上常态有爆破连接（一排 `sshd [accepted]` 子进程），换掉后降到个位数 |
 | 数据库 | TiDB Cloud Serverless（`MYSQL_TLS=true`，独立库 `xqecz`） |
 | Redis | 共享实例，**独立前缀 `xqeczgo:`**（与旧实例 `xqecz:` 隔离） |
-| 媒体 | 本地 `data/` 托管；`thumbs` 不镜像 R2，必须随库一起迁移 |
+| 媒体 | 本地 `data/` 托管；`thumbs` 不镜像（纯本地），必须随库一起迁移 |
 | 日志轮转 | `/etc/periodic/daily/xqecz-logrotate`（超 5MB 轮转，保留 7 份，copytruncate 免重启） |
 
 常用命令：
@@ -166,9 +166,10 @@ sh scripts/migrations/2026-09-26-migrate-to-tidb.sh        # 目标库已有同�
 
 TiDB 侧另两点：`sys`/`mysql` 等系统库对业务账号**只读**，必须建独立库；连接强制加密，`.env` 需 `MYSQL_TLS=true`。
 
-## Cloudflare R2 媒体镜像（可选）
+## Cloudflare R2 媒体镜像（可选，次选）
 
-原图与压缩图各在 R2 留一份（缩略图纯本地），用于给访问 R2 更快的用户做详情页大图加速。
+原图与压缩图各在 R2 留一份（缩略图纯本地）。R2 是镜像链上的**次选**——
+首选是自建 OpenList（见下节），只有在它不可达时前端才用 R2；两者也在同一侧被并行推送。
 
 **启用方式**：在部署目录的 `.env`（不是仓库里的 `.env.example`）补上 R2 段并重启后端：
 
@@ -184,7 +185,7 @@ R2_PUBLIC_BASE=https://file.example.com   # 对象公开域名（自定义域名
 要点：
 
 - **四项凭据任一为空即整体停用**：任务静默休眠、`mirror_img` 字段为空，前端自动走源站，行为与未接入时完全一致。
-- **`R2_PUBLIC_BASE` 决定前端能否测速**：留空 = 只镜像不对外暴露（纯备份）；填了才会开启「详情页大图在源站与 R2 之间择快」。换域名只改这里，**不需要重新构建前端**。
+- **`R2_PUBLIC_BASE` 决定前端能否用得上 R2**：留空 = 只镜像不对外暴露（纯备份）；填了才会下发 `mirror_img`，前端在 OpenList 不可达时退到这里。换域名只改这里，**不需要重新构建前端**。
 - **R2 是 append-only 的**：内容删除时本地文件进 `data/bin` 保留，R2 对象不删，便于回溯。
 - **首次部署会回填存量**：启动后立即扫描全部内容并补齐缺失对象（每批 500 条，经 Redis 锁保证多实例只有一个在跑），之后每 `R2_SYNC_INTERVAL_SECONDS`（默认 300s）扫一轮兜住偶发失败。
 - **服务器需能出网到 `*.r2.cloudflarestorage.com`**（实测该服务器到 Cloudflare 通，`api.cloudflare.com` 约 0.8s）。若走不通，镜像会持续失败重试但不影响上传与访问——本地始终是权威副本。
@@ -194,35 +195,74 @@ R2_PUBLIC_BASE=https://file.example.com   # 对象公开域名（自定义域名
 排查用命令（部署机上直接跑，无需 Go）：
 
 ```bash
-grep -iE 'R2_' /www/wwwroot/xqecz-golang/.env          # 确认配置已就位
+grep -iE '^(R2|OPENLIST)_' /opt/xqecz/.env   # 确认配置已就位
 tail -f /www/wwwlogs/go/xqeczserver.log | grep -E 'r2 '  # 看镜像/回填日志
 ```
 
-### 七牛云镜像（可选）
+### 自建 OpenList 镜像（可选，首选）
 
-与 R2 并行再推一份到七牛。详情页按 **七牛 → R2 → 源站** 逐级回退，只有前一级不可达才用下一级。
-七牛在前是因为它走国内 CDN；R2 走 Cloudflare，国内访问常被拖慢甚至不通。
-凭据不全即整体停用，不影响 R2 单独工作。
+与 R2 并行再推一份到自建 OpenList。详情页按 **OpenList → R2 → 源站** 逐级回退，只有前一级不可达才用下一级。
+OpenList 在前是因为它跑在自有广州机上、硬盘直出，不受第三方 CDN 计费与欠费停服的牵制；
+R2 走 Cloudflare，国内访问常被拖慢甚至不通，故作为次选。基址或 token 任一为空即整体停用，不影响 R2 单独工作。
 
 ```bash
-QINIU_ACCESS_KEY=...
-QINIU_SECRET_KEY=...
-QINIU_BUCKET=xy996
-QINIU_REGION=cn-south-1                # 决定 S3 端点 s3.cn-south-1.qiniucs.com
-QINIU_PUBLIC_BASE=https://img.xiey.work  # CDN 加速域名，与推送端点不同
-QINIU_PREFIX=uploads
-QINIU_QUOTA_THRESHOLD=0.9              # 免费额度到 90% 即整层停用，次月自动恢复
+OPENLIST_ENDPOINT=https://drive.xiey.work  # OpenList 入口（推送用 /api/fs/put）
+OPENLIST_TOKEN=<OpenList 后台的 admin token>
+OPENLIST_PREFIX=uploads                     # 与 R2 同名，便于两侧对账
+OPENLIST_PUBLIC_BASE=https://drive.xiey.work/d  # 对外下载基址，**必须带 /d**，前端据此取 mirror2_*
+OPENLIST_SYNC_INTERVAL_SECONDS=300
+OPENLIST_UPLOAD_TIMEOUT_SECONDS=120
 ```
 
-三个容易踩的点：
+四个容易踩的点：
 
-- **免费额度按月发放、不结转**。任一项（存储 10GB / CDN 回源 10GB / GET 100 万 / PUT 10 万）到
-  90% 即停用该层。外网流出（S3 直连）**没有免费额度**，0.26 元/GB 从第一字节起计，故桶应保持私有，
-  或用 `QINIU_EGRESS_CAP_GB` 自设上限。
-- **额度检查依赖两套签名**：存储/回源/GET/PUT 走 `api.qiniuapi.com`（Qiniu 内容签名），
-  CDN 下载流量走 `fusion.qiniuapi.com/v2/tune/flux`（QBox 路径签名）。用错任一必 401。
-- **闸门启动初值是关闭**（没查过就不开），查询失败保留上次结论。配置后先看日志里的
-  「七牛额度检查通过」，确认闸门真的开了再观察地址下发。
+- **鉴权头是 `Authorization: <token>`，不带 `Bearer`**。带了必被拒；请求头里不加引号以外的任何包装。
+- **对象不存在不是 404**。`POST /api/fs/get` 对缺失对象回 `{"code":500,"message":"failed to get obj: object not found"}`，
+  判存在只能匹配 message；免签下载 `/d/*` 对缺失文件同样回 JSON 500。回填逻辑依赖这个判定，改客户端时别按 HTTP 语义想当然。
+- **没有远端哈希**。OpenList 的 Local 驱动 `hashinfo` 恒为 `null`，拿不到 md5，故判重退路是「远端字节数 == 本地字节数」
+  （见 `internal/mirror` 的 `sameObject()`）。坚持「无哈希就重传」会让每轮回填全量重推。
+- **`OPENLIST_PUBLIC_BASE` 必须带直链前缀 `/d`，只写裸域名是错的**。裸域名在 OpenList 侧是 SPA 前端，
+  `https://drive.xiey.work/uploads/x.webp` 回的是 `200 text/html`（index.html 首页），而不是图片——
+  表现是「换源成功但图全是 HTML」。正确值形如 `https://drive.xiey.work/d`，此时 `Target.ObjectURL()`
+  拼出的才是 `https://drive.xiey.work/d/uploads/x.webp`。留空 = 只镜像不对外暴露（纯备份）；填了才会下发 `mirror2_*`。
+  换域名只改这里，**不需要重新构建前端**。
+
+#### 实例侧要求：免签直链
+
+公开下载走 `/d/<对象路径>`，要求实例 `sign_all=false`，否则 `/d/`、`/p/` 裸访问一律 401。
+置法（后台设置项）：`[{"key":"sign_all","value":"false"}]`。挂载点必须落在根 `/`，
+这样 `/d/uploads/<文件名>` 才与生产对象键 `uploads/<文件名>` 对齐，URL 形状与 R2 一致。
+
+#### 实例侧要求：暴露面收敛（可选）
+
+先说明「不做什么」，因为直觉方案是错的：**不能在 nginx 上一刀切挡 `/api/`**。
+`drive.xiey.work` 这个域名同时也是 OpenList 面板自身的入口，面板每个页面都要打 `/api/*`
+（访问日志里可见 `referer "https://drive.xiey.work/@manage/about"` → `GET /api/public/settings`、
+`GET /api/me`）。把 `/api/` 一律 403 会把面板整个打死。
+
+真正值得收的是**绕过域名的那条明文路**：容器以 `0.0.0.0:5244->5244/tcp` 发布
+（docker-proxy，`/opt/1panel/apps/openlist/openlist/docker-compose.yml` 里
+`ports: - ${HOST_IP}:${PANEL_APP_PORT_HTTP}:5244`，而 `.env` 的 `HOST_IP=''` 为空即等价 `0.0.0.0`），
+实测从公网 TCP 直接可达。注意 1Panel 的防火墙链管不到它：已发布端口经 nat PREROUTING DNAT 后
+**直接进 FORWARD**，不经过 INPUT 上的 `1PANEL_BASIC_AFTER`（DROP 链），唯一有效的位置是 `DOCKER-USER`。
+
+收掉这条路的办法是把发布地址绑回环（改 `.env` 的 `HOST_IP=127.0.0.1` 后重建容器）；
+openresty 是 net=host、经 `127.0.0.1:5244` 反代，不受影响。
+
+> 这一步属于纵深防御，不是堵已知漏洞：guest 账号已禁用（`x_users` 里 `guest` 行 `disabled=1`），
+> 不带 `Authorization` 访问 `/api/fs/get`、`/api/fs/put`、`/api/fs/list`、`/api/fs/remove`、
+> `/api/admin/*`、`/api/me` 一律回 `{"code":401,"message":"Guest user is disabled, login please"}`，
+> 只有 `/api/public/settings` 是匿名的。裸端口与域名路的匿名面**完全一样**，
+> 收口减少的是「不经 CDN、无 TLS 观测」的这一层，而非攻击面本身。
+
+#### 存量回填
+
+启动后立即扫描全部内容并补齐缺失对象（每批 500 条，经 Redis 锁 `lock:mirror:openlist` 保证多实例只有一个在跑），
+之后每 `OPENLIST_SYNC_INTERVAL_SECONDS`（默认 300s）扫一轮兜住偶发失败。
+与 R2 的回填任务各持一把锁、互不阻塞，日志前缀取目标名（`r2 …` / `openlist …`）。
+
+- 对象名与本地同构：`<OPENLIST_PREFIX>/<文件名>`，挂载目录里可直接与 `data/uploads` 对账。
+- 压缩是**原地改写**（路径不变、内容变），因此对象名不变、内容随压缩更新。
 
 ## 初始化与维护
 
@@ -239,76 +279,22 @@ cd packages/server && go run ./cmd/dbinfo
 
 管理员初始化必须由二进制自身提供子命令——部署机没有 Go 工具链，`go run` 形式的命令在服务器上不可用。
 
-## 七牛 CDN 的证书自动续签
+## 镜像端的证书
 
-`img.xiey.work` 的证书是 TrustAsia DV，有效期 90 天。
+对外提供下载的镜像端只有一个：广州机的 `drive.xiey.work`（OpenList 反代）。
 
-**七牛不会全自动续签**：证书记录里 `auto_renew:false`、`renewable:false`；官方口径是
-「到期前 30 天自动启动续签流程，并通过短信/邮件/站内信提醒您，**您需在此期限内配合完成必要的操作**」。
-也就是说七牛只负责发起和提醒，验证那一步要人工点，漏了就过期、HTTPS 断。因此改为自建。
+**证书由 1Panel 托管**：`xiey.work` 的 NS 在阿里云万网（`dns1/dns2.hichina.com`），
+1Panel 里已存有可复用的阿里云 DNS 凭据（`website_dns_accounts` 表，type=`AliYun`），
+走 DNS-01 签发给 `*.xiey.work` 的通配证书，续期由面板自动完成，不需要部署机参与。
 
-### 为什么挑战文件要写进桶
-
-ACME 的 HTTP-01 校验要访问 `http://img.xiey.work/.well-known/acme-challenge/<token>`，
-而该域名指向七牛 CDN、回源到桶，**请求根本到不了部署机**，标准的 `--webroot` 模式无从生效。
-所以由 `xqecz-server acme plant` 把挑战文件写进桶，让 CDN 自己回源出来。
-
-同一原因导致一个互斥关系：**时间戳防盗链一旦开启，校验请求会因为不带签名被判 403**，
-续签必然失败。二者不可兼得（当前取证书，故时间戳防盗链处于关闭状态）。
-
-### 证书状态与前置检查
+**注意**：仓库里曾有自建的 `xqecz-server acme` 子命令与 `scripts/acme/` 三个 certbot hook
+（为七牛 CDN 域名做 HTTP-01 挑战），随七牛下线一并删除。部署机上的残留需要清掉：
 
 ```bash
-cd /opt/xqecz
-./xqecz-server acme check          # 打印七牛凭据/桶/区域/公开域名是否齐备
+grep -n acme /etc/crontabs/root      # 删掉 `17 3 * * * /opt/xqecz/scripts/acme/renew.sh` 那一行
+rm -rf /opt/xqecz/scripts/acme
+apk del certbot                      # 若只为该链路装的
 ```
-
-### 安装与首次签发
-
-```bash
-apk add certbot
-
-install -d /opt/xqecz/scripts/acme
-cp /path/to/repo/scripts/acme/*.sh /opt/xqecz/scripts/acme/
-chmod +x /opt/xqecz/scripts/acme/*.sh
-
-certbot certonly --manual --preferred-challenges http-01 \
-  --manual-auth-hook   /opt/xqecz/scripts/acme/hook-auth.sh \
-  --manual-cleanup-hook /opt/xqecz/scripts/acme/hook-cleanup.sh \
-  --deploy-hook        /opt/xqecz/scripts/acme/hook-deploy.sh \
-  -d img.xiey.work
-```
-
-certbot 会把三个 hook 与 `--manual` 模式记进 renewal conf，之后 `renew` 自动复用，无需重复传参。
-
-### 每日 cron
-
-```cron
-17 3 * * * /opt/xqecz/scripts/acme/renew.sh >> /var/log/xqecz-acme.log 2>&1
-```
-
-`renew.sh` **先 `prune` 再 `renew`**，顺序不能反：`prune` 判断的是「当前绑定」，
-放在续签前才能清掉上一轮换绑留下的旧证书；放在之后会撞上同样的问题——
-换绑要 5-10 分钟下发，期间证书侧仍认为旧证书被域名占用，删除返回 `400611`。
-不回收的话证书会一直攒，攒到上限以 `400500` 挡住下一次续签。
-
-### 手动排障
-
-```bash
-./xqecz-server acme plant <token> <内容文件>   # 写桶并回读 CDN 校验内容一致
-./xqecz-server acme clean <token>              # 删除挑战文件
-./xqecz-server acme deploy <fullchain> <key>   # 上传新证书并绑定（换绑后旧证书待回收）
-./xqecz-server acme prune                      # 回收已换绑的旧证书
-```
-
-`deploy` 的两个接口分属两套鉴权，用错任意一个都是 401：
-上传 `POST fusion.qiniuapi.com/sslcert`（QBox 路径签名）、
-绑定 `PUT api.qiniu.com/domain/<Name>/httpsconf`（Qiniu 内容签名）。
-
-### 备用方案
-
-若自建链路长期故障，可在七牛控制台走官方免费证书：**CDN → 域名管理 → HTTPS 配置**，
-按提示完成域名验证。注意该路径需要人工点，且不保证自动续期。
 
 ## 回滚
 

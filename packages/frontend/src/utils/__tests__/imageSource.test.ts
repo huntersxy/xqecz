@@ -12,11 +12,13 @@ import {
 } from '@/utils/imageSource'
 
 const R2 = 'https://img.xqecz.bond/uploads/ab12.webp'
-const QN = 'https://img.xiey.work/uploads/ab12.webp?sign=abc&t=55bb9b80'
+// 首选镜像（自建 OpenList）的直链：免签，因此不带任何查询参数。
+// 注意 URL 里那个 `/d` 是实例的免签直链前缀，少了它 OpenList 只会回 SPA 首页 HTML。
+const QN = 'https://drive.xiey.work/d/uploads/ab12.webp'
 const LOCAL = 'https://api39.xiey.work/uploads/ab12.webp'
-const STORE_KEY = 'xqecz:image-source-v2'
+const STORE_KEY = 'xqecz:image-source-v3'
 
-function seed(rec: { qiniu?: boolean; r2?: boolean; at?: number; net?: string; ip?: string }) {
+function seed(rec: { openlist?: boolean; r2?: boolean; at?: number; net?: string; ip?: string }) {
   localStorage.setItem(
     STORE_KEY,
     JSON.stringify({
@@ -60,39 +62,39 @@ describe('cachedImageSource（同步读本机结论）', () => {
     expect(cachedImageSource()).toBeNull()
   })
 
-  it('首选镜像（七牛）可达 → mirror2', () => {
-    seed({ qiniu: true })
+  it('首选镜像（OpenList）可达 → mirror2', () => {
+    seed({ openlist: true })
     expect(cachedImageSource()).toBe('mirror2')
   })
 
   it('首发不可达但 R2 可达 → mirror（用 R2，不回源站）', () => {
-    seed({ qiniu: false, r2: true })
+    seed({ openlist: false, r2: true })
     expect(cachedImageSource()).toBe('mirror')
   })
 
   it('两级都不可达 → origin', () => {
-    seed({ qiniu: false, r2: false })
+    seed({ openlist: false, r2: false })
     expect(cachedImageSource()).toBe('origin')
   })
 
   it('本地网络指纹变了 → 视作换网，返回 null 重新探测', () => {
-    seed({ qiniu: true, net: '0||-1|-1' })
+    seed({ openlist: true, net: '0||-1|-1' })
     expect(cachedImageSource()).toBeNull()
   })
 
   it('超过有效期 → 返回 null 重新探测', () => {
-    seed({ qiniu: true, at: Date.now() - SOURCE_TTL_MS - 1 })
+    seed({ openlist: true, at: Date.now() - SOURCE_TTL_MS - 1 })
     expect(cachedImageSource()).toBeNull()
   })
 })
 
 describe('probeMirror（按优先级串行短路地探镜像侧）', () => {
-  it('首选（七牛）可达 → mirror2，且不再探次选（省一次请求）', async () => {
+  it('首选（OpenList）可达 → mirror2，且不再探次选（省一次请求）', async () => {
     const calls = stubFetch(() => new Response(null, { status: 206 }))
     await expect(probeMirror(QN, R2)).resolves.toBe('mirror2')
     expect(calls).toHaveLength(1)
     expect(calls[0].url).toBe(QN)
-    expect(readStore()?.qiniu).toBe(true)
+    expect(readStore()?.openlist).toBe(true)
   })
 
   it('首选已通时不把次选记成不可达（否则首选失效会直接掉到源站）', async () => {
@@ -104,14 +106,14 @@ describe('probeMirror（按优先级串行短路地探镜像侧）', () => {
   it('首选不通、次选可达 → mirror', async () => {
     stubFetch((url) => new Response(null, { status: url === R2 ? 206 : 500 }))
     await expect(probeMirror(QN, R2)).resolves.toBe('mirror')
-    expect(readStore()?.qiniu).toBe(false)
+    expect(readStore()?.openlist).toBe(false)
     expect(readStore()?.r2).toBe(true)
   })
 
   it('两级都不通 → origin', async () => {
     stubFetch(() => new Response(null, { status: 500 }))
     await expect(probeMirror(QN, R2)).resolves.toBe('origin')
-    expect(readStore()?.qiniu).toBe(false)
+    expect(readStore()?.openlist).toBe(false)
     expect(readStore()?.r2).toBe(false)
   })
 
@@ -196,33 +198,33 @@ describe('recheckNetwork（IP 变了才推翻旧结论）', () => {
 })
 
 describe('markUnreachable（渲染层兜底的回写）', () => {
-  it('首选（七牛）取不到 → 只标七牛，R2 可达时改判为 mirror', async () => {
-    seed({ qiniu: true, r2: true })
+  it('首选（OpenList）取不到 → 只标首选，R2 可达时改判为 mirror', async () => {
+    seed({ openlist: true, r2: true })
     expect(cachedImageSource()).toBe('mirror2')
     markUnreachable('mirror2')
     expect(cachedImageSource()).toBe('mirror')
-    expect(readStore()?.qiniu).toBe(false)
+    expect(readStore()?.openlist).toBe(false)
     expect(readStore()?.r2).toBe(true)
   })
 
   it('两级都取不到 → origin', () => {
-    seed({ qiniu: true, r2: true })
+    seed({ openlist: true, r2: true })
     markUnreachable('mirror2')
     markUnreachable('mirror')
     expect(cachedImageSource()).toBe('origin')
   })
 
-  it('R2 取不到不会连累七牛的结论', () => {
-    seed({ qiniu: false, r2: true })
+  it('R2 取不到不会连累首选（OpenList）的结论', () => {
+    seed({ openlist: false, r2: true })
     markUnreachable('mirror')
-    expect(readStore()?.qiniu).toBe(false)
+    expect(readStore()?.openlist).toBe(false)
     expect(cachedImageSource()).toBe('origin')
   })
 
   it('首选结论保留、只标死 R2 时仍回到首选', () => {
-    seed({ qiniu: true, r2: true })
+    seed({ openlist: true, r2: true })
     markUnreachable('mirror')
-    expect(readStore()?.qiniu).toBe(true)
+    expect(readStore()?.openlist).toBe(true)
     expect(cachedImageSource()).toBe('mirror2')
   })
 
@@ -239,7 +241,7 @@ describe('pickImageUrl', () => {
     expect(pickImageUrl(LOCAL, R2, QN, 'mirror')).toBe(R2)
   })
 
-  it('来源为 mirror2（七牛）时用七牛', () => {
+  it('来源为 mirror2（OpenList）时用首选', () => {
     expect(pickImageUrl(LOCAL, R2, QN, 'mirror2')).toBe(QN)
   })
 
@@ -256,13 +258,13 @@ describe('pickImageUrl', () => {
     expect(pickImageUrl('', R2, '', 'mirror2')).toBe(R2)
   })
 
-  it('没有源站地址时才用镜像，且优先首选（七牛）', () => {
+  it('没有源站地址时才用镜像，且优先首选（OpenList）', () => {
     expect(pickImageUrl('', R2, QN, null)).toBe(QN)
   })
 })
 
 describe('fallbackChain（渲染层逐级回退）', () => {
-  it('首选七牛 → [R2, 源站]', () => {
+  it('首选 OpenList → [R2, 源站]', () => {
     expect(fallbackChain(LOCAL, R2, QN, 'mirror2')).toEqual([R2, LOCAL])
   })
 

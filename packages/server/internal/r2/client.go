@@ -13,6 +13,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/huntersxy/xqecz/server/internal/objstore"
 )
 
 // MetaMD5 是随对象一起写入的自定义元数据头。
@@ -20,9 +22,13 @@ import (
 // 回填任务比对「本地内容 vs 远端对象」时才有可信依据。
 const MetaMD5 = "x-amz-meta-md5"
 
+// ObjectMeta / ErrCorrupted 的权威定义在 internal/objstore —— 镜像链接纳的是
+// 接口而不是某家云，这里只留别名，既有调用点与测试无需改 import。
+type ObjectMeta = objstore.ObjectMeta
+
 // ErrCorrupted 表示本地文件在读取过程中被改写（只可能由原地压缩引起），
 // 调用方应放弃本次上传并留待下一轮重试。
-var ErrCorrupted = errors.New("local file changed while reading")
+var ErrCorrupted = objstore.ErrCorrupted
 
 // Config 是客户端配置（由 config.R2Config 映射而来，此处不依赖上层包）。
 type Config struct {
@@ -95,14 +101,6 @@ func (c *Client) urlFor(key string) string {
 		path += "/" + strings.TrimPrefix(canonicalURI(key), "/")
 	}
 	return base + path
-}
-
-// ObjectMeta 是 HeadObject 的关键字段。
-type ObjectMeta struct {
-	ETag         string
-	ContentLen   int64
-	MetaMD5      string
-	LastModified time.Time
 }
 
 // Head 查询对象元信息；对象不存在时返回 (zero, false, nil)。

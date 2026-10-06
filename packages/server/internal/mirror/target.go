@@ -7,20 +7,34 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/config"
 )
 
-// Target 描述一个镜像目标：怎么连（端点/凭据/桶）、怎么被访问（公开基址）。
+// Driver 决定用什么协议连目标，也决定 Target.Enabled 的判定条件。
+type Driver string
+
+const (
+	// DriverR2 是 S3 兼容对象存储，凭据 = 端点 + AK/SK + 桶。
+	DriverR2 Driver = "r2"
+	// DriverOpenList 是 OpenList 的 HTTP API，凭据 = 基址 + admin token。
+	// 它没有桶的概念（"桶"是挂载点，落在服务端配置里），故不吃 AK/SK/Bucket。
+	DriverOpenList Driver = "openlist"
+)
+
+// Target 描述一个镜像目标：怎么连（驱动/端点/凭据）、怎么被访问（公开基址）。
 //
-// 与具体云厂商解耦——Cloudflare R2 与七牛 Kodo 都经由它接入，
-// 同一套推送去重、归档与回填逻辑对两者一视同仁。
-// 唯一的差别是签名区域：R2 固定 auto，七牛必须是真实 region
-// （如 cn-south-1），否则 SigV4 必然校验失败。
+// 与具体云厂商解耦——Cloudflare R2 与 OpenList 都经由它接入，
+// 同一套推送去重、归档与回填逻辑对两者一视同仁；差异全部收敛在
+// Enabled（判据不同）与 Setup.newStore（协议不同）两处。
 type Target struct {
-	// Name 是日志里的目标名（r2 / qiniu）。空值按 "r2" 处理。
-	Name       string
-	Endpoint   string
-	AccessKey  string
-	SecretKey  string
-	Bucket     string
-	Region     string
+	// Name 是日志里的目标名（r2 / openlist）。空值按 "r2" 处理。
+	Name string
+	// Driver 为空时按 DriverR2 处理，兼容既有配置。
+	Driver    Driver
+	Endpoint  string
+	AccessKey string
+	SecretKey string
+	Bucket    string
+	Region    string
+	// Token 是 OpenList 的 admin token（OpenList 无 AK/SK）。
+	Token      string
 	Prefix     string
 	PublicBase string
 	// SyncEvery 是回填周期；两目标共用同一节奏，取首个非零值。
@@ -28,15 +42,29 @@ type Target struct {
 	Timeout   time.Duration
 }
 
-// Enabled 表示凭据与桶齐备，可以推送。
+// driver 返回归一化后的驱动名。
+func (t Target) driver() Driver {
+	if t.Driver == "" {
+		return DriverR2
+	}
+	return t.Driver
+}
+
+// Enabled 表示连接参数齐备，可以推送。判据随驱动变化：
+// S3 需要端点+AK/SK+桶；OpenList 只需要基址+token。
 func (t Target) Enabled() bool {
-	return t.Endpoint != "" && t.AccessKey != "" && t.SecretKey != "" && t.Bucket != ""
+	switch t.driver() {
+	case DriverOpenList:
+		return t.Endpoint != "" && t.Token != ""
+	default:
+		return t.Endpoint != "" && t.AccessKey != "" && t.SecretKey != "" && t.Bucket != ""
+	}
 }
 
 // Exposed 表示对象有浏览器可直连的公开地址。
 func (t Target) Exposed() bool { return t.Enabled() && t.PublicBase != "" }
 
-// ObjectURL 返回桶内 key 的公开访问地址。
+// ObjectURL 返回对象 key 的公开访问地址。
 func (t Target) ObjectURL(key string) string {
 	base := strings.TrimRight(strings.TrimSpace(t.PublicBase), "/")
 	if base == "" || key == "" {
@@ -64,6 +92,7 @@ func TargetFromR2(c config.R2Config) Target {
 	}
 	return Target{
 		Name:       "r2",
+		Driver:     DriverR2,
 		Endpoint:   endpoint,
 		AccessKey:  c.AccessKey,
 		SecretKey:  c.SecretKey,
@@ -76,16 +105,18 @@ func TargetFromR2(c config.R2Config) Target {
 	}
 }
 
-// TargetFromQiniu 把七牛配置映射为镜像目标。
-// Region 必须是真实值（七牛 S3 端点按 region 推导，SigV4 也按它签名）。
-func TargetFromQiniu(c config.QiniuConfig) Target {
+// TargetFromOpenList 把 OpenList 配置映射为镜像目标。
+// Prefix 必须与 R2 保持一致，否则同一个内容在两边的对象路径不同，
+// 前端换源会 404（历史上两家的 key 就是同一套 uploads/<name>）。
+//
+// PublicBase 必须带上实例的免签直链前缀（`/d`）：OpenList 的裸域名是 SPA，
+// 未加前缀的路径一律回 index.html，ObjectURL 拼出的地址会变成 200 text/html。
+func TargetFromOpenList(c config.OpenListConfig) Target {
 	return Target{
-		Name:       "qiniu",
+		Name:       "openlist",
+		Driver:     DriverOpenList,
 		Endpoint:   c.Endpoint,
-		AccessKey:  c.AccessKey,
-		SecretKey:  c.SecretKey,
-		Bucket:     c.Bucket,
-		Region:     c.Region,
+		Token:      c.Token,
 		Prefix:     c.Prefix,
 		PublicBase: c.PublicBase,
 		// 回填周期必须有值：worker 用它建 time.NewTicker，0 会直接 panic。

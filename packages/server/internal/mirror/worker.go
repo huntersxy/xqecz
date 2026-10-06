@@ -28,7 +28,7 @@ const (
 type Worker struct {
 	deps app.Deps
 	m    *Setup
-	// lockKey 按目标区分（lock:mirror:r2 / lock:mirror:qiniu）。
+	// lockKey 按目标区分（lock:mirror:r2 / lock:mirror:openlist）。
 	lockKey string
 }
 
@@ -39,6 +39,9 @@ func NewWorker(deps app.Deps, m *Setup) *Worker {
 	}
 	return &Worker{deps: deps, m: m, lockKey: "lock:mirror:" + m.cfg.LogName()}
 }
+
+// tag 返回日志前缀（目标名，如 "r2" / "openlist"）。
+func (w *Worker) tag() string { return w.m.cfg.LogName() }
 
 // Start 启动周期回填（立即跑一轮，之后按配置间隔重复）。
 func (w *Worker) Start(ctx context.Context) {
@@ -86,7 +89,7 @@ func (w *Worker) runRound(ctx context.Context) {
 			Where("file_path IS NOT NULL AND file_path <> '' AND id > ?", lastID).
 			Order("id ASC").Limit(batch).Find(&rows).Error
 		if err != nil {
-			slog.Warn("r2 回填查询失败", "err", err)
+			slog.Warn(w.tag()+" 回填查询失败", "err", err)
 			return
 		}
 		if len(rows) == 0 {
@@ -105,7 +108,7 @@ func (w *Worker) runRound(ctx context.Context) {
 			didUpload, err := w.m.Push(rel, w.absUpload(rel))
 			if err != nil {
 				failed++
-				slog.Warn("r2 回填失败", "id", row.ID, "rel", rel, "err", err)
+				slog.Warn(w.tag()+" 回填失败", "id", row.ID, "rel", rel, "err", err)
 				continue
 			}
 			if didUpload {
@@ -115,7 +118,7 @@ func (w *Worker) runRound(ctx context.Context) {
 	}
 	archived = w.archiveBackfill(ctx)
 	if uploaded > 0 || archived > 0 || failed > 0 {
-		slog.Info("r2 回填完成", "scanned", scanned, "uploaded", uploaded,
+		slog.Info(w.tag()+" 回填完成", "scanned", scanned, "uploaded", uploaded,
 			"archived", archived, "failed", failed)
 	}
 }
@@ -141,7 +144,7 @@ func (w *Worker) archiveBackfill(ctx context.Context) int {
 			Where("id > ?", lastID).
 			Order("id ASC").Limit(batch).Find(&rows).Error
 		if err != nil {
-			slog.Warn("r2 原图归档查询失败", "err", err)
+			slog.Warn(w.tag()+" 原图归档查询失败", "err", err)
 			return done
 		}
 		if len(rows) == 0 {
@@ -160,7 +163,7 @@ func (w *Worker) archiveBackfill(ctx context.Context) int {
 				continue
 			}
 			if _, found, err := w.m.store.Head(w.m.ArchiveKey(rel)); err != nil {
-				slog.Warn("r2 原图归档探测失败", "id", row.ID, "rel", rel, "err", err)
+				slog.Warn(w.tag()+" 原图归档探测失败", "id", row.ID, "rel", rel, "err", err)
 				continue
 			} else if found {
 				w.m.MarkArchived(rel)
@@ -171,7 +174,7 @@ func (w *Worker) archiveBackfill(ctx context.Context) int {
 				continue // 原件已不在垃圾桶（人工清理过），无从补传
 			}
 			if _, err := w.m.ArchiveOriginal(rel, binPath); err != nil {
-				slog.Warn("r2 原图归档失败", "id", row.ID, "rel", rel, "err", err)
+				slog.Warn(w.tag()+" 原图归档失败", "id", row.ID, "rel", rel, "err", err)
 				continue
 			}
 			done++
