@@ -13,6 +13,8 @@
  * 探测是**按优先级串行且短路**的：首选（OpenList）通了就不探次选（R2）。
  * 多数网络下首选可达，因此常规路径只多一次请求；只有首选不通时才会再等一个超时去试次选。
  * 这是刻意的——并行探两个会在每次冷启动都白付一倍探测流量。
+ * 单级探测**试满 3 次（一次失败 → 退避 `PROBE_RETRY_DELAY_MS` → 重试 → 快速复核）**
+ * 才判不可达：持久结论的代价高，判错一次就是整个 TTL 绕开该级。
  *
  * 结论按「网络标识」记在本机 `localStorage`（不上传），以便同一网络回访时直接复用：
  * 首图零等待、也不用重复探测。网络标识 = 公网 IP（主，能识别代理开/关）
@@ -21,7 +23,10 @@
  * 再重新探测——宁可多探测一次，也不让旧结论一直挂在错误的网络上。
  *
  * 结论永远可能出错（镜像中途挂、指纹太粗），因此渲染层还有第二道兜底：
- * `markUnreachable()` 在某一级加载失败时把它标记为不可达，并立刻往下退一级。
+ * `markUnreachable()` 在某一级加载失败时给它记一条**内存**负标记并立刻往下退一级。
+ * 标记不落盘：只在冷却窗口（`BROKEN_COOLDOWN_MS`）内让 `cachedImageSource`
+ * 绕开该级，窗口一过该级自动恢复资格（这就是给镜像的「宽裕重试」）；
+ * 持久化的「不可达」只由探测写入，而探测对单级要试满 3 次才认输，瞬时抖动不至于拉黑。
  */
 
 /** 图片来源。`origin` 是权威副本（源站），另两级是镜像。 */
@@ -38,6 +43,12 @@ export const PROBE_TIMEOUT_MS = 4000
 
 /** 只要一小段字节，够判定可达性即可，不必下载整图。 */
 export const PROBE_BYTES = 32768
+
+/** 探测的重试间隔：两次失败之间先等一下，把瞬时抖动让过去。 */
+export const PROBE_RETRY_DELAY_MS = 1000
+
+/** 渲染层失败负标记的冷却窗口：窗口内绕开该级，窗口过后自动恢复重试资格。 */
+export const BROKEN_COOLDOWN_MS = 60 * 1000
 
 /** 公网 IP 回显：Cloudflare 自家接口，纯文本 `ip=...`，CORS 为 `*`。 */
 const IP_ECHO_URL = 'https://1.1.1.1/cdn-cgi/trace'
@@ -71,6 +82,14 @@ interface SourceRecord {
 let knownIp: string | undefined
 /** IP 校验在一次页面会话内只做一次。 */
 let networkCheck: Promise<boolean> | null = null
+/** 渲染层失败负标记（内存态）：tier → 失败时刻。不落盘，语义见 `markUnreachable`。 */
+const brokenMarks = new Map<MirrorTier, number>()
+
+/** 该级的负标记是否还在冷却窗口内（窗口一过即视为恢复资格）。 */
+function tierBroken(tier: MirrorTier, now: number): boolean {
+  const at = brokenMarks.get(tier)
+  return at !== undefined && now - at < BROKEN_COOLDOWN_MS
+}
 
 /* ---------------- 本机记录 ---------------- */
 
@@ -144,12 +163,17 @@ export function cachedImageSource(now: number = Date.now()): MediaSource | null 
   if (!rec) return null
   if (rec.net !== localNetFingerprint()) return null
   if (now - rec.at > SOURCE_TTL_MS) return null
-  return bestSource(rec)
+  // 渲染层负标记只在冷却窗口内临时绕开对应一级，**不动落盘结论**：
+  // 窗口过后该级自动回到候选里（下次渲染就是一次重试机会），真正判死交给探测。
+  const eff = { ...rec }
+  if (tierBroken('mirror2', now)) eff.openlist = false
+  if (tierBroken('mirror', now)) eff.r2 = false
+  return bestSource(eff)
 }
 
 /**
- * 探测镜像可达性：一次带 `Range` 的小请求，成功即认为可达。
- * 失败（超时 / 非 2xx206 / 网络错误）一律判为不可达，并把结论记到本机。
+ * 探测镜像可达性：带 `Range` 的小请求，单级**试满 3 次才判不可达**，
+ * 并把结论记到本机。失败（超时 / 非 2xx206 / 网络错误）才落盘为「不可达」。
  *
  * **按优先级串行短路**：首选（OpenList）通了就不再探 R2——首选可达是常态，
  * 不该为每次冷启动多付一次请求。任一侧地址为空（未配置）即跳过该级。
@@ -167,11 +191,15 @@ export async function probeMirror(openlistUrl: string, r2Url = ''): Promise<Medi
 
   if (openlistUrl) {
     rec.openlist = await reachable(openlistUrl)
+    // 探测（自带 3 次尝试）是最权威的判据：探通了顺手解除渲染层负标记，
+    // 不让一条单次失败的记忆压住刚确认过的可达结论。
+    if (rec.openlist) brokenMarks.delete('mirror2')
   }
   // 首选已通就不再探次选：那一级的结论留空（undefined），别把「没探」记成「不可达」——
   // 记错了会让首选中途失效时直接掉到源站，白白绕开还能用的 R2。
   if (!rec.openlist && r2Url) {
     rec.r2 = await reachable(r2Url)
+    if (rec.r2) brokenMarks.delete('mirror')
   }
 
   writeRecord(rec)
@@ -179,20 +207,16 @@ export async function probeMirror(openlistUrl: string, r2Url = ''): Promise<Medi
 }
 
 /**
- * 渲染层兜底：某一级加载失败时把它标记为不可达，并沿用其余结论。
+ * 渲染层兜底：某一级加载失败时给它记一条**内存**负标记，调用方沿链退一级。
  * **只标失败的那一级**——OpenList 挂了不连累 R2，它正是链上该顶上的下一级。
+ *
+ * 与探测结论的本质区别：渲染失败可能只是一次瞬时错误（连接被掐断、CDN 抖动），
+ * 因此标记不写 localStorage——冷却窗口（`BROKEN_COOLDOWN_MS`）内
+ * `cachedImageSource` 绕开该级，窗口一过该级自动恢复资格，等于免费重试；
+ * 持久化的 `openlist=false` / `r2=false` 只由 `probeMirror` 写入（它自带 3 次尝试）。
  */
 export function markUnreachable(tier: MirrorTier): void {
-  const rec = readRecord() ?? { at: Date.now(), net: localNetFingerprint() }
-  const next: SourceRecord = {
-    ...rec,
-    at: Date.now(),
-    net: localNetFingerprint(),
-    ...(knownIp ? { ip: knownIp } : {}),
-  }
-  if (tier === 'mirror') next.r2 = false
-  else next.openlist = false
-  writeRecord(next)
+  brokenMarks.set(tier, Date.now())
 }
 
 /**
@@ -216,7 +240,9 @@ async function checkNetwork(): Promise<boolean> {
     return false
   }
   if (ip === rec.ip) return false
+  // 换网（典型是代理开/关）意味着旧网络下的渲染失败也一并作废：负标记跟着记录一起清。
   clearRecord()
+  brokenMarks.clear()
   return true
 }
 
@@ -240,8 +266,8 @@ async function fetchIp(): Promise<string | undefined> {
   }
 }
 
-/** 镜像侧可达性探测。非 2xx/206、超时、网络错误都视为不可达。 */
-async function reachable(url: string): Promise<boolean> {
+/** 单次可达性探测：非 2xx/206、超时、网络错误都算这一次失败。 */
+async function reachableOnce(url: string): Promise<boolean> {
   try {
     const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null
     const timer = ctrl ? setTimeout(() => ctrl.abort(), PROBE_TIMEOUT_MS) : null
@@ -256,6 +282,23 @@ async function reachable(url: string): Promise<boolean> {
   } finally {
     /* 见 fetchIp：超时用完即弃 */
   }
+}
+
+/**
+ * 镜像侧可达性判定：**试满 3 次才认输**——普通一次 + 退避
+ * `PROBE_RETRY_DELAY_MS` 后一次 + 快速复核一次。误判的代价是整条持久记录
+ * 在 TTL 内都绕开该级，比多等一秒重试贵得多；串行探测只在冷启动付这个时间，
+ * 首选可达（常态）第一次就返回，不为常态多花任何请求。
+ */
+async function reachable(url: string): Promise<boolean> {
+  if (await reachableOnce(url)) return true
+  await delay(PROBE_RETRY_DELAY_MS)
+  if (await reachableOnce(url)) return true
+  return reachableOnce(url)
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 /* ---------------- 地址拼装 ---------------- */
@@ -299,9 +342,10 @@ export function fallbackChain(
   return chain
 }
 
-/** 测试与手动重测用：清空本机记录与内存状态。 */
+/** 测试与手动重测用：清空本机记录、内存负标记与 IP 状态。 */
 export function resetImageSourceState(): void {
   clearRecord()
+  brokenMarks.clear()
   knownIp = undefined
   networkCheck = null
 }

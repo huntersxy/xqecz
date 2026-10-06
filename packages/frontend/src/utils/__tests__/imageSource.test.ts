@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
+  BROKEN_COOLDOWN_MS,
   cachedImageSource,
   fallbackChain,
   localNetFingerprint,
@@ -124,10 +125,11 @@ describe('probeMirror（按优先级串行短路地探镜像侧）', () => {
     await expect(probeMirror(QN, R2)).resolves.toBe('origin')
   })
 
-  it('没配次选时只探首选', async () => {
+  it('没配次选时只探首选（失败也试满 3 次）', async () => {
     const calls = stubFetch(() => new Response(null, { status: 500 }))
     await expect(probeMirror(QN)).resolves.toBe('origin')
-    expect(calls).toHaveLength(1)
+    expect(calls).toHaveLength(3)
+    expect(calls.every((c) => c.url === QN)).toBe(true)
     expect(readStore()?.r2).toBeUndefined()
   })
 
@@ -148,6 +150,35 @@ describe('probeMirror（按优先级串行短路地探镜像侧）', () => {
     await probeMirror(QN)
     expect(calls[0].init?.headers).toMatchObject({ Range: 'bytes=0-32767' })
     expect(calls[0].init?.cache).toBe('no-store')
+  })
+
+  it('单次失败不判死：退避重试成功仍算可达（瞬时抖动不拉黑）', async () => {
+    const hits: Record<string, number> = {}
+    stubFetch((url) => {
+      hits[url] = (hits[url] ?? 0) + 1
+      if (url === QN) return new Response(null, { status: hits[url] === 1 ? 500 : 206 })
+      return new Response(null, { status: 206 })
+    })
+    await expect(probeMirror(QN, R2)).resolves.toBe('mirror2')
+    expect(hits[QN]).toBe(2)
+  })
+
+  it('两连败后第三次复核通过也算可达', async () => {
+    const hits: Record<string, number> = {}
+    stubFetch((url) => {
+      hits[url] = (hits[url] ?? 0) + 1
+      if (url === QN) return new Response(null, { status: hits[url] < 3 ? 500 : 206 })
+      return new Response(null, { status: 206 })
+    })
+    await expect(probeMirror(QN, R2)).resolves.toBe('mirror2')
+    expect(hits[QN]).toBe(3)
+  })
+
+  it('三连败才判不可达：每级恰好 3 次尝试', async () => {
+    const calls = stubFetch(() => new Response(null, { status: 500 }))
+    await expect(probeMirror(QN, R2)).resolves.toBe('origin')
+    expect(calls.filter((c) => c.url === QN)).toHaveLength(3)
+    expect(calls.filter((c) => c.url === R2)).toHaveLength(3)
   })
 })
 
@@ -170,6 +201,17 @@ describe('recheckNetwork（IP 变了才推翻旧结论）', () => {
     stubFetch(() => new Response('ip=5.6.7.8\nloc=CN\n'))
     await expect(recheckNetwork()).resolves.toBe(true)
     expect(localStorage.getItem(STORE_KEY)).toBeNull()
+  })
+
+  it('换网同时清掉渲染层负标记（旧网络下的失败不该拖累新网络）', async () => {
+    seed({ openlist: true, r2: true, ip: '1.2.3.4' })
+    markUnreachable('mirror2')
+    expect(cachedImageSource()).toBe('mirror')
+    stubFetch(() => new Response('ip=5.6.7.8\nloc=CN\n'))
+    await expect(recheckNetwork()).resolves.toBe(true)
+    // 记录已被换网清掉，负标记也一并作废；重新 seed 后 mirror2 恢复资格。
+    seed({ openlist: true, r2: true, ip: '5.6.7.8' })
+    expect(cachedImageSource()).toBe('mirror2')
   })
 
   it('IP 接口失败时保持旧结论——拿不准就不推翻', async () => {
@@ -197,42 +239,58 @@ describe('recheckNetwork（IP 变了才推翻旧结论）', () => {
   })
 })
 
-describe('markUnreachable（渲染层兜底的回写）', () => {
-  it('首选（OpenList）取不到 → 只标首选，R2 可达时改判为 mirror', async () => {
+describe('markUnreachable（渲染层兜底：内存负标记，60s 冷却）', () => {
+  it('首选（OpenList）取不到 → 冷却窗口内只绕开首选，R2 可达时改判为 mirror', () => {
     seed({ openlist: true, r2: true })
     expect(cachedImageSource()).toBe('mirror2')
     markUnreachable('mirror2')
     expect(cachedImageSource()).toBe('mirror')
-    expect(readStore()?.openlist).toBe(false)
+    // 不落盘：持久结论保持原样，判死只归探测管。
+    expect(readStore()?.openlist).toBe(true)
     expect(readStore()?.r2).toBe(true)
   })
 
-  it('两级都取不到 → origin', () => {
+  it('两级都取不到 → 冷却窗口内 origin', () => {
     seed({ openlist: true, r2: true })
     markUnreachable('mirror2')
     markUnreachable('mirror')
     expect(cachedImageSource()).toBe('origin')
   })
 
-  it('R2 取不到不会连累首选（OpenList）的结论', () => {
-    seed({ openlist: false, r2: true })
-    markUnreachable('mirror')
-    expect(readStore()?.openlist).toBe(false)
-    expect(cachedImageSource()).toBe('origin')
-  })
-
-  it('首选结论保留、只标死 R2 时仍回到首选', () => {
+  it('R2 取不到不会连累首选（OpenList）的资格', () => {
     seed({ openlist: true, r2: true })
     markUnreachable('mirror')
-    expect(readStore()?.openlist).toBe(true)
     expect(cachedImageSource()).toBe('mirror2')
+    expect(readStore()?.r2).toBe(true)
   })
 
-  it('没有任何记录时兜底标记也安全，且写在「当前」网络指纹下', () => {
-    markUnreachable('mirror')
+  it('冷却窗口一过，该级自动恢复资格（这就是宽裕的重试）', () => {
+    seed({ openlist: true, r2: false })
+    markUnreachable('mirror2')
     expect(cachedImageSource()).toBe('origin')
-    expect(readStore()?.net).toBe(localNetFingerprint())
-    expect(readStore()?.r2).toBe(false)
+    expect(cachedImageSource(Date.now() + BROKEN_COOLDOWN_MS + 1)).toBe('mirror2')
+  })
+
+  it('冷却窗口内重提同一级只是续期，不会把失败永久化', () => {
+    seed({ openlist: true, r2: true })
+    markUnreachable('mirror2')
+    markUnreachable('mirror2')
+    expect(cachedImageSource()).toBe('mirror')
+    expect(readStore()?.openlist).toBe(true)
+  })
+
+  it('没有记录时负标记也安全（最多降到 origin，不抛错）', () => {
+    markUnreachable('mirror')
+    expect(cachedImageSource()).toBeNull()
+  })
+
+  it('探测探通后解除该级的负标记', async () => {
+    seed({ openlist: true, r2: true })
+    markUnreachable('mirror2')
+    expect(cachedImageSource()).toBe('mirror')
+    stubFetch(() => new Response(null, { status: 206 }))
+    await probeMirror(QN)
+    expect(cachedImageSource()).toBe('mirror2')
   })
 })
 
