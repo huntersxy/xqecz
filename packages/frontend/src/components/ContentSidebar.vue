@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { IconCopy } from '@arco-design/web-vue/es/icon'
 import { useRouter } from 'vue-router'
 import { renderMarkdown } from '@/utils'
 import { useUserStore } from '@/stores/user'
@@ -60,12 +61,11 @@ defineExpose({ commentRef })
         <div v-else class="cd-avatar">{{ (content.user.username || '?').slice(0, 1).toUpperCase() }}</div>
         <div class="cd-author-info">
           <span class="cd-author-name">{{ content.user.username }}</span>
-          <span class="cd-author-id">ID #{{ content.user.id }}</span>
+          <span class="cd-author-id">作品分享者 · ID #{{ content.user.id }}</span>
         </div>
       </div>
       <div class="cd-author-actions">
         <button class="cd-claim-btn" type="button" @click="userStore.isLoggedIn ? $emit('open-claim') : router.push('/login')">认领</button>
-        <button class="cd-follow-btn" type="button">+ 关注</button>
       </div>
     </div>
 
@@ -78,8 +78,8 @@ defineExpose({ commentRef })
 
     <div v-if="content.text" class="cd-section">
       <div class="cd-section-head">
-        <span class="cd-section-title">简介</span>
-        <button class="cd-copy-btn" type="button" @click="copyPrompt">复制</button>
+        <span class="cd-section-title">关于这份创作</span>
+        <button class="cd-copy-btn" type="button" @click="copyPrompt"><IconCopy /> <span>复制正文</span></button>
       </div>
       <div class="cd-prompt" v-html="renderedText"></div>
     </div>
@@ -114,21 +114,22 @@ defineExpose({ commentRef })
 
 <style scoped>
 .cd-side {
-  flex: 0 0 40%; max-width: 460px; display: flex; flex-direction: column; gap: 0.75rem;
-  padding: 1rem; background: var(--color-header-bg);
-  border-left: 1px solid var(--color-border); overflow-y: scroll; scrollbar-gutter: stable;
+  flex: 0 0 360px; max-width: 400px; display: flex; flex-direction: column; gap: 22px;
+  padding: 24px; background: var(--color-header-bg);
+  border-left: 1px solid var(--color-border); overflow-y: scroll; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--creative-line) var(--creative-paper);
 }
 
 .cd-author {
-  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
-  padding: 0.75rem; background: var(--color-surface);
-  border: 1px solid var(--color-border); border-radius: 10px;
+  position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px; background: linear-gradient(135deg, var(--creative-soft), var(--creative-paper) 72%);
+  border: 1px solid var(--creative-line); border-radius: 15px; overflow: hidden;
 }
+.cd-author::after { content: ''; position: absolute; right: -20px; top: -22px; width: 74px; height: 74px; border: 1px solid color-mix(in srgb, var(--creative-accent) 18%, transparent); border-radius: 50%; box-shadow: 0 0 0 10px color-mix(in srgb, var(--creative-accent) 5%, transparent); pointer-events: none; }
 .cd-author-left { display: flex; align-items: center; gap: 0.625rem; min-width: 0; }
 .cd-avatar {
   width: 38px; height: 38px; border-radius: 50%;
-  background: var(--color-primary);
-  color: var(--color-on-primary); display: flex; align-items: center; justify-content: center;
+  background: var(--creative-soft); border: 1px solid var(--creative-line);
+  color: var(--creative-accent); display: flex; align-items: center; justify-content: center;
   font-size: 1rem; font-weight: 700; flex-shrink: 0;
 }
 .cd-avatar-img { width: 38px; height: 38px; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
@@ -138,40 +139,37 @@ defineExpose({ commentRef })
 .cd-author-id { font-size: 0.6875rem; color: var(--color-text-secondary); }
 .cd-author-actions { display: flex; gap: 0.375rem; flex-shrink: 0; }
 .cd-claim-btn {
-  padding: 0.375rem 0.625rem; font-size: 0.6875rem; color: var(--color-text-secondary);
-  background: var(--color-hover); border: 1px solid var(--color-border); border-radius: 999px; cursor: pointer;
+  position: relative; padding: 7px 12px; font: inherit; font-size: 11px; color: var(--creative-accent);
+  background: var(--creative-paper); border: 1px solid color-mix(in srgb, var(--creative-accent) 25%, var(--creative-line)); border-radius: 999px; cursor: pointer;
+  transition: background .18s, color .18s, box-shadow .18s;
 }
-.cd-claim-btn:hover,
-.cd-copy-btn:hover { color: var(--color-primary); border-color: var(--color-primary); }
-.cd-follow-btn {
-  padding: 0.375rem 0.875rem; font-size: 0.75rem; font-weight: 600;
-  color: var(--color-on-primary); background: var(--color-primary);
-  border: none; border-radius: 999px; cursor: pointer;
-}
-.cd-follow-btn:hover { filter: brightness(0.92); }
+.cd-claim-btn:hover { color: #fff; background: var(--creative-accent); box-shadow: 0 5px 14px color-mix(in srgb, var(--creative-accent) 18%, transparent); }
+.cd-copy-btn:hover { color: var(--creative-accent); border-color: color-mix(in srgb, var(--creative-accent) 35%, var(--creative-line)); background: var(--creative-soft); }
 
 .cd-section {
-  display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem;
-  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 10px;
+  display: flex; flex-direction: column; gap: 12px; padding: 0 0 22px;
+  background: var(--color-surface); border: 0; border-bottom: 1px solid var(--color-border); border-radius: 0;
 }
 .cd-section-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-.cd-section-title { font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary); letter-spacing: 0.05em; text-transform: uppercase; }
+.cd-section-title { display: inline-flex; align-items: center; gap: 7px; font-size: 0.75rem; font-weight: 600; color: var(--creative-ink); letter-spacing: .04em; }
+.cd-section-title::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--creative-accent); box-shadow: 0 0 0 4px var(--creative-soft); }
 .cd-copy-btn {
-  background: transparent; border: 1px solid var(--color-border);
-  color: var(--color-text-secondary); font-size: 0.6875rem; padding: 2px 8px;
-  border-radius: 4px; cursor: pointer; transition: all 0.15s;
+  display: inline-flex; align-items: center; gap: 5px; background: var(--creative-canvas); border: 1px solid var(--creative-line);
+  color: var(--creative-muted); font: inherit; font-size: 11px; padding: 5px 9px;
+  border-radius: 999px; cursor: pointer; transition: color .18s, border-color .18s, background .18s;
 }
+.cd-copy-btn svg { width: 13px; height: 13px; }
 .cd-tag-list,
 .cd-gen-params { display: flex; flex-wrap: wrap; gap: 0.375rem; }
 .cd-tag {
   display: inline-block; padding: 0.1875rem 0.625rem; font-size: 0.75rem; color: var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent); border-radius: 999px;
+  background: var(--creative-soft);
+  border: 1px solid transparent; border-radius: 999px;
 }
 
 .cd-prompt {
-  font-size: 0.8125rem;
-  line-height: 1.75;
+  font-size: 12px;
+  line-height: 1.9;
   color: var(--color-text);
   max-height: 260px;
   overflow-y: auto;
@@ -234,4 +232,6 @@ defineExpose({ commentRef })
 }
 .cd-gen-label { color: var(--color-text-secondary); font-weight: 600; letter-spacing: 0.04em; }
 .cd-gen-value { color: var(--color-text); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+@media (min-width: 769px) and (max-width: 1024px) { .cd-side { flex-basis: 320px; padding: 20px; } }
+@media (max-width: 768px) { .cd-side { padding: 22px; gap: 20px; } }
 </style>

@@ -3,13 +3,45 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import MediaImage from '@/components/MediaImage.vue'
 import { getPreviewText } from '@/utils'
 import type { Content } from '@/types'
+import { contentApi } from '@/api'
+import { toast } from '@/composables/useToast'
 
 interface Props {
   item: Content
 }
 
 const props = defineProps<Props>()
-const emit = defineEmits<{ click: [content: Content]; imageLoaded: [id: string | number] }>()
+const emit = defineEmits<{
+  click: [content: Content]
+  imageLoaded: [id: string | number]
+  /** 点赞结果回传列表：父级持有 allContents，不更新它的话返回首页时缓存会把数量复原。 */
+  liked: [payload: { id: string | number; liked: boolean; like_count: number }]
+}>()
+const likeCount = ref(props.item.like_count || 0)
+const isLiked = ref(false)
+const isLikePending = ref(false)
+
+async function toggleLike(event: MouseEvent) {
+  event.stopPropagation()
+  if (isLikePending.value) return
+  isLikePending.value = true
+  try {
+    const res = await contentApi.toggleLike(Number(props.item.id))
+    if (res.code === 200) {
+      isLiked.value = res.data.liked
+      likeCount.value = res.data.like_count
+      emit('liked', { id: props.item.id, liked: res.data.liked, like_count: res.data.like_count })
+    }
+  } catch (err) {
+    // request() 已对非 401 失败弹过 toast；只有未登录这一种需要额外引导，
+    // 其余情况静默即可，不能在事件回调里把异常放出去（会冒泡到 ErrorBoundary 顶掉整页）。
+    if ((err as { status?: number })?.status === 401) {
+      toast.info('登录后即可点赞')
+    }
+  } finally {
+    isLikePending.value = false
+  }
+}
 
 // 纯文本卡：从正文提炼一段摘要（去 Markdown），无正文时回退到标题
 const previewText = computed(() => {
@@ -62,11 +94,22 @@ onBeforeUnmount(() => ro?.disconnect())
     <div class="wf-card-info">
       <span class="wf-card-title">{{ props.item.title }}</span>
       <div class="wf-card-meta">
-        <span class="wf-card-user">{{ props.item.user?.username }}</span>
-        <span class="wf-card-views">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-          {{ props.item.like_count || 0 }}
+        <span class="wf-card-user">
+          <span class="wf-card-user-mark" aria-hidden="true">{{ (props.item.user?.username || '?').slice(0, 1) }}</span>
+          <span class="wf-card-user-name">{{ props.item.user?.username }}</span>
         </span>
+        <button
+          class="wf-card-like"
+          :class="{ liked: isLiked, pending: isLikePending }"
+          type="button"
+          :aria-label="isLiked ? '取消点赞' : '点赞'"
+          :aria-pressed="isLiked"
+          :title="isLiked ? '取消点赞' : '点赞'"
+          @click="toggleLike"
+        >
+          <svg viewBox="0 0 24 24" :fill="isLiked ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.8"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          <span>{{ likeCount }}</span>
+        </button>
       </div>
       <div v-if="props.item.tags?.length" class="wf-card-tags">
         <span v-for="tag in props.item.tags.slice(0, 3)" :key="tag" class="wf-mini-tag">{{ tag }}</span>
@@ -77,135 +120,68 @@ onBeforeUnmount(() => ro?.disconnect())
 
 <style scoped>
 .wf-card {
-  margin-bottom: 10px;
-  border-radius: 0.625rem;
-  overflow: hidden;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  --card-paper: var(--creative-paper);
+  --card-ink: var(--creative-ink);
+  --card-muted: var(--creative-muted);
+  --card-line: var(--creative-line);
+  --card-soft: var(--creative-soft);
+  --card-accent: var(--creative-accent);
+  margin-bottom: 12px;
+  padding: 6px;
+  border-radius: 16px;
+  background: var(--card-paper);
+  border: 1px solid var(--card-line);
+  box-shadow: 0 2px 5px rgba(61, 29, 46, .025);
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
   box-sizing: border-box;
-  /* 卡片宽度由瀑布流按列数算出（JS 写死内联 width），与视口宽度并不等价：
-     同样 375px 的窄屏，2 列时每列 ~170px、单列时整屏宽。故这里声明为容器，
-     内部排版按「这张卡片实际多宽」自适应，而不是按媒体查询猜视口。
-     inline-size 只隔离行内方向，块高仍由内容决定 —— 瀑布流靠 ResizeObserver
-     量卡片高度重排，这一点不能被 contain 掉。
-      另：inline-size 包含只让「固有宽度」不再由内容撑出，而卡片宽度自始至终是 JS
-      写死的内联 px（未布局那一帧为 0px，与加容器前一致），故不改变既有几何；
-      卡片本就是 position:absolute，成为包含块/层叠上下文也不是新事。 */
-  container-type: inline-size;
-  container-name: wfc;
+  /* Preserve content-driven block height for waterfall measurement. */
+  container: wfc / inline-size;
+  transition: border-color .18s ease, box-shadow .18s ease;
 }
-.wf-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
-.wf-card:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
-
-.wf-card-media {
-  position: relative; width: 100%; overflow: hidden; line-height: 0;
-  min-height: 80px; background: var(--color-placeholder);
+.wf-card:focus-visible { outline: 2px solid var(--card-accent); outline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) {
+  .wf-card:hover { border-color: color-mix(in srgb, var(--card-accent) 45%, var(--card-line)); box-shadow: var(--creative-shadow); }
+  .wf-card:hover .wf-card-title { color: var(--card-accent); }
 }
-/* Arco <Image> 包裹层默认 inline-block，需改为块级填满卡片宽度；破图时 wrapper 不能塌成 0，否则 .arco-image-error 绝对定位 overlay 无高度可显示 */
+.wf-card-media { position: relative; overflow: hidden; border-radius: 11px; min-height: 80px; background: var(--color-placeholder); line-height: 0; }
 .wf-card-media :deep(.arco-image) { display: block; width: 100%; min-height: 80px; border-radius: 0; }
-.wf-card-media :deep(.arco-image-img) { width: 100%; height: auto; display: block; vertical-align: top; }
-
-/* 暗色下给卡片图片叠一层灰色半透明遮罩，与壁纸压暗保持一致 */
-body[arco-theme='dark'] .wf-card-media::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background: rgba(0, 0, 0, 0.35);
-  pointer-events: none;
-}
-
-.wf-badge-ai {
-  position: absolute; top: 0.375rem; left: 0.375rem;
-  padding: 0.0625rem 0.375rem; font-size: 0.5625rem; font-weight: 700;
-  letter-spacing: 0.04em; color: #fff;
-  background: rgba(var(--purple-6), 0.85); border-radius: 0.25rem;
-  z-index: 2; /* 保持在遮罩之上 */
-}
-
-.wf-card-text-body {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  min-height: 150px;
-  padding: 1rem 0.875rem 0.75rem;
-  background: linear-gradient(165deg, var(--color-fill-2), var(--color-bg-2));
-}
-
-.wf-card-text-mark {
-  position: absolute;
-  top: 0.25rem;
-  left: 0.625rem;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 2.25rem;
-  line-height: 1;
-  color: rgb(var(--primary-3));
-  opacity: 0.85;
-  pointer-events: none;
-}
-
-.wf-card-text-excerpt {
-  margin: 1.375rem 0 0.5rem;
-  font-size: 0.8125rem;
-  line-height: 1.65;
-  color: var(--color-text-2);
-  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
-  word-break: break-word;
-}
-
-.wf-card-text-more {
-  margin-top: auto;
-  align-self: flex-end;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: rgb(var(--primary-6));
-  opacity: 0.75;
-  transition: opacity 0.2s, transform 0.2s;
-}
-
-.wf-card:hover .wf-card-text-more {
-  opacity: 1;
-  transform: translateX(2px);
-}
-
-.wf-card-info { padding: 0.5rem 0.625rem 0.625rem; }
-.wf-card-title {
-  display: block; font-size: 0.8125rem; font-weight: 600; color: var(--color-text);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 0.25rem;
-}
-.wf-card-meta { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-.wf-card-user { font-size: 0.6875rem; color: var(--color-text-secondary); }
-.wf-card-views {
-  display: flex; align-items: center; gap: 0.25rem;
-  font-size: 0.625rem; color: var(--color-text-secondary);
-}
-.wf-card-views svg { width: 0.75rem; height: 0.75rem; }
-.wf-card-tags { display: flex; gap: 0.25rem; margin-top: 0.375rem; flex-wrap: wrap; }
-.wf-mini-tag {
-  font-size: 0.5625rem; padding: 0.0625rem 0.375rem; border-radius: 1rem;
-  background: var(--color-hover); color: var(--color-text-secondary);
-}
-
-/* ── 按卡片自身宽度（而非视口）自适应排版 ──
-   窄列（多列大屏、2 列手机）下省字号省留白，避免标签把标题挤成纯省略号；
-   宽列（1-2 列）下放开字号与摘要行数，否则整屏宽的单列卡片只有 13px 正文，
-   读起来像缩略图。阈值取当前列宽分布的两端，不是随手数字。 */
+.wf-card-media :deep(.arco-image-img) { display: block; width: 100%; height: auto; vertical-align: top; }
+.wf-card-media :deep(.arco-image-footer) { display: none !important; }
+:global(body[arco-theme='dark']) .wf-card-media::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.18); pointer-events: none; }
+.wf-badge-ai { position: absolute; top: 9px; left: 9px; z-index: 2; padding: 5px 7px; border: 1px solid rgba(255,255,255,.75); border-radius: 6px; background: #fff4f8; color: #a43664; font-size: 9px; font-weight: 700; line-height: 1; letter-spacing: .04em; }
+.wf-card-info { padding: 13px 9px 9px; }
+.wf-card-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; margin-bottom: 10px; font-size: 14px; font-weight: 600; line-height: 1.5; color: var(--card-ink); transition: color .18s ease; }
+.wf-card-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.wf-card-user { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11px; color: var(--card-muted); }
+.wf-card-user-mark { display: grid; place-items: center; flex: 0 0 22px; height: 22px; border-radius: 50%; background: var(--card-soft); color: var(--card-accent); font-size: 10px; font-weight: 600; }
+.wf-card-user-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-card-like { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; padding: 3px 0; border: 0; background: transparent; color: var(--card-muted); cursor: pointer; font: inherit; font-size: 11px; font-variant-numeric: tabular-nums; transition: color .18s ease, opacity .18s ease; }
+.wf-card-like svg { width: 13px; height: 13px; color: var(--card-accent); transition: transform .18s ease; }
+.wf-card-like:hover { color: var(--card-accent); }
+.wf-card-like:hover svg { transform: scale(1.12); }
+.wf-card-like.liked { color: var(--card-accent); }
+.wf-card-like.pending { opacity: .55; cursor: wait; }
+.wf-card-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 11px; padding-top: 10px; border-top: 1px solid var(--card-line); }
+.wf-mini-tag { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 7px; border-radius: 5px; font-size: 10px; line-height: 1.4; color: var(--card-muted); background: var(--card-soft); }
+.wf-card-text-body { position: relative; display: flex; flex-direction: column; min-height: 185px; padding: 20px 16px 15px; border-radius: 11px; background: linear-gradient(145deg, var(--card-soft), var(--card-paper)); }
+.wf-card-text-mark { font: 42px/1 Georgia, serif; color: var(--card-accent); opacity: .45; height: 28px; pointer-events: none; }
+.wf-card-text-excerpt { display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; margin: 10px 0 18px; color: var(--card-ink); font-size: 13px; line-height: 1.85; }
+.wf-card-text-more { margin-top: auto; align-self: flex-end; font-size: 11px; color: var(--card-accent); }
 @container wfc (max-width: 190px) {
-  .wf-card-info { padding: 0.375rem 0.5rem 0.5rem; }
-  .wf-card-title { font-size: 0.75rem; }
-  .wf-card-user { font-size: 0.625rem; }
-  .wf-card-views { font-size: 0.5625rem; }
-  .wf-mini-tag { font-size: 0.5rem; padding: 0.0625rem 0.25rem; }
-  .wf-card-text-body { min-height: 120px; padding: 0.75rem 0.625rem 0.5rem; }
-  .wf-card-text-excerpt { -webkit-line-clamp: 3; font-size: 0.75rem; }
+  .wf-card-info { padding: 10px 5px 6px; }
+  .wf-card-title { font-size: 12px; margin-bottom: 8px; }
+  .wf-card-user { gap: 4px; font-size: 10px; }
+  .wf-card-user-mark { flex-basis: 18px; height: 18px; font-size: 9px; }
+  .wf-card-like { font-size: 10px; gap: 3px; }
+  .wf-mini-tag { font-size: 9px; padding: 2px 5px; }
+  .wf-card-tags { gap: 4px; margin-top: 8px; padding-top: 8px; }
+  .wf-card-text-body { padding: 15px 10px 12px; min-height: 150px; }
+  .wf-card-text-excerpt { font-size: 12px; -webkit-line-clamp: 4; }
 }
-
 @container wfc (min-width: 260px) {
-  .wf-card-info { padding: 0.625rem 0.875rem 0.75rem; }
-  .wf-card-title { font-size: 0.9375rem; }
-  .wf-card-text-body { min-height: 170px; padding: 1.25rem 1.125rem 0.875rem; }
-  .wf-card-text-excerpt { -webkit-line-clamp: 7; font-size: 0.875rem; }
+  .wf-card-info { padding: 15px 11px 11px; }
+  .wf-card-title { font-size: 15px; }
+  .wf-card-text-body { padding: 23px 19px 18px; min-height: 210px; }
+  .wf-card-text-excerpt { font-size: 14px; -webkit-line-clamp: 6; }
 }
 </style>

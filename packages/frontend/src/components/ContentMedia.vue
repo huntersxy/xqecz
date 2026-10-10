@@ -170,7 +170,7 @@ defineExpose({ mediaKind, mediaUrl })
       您的浏览器不支持视频播放。
     </video>
     <div v-else class="cd-text-only">
-      <p v-if="content.text" class="cd-text-content" v-html="renderedText"></p>
+      <div v-if="content.text" class="cd-text-content" v-html="renderedText"></div>
       <p v-else>{{ content.title }}</p>
     </div>
   </section>
@@ -178,8 +178,8 @@ defineExpose({ mediaKind, mediaUrl })
 
 <style scoped>
 .cd-media-wrap {
-  flex: 1 1 60%; min-width: 0; display: flex; align-items: center; justify-content: center;
-  background: var(--color-bg); padding: 1rem; overflow: hidden;
+  flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center;
+  background: var(--creative-canvas); padding: 28px; overflow: hidden;
 }
 .cd-media-image { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: zoom-in; min-height: 0; }
 /* 冷启动唯一一次等待：镜像可达性尚未有结论时不渲染媒体，避免「先源站后换源」的重复请求 */
@@ -187,6 +187,8 @@ defineExpose({ mediaKind, mediaUrl })
 .cd-media-loading-dot { width: 1.25rem; height: 1.25rem; border-radius: 50%; background: var(--color-text-3); animation: cd-media-pulse 1s ease-in-out infinite alternate; }
 @keyframes cd-media-pulse { from { opacity: 0.25; } to { opacity: 0.85; } }
 /* Arco <Image> 的 .arco-image 包裹层：填满媒体区并居中，作为内部 .arco-image-img 的百分比高度基准 */
+/* 标题已在详情页头部展示，关闭 Arco 自动生成的空图片页脚遮罩。 */
+.cd-media-image :deep(.arco-image-footer) { display: none; }
 .cd-image {
   width: 100%;
   height: 100%;
@@ -204,7 +206,8 @@ defineExpose({ mediaKind, mediaUrl })
   width: auto;
   height: auto;
   object-fit: contain;
-  border-radius: 6px;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(48, 26, 41, .07);
   user-select: none;
 }
 .cd-video { width: 100%; max-height: 100%; border-radius: 8px; background: #000; }
@@ -247,9 +250,14 @@ defineExpose({ mediaKind, mediaUrl })
 }
 .cd-text-content {
   text-align: left;
+  padding: 28px 32px;
+  border-radius: 12px;
+  border: 1px solid var(--creative-line);
+  background: var(--creative-paper);
+  box-shadow: var(--creative-shadow);
   font-size: 1rem;
   line-height: 1.85;
-  color: var(--color-text-1);
+  color: var(--creative-ink);
   word-break: break-word;
 }
 .cd-text-content :deep(p) { margin: 0 0 1.1em; }
@@ -276,7 +284,7 @@ defineExpose({ mediaKind, mediaUrl })
   margin: 0 0 1.1em;
   padding: 0.6em 1em;
   border-left: 3px solid rgb(var(--primary-6));
-  background: var(--color-fill-1);
+  background: var(--creative-soft);
   border-radius: 0 8px 8px 0;
   color: var(--color-text-2);
 }
@@ -327,7 +335,7 @@ defineExpose({ mediaKind, mediaUrl })
 .cd-text-content :deep(strong) { font-weight: 600; }
 
 @media (max-width: 768px) {
-  .cd-text-only { padding: 1.25rem 1.25rem 2rem; }
-  .cd-text-content { font-size: 0.9375rem; }
+  .cd-text-only { height: auto; overflow: visible; padding: 0; }
+  .cd-text-content { font-size: 0.9375rem; padding: 20px; }
 }
 </style>

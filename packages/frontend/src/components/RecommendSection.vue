@@ -116,11 +116,12 @@ onBeforeUnmount(() => {
 <template>
   <section id="recommend-section" class="wf-recommend">
     <div class="wf-recommend-head">
-      <h2>✨ 精选推荐</h2>
+      <h2><span class="wf-rec-spark" aria-hidden="true">✦</span> 精选推荐</h2>
       <button
         class="wf-rec-refresh"
         type="button"
         :disabled="isRecommendLoading"
+        aria-label="换一批推荐"
         :title="isRecommendLoading ? '刷新中…' : '换一批'"
         @click="onRefresh"
       >
@@ -132,6 +133,11 @@ onBeforeUnmount(() => {
         v-for="item in displayList"
         :key="item.id"
         class="wf-recommend-card"
+        role="button"
+        tabindex="0"
+        :aria-label="'查看作品：' + item.title"
+        @keydown.enter.prevent="emit('click', item)"
+        @keydown.space.prevent="emit('click', item)"
         @click="emit('click', item)"
       >
         <MediaImage
@@ -152,21 +158,23 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .wf-recommend {
-  max-width: 1600px; margin: 0 auto; padding: 1rem 1rem 0;
+  max-width: 1440px; margin: 0 auto; padding: 4px 0 0;
 }
 .wf-recommend-head {
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.625rem;
 }
 .wf-recommend-head h2 {
-  margin: 0; font-size: 0.9375rem; font-weight: 700; color: var(--color-text-1);
+  margin: 0; font-size: 0.9rem; font-weight: 600; color: var(--creative-ink);
 }
+
+:global(body[arco-theme='dark']) .wf-recommend-head h2 { color: var(--color-text-1); }
 
 .wf-rec-refresh {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; border-radius: 8px;
-  border: 1px solid var(--color-border-2);
-  background: var(--color-bg-2);
-  color: var(--color-text-2);
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid var(--creative-line);
+  background: var(--creative-paper);
+  color: var(--creative-muted);
   cursor: pointer;
   transition: color 0.2s, background 0.2s, border-color 0.2s;
 }
@@ -178,17 +186,17 @@ onBeforeUnmount(() => {
 
 .wf-recommend-scroll {
   display: flex; gap: 0.625rem; overflow-x: auto;
-  padding-bottom: 0.75rem; scrollbar-width: none;
+  padding: 2px 2px 12px; scrollbar-width: none;
 }
 .wf-recommend-scroll::-webkit-scrollbar { display: none; }
 
 .wf-recommend-card {
-  flex-shrink: 0; width: 140px; height: 180px; border-radius: 0.75rem;
+  flex-shrink: 0; width: 140px; height: 180px; border-radius: 12px;
   overflow: hidden; position: relative; cursor: pointer;
   background: var(--color-fill-2);
 }
 /* 暗色下给推荐缩略图叠一层灰色半透明遮罩，与壁纸/瀑布流卡片压暗保持一致 */
-body[arco-theme='dark'] .wf-recommend-card::after {
+:global(body[arco-theme='dark']) .wf-recommend-card::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -197,7 +205,7 @@ body[arco-theme='dark'] .wf-recommend-card::after {
   pointer-events: none;
 }
 /* 暗色下 --color-fill-2 为 rgba(255,255,255,0.08) 半透明，卡片会透出壁纸 → 改用实色深色 token */
-body[arco-theme='dark'] .wf-recommend-card { background: var(--color-bg-3); }
+:global(body[arco-theme='dark']) .wf-recommend-card { background: var(--color-bg-3); }
 /* Arco <Image> 包裹层需填满卡片，内层 .arco-image-img 的 cover 才生效 */
 .wf-recommend-card :deep(.arco-image) { display: block; width: 100%; height: 100%; }
 .wf-recommend-card :deep(.arco-image-img) {
@@ -214,4 +222,6 @@ body[arco-theme='dark'] .wf-recommend-card { background: var(--color-bg-3); }
   -webkit-box-orient: vertical; overflow: hidden;
   font-size: 0.6875rem; font-weight: 500; line-height: 1.3;
 }
+.wf-rec-spark { color: var(--creative-accent); margin-right: 5px; font-size: 15px; }
+.wf-recommend-card:focus-visible { outline: 2px solid var(--creative-accent); outline-offset: 2px; }
 </style>

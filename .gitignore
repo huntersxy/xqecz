@@ -43,3 +43,4 @@ _tmp_*
 
 # 本地 pnpm store（本机缓存，不入库）
 .pnpm-store/
+/browser-screenshots

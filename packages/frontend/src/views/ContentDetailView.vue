@@ -61,17 +61,19 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="cd-root">
+  <div class="cd-root creative-theme">
     <!-- 遮罩 -->
     <div class="cd-backdrop" @click="goBack"></div>
 
     <div class="cd-shell" @click.self="goBack">
       <!-- 顶部条 -->
       <header class="cd-topbar">
-        <a-button class="cd-back-btn" type="text" shape="circle" aria-label="返回" @click="goBack">
+        <button class="cd-back-btn" type="button" aria-label="返回" @click="goBack">
           <IconArrowLeft />
-        </a-button>
+          <span>返回</span>
+        </button>
         <div class="cd-topbar-title">
+          <span class="cd-eyebrow">CREATIVE ARCHIVE <span aria-hidden="true">✦</span></span>
           <h2 class="cd-title">{{ content?.title || '加载中...' }}</h2>
           <div v-if="content" class="cd-meta">
             <span class="cd-meta-item">
@@ -87,6 +89,7 @@ onMounted(() => {
             </span>
           </div>
         </div>
+        <span class="cd-topbar-note">每一份热爱，都有回响<span aria-hidden="true"> ✧</span></span>
       </header>
 
       <!-- 加载中 -->
@@ -141,6 +144,8 @@ onMounted(() => {
               v-for="item in previewItems"
               :key="item.id"
               :class="['cd-carousel-thumb', { 'cd-thumb-current': item.isCurrent }]"
+              :aria-label="item.title || '查看作品'"
+              :aria-current="item.isCurrent ? 'true' : undefined"
               @click="navigateTo(item.id)"
             >
               <MediaImage :src="item.thumb" :alt="item.title" :preview="false" loading="lazy" />
@@ -171,179 +176,58 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.cd-root {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text);
-  animation: cd-fade-in 0.2s ease-out;
-}
-
-.cd-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(8, 4, 18, 0.92);
-  backdrop-filter: blur(8px);
-}
-
-.cd-shell {
-  position: relative;
-  /* 用 100% 而非 100vw：vw 把滚动条/槽位宽度算在内，父级 .cd-root 是 inset:0，
-     写 100vw 会让壳子比可视区宽一个滚动条、两侧各溢出半截。html 现已常驻
-     scrollbar-gutter，这个偏差会长期存在，故一并修正。 */
-  width: 100%;
-  height: 100vh;
-  height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  background: var(--color-surface);
-  overflow: hidden;
-}
-
-@keyframes cd-fade-in {
-  from { opacity: 0; transform: scale(0.98); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-/* ── 顶部条 ── */
-.cd-topbar {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-header-bg);
-}
-
-.cd-back-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background 0.2s, color 0.2s;
-}
-.cd-back-btn:hover { background: var(--color-hover); color: var(--color-text); }
-.cd-back-btn svg { width: 18px; height: 18px; }
-
+.cd-root { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; color: var(--creative-ink); animation: cd-fade-in .22s ease-out; }
+.cd-backdrop { position: absolute; inset: 0; background: color-mix(in srgb, var(--creative-canvas) 86%, transparent); backdrop-filter: blur(12px); }
+.cd-shell { position: relative; width: 100%; max-width: 1600px; height: 100%; display: flex; flex-direction: column; background: var(--creative-paper); border: 1px solid var(--creative-line); border-radius: 20px; overflow: hidden; box-shadow: var(--creative-shadow); }
+@keyframes cd-fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.cd-topbar { flex-shrink: 0; display: flex; align-items: center; gap: 18px; padding: 17px 24px; border-bottom: 1px solid var(--creative-line); background: var(--creative-paper); }
+.cd-back-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 38px; height: 38px; padding: 0 12px 0 9px; border: 1px solid var(--creative-line); border-radius: 999px; background: var(--creative-paper); color: var(--creative-muted); font: inherit; font-size: 11px; letter-spacing: .04em; cursor: pointer; flex-shrink: 0; transition: background .2s, color .2s, border-color .2s, box-shadow .2s, transform .2s; }
+.cd-back-btn:hover { background: var(--creative-soft); color: var(--creative-accent); border-color: color-mix(in srgb, var(--creative-accent) 30%, var(--creative-line)); box-shadow: 0 5px 16px color-mix(in srgb, var(--creative-accent) 9%, transparent); }
+.cd-back-btn:active { transform: translateY(1px); }
+.cd-back-btn svg { width: 17px; height: 17px; }
 .cd-topbar-title { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.cd-title {
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1.3;
-  margin: 0;
-  color: var(--color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.cd-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.875rem;
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
-  margin-top: 2px;
-}
+.cd-eyebrow { font-size: 9px; letter-spacing: .16em; color: var(--creative-muted); margin-bottom: 5px; }
+.cd-eyebrow > span { margin-left: 6px; color: var(--creative-accent); }
+.cd-title { font-size: 18px; font-weight: 600; line-height: 1.4; margin: 0; color: var(--creative-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cd-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; font-size: 10px; color: var(--creative-muted); margin-top: 7px; }
 .cd-meta-item { display: inline-flex; align-items: center; gap: 4px; }
-.cd-meta-item svg { width: 13px; height: 13px; flex-shrink: 0; }
-.cd-meta-index { color: var(--color-primary); font-weight: 600; }
-
-/* ── 主体 ── */
-.cd-body { flex: 1; min-height: 0; display: flex; gap: 0; }
-
-/* ── 底部预览走马灯 ── */
-.cd-carousel {
-  flex-shrink: 0;
-  display: flex;
-  overflow-x: auto;
-  padding: 8px 12px;
-  background: var(--color-header-bg);
-  border-top: 1px solid var(--color-border);
-  scrollbar-width: none;
-}
+.cd-meta-item svg { width: 12px; height: 12px; flex-shrink: 0; }
+.cd-meta-index { color: var(--creative-accent); font-variant-numeric: tabular-nums; }
+.cd-topbar-note { color: var(--creative-muted); font-size: 11px; letter-spacing: .08em; flex-shrink: 0; }
+.cd-topbar-note > span { font-size: 18px; margin-left: 5px; color: var(--creative-accent); }
+.cd-body { flex: 1; min-height: 0; display: flex; scrollbar-width: thin; scrollbar-color: var(--creative-line) var(--creative-paper); }
+.cd-main { flex: 1; min-width: 0; display: flex; min-height: 0; }
+.cd-carousel { flex-shrink: 0; display: flex; overflow-x: auto; padding: 12px 20px; background: var(--creative-paper); border-top: 1px solid var(--creative-line); scrollbar-width: none; }
 .cd-carousel::-webkit-scrollbar { display: none; }
-
-.cd-carousel-group {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: max-content;
-  margin-inline: auto; /* 按钮+缩略图整体居中；溢出时贴左可滚动 */
-}
-
-.cd-carousel-track {
-  display: flex;
-  gap: 6px;
-}
-
-.cd-carousel-nav {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 50%;
-  background: var(--color-hover);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-.cd-carousel-nav:hover {
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-}
-.cd-carousel-thumb {
-  flex-shrink: 0;
-  width: 56px;
-  height: 56px;
-  border-radius: 6px;
-  overflow: hidden;
-  border: 2px solid transparent;
-  cursor: pointer;
-  padding: 0;
-  background: var(--color-border);
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-.cd-carousel-thumb:hover { border-color: var(--color-primary); }
-.cd-thumb-current {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 30%, transparent);
-}
-.cd-carousel-thumb :deep(.arco-image) { display: block; width: 100%; height: 100%; }
+.cd-carousel-group { display: flex; align-items: center; gap: 12px; width: max-content; margin-inline: auto; }
+.cd-carousel-track { display: flex; gap: 8px; }
+.cd-carousel-nav { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid var(--creative-line); border-radius: 50%; background: var(--creative-paper); color: var(--creative-muted); cursor: pointer; transition: background .15s, color .15s, border-color .15s, box-shadow .15s, transform .15s; }
+.cd-carousel-nav:hover { background: var(--creative-soft); color: var(--creative-accent); border-color: color-mix(in srgb, var(--creative-accent) 28%, var(--creative-line)); box-shadow: 0 4px 12px color-mix(in srgb, var(--creative-accent) 8%, transparent); }
+.cd-carousel-nav:active { transform: translateY(1px); }
+.cd-carousel-thumb { flex-shrink: 0; width: 50px; height: 50px; border-radius: 9px; overflow: hidden; border: 2px solid transparent; cursor: pointer; padding: 2px; background: var(--creative-canvas); transition: border-color .2s, box-shadow .2s; }
+.cd-carousel-thumb:hover { border-color: color-mix(in srgb, var(--creative-accent) 45%, transparent); }
+.cd-thumb-current { border-color: var(--creative-accent); box-shadow: 0 0 0 2px var(--creative-soft); }
+.cd-carousel-thumb :deep(.arco-image) { display: block; width: 100%; height: 100%; border-radius: 5px; overflow: hidden; }
 .cd-carousel-thumb :deep(.arco-image-img) { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-/* ── 中间主体 ── */
-.cd-main { flex: 1; min-width: 0; display: flex; }
-
-/* ── 加载中 ── */
-.cd-loading {
-  flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 1rem;
-  color: var(--color-text-secondary);
-}
-
-/* ── 窄屏 ── */
+.cd-loading { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; color: var(--creative-muted); background: var(--creative-canvas); }
+@media (max-width: 1024px) { .cd-topbar-note { display: none; } }
 @media (max-width: 768px) {
+  .cd-root { padding: 0; }
+  .cd-shell { border: 0; border-radius: 0; height: 100dvh; }
+  .cd-topbar { padding: 14px 16px; gap: 12px; }
+  .cd-back-btn { min-width: 38px; padding-inline: 9px; }
+  .cd-back-btn span { display: none; }
+  .cd-title { font-size: 16px; }
+  .cd-eyebrow { font-size: 8px; }
+  .cd-meta { gap: 10px; margin-top: 5px; }
   .cd-body { flex-direction: column; overflow-y: auto; }
-  .cd-main { flex-direction: column; }
-  .cd-carousel { padding: 6px 8px; }
-  .cd-carousel-nav { width: 24px; height: 24px; }
-  .cd-carousel-thumb { width: 48px; height: 48px; }
-  :deep(.cd-media-wrap) { flex: 1 1 100%; max-height: 50vh; }
-  :deep(.cd-side) { flex: 1 1 100%; max-width: 100%; border-left: none; border-top: 1px solid var(--color-border); }
+  .cd-main { flex: 0 0 auto; flex-direction: column; }
+  .cd-carousel { padding: 9px 12px; }
+  .cd-carousel-group { gap: 8px; }
+  .cd-carousel-nav { width: 26px; height: 26px; }
+  .cd-carousel-thumb { width: 42px; height: 42px; }
+  :deep(.cd-media-wrap) { flex: 0 0 auto; min-height: 200px; height: 44dvh; max-height: 50dvh; padding: 16px; }
+  :deep(.cd-media-wrap:has(.cd-text-only)) { height: auto; max-height: none; }
+  :deep(.cd-side) { flex: 0 0 auto; width: 100%; max-width: 100%; border-left: none; border-top: 1px solid var(--creative-line); overflow-y: visible; scrollbar-gutter: auto; }
 }
 </style>

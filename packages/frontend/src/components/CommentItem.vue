@@ -48,7 +48,7 @@ function onMenuSelect(value: string | number | Record<string, unknown> | undefin
         <span class="cd-comment-username">{{ comment.user?.username }}</span>
         <span class="cd-comment-time">{{ formatTime(comment.created_at) }}</span>
 
-        <a-dropdown v-if="canManage" trigger="click" position="br" @select="onMenuSelect">
+        <a-dropdown v-if="canManage" trigger="click" position="br" popup-container=".cd-root" @select="onMenuSelect">
           <a-button type="text" size="small" class="cd-comment-more" aria-label="更多操作">
             <IconMore />
           </a-button>
@@ -105,16 +105,19 @@ function onMenuSelect(value: string | number | Record<string, unknown> | undefin
 .cd-comment {
   display: flex;
   gap: 10px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--color-card);
-  border: 1px solid var(--color-border);
+  position: relative; padding: 13px 14px;
+  border-radius: 13px;
+  background: var(--creative-paper);
+  border: 1px solid var(--creative-line);
+  box-shadow: 0 7px 22px color-mix(in srgb, var(--creative-accent) 4%, transparent);
+  transition: border-color .18s, box-shadow .18s, transform .18s;
 }
 
+.cd-comment:hover { border-color: color-mix(in srgb, var(--creative-accent) 18%, var(--creative-line)); box-shadow: 0 10px 26px color-mix(in srgb, var(--creative-accent) 7%, transparent); }
+
 .cd-comment-avatar {
-  flex-shrink: 0;
-  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
-  color: var(--color-primary);
+  flex-shrink: 0; background: linear-gradient(145deg, var(--creative-soft), var(--creative-paper));
+  border: 1px solid color-mix(in srgb, var(--creative-accent) 14%, var(--creative-line)); color: var(--creative-accent);
 }
 
 .cd-comment-main {
@@ -130,52 +133,47 @@ function onMenuSelect(value: string | number | Record<string, unknown> | undefin
 }
 
 .cd-comment-username {
-  font-weight: 600;
+  font-weight: 650;
   font-size: 13px;
-  color: var(--color-text);
+  color: var(--creative-ink);
 }
 
 .cd-comment-time {
-  font-size: 12px;
-  color: var(--color-text-secondary);
+  font-size: 11px;
+  color: var(--creative-muted);
 }
 
 .cd-comment-more {
-  margin-left: auto;
-  color: var(--color-text-secondary);
+  margin-left: auto; width: 28px; height: 28px; border-radius: 50%; color: var(--creative-muted);
 }
+.cd-comment-more:hover { color: var(--creative-accent); background: var(--creative-soft); }
 
 .cd-comment-body {
   font-size: 13px;
-  line-height: 1.6;
-  color: var(--color-text);
+  line-height: 1.7;
+  color: var(--creative-ink);
 }
 
 .cd-comment-quote {
-  margin-bottom: 4px;
-  padding: 6px 8px;
-  border-left: 2px solid var(--color-primary);
-  border-radius: 6px;
-  background: var(--color-hover);
-  font-size: 12px;
-  color: var(--color-text-secondary);
+  margin-bottom: 7px; padding: 7px 9px;
+  border-left: 2px solid color-mix(in srgb, var(--creative-accent) 55%, transparent);
+  border-radius: 7px; background: var(--creative-soft);
+  font-size: 11px;
+  color: var(--creative-muted);
 }
 
 .cd-comment-quote-user {
   font-weight: 500;
 }
 
+.cd-comment-actions { margin-top: 8px; }
 .cd-comment-reply {
-  color: var(--color-text-secondary);
+  height: 27px; padding-inline: 8px; border-radius: 999px; color: var(--creative-muted);
 }
-
-.cd-comment-reply:hover {
-  color: var(--color-primary);
-}
+.cd-comment-reply:hover { color: var(--creative-accent); background: var(--creative-soft); }
 
 .cd-comment-replies {
-  margin-top: 8px;
-  padding-left: 10px;
-  border-left: 2px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+  margin-top: 10px; padding: 2px 0 0 10px;
+  border-left: 1px solid color-mix(in srgb, var(--creative-accent) 20%, transparent);
 }
 </style>

@@ -133,7 +133,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
 </script>
 
 <template>
-  <Layout class="app-layout">
+  <Layout :class="['app-layout', { 'creative-theme app-home-theme': route.path === '/' }]">
       <LayoutHeader class="app-header">
         <div class="app-header-inner">
           <RouterLink v-if="!isMobile" to="/" class="app-logo" @click="isMobileMenuOpen = false" aria-label="返回首页">
@@ -267,7 +267,11 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
       <Toaster position="top-center" />
       <ConfirmDialog />
 
-      <footer v-if="!route.path.startsWith('/admin')" class="app-footer" role="contentinfo">
+      <footer
+        v-if="!route.path.startsWith('/admin')"
+        :class="['app-footer', { 'app-footer-home': route.path === '/' }]"
+        role="contentinfo"
+      >
         <div class="app-footer-inner">
           <div class="app-footer-left">
             <span class="app-footer-text">© {{ currentYear }} 小泉动漫二创站</span>
@@ -554,6 +558,11 @@ body[arco-theme='dark'] .app-nav-item.app-nav-item-active:hover {
   border-top: 1px solid var(--color-border-2);
 }
 
+/* 首页内容已铺满白底，页脚直接接在瀑布流后，避免旧全局壁纸从外边距露出。 */
+.app-footer.app-footer-home {
+  margin-top: 0;
+}
+
 .app-footer-inner {
   max-width: 1400px;
   margin: 0 auto;
@@ -651,5 +660,15 @@ body[arco-theme='dark'] .app-nav-item.app-nav-item-active:hover {
     flex-direction: column;
     gap: 8px;
   }
+}
+.app-home-theme .app-header {
+  background: var(--creative-paper);
+  border-bottom-color: var(--creative-line);
+}
+.app-home-theme .app-footer { background: var(--creative-paper); border-color: var(--creative-line); }
+.app-home-theme .app-nav-item-active { color: var(--creative-accent); background: var(--creative-soft); }
+.app-home-theme :deep(.app-search-input),
+.app-home-theme :deep(.app-search-input-mobile) {
+  border-radius: 999px; background: var(--creative-canvas); border-color: var(--creative-line);
 }
 </style>

@@ -18,6 +18,7 @@ import WaterfallCard from '@/components/WaterfallCard.vue'
 import RecommendSection from '@/components/RecommendSection.vue'
 import QuickUploadSheet from '@/components/QuickUploadSheet.vue'
 import { IconUpload } from '@arco-design/web-vue/es/icon'
+import heroArt from '@/assets/bg.webp'
 import type { Content, ListParams, RecommendContent } from '@/types'
 
 const router = useRouter()
@@ -96,6 +97,13 @@ function openContent(content: Content | RecommendContent) {
   router.push(`/content/${content.id}`)
 }
 
+// 卡片内点赞成功后同步回列表：留在此页不跳转，但 allContents 是缓存与
+// onBeforeRouteLeave 写入 localStorage 的唯一来源，不回写就会在返回时被旧值复原。
+function onCardLiked(payload: { id: string | number; liked: boolean; like_count: number }) {
+  const target = allContents.value.find((item) => item.id === payload.id)
+  if (target) target.like_count = payload.like_count
+}
+
 // 离开首页（详情/后台/登录等任意跳转）时统一保存滚动位置与列表状态，
 // 返回时由 onActivated 恢复（keep-alive）。
 onBeforeRouteLeave(() => {
@@ -172,7 +180,18 @@ async function fetchPage(page: number, append = false, force = false) {
   }
 }
 
-function resetAndLoad() {
+function onTagSelect(tag: string) {
+  searchFilter.selectTag(tag, () => resetAndLoad(false))
+}
+
+function clearFilters() {
+  searchFilter.selectedTags.value = []
+  homeStore.searchKeyword = ''
+  resetAndLoad()
+}
+
+function resetAndLoad(clearTags = true) {
+  if (clearTags) searchFilter.selectedTags.value = []
   // 作废所有在途请求，防止旧响应把新筛选结果覆盖掉
   loadSeq++
   currentPage.value = 1
@@ -183,7 +202,7 @@ function resetAndLoad() {
   void fetchPage(1, false, true)
 }
 
-watchGlobalSearch(() => resetAndLoad())
+watchGlobalSearch(() => resetAndLoad(false))
 
 // 首次加载：自动连续拉取所有页（1-100 → 101-200 → …），不依赖滚动触发。
 // 图片仍由卡片自身的 loading="lazy" 懒加载，数据量小（每页 100 条）可一次拉满。
@@ -265,7 +284,7 @@ function captureViewAnchor(): { id: string | number; y: number; scrollY: number 
  * 3. 首次激活（keep-alive 首次挂载）由 onActivated 的 isFirstActivation 跳过。
  */
 async function syncLatestOnActivated() {
-  if (homeStore.searchKeyword || allContents.value.length === 0) return
+  if (swapSections.value || allContents.value.length === 0) return
   try {
     // 第一步：增量探测 —— 只拉最新一页，对比本地头部
     const probe = await contentApi.list({ page: 1, page_size: 100, sort_by: 'created_at', order: 'desc' })
@@ -408,7 +427,49 @@ onActivated(() => {
 </script>
 
 <template>
-  <div class="wf-root">
+  <div class="wf-root creative-theme">
+    <section v-if="!swapSections" class="wf-hero" aria-labelledby="home-title">
+      <div class="wf-hero-copy">
+        <span class="wf-kicker"><span class="wf-kicker-dot"></span> XQECZ / CREATIVE ARCHIVE</span>
+        <h1 id="home-title">把喜欢的世界，<em>拼成自己的故事</em></h1>
+        <p>动漫二创灵感集 · 文字、画面与每一次心动，都在这里相遇。</p>
+        <div class="wf-hero-actions">
+          <button class="wf-primary-action" type="button" @click="showUploadSheet = true">
+            <IconUpload /> 发布新作品
+          </button>
+          <span class="wf-hero-note">自由创作 · 温柔分享</span>
+        </div>
+      </div>
+      <div class="wf-hero-mark" :style="{ backgroundImage: `url(${heroArt})` }" aria-hidden="true">
+        <span class="wf-spark wf-spark-one">✦</span>
+        <span class="wf-spark wf-spark-two">✧</span>
+        <span class="wf-circle"></span>
+        <span class="wf-art-label">a little world of our own</span>
+        <span class="wf-mark-copy">MAKE<br /><b>YOUR</b><br />OWN</span>
+      </div>
+    </section>
+
+    <section v-if="!swapSections" class="wf-discovery" aria-label="发现内容">
+      <div class="wf-discovery-heading">
+        <div>
+          <span class="wf-section-kicker">CURATED FOR YOU</span>
+          <h2>今日灵感</h2>
+        </div>
+        <span class="wf-content-count">{{ total > 0 ? total : '—' }} 份创作</span>
+      </div>
+      <div class="wf-tag-row">
+        <button class="wf-tag-chip" :class="{ active: searchFilter.selectedTags.value.length === 0 }" type="button" @click="resetAndLoad()">全部</button>
+        <button
+          v-for="tag in searchFilter.sortedTags.value.slice(0, 8)"
+          :key="tag"
+          class="wf-tag-chip"
+          :class="{ active: searchFilter.selectedTags.value.includes(tag) }"
+          type="button"
+          @click="onTagSelect(tag)"
+        >{{ tag }}</button>
+      </div>
+    </section>
+
     <RecommendSection
       v-if="!swapSections && recommendLoader.recommendContents.value.length > 0"
       :loader="recommendLoader"
@@ -416,6 +477,18 @@ onActivated(() => {
     />
 
     <div class="wf-masonry-wrap">
+      <div class="wf-feed-heading">
+        <div>
+          <span class="wf-section-kicker">{{ swapSections ? 'SEARCH & DISCOVER' : 'THE LATEST STORIES' }}</span>
+          <h2>{{ homeStore.searchKeyword ? '搜索结果' : searchFilter.selectedTags.value[0] || '创作漫游' }}</h2>
+        </div>
+        <span class="wf-feed-caption">{{ swapSections ? total + ' 份相关创作' : '最新发布' }}</span>
+      </div>
+      <div v-if="swapSections" class="wf-filter-summary">
+        <span v-if="homeStore.searchKeyword">“{{ homeStore.searchKeyword }}”</span>
+        <span v-for="tag in searchFilter.selectedTags.value" :key="tag"># {{ tag }}</span>
+        <button type="button" @click="clearFilters">清除筛选</button>
+      </div>
       <div v-if="isLoading && allContents.length === 0" class="wf-center-state">
         <div class="wf-spinner-lg"></div><p>加载中...</p>
       </div>
@@ -441,6 +514,7 @@ onActivated(() => {
           }"
           @click="openContent"
           @image-loaded="onCardResized"
+          @liked="onCardLiked"
         />
       </div>
       <div v-if="isLoadingMore" class="wf-loadmore"><div class="wf-spinner-sm"></div><span>加载更多...</span></div>
@@ -449,7 +523,7 @@ onActivated(() => {
     </div>
 
     <!-- 移动端悬浮上传按钮 -->
-    <button class="wf-fab" @click="showUploadSheet = true">
+    <button class="wf-fab" type="button" title="发布新作品" aria-label="发布新作品" @click="showUploadSheet = true">
       <IconUpload />
     </button>
 
@@ -458,71 +532,84 @@ onActivated(() => {
   </div>
 </template>
 
-<style lang="scss" scoped>
-.wf-root { min-height: 100vh; background: transparent; color: var(--color-text-1); }
-
-.wf-masonry-wrap {
-  max-width: 1600px; margin: 0 auto; padding: 0.75rem 0.75rem 3rem;
-  @media (min-width: 640px) { padding: 1rem 1rem 3rem; }
+<style scoped>
+.wf-root {
+  --home-accent: var(--creative-accent);
+  --home-soft: var(--creative-soft);
+  --home-ink: var(--creative-ink);
+  --home-muted: var(--creative-muted);
+  --home-line: var(--creative-line);
+  --home-paper: var(--creative-paper);
+  min-height: 100vh;
+  background: var(--home-paper);
+  color: var(--home-ink);
+  padding: 0 28px;
 }
+.wf-hero, .wf-discovery, .wf-masonry-wrap { max-width: 1440px; margin: 0 auto; }
+.wf-hero {
+  display: flex; align-items: center; justify-content: space-between; gap: 30px;
+  padding: 48px 0 42px; border-bottom: 1px solid var(--home-line);
+}
+.wf-hero-copy { min-width: 0; }
+.wf-kicker, .wf-section-kicker { font-size: 10px; font-weight: 600; letter-spacing: .13em; color: var(--home-muted); }
+.wf-kicker { display: flex; align-items: center; gap: 8px; }
+.wf-kicker-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--home-accent); }
+.wf-hero h1 { margin: 14px 0 12px; font-size: clamp(28px, 2.5vw, 38px); font-weight: 600; line-height: 1.5; letter-spacing: -.035em; }
+.wf-hero h1 em { font-style: normal; color: var(--home-accent); }
+.wf-hero p { margin: 0; color: var(--home-muted); font-size: 13px; line-height: 1.8; }
+.wf-hero-actions { display: flex; align-items: center; gap: 20px; margin-top: 22px; }
+.wf-primary-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 18px; background: var(--home-accent); color: #fff; border: 0; border-radius: 999px; cursor: pointer; font-size: 12px; font-weight: 600; box-shadow: 0 5px 14px color-mix(in srgb, var(--home-accent) 16%, transparent); transition: background .2s, box-shadow .2s; }
+.wf-primary-action:hover { background: var(--creative-accent-hover); box-shadow: 0 6px 18px color-mix(in srgb, var(--home-accent) 24%, transparent); }
+.wf-hero-note { color: var(--home-muted); font-size: 11px; }
+.wf-hero-mark { position: relative; flex: 0 0 240px; height: 184px; display: grid; place-items: center; overflow: hidden; border-radius: 80px 14px 14px 14px; background-position: center 22%; background-size: cover; box-shadow: 10px 10px 0 var(--home-soft); }
+.wf-hero-mark::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(255,255,255,.88), rgba(255,240,245,.12)); }
+.wf-circle { position: absolute; width: 142px; height: 142px; border: 1px solid #efccda; border-radius: 50%; }
+.wf-mark-copy { position: relative; z-index: 1; transform: rotate(-8deg); font-family: Georgia, serif; font-size: 26px; line-height: 1.1; color: var(--home-accent); text-align: center; }
+.wf-mark-copy b { font-weight: 400; font-style: italic; }
+.wf-spark { position: absolute; z-index: 2; color: var(--home-accent); font-size: 27px; }
+.wf-spark-one { right: 18px; top: 18px; }
+.wf-spark-two { left: 18px; bottom: 20px; font-size: 38px; }
+.wf-art-label { position: absolute; bottom: 12px; right: 13px; z-index: 2; font: italic 11px/1.4 Georgia, serif; color: #8c4766; }
+:global(body[arco-theme='dark']) .wf-hero-mark::after { background: linear-gradient(90deg, rgba(37,33,39,.88), rgba(37,33,39,.18)); }
+:global(body[arco-theme='dark']) .wf-art-label { color: var(--home-accent); }
+.wf-discovery { padding: 27px 0 22px; }
+.wf-discovery-heading, .wf-feed-heading { display: flex; justify-content: space-between; align-items: end; gap: 16px; }
+.wf-discovery h2, .wf-feed-heading h2 { font-size: 20px; font-weight: 600; margin: 5px 0 0; line-height: 1.5; overflow-wrap: anywhere; }
+.wf-content-count { padding: 6px 10px; border: 1px solid var(--home-line); border-radius: 999px; background: var(--home-paper); }
+.wf-content-count, .wf-feed-caption { flex-shrink: 0; font-size: 11px; color: var(--home-muted); }
+.wf-tag-row { display: flex; align-items: center; gap: 22px; overflow-x: auto; margin-top: 18px; scrollbar-width: thin; scrollbar-color: var(--creative-line) transparent; padding-bottom: 3px; }
+.wf-tag-chip { flex-shrink: 0; padding: 5px 0; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--home-muted); font-size: 12px; cursor: pointer; }
+.wf-tag-chip.active { color: var(--home-accent); border-bottom-color: var(--home-accent); font-weight: 600; }
+.wf-tag-chip:hover { color: var(--home-accent); }
+.wf-masonry-wrap { padding: 28px 0 40px; }
+.wf-feed-heading { margin-bottom: 20px; }
+.wf-filter-summary { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; font-size: 12px; color: var(--home-accent); }
+.wf-filter-summary span { overflow-wrap: anywhere; }
+.wf-filter-summary button { border: 0; background: transparent; color: var(--home-muted); text-decoration: underline; cursor: pointer; }
 .wf-masonry { width: 100%; }
-
-.wf-center-state {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 4rem 1rem; color: var(--color-text-2);
-}
-.wf-center-state p { font-size: 0.875rem; margin-top: 1rem; }
-
-.wf-spinner-lg {
-  width: 2rem; height: 2rem; border: 3px solid var(--color-border-2);
-  border-top-color: rgb(var(--primary-6)); border-radius: 50%;
-  animation: wf-spin 0.7s linear infinite;
-}
-.wf-spinner-sm {
-  width: 1.25rem; height: 1.25rem; border: 2px solid var(--color-border-2);
-  border-top-color: rgb(var(--primary-6)); border-radius: 50%;
-  animation: wf-spin 0.7s linear infinite;
-}
-.wf-loadmore {
-  display: flex; align-items: center; justify-content: center;
-  gap: 0.5rem; padding: 1.5rem; font-size: 0.8125rem; color: var(--color-text-2);
-}
+.wf-center-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 260px; color: var(--home-muted); }
+.wf-center-state p { font-size: 13px; margin-top: 14px; }
+.wf-spinner-lg, .wf-spinner-sm { border: 2px solid var(--home-line); border-top-color: var(--home-accent); border-radius: 50%; animation: wf-spin .7s linear infinite; }
+.wf-spinner-lg { width: 28px; height: 28px; }
+.wf-spinner-sm { width: 18px; height: 18px; }
+.wf-loadmore { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 24px; font-size: 12px; color: var(--home-muted); }
 .wf-sentinel { height: 1px; }
-.wf-end { text-align: center; padding: 2rem; font-size: 0.75rem; color: var(--color-text-2); opacity: 0.6; }
-
-/* 悬浮上传按钮 */
-.wf-fab {
-  display: none;
-}
-
+.wf-end::before { content: '✦'; display: block; margin-bottom: 10px; color: var(--home-accent); opacity: .6; }
+.wf-end { text-align: center; padding: 28px; font-size: 11px; color: var(--home-muted); }
+.wf-fab { display: none; }
+button:focus-visible { outline: 2px solid var(--home-accent); outline-offset: 4px; }
 @media (max-width: 768px) {
-  .wf-fab {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: rgb(var(--primary-6));
-    color: var(--color-white);
-    border: none;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    cursor: pointer;
-    z-index: 100;
-    font-size: 22px;
-    transition: transform 0.2s, box-shadow 0.2s;
-  }
-  .wf-fab:hover {
-    transform: scale(1.05);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
-  }
-  .wf-fab:active {
-    transform: scale(0.95);
-  }
+  .wf-root { padding: 0 16px; }
+  .wf-hero { padding: 28px 0; }
+  .wf-hero h1 { font-size: 23px; }
+  .wf-hero h1 em { display: block; }
+  .wf-hero p { max-width: 300px; font-size: 12px; }
+  .wf-hero-mark { display: none; }
+  .wf-hero-note { font-size: 10px; }
+  .wf-discovery { padding: 24px 0 18px; }
+  .wf-tag-row { gap: 18px; }
+  .wf-masonry-wrap { padding-top: 24px; }
+  .wf-fab { display: grid; place-items: center; position: fixed; bottom: 24px; right: 20px; width: 48px; height: 48px; border-radius: 50%; background: var(--home-accent); color: #fff; border: 0; box-shadow: 0 4px 16px #c8487633; cursor: pointer; z-index: 100; font-size: 20px; }
 }
-
 @keyframes wf-spin { to { transform: rotate(360deg); } }
 </style>

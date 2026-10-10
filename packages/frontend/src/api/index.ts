@@ -104,9 +104,11 @@ function pickServerMessage(body: unknown): string | null {
 
 // 统一的业务错误类型：name='ApiError' 便于调用方区分「后端业务错误」与「网络/取消错误」。
 // request() 与 upload 的 onload 非 2xx 分支共用，保证错误通道一致。
-function apiError(msg: string): Error {
-  const e = new Error(msg)
+function apiError(msg: string, status?: number): Error {
+  const e = new Error(msg) as Error & { status?: number }
   e.name = 'ApiError'
+  // 带上 HTTP 状态，调用方可据此区分「未登录(401)」与其它业务失败，而不用去猜文案。
+  if (status !== undefined) e.status = status
   return e
 }
 
@@ -135,7 +137,7 @@ async function request<T>(
     if (status !== 401) {
       toast.error(msg)
     }
-    throw apiError(msg)
+    throw apiError(msg, status)
   }
 }
 
