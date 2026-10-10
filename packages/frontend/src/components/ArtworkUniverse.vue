@@ -34,6 +34,7 @@ const originStyle = { width: `${props.origin.width}px`, height: `${props.origin.
 let universe: ReturnType<typeof createUniverseScene> | undefined
 let enginePromise: Promise<void>
 let disposed = false
+// 每次跳过/关闭都会使旧动画序列失效；await 后必须核对版本，防止已关闭的星图复活。
 let version = 0
 const animations = new Set<Animation>()
 const abort = new AbortController()
@@ -181,6 +182,7 @@ onMounted(async () => {
   else void openSequence()
 })
 onBeforeUnmount(() => {
+  // Teleport 的资源不随页面 DOM 自动释放；同时还原焦点和背景 inert，防止返回后无法点击。
   disposed = true; version++; abort.abort()
   animations.forEach(animation => animation.cancel())
   universe?.dispose()

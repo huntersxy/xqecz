@@ -1,0 +1,52 @@
+name: Frontend checks
+
+# 与后端发布独立；无生产凭据，不发布、不调用线上写接口。
+on:
+  pull_request:
+    paths:
+      - 'packages/frontend/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/frontend-check.yml'
+  push:
+    branches: ['master']
+    paths:
+      - 'packages/frontend/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/frontend-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Install pnpm
+        run: npm install --global pnpm@11.17.0
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Type check
+        run: pnpm fe:typecheck
+      - name: Unit and component regressions
+        run: pnpm fe:test
+      - name: Build with separate API and media origins
+        # 刻意非空：默认同源配置曾掩盖 /assets 被误发到媒体服务器的错误。
+        # 地址无需可达，真实纹理/CORS 与发布后验证仍由浏览器验收完成。
+        env:
+          VITE_API_BASE_URL: https://api.example.invalid/api
+          VITE_MEDIA_BASE_URL: https://media.example.invalid
+        run: pnpm --filter ./packages/frontend run build-only

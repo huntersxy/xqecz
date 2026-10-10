@@ -24,6 +24,8 @@ cd packages/server && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 | 后端 | CI 经 SSH 直传 + OpenRC | 部署目录＝`/opt/xqecz`；启动命令 `./xqecz-server`；运行用户 `alpine`；端口与 `.env` 的 `PORT` 一致 |
 | 前端 | EdgeOne Makers 自行构建 | Makers 控制台配 `VITE_API_BASE_URL` / `VITE_MEDIA_BASE_URL`（都打后端域名）；站点自身不反代 `/api`，跨域由后端 `CORS_ORIGINS` 白名单放行 |
 
+前端检查由 `.github/workflows/frontend-check.yml` 独立运行，包含类型、单测及非空媒体基址的生产构建；通过检查不会触发它发布站点。Makers 构建和发布状态仍以平台记录为准。媒体地址归属、Canvas/WebGL 跨域及发布后的浏览器验收见 `docs/frontend-media.md`；本地正常或打包成功不能代替实际站点验收。
+
 后端只需以下文件即可运行（不依赖任何 Node 生态文件）：
 
 ```

@@ -6,6 +6,40 @@
 
 **Monorepo 架构**：Go 单体后端 + Vue 3 前端。前端依赖由 pnpm workspace 管理，后端由 go module 管理，两端任务由 moon 统一编排。
 
+## Agent 工作流程与完成标准
+
+本文件是全仓唯一的 agent 约束入口。修改前先读相关条目，再沿实际调用链定位所有使用方；不能只修复当前页面的表现。
+
+1. **确认工作区与证据**：先看 `git status` 和现有 diff，保留用户未提交改动；未经要求不暂存、提交、推送或发布。线上问题先核对实际页面版本、请求地址、状态与响应头，区分地址错误、CORS、超时、缓存、后端不可用和浏览器降级，不凭截图猜根因。
+2. **先确定归属，再动代码**：共享规则放到已有单一入口，不在组件复制 URL 拼接、来源探测、布局算法或主题判断。涉及公共入口时搜索所有调用方，补调用方回归；新文件应能说明职责，避免另起一套同名工具。
+3. **保留业务契约**：视觉和动效修改应保留上传校验、媒体来源优先级、评论、点赞回写、筛选与 KeepAlive 行为。配置、依赖或后端变更须与问题直接相关；调试时只读取需要的配置项，不打印整份 `.env`、会话或凭据。
+4. **异步与资源必须有结束路径**：请求、定时器、帧循环、Observer、事件监听、动画、GPU 资源均明确由谁创建、暂停、取消和释放；过期结果不能写回已卸载组件。可选装饰失败不能阻断内容加载、交互或状态推进。错误要在边界处理，有用户反馈或可诊断的降级依据，不能用空 `catch` 隐藏主流程失败。
+5. **注释解释约束与原因**：在公共函数、状态机边界、降级点和清理点写输入归属、失败策略及不可破坏的原因；避免逐行复述代码。测试固定可观察行为与失败条件，禁止只断言源码字符串或复刻算法。修改行为时同步修订注释与文档。
+6. **按影响范围验收并如实报告**：修复应有能在修复前失败的回归用例；界面问题沿真实操作路径验证。明确报告执行了什么、未验证什么及原因，区分本地开发、生产构建预览和已发布线上；构建成功不等于线上已修复，模拟场景不等于真实 WebGL/CORS 验收。
+
+### 常见改动的单一入口
+
+| 要修改的规则 | 先读/先改的位置 |
+|--------------|------------------|
+| 素材与 API 媒体地址、媒体目录归属、生产同路径回退 | `packages/frontend/src/utils/index.ts`；设计说明见 `docs/frontend-media.md` |
+| 详情大图来源优先级与探测缓存 | `packages/frontend/src/utils/imageSource.ts`，调用方 `ContentMedia.vue` / `MediaImage.vue` |
+| Canvas/WebGL 贴图加载与跨域缓存策略 | `packages/frontend/src/utils/artworkPlanet.ts:planetImageSource/loadPlanetImage` |
+| 星图随机坐标与可见候选 | `packages/frontend/src/utils/artworkUniverse.ts`（纯算法）；渲染资源归 `universeScene.ts` |
+| 星球/星图交互和动画阶段 | `ArtworkPlanet.vue` / `ArtworkUniverse.vue`；组件不重新定义共享媒体规则 |
+| 前后端字段形状、请求/响应契约 | `packages/frontend/src/api/index.ts` / `src/types/schemas.ts`，服务端对应模块 |
+
+### 按改动选择验证
+
+| 改动范围 | 必须完成的验证 |
+|----------|----------------|
+| 仅文档/注释 | 核对引用文件、函数和命令存在，`git diff --check`；不为纯文档运行无关全量测试 |
+| 前端行为或共享工具 | 相关回归测试、`pnpm fe:typecheck`；共享工具/组件改动跑 `pnpm fe:test`，生产相关行为跑 `build-only` |
+| 媒体路径、环境变量、Canvas/WebGL | 覆盖媒体基址为空和跨域非空两种配置；前端素材、三类媒体目录、外部/签名地址、失败回退与取消；按 `docs/frontend-media.md` 做生产构建和真实浏览器验证 |
+| 动效、弹层、主题或 KeepAlive | 正常/减少动效、打开/关闭/中途取消、返回后可点击；涉及主题跑日→夜→日，涉及响应式跑桌面与手机；资源清理不能只靠静态截图验收 |
+| 后端/接口/数据库 | 相关 Go 测试及 `pnpm server:vet`；涉及响应形状跑契约冒烟，涉及写链路按范围跑验收并清理测试数据 |
+
+前端自动检查定义在 `.github/workflows/frontend-check.yml`，覆盖类型、单测及非空媒体基址的生产构建；它不发布站点，也不能替代浏览器交互/CORS 验收。生产前后端的实际发布方式见 `docs/deploy.md`。
+
 ## 架构
 
 ```
@@ -143,6 +177,8 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 - **认证双通道** — 请求头 `X-API-Key`（sha256 比对 `api_keys.key_hash`，权限数组随身份注入）优先，其次 Session Cookie（`session_id`）；`web.RequireAPIKeyPermission` 仅约束密钥调用，Session 用户不受限。新增受保护接口按此挂中间件
 - **上传约定** — multipart 字段名 `file`；**流式解析边收边写盘**（`Request.MultipartReader`），文件名沿用前端的 `<md5>.<ext>`、不合规则随机兜底；单文件 ≤ 20MB、仅 `image/*` 与 `video/*`；**上传不做转码**（保留源格式与后缀），压缩统一由后台 TinyPNG 任务就地替换
 - **媒体下载** — `/uploads`、`/thumbs`、`/images` 由 `content.RegisterMedia` 挂载（非 gin `r.Static`）：带 `?download=1` 时以附件返回，文件名取内容标题（ASCII 回退名 + RFC 5987 UTF-8 名）；`.html`/`.svg`/`.js` 等可直接执行或注入的扩展名拒绝下载（403），避免上传目录变分发通道
+- **前端素材与媒体地址归属** — Vite `import` 的 `/assets/*`、开发 `/src/*` 及 `public` 素材由前端托管，禁止补 `VITE_MEDIA_BASE_URL` 或回退到媒体源站；仅 `/thumbs/`、`/uploads/`、`/images/` 经共享 `isContentMediaPath/getImageUrl` 解析。绝对地址、签名参数、blob/data 保持原样，第三方地址不参与本站兜底。线上前端域名不是媒体域名；生产兜底常量仅在共享工具定义。新增媒体目录须同步服务端路由、共享判定、开发代理和契约测试。
+- **作品星球与星图的加载边界** — 普通图片可显示不代表允许读入 Canvas/WebGL；星球、展开阵列、星图共用 `loadPlanetImage`，不得绕开 CORS 加载与取消机制。开发代理只允许固定媒体源站的公开目录，不传 Cookie/Authorization，不扩成任意 URL 代理或放宽生产 CORS。底图失败要继续初始化并加载作品；全量作品用轻量节点保留，贴图按可见范围限并发、限驻留，离屏/隐藏/KeepAlive 停用时暂停，卸载时释放 GPU 与监听器。生命周期、所有权及验收步骤见 `docs/frontend-media.md`。
 - **共享上传目录** — 物理目录为项目根 `data/`（`UPLOAD_DIR`/`THUMB_DIR`/`IMAGES_DIR`/`BIN_DIR` 由 .env 覆盖），媒体处理与静态托管在同一进程内，无需跨进程路径约定
 - **Redis 缓存** — 公开读路径走读穿缓存：`content:{id}`、`content_list:{sha1(规范化参数)}`、`tags`、`comments:{cid}:threads-v3:{page}:{size}`、`comment_count:{cid}`、`admin:dashboard`；TTL 仅作兜底，**所有写路径必须显式失效**（`ClearContentCache` / `ClearContentListCache` / `ClearCommentCache` / `ClearAllContentCaches`）
 - **评论回复链** — 数据库 `parent_id` 保留直接回复对象，列表按顶层评论分页，必须批量查询该页楼内的全部后代；`modules/comment/threads.go:buildThreads` 将多级回复铺在顶层 `replies` 一层数组中，附上直接 `parent` 引用供前端显示，不能只查顶层的直接回复，否则 A ← B ← C 的 C 会消失。列表缓存版本仍放在 `comments:{cid}:*` 下，确保 `ClearCommentCache` 可统一失效；删父评论时事务内把直接回复 `parent_id` 置空，保留后代。`CommentSections` 监听内容 id 自动加载并丢弃过期请求；提交回复后刷新当前页，不能强制跳回第一页。

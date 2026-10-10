@@ -3,6 +3,11 @@ import { MapControls } from 'three/addons/controls/MapControls.js'
 import { loadPlanetImage } from './artworkPlanet'
 import { universeBounds, visibleUniverseNodes, type UniverseNode } from './artworkUniverse'
 
+/**
+ * 拥有整个场景的渲染器、GPU 资源、监听器与加载任务；调用方卸载时必须 dispose。
+ * 全量作品保留轻量实例，缩略图只为可见候选加载并有上限；禁止逐作品常驻原图纹理。
+ * setActive 只暂停帧循环，dispose 才释放资源；图片地址一律交给 loadPlanetImage。
+ */
 export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: UniverseNode | undefined) => void) {
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true })
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5))

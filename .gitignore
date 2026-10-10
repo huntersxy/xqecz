@@ -41,4 +41,6 @@ _tmp_*
 # 本地 pnpm store（本机缓存，不入库）
 .pnpm-store/
 /browser-screenshots
-/docs
+# docs 中现有本地草稿继续忽略；项目维护说明须随代码版本管理。
+/docs/*
+!/docs/frontend-media.md

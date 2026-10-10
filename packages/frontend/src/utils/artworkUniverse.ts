@@ -23,7 +23,10 @@ function randomGenerator(seed: number) {
 interface Cloud { x: number; y: number; width: number; height: number; angle: number }
 type Coordinate = Omit<UniverseNode, 'artwork'>
 
-/** Random cloud sampling with local collision checks; appended works never move existing planets. */
+/**
+ * 只负责坐标与碰撞，不能读取 DOM、发请求或创建 Three 对象。
+ * seed 控制一次探索的随机性；坐标按作品 id 保留，追加分页不能使已有星球跳位。
+ */
 export class UniverseLayout {
   private coordinates = new Map<number, Coordinate>()
   private cells = new Map<string, Coordinate[]>()

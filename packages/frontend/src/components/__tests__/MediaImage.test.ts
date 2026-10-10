@@ -10,6 +10,14 @@ async function failImage(wrapper: ReturnType<typeof mount>) {
 }
 
 describe('MediaImage', () => {
+  it('does not send failed packaged assets to the production media server', async () => {
+    const wrapper = mount(MediaImage, { props: { src: '/assets/missing.webp' } })
+    await failImage(wrapper)
+    expect(wrapper.find('.arco-image-img').attributes('src')).toBe('/assets/missing.webp')
+    expect(wrapper.emitted('error')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
   it('renders the resolved dev URL', async () => {
     const wrapper = mount(MediaImage, { props: { src: '/thumbs/a.jpg', alt: 'A' } })
     await nextTick()

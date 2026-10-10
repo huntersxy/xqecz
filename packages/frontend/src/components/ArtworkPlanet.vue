@@ -54,6 +54,7 @@ const failedUntil = new Map<string, number>()
 const refreshed = new Set<number>()
 
 function canRun() {
+  // KeepAlive 停用、离屏、隐藏标签页和全屏星图均暂停渲染与补图；恢复只经 updateAnimation。
   return active && inView && desktop?.matches && !universeOrigin.value && !document.hidden && !destroyed && !lostContext
 }
 
@@ -123,7 +124,8 @@ function seedArtworks() {
 }
 
 function recycleBackside(time: number) {
-  if (dragging.value || paused.value || reducedMotion.matches || time < resumeAt || time - lastSwap < 1400 || !queue.length) return
+  // 未凑齐首批作品时不局部替换，避免装饰底图失败后出现稀疏的 resident 数组。
+  if (!seeded || dragging.value || paused.value || reducedMotion.matches || time < resumeAt || time - lastSwap < 1400 || !queue.length) return
   globe.updateWorldMatrix(true, false)
   camera.getWorldPosition(direction).normalize()
   for (let index = 0; index < PLANET_SLOTS; index++) {
@@ -233,10 +235,20 @@ async function initialize() {
     controls.rotateSpeed = .65
     controls.addEventListener('start', onDragStart)
     controls.addEventListener('end', onDragEnd)
+    // 底图属于前端打包素材；它的失败不能阻断 ready、帧循环或后续作品补图。
     const fallback = await loadPlanetImage(heroArt, lifetime.signal)
-    if (!fallback || destroyed) return
-    resident.push(...Array.from({ length: PLANET_SLOTS }, () => ({ url: heroArt, image: fallback })))
-    paintPlanetTexture(atlas, resident.map(item => item.image))
+    if (destroyed) return
+    if (fallback) {
+      resident.push(...Array.from({ length: PLANET_SLOTS }, () => ({ url: heroArt, image: fallback })))
+      paintPlanetTexture(atlas, resident.map(item => item.image))
+    } else {
+      // A missing decorative asset must not prevent rotation or artwork loading.
+      const context = atlas.getContext('2d')
+      if (context) {
+        context.fillStyle = '#f5d9e2'
+        context.fillRect(0, 0, atlas.width, atlas.height)
+      }
+    }
     texture.needsUpdate = true
     ready.value = true
     updateAnimation()

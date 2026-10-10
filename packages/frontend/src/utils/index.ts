@@ -6,10 +6,20 @@ import SparkMD5 from 'spark-md5'
 
 const MEDIA_BASE = import.meta.env.VITE_MEDIA_BASE_URL || ''
 
+/** 服务端公开媒体目录的单一判定；新增目录须同步静态路由、代理和媒体契约测试。 */
+export function isContentMediaPath(path: string): boolean {
+  return /^\/(thumbs|uploads|images)\//.test(path)
+}
+
+/**
+ * 仅给 API 返回的媒体路径补媒体域名，保持幂等。
+ * Vite import / public 素材属于前端，绝对地址（含签名参数）、blob/data 也保持原样。
+ * 不可再用 startsWith('/') 判断媒体，否则生产配置会把 /assets/... 发到后端。
+ */
 export function getImageUrl(image?: string): string {
   if (!image) return ''
   if (image.startsWith('http://') || image.startsWith('https://')) return image
-  if (image.startsWith('/')) {
+  if (isContentMediaPath(image)) {
     return `${MEDIA_BASE}${image}`
   }
   return image
@@ -20,7 +30,8 @@ export const REMOTE_MEDIA_BASE = 'https://api39.xiey.work'
 
 /**
  * 生成本站媒体在生产服务器的同路径兜底 URL。
- * 仅对本站（相对路径 / localhost / 生产域名）生效；外部图床、头像等远程 URL 返回空串。
+ * 仅对本站媒体目录（相对路径 / localhost / 生产域名）生效。
+ * 前端素材、外部图床、头像、blob/data 不参与回退；禁止将网站域名当作媒体源站。
  * 已是生产地址或无法解析时同样返回空串，表示“没有可兜底的地址”。
  */
 export function getRemoteFallbackUrl(url: string, origin?: string): string {
@@ -34,6 +45,7 @@ export function getRemoteFallbackUrl(url: string, origin?: string): string {
   } catch {
     return ''
   }
+  if (!/^https?:$/.test(u.protocol) || !isContentMediaPath(u.pathname)) return ''
   const remoteHost = new URL(REMOTE_MEDIA_BASE).hostname
   // 部署时若设了 VITE_MEDIA_BASE_URL（指向 API 源站，与页面跨域），媒体地址就不在页面源站下，
   // 不认这个域名的话整条兜底链会静默返回空串、直接变坏图。

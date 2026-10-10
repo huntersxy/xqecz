@@ -1,5 +1,7 @@
 import { getImageUrl, getRemoteFallbackUrl, REMOTE_MEDIA_BASE } from '@/utils'
 
+// 普通 <img> 能显示不代表 Canvas/WebGL 可读取：贴图加载必须统一走本文件的 CORS 入口。
+// 地址归属由 utils/index.ts 判定；这里仅负责贴图的跨域策略，详见 docs/frontend-media.md。
 export interface PlanetArtwork { id: number; thumb: string }
 export const PLANET_COLUMNS = 6
 export const PLANET_ROWS = 2
@@ -41,7 +43,7 @@ export class PlanetArtworkDeck {
   }
 }
 
-/** Use the same media base as cards, with a separate CDN cache key for CORS textures. */
+/** 在共享地址解析之后，为本站跨域贴图设置独立缓存键；不改第三方签名地址。 */
 export function planetImageSource(url: string, origin = window.location.origin, development = import.meta.env.DEV): string {
   const resolved = getImageUrl(url)
   if (!resolved) return ''
