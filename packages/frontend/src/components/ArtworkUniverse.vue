@@ -255,7 +255,7 @@ onBeforeUnmount(() => {
       <span class="au-sr" role="status" aria-live="polite">{{ status }}</span>
       <div ref="stage" class="au-stage">
         <div class="au-nebula" aria-hidden="true"></div>
-        <canvas ref="mapCanvas" class="au-map" :class="{ 'is-visible': montageFinished || phase === 'collapse' }" tabindex="0" role="img" aria-label="全作品星图，可拖动和缩放，点击选择星球" @dblclick="openSelected" @webglcontextlost.prevent="contextLost" />
+        <canvas ref="mapCanvas" class="au-map" :class="{ 'is-visible': montageFinished, 'is-previewing': phase === 'collapse' }" tabindex="0" role="img" aria-label="全作品星图，可拖动和缩放，点击选择星球" @dblclick="openSelected" @webglcontextlost.prevent="contextLost" />
         <div v-if="!montageFinished" ref="montage" class="au-montage" :class="{ 'is-unfolding': phase !== 'flight' }" aria-hidden="true">
           <div v-for="(row, rowIndex) in rows" :key="rowIndex" class="au-row" :class="{ reverse: rowIndex % 2 }" :style="{ '--row-duration': `${34 + rowIndex * 5}s` }">
             <div v-for="copy in 2" :key="copy" class="au-row-group">
@@ -316,9 +316,10 @@ onBeforeUnmount(() => {
 .au-image-progress { display: inline-block; margin-left: 14px; color: #d5b1bf; }
 .au-map-hint { position: absolute; bottom: 34px; left: 50%; transform: translateX(-50%); margin: 0; color: #cbbdcbd1; font-size: 12px; letter-spacing: 1px; pointer-events: none; text-shadow: 0 1px 12px #000; white-space: nowrap; }
 .au-selection-image { display: block; width: 100%; max-height: 220px; object-fit: contain; margin-bottom: 16px; border-radius: 12px; background: #ffffff0b; }
-.au-map { display: block; width: 100%; height: 100%; opacity: 0; transition: opacity 1.15s ease; cursor: grab; touch-action: none; }
+.au-map { display: block; width: 100%; height: 100%; opacity: 0; filter: blur(0); transform: scale(1); transition: opacity 980ms cubic-bezier(.22,.75,.2,1), filter 980ms cubic-bezier(.22,.75,.2,1), transform 980ms cubic-bezier(.22,.75,.2,1); cursor: grab; touch-action: none; }
 .au-map:active { cursor: grabbing; }
-.au-map.is-visible { opacity: 1; }
+.au-map.is-previewing { opacity: .16; filter: blur(5px) saturate(.72); transform: scale(1.018); }
+.au-map.is-visible { opacity: 1; filter: blur(0) saturate(1); transform: scale(1); }
 .au-flight-planet { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; background-size: cover; background-position: center; opacity: 0; pointer-events: none; box-shadow: 0 0 24px #d1a6b233; }
 .au-surface { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 320px; height: 320px; border-radius: 50%; background-size: 100% 100%; opacity: 0; pointer-events: none; }
 .au-montage { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: 14px; opacity: 0; pointer-events: none; }

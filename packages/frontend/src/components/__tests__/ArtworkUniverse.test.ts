@@ -71,6 +71,7 @@ describe('artwork universe lifecycle', () => {
     document.querySelector<HTMLButtonElement>('[aria-label="跳过展开动画"]')!.click()
     await flushPromises()
     expect(phase()).toBe('collapse')
+    expect(document.querySelector('.au-map')?.classList.contains('is-previewing')).toBe(true)
     const clones = document.querySelectorAll('.au-collapse-tile')
     expect(clones.length).toBeGreaterThan(0)
     const frames = vi.mocked(HTMLElement.prototype.animate).mock.calls.find(([keyframes]) =>
@@ -82,6 +83,7 @@ describe('artwork universe lifecycle', () => {
     expect(scene.project).toHaveBeenCalledWith(expect.objectContaining({ artwork: expect.objectContaining({ id: 1 }) }))
     await advance(1600)
     expect(phase()).toBe('map')
+    expect(document.querySelector('.au-map')?.classList.contains('is-visible')).toBe(true)
     expect(document.querySelector('.au-collapse-tile')).toBeNull()
   })
   it('can close during opening without a later phase resurrecting the universe', async () => {
