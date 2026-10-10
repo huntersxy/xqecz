@@ -60,7 +60,7 @@ export function planetImageSource(url: string, origin = window.location.origin, 
 }
 
 /** 只读取缩略图，超时 / 离开视口取消；CORS 失败时保留其余可用作品。 */
-export async function loadPlanetImage(url: string, signal: AbortSignal): Promise<HTMLImageElement | null> {
+export async function loadPlanetImage(url: string, signal: AbortSignal, timeoutMs = 4000): Promise<HTMLImageElement | null> {
   const source = planetImageSource(url)
   if (!source || signal.aborted) return null
   async function load(src: string): Promise<HTMLImageElement | null> {
@@ -70,7 +70,7 @@ export async function loadPlanetImage(url: string, signal: AbortSignal): Promise
       image.crossOrigin = 'anonymous'
       image.decoding = 'async'
       let settled = false
-      const timer = window.setTimeout(() => finish(null), 4000)
+      const timer = window.setTimeout(() => finish(null), timeoutMs)
       function finish(result: HTMLImageElement | null) {
         if (settled) return
         settled = true

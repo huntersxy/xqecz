@@ -1,16 +1,16 @@
 import * as THREE from 'three'
 import { MapControls } from 'three/addons/controls/MapControls.js'
-import { loadPlanetImage } from './artworkPlanet'
-import { universeBounds, visibleUniverseNodes, type UniverseNode } from './artworkUniverse'
+import { createUniverseImages, type UniverseImageProgress } from './universeImages'
+import { universeOpeningView, type UniverseNode } from './artworkUniverse'
 
 /**
  * 拥有整个场景的渲染器、GPU 资源、监听器与加载任务；调用方卸载时必须 dispose。
- * 全量作品保留轻量实例，缩略图只为可见候选加载并有上限；禁止逐作品常驻原图纹理。
+ * 当前版本体验优先：预加载并保留全作品缩略图，不再限制可见贴图数和驻留数。
  * setActive 只暂停帧循环，dispose 才释放资源；图片地址一律交给 loadPlanetImage。
  */
-export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: UniverseNode | undefined) => void) {
+export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: UniverseNode | undefined) => void, onProgress: (progress: UniverseImageProgress) => void = () => {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true })
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5))
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
   const scene = new THREE.Scene()
   const camera = new THREE.OrthographicCamera(-1000, 1000, 1000, -1000, .1, 5000)
   camera.position.set(0, 0, 2000)
@@ -18,10 +18,10 @@ export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: 
   controls.screenSpacePanning = true
   controls.enableRotate = false
   controls.enableDamping = false
-  controls.minZoom = .45
+  controls.minZoom = .2
   controls.maxZoom = 14
   controls.enabled = false
-  const geometry = new THREE.SphereGeometry(1, 16, 12)
+  const geometry = new THREE.SphereGeometry(1, 32, 24)
   const material = new THREE.MeshStandardMaterial({ roughness: 1 })
   let planets: THREE.InstancedMesh | undefined
   let nodes: UniverseNode[] = []
@@ -33,12 +33,7 @@ export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: 
   let dirty = true
   let frame = 0
   let lastDraw = 0
-  let lastLoad = 0
-  let loading = 0
-  const abort = new AbortController()
-  const pending = new Set<number>()
-  const failed = new Set<number>()
-  const thumbnails = new Map<number, { mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>; texture: THREE.CanvasTexture }>()
+  const thumbnails = new Map<number, { mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>; texture: THREE.CanvasTexture; url: string; source?: string }>()
   const plane = new THREE.PlaneGeometry(2, 2)
   const matrix = new THREE.Matrix4()
   const position = new THREE.Vector3()
@@ -55,19 +50,19 @@ export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: 
   light.position.set(-500, 800, 1500)
   scene.add(light)
   const starsGeometry = new THREE.BufferGeometry()
-  const stars = new Float32Array(1800 * 3)
+  const stars = new Float32Array(1100 * 3)
   for (let i = 0; i < stars.length; i += 3) {
     stars[i] = (Math.random() - .5) * 14000
     stars[i + 1] = (Math.random() - .5) * 14000
     stars[i + 2] = -200 - Math.random() * 600
   }
   starsGeometry.setAttribute('position', new THREE.BufferAttribute(stars, 3))
-  const starsMaterial = new THREE.PointsMaterial({ color: '#e2ddeb', size: 3.5, transparent: true, opacity: .65, sizeAttenuation: false })
+  const starsMaterial = new THREE.PointsMaterial({ color: '#e2ddeb', size: 2, transparent: true, opacity: .32, sizeAttenuation: false })
   scene.add(new THREE.Points(starsGeometry, starsMaterial))
 
   function selected(node: UniverseNode | undefined) {
     halo.visible = !!node
-    if (node) { halo.position.set(node.x, node.y, 65); halo.scale.setScalar(node.radius) }
+    if (node) { halo.position.set(node.x, node.y, node.radius + 8); halo.scale.setScalar(node.radius) }
     dirty = true
     onSelect(node)
   }
@@ -85,6 +80,12 @@ export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: 
     scene.add(planets)
     const current = new Set(nodes.map(node => node.artwork.id))
     thumbnails.forEach((entry, id) => { if (!current.has(id)) release(id, entry) })
+    nodes.forEach(node => {
+      const entry = thumbnails.get(node.artwork.id)
+      if (!entry || entry.url !== node.artwork.thumb) paintArtwork(node, null, !!node.artwork.thumb)
+      else { entry.mesh.position.set(node.x, node.y, node.radius + 1); entry.mesh.scale.setScalar(node.radius) }
+    })
+    images.update(nodes)
     dirty = true
   }
   function release(id: number, entry: (typeof thumbnails extends Map<number, infer T> ? T : never)) {
@@ -96,7 +97,6 @@ export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: 
   function resize() {
     width = canvas.clientWidth || innerWidth
     height = canvas.clientHeight || innerHeight
-    if (camera.zoom === 1 && camera.position.x === 0 && camera.position.y === 0 && nodes.length) size = universeBounds(nodes) / Math.min(1, width / height)
     renderer.setSize(width, height, false)
     const aspect = width / height
     camera.left = -size * aspect / 2
@@ -106,13 +106,25 @@ export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: 
     camera.updateProjectionMatrix()
     dirty = true
   }
-  function fit() {
-    size = universeBounds(nodes) / Math.min(1, width / height)
+  function moveTo(x: number, y: number, viewHeight: number) {
+    size = viewHeight
     camera.zoom = 1
-    camera.position.set(0, 0, 2000)
-    controls.target.set(0, 0, 0)
+    camera.position.set(x, y, 2000)
+    controls.target.set(x, y, 0)
     resize()
     controls.update()
+  }
+  function enter() {
+    const view = universeOpeningView(nodes, width / height)
+    moveTo(view.x, view.y, view.height)
+  }
+  function fit() {
+    if (!nodes.length) { moveTo(0, 0, 1200); return }
+    const left = Math.min(...nodes.map(node => node.x - node.radius))
+    const right = Math.max(...nodes.map(node => node.x + node.radius))
+    const bottom = Math.min(...nodes.map(node => node.y - node.radius))
+    const top = Math.max(...nodes.map(node => node.y + node.radius))
+    moveTo((left + right) / 2, (bottom + top) / 2, Math.max(top - bottom, (right - left) / (width / height)) * 1.12 + 200)
   }
   function zoom(factor: number) {
     camera.zoom = THREE.MathUtils.clamp(camera.zoom * factor, controls.minZoom, controls.maxZoom)
@@ -131,52 +143,57 @@ export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: 
     const point = new THREE.Vector3(node.x, node.y, 0).project(camera)
     return { x: (point.x + 1) * width / 2, y: (1 - point.y) * height / 2, diameter: node.radius * 2 * height / size * camera.zoom }
   }
-  function loadVisible(time: number) {
-    if (time - lastLoad < 180 || loading >= 3) return
-    lastLoad = time
-    const visible = visibleUniverseNodes(nodes, camera.position.x, camera.position.y, size * width / height / camera.zoom, size / camera.zoom)
-    const keep = new Set(visible.map(node => node.artwork.id))
-    thumbnails.forEach((entry, id) => { entry.mesh.visible = keep.has(id) })
-    for (const node of visible) {
-      const id = node.artwork.id
-      if (!node.artwork.thumb || thumbnails.has(id) || pending.has(id) || failed.has(id)) continue
-      if (loading >= 3) break
-      pending.add(id)
-      loading++
-      void loadPlanetImage(node.artwork.thumb, abort.signal).then(image => {
-        if (disposed || !image) { if (!disposed) failed.add(id); return }
-        // Downsample before GPU upload; at most 64 small textures are resident.
-        const tile = document.createElement('canvas')
-        tile.width = tile.height = 192
-        const ctx = tile.getContext('2d')!
-        ctx.beginPath(); ctx.arc(96, 96, 94, 0, Math.PI * 2); ctx.clip()
-        const crop = Math.min(image.naturalWidth, image.naturalHeight)
-        ctx.drawImage(image, (image.naturalWidth - crop) / 2, (image.naturalHeight - crop) / 2, crop, crop, 0, 0, 192, 192)
-        const shade = ctx.createRadialGradient(67, 55, 25, 96, 96, 98)
-        shade.addColorStop(0, 'rgba(255,255,255,.06)'); shade.addColorStop(.65, 'rgba(0,0,0,.04)'); shade.addColorStop(1, 'rgba(0,0,0,.65)')
-        ctx.fillStyle = shade; ctx.fillRect(0, 0, 192, 192)
-        const texture = new THREE.CanvasTexture(tile)
-        texture.colorSpace = THREE.SRGBColorSpace
-        const mesh = new THREE.Mesh(plane, new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }))
-        mesh.position.set(node.x, node.y, node.radius + 1)
-        mesh.scale.setScalar(node.radius)
-        if (thumbnails.size >= 64) {
-          const victim = [...thumbnails].find(([key]) => !keep.has(key)) ?? thumbnails.entries().next().value
-          if (victim) release(victim[0], victim[1])
-        }
-        thumbnails.set(id, { mesh, texture })
-        scene.add(mesh)
-        dirty = true
-      }).finally(() => { pending.delete(id); loading-- })
+  function paintArtwork(node: UniverseNode, image: HTMLImageElement | null, loading = false) {
+    if (disposed) return
+    const tile = document.createElement('canvas')
+    tile.width = tile.height = 512
+    const ctx = tile.getContext('2d')
+    if (!ctx) return
+    const glow = ctx.createRadialGradient(256, 256, 218, 256, 256, 256)
+    glow.addColorStop(0, 'rgba(246,197,220,.26)'); glow.addColorStop(1, 'rgba(246,197,220,0)')
+    ctx.fillStyle = glow; ctx.fillRect(0, 0, 512, 512)
+    ctx.save(); ctx.beginPath(); ctx.arc(256, 256, 235, 0, Math.PI * 2); ctx.clip()
+    const paper = ctx.createLinearGradient(0, 0, 512, 512)
+    paper.addColorStop(0, image ? '#f6e8ec' : '#302838'); paper.addColorStop(1, image ? '#dbcedb' : '#514457')
+    ctx.fillStyle = paper; ctx.fillRect(0, 0, 512, 512)
+    if (image) {
+      const crop = Math.min(image.naturalWidth, image.naturalHeight)
+      ctx.drawImage(image, (image.naturalWidth - crop) / 2, (image.naturalHeight - crop) / 2, crop, crop, 20, 20, 472, 472)
+      // 淡球面光影保留作品色彩；不像旧版重阴影把作品压成灰色小点。
+      const shade = ctx.createRadialGradient(192, 155, 50, 256, 256, 246)
+      shade.addColorStop(0, 'rgba(255,255,255,.12)'); shade.addColorStop(.68, 'rgba(0,0,0,0)'); shade.addColorStop(1, 'rgba(19,10,28,.42)')
+      ctx.fillStyle = shade; ctx.fillRect(0, 0, 512, 512)
+    } else {
+      ctx.textAlign = 'center'; ctx.fillStyle = '#edd5e2'; ctx.font = '80px serif'
+      ctx.fillText(node.artwork.thumb ? '✦' : '“', 256, 195)
+      ctx.font = '28px sans-serif'
+      const title = node.artwork.title || '一段宇宙来信'
+      for (let line = 0; line < Math.min(3, Math.ceil(title.length / 9)); line++) ctx.fillText(title.slice(line * 9, line * 9 + 9), 256, 254 + line * 39)
+      ctx.fillStyle = '#c7aebe'; ctx.font = '19px sans-serif'
+      ctx.fillText(loading ? '正在显影 ···' : node.artwork.thumb ? '图片暂不可达' : '文字星球', 256, 392)
     }
+    ctx.restore()
+    ctx.beginPath(); ctx.arc(256, 256, 235, 0, Math.PI * 2)
+    ctx.strokeStyle = 'rgba(245,222,236,.5)'; ctx.lineWidth = 2; ctx.stroke()
+    const texture = new THREE.CanvasTexture(tile)
+    texture.colorSpace = THREE.SRGBColorSpace
+    const existing = thumbnails.get(node.artwork.id)
+    if (existing) { existing.texture.dispose(); existing.texture = texture; existing.mesh.material.map = texture; existing.mesh.material.needsUpdate = true; existing.url = node.artwork.thumb; existing.source = image?.src }
+    else {
+      const mesh = new THREE.Mesh(plane, new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }))
+      mesh.position.set(node.x, node.y, node.radius + 1); mesh.scale.setScalar(node.radius)
+      thumbnails.set(node.artwork.id, { mesh, texture, url: node.artwork.thumb, source: image?.src }); scene.add(mesh)
+    }
+    dirty = true
   }
+  // 在开场动画期间就启动全部缩略图，拖动/缩放不卸载作品，不再出现 64 张的比例天花板。
+  const images = createUniverseImages((node, image) => paintArtwork(node, image), onProgress)
   function draw(time: number) {
     if (disposed || !active || document.hidden) return
     frame = requestAnimationFrame(draw)
     if (time - lastDraw < 33) return
     lastDraw = time
     controls.update()
-    loadVisible(time)
     if (dirty) { renderer.render(scene, camera); dirty = false }
   }
   function setActive(value: boolean) {
@@ -217,9 +234,11 @@ export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: 
   document.addEventListener('visibilitychange', visibility)
   resize()
   return {
-    update, fit, zoom, focus, project, setActive,
+    update, enter, fit, zoom, focus, project, setActive,
+    // 预览复用成功加载的最终地址，避免缩略图已回退成功、详情卡却再次请求失效源。
+    imageSource: (id: number) => thumbnails.get(id)?.source,
     dispose() {
-      disposed = true; active = false; abort.abort(); cancelAnimationFrame(frame)
+      disposed = true; active = false; images.dispose(); cancelAnimationFrame(frame)
       window.removeEventListener('resize', resize)
       document.removeEventListener('visibilitychange', visibility)
       canvas.removeEventListener('pointerdown', pointerDown)

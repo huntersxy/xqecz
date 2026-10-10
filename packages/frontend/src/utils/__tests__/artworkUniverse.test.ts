@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { UniverseLayout, universeBounds, visibleUniverseNodes } from '../artworkUniverse'
+import { UniverseLayout, universeBounds, visibleUniverseNodes, universeOpeningView } from '../artworkUniverse'
 
 const artworks = Array.from({ length: 400 }, (_, index) => ({ id: index + 1, title: `Work ${index}`, thumb: index % 3 ? `/thumbs/${index}.webp` : '' }))
 
@@ -43,13 +43,24 @@ describe('universe layout', () => {
     layout.update(artworks.slice(30))
     expect(layout.update(artworks)).toEqual(original)
   })
-  it('bounds encompass every planet and visible image requests are capped', () => {
+  it('bounds encompass every planet without hiding visible works behind a fixed cap', () => {
     const nodes = new UniverseLayout(92).update(artworks)
     const size = universeBounds(nodes)
     expect(nodes.every(node => Math.abs(node.x) + node.radius < size / 2 && Math.abs(node.y) + node.radius < size / 2)).toBe(true)
-    expect(visibleUniverseNodes(nodes, 0, 0, size, size)).toHaveLength(64)
+    expect(visibleUniverseNodes(nodes, 0, 0, size, size)).toHaveLength(400)
     const visible = visibleUniverseNodes(nodes, 0, 0, 300, 300)
     expect(visible.length).toBeLessThan(10)
     expect(visible.every(node => Math.abs(node.x) < 150 + node.radius && Math.abs(node.y) < 150 + node.radius)).toBe(true)
   })
+  it('opens close to image works with readable planet diameters', () => {
+    const nodes = new UniverseLayout(42).update(artworks)
+    const view = universeOpeningView(nodes, 16 / 9)
+    const visible = visibleUniverseNodes(nodes, view.x, view.y, view.height * 16 / 9, view.height)
+    expect(visible.filter(node => node.artwork.thumb).length).toBeGreaterThan(30)
+    const images = visible.filter(node => node.artwork.thumb)
+    const averageDiameter = images.reduce((sum, node) => sum + node.radius * 2 * 1080 / view.height, 0) / images.length
+    expect(averageDiameter).toBeGreaterThan(70)
+    expect(nodes.filter(node => node.artwork.thumb).every(node => node.radius >= 82)).toBe(true)
+  })
+
 })

@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import ArtworkUniverse from '../ArtworkUniverse.vue'
+import { createUniverseScene } from '@/utils/universeScene'
 
-const scene = vi.hoisted(() => ({ update: vi.fn(), fit: vi.fn(), zoom: vi.fn(), focus: vi.fn(), project: vi.fn(() => ({ x: 200, y: 200, diameter: 40 })), setActive: vi.fn(), dispose: vi.fn() }))
+const scene = vi.hoisted(() => ({ imageSource: vi.fn<(id: number) => string | undefined>(), update: vi.fn(), enter: vi.fn(), fit: vi.fn(), zoom: vi.fn(), focus: vi.fn(), project: vi.fn(() => ({ x: 200, y: 200, diameter: 40 })), setActive: vi.fn(), dispose: vi.fn() }))
 vi.mock('@/utils/universeScene', () => ({ createUniverseScene: vi.fn(() => scene) }))
-vi.mock('@/utils/artworkPlanet', () => ({ loadPlanetImage: vi.fn(async () => null) }))
+vi.mock('@/utils/artworkPlanet', () => ({ loadPlanetImage: vi.fn(async () => null), planetImageSource: vi.fn((url: string) => url) }))
 const origin = { left: 900, top: 140, width: 180, height: 180, image: '/planet.png' }
 const artworks = [{ id: 1, title: 'First planet', thumb: '/first.webp' }, { id: 2, title: 'Text planet', thumb: '' }]
 let wrapper: ReturnType<typeof mount> | undefined
@@ -16,6 +17,7 @@ beforeEach(() => {
   vi.useFakeTimers()
   vi.clearAllMocks()
   motion = false
+  scene.imageSource.mockReturnValue(undefined)
   vi.stubGlobal('matchMedia', vi.fn(() => ({ get matches() { return motion }, addEventListener: vi.fn(), removeEventListener: vi.fn() })))
   vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => setTimeout(() => cb(performance.now()), 16))
   vi.stubGlobal('cancelAnimationFrame', clearTimeout)
@@ -100,5 +102,21 @@ describe('artwork universe lifecycle', () => {
     expect(scene.focus.mock.lastCall![0].artwork.id).toBe(2)
     document.querySelector<HTMLButtonElement>('.au-open')!.click()
     expect(wrapper!.emitted('select')).toEqual([[2]])
+  })
+  it('reuses the loaded fallback URL and recovers a preview when loading completes', async () => {
+    motion = true
+    await start(); await advance(100)
+    const input = document.querySelector<HTMLInputElement>('input')!
+    input.value = 'First'; input.dispatchEvent(new Event('input', { bubbles: true }))
+    await flushPromises()
+    document.querySelector<HTMLButtonElement>('.au-search-results button')!.click()
+    await flushPromises()
+    document.querySelector<HTMLImageElement>('.au-selection-image')!.dispatchEvent(new Event('error'))
+    await flushPromises()
+    expect(document.querySelector('.au-selection-image')).toBeNull()
+    scene.imageSource.mockReturnValue('/__planet-media/thumbs/first.webp')
+    vi.mocked(createUniverseScene).mock.lastCall![2]!({ total: 1, ready: 1, failed: 0, pending: 0 })
+    await flushPromises()
+    expect(document.querySelector<HTMLImageElement>('.au-selection-image')!.getAttribute('src')).toBe('/__planet-media/thumbs/first.webp')
   })
 })

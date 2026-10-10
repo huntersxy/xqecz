@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { IconClose, IconPlus, IconMinus, IconExpand, IconArrowRight, IconForward, IconSearch, IconImage } from '@arco-design/web-vue/es/icon'
-import { loadPlanetImage } from '@/utils/artworkPlanet'
+import { loadPlanetImage, planetImageSource } from '@/utils/artworkPlanet'
 import { UniverseLayout, type UniverseArtwork, type UniverseNode, type UniversePhase, type PlanetOrigin } from '@/utils/artworkUniverse'
 import type { createUniverseScene } from '@/utils/universeScene'
+import type { UniverseImageProgress } from '@/utils/universeImages'
 
 const props = defineProps<{ artworks: readonly UniverseArtwork[]; origin: PlanetOrigin }>()
 const emit = defineEmits<{ closed: []; select: [id: number] }>()
@@ -17,6 +18,8 @@ const phase = ref<UniversePhase>('flight')
 const selected = ref<UniverseNode>()
 const query = ref('')
 const failed = ref(false)
+const imageProgress = ref<UniverseImageProgress>({ total: 0, ready: 0, failed: 0, pending: 0 })
+const previewFailed = ref(false)
 const montageFinished = ref(false)
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)')
 const layout = new UniverseLayout(Math.floor(Math.random() * 0x7fffffff))
@@ -32,6 +35,12 @@ const isMap = computed(() => phase.value === 'map')
 const status = computed(() => ({ flight: '星球正在飞行', unfold: '作品正在展开', marquee: '作品阵列', collapse: '星系正在形成', map: '星图已展开', closing: '正在返回星球' })[phase.value])
 const originStyle = { width: `${props.origin.width}px`, height: `${props.origin.height}px`, backgroundImage: `url("${props.origin.image}")` }
 let universe: ReturnType<typeof createUniverseScene> | undefined
+const selectionImageSource = computed(() => {
+  const node = selected.value
+  if (!node?.artwork.thumb) return ''
+  const loaded = imageProgress.value.ready > 0 ? universe?.imageSource(node.artwork.id) : undefined
+  return loaded || imageUrls.value[node.artwork.id] || planetImageSource(node.artwork.thumb)
+})
 let enginePromise: Promise<void>
 let disposed = false
 // 每次跳过/关闭都会使旧动画序列失效；await 后必须核对版本，防止已关闭的星图复活。
@@ -72,9 +81,9 @@ async function prepareScene() {
   try {
     const { createUniverseScene } = await import('@/utils/universeScene')
     if (disposed || !mapCanvas.value || phase.value === 'closing') return
-    universe = createUniverseScene(mapCanvas.value, node => { selected.value = node })
+    universe = createUniverseScene(mapCanvas.value, node => { selected.value = node }, progress => { imageProgress.value = progress })
     universe.update(nodes.value)
-    universe.fit()
+    universe.enter()
   } catch { failed.value = true }
 }
 async function preloadMontage() {
@@ -168,6 +177,7 @@ function visibility() {
   animations.forEach(animation => { if (animation.playState === 'running' && document.hidden) animation.pause(); else if (!document.hidden && animation.playState === 'paused') animation.play() })
 }
 function motionChange() { if (reduced.matches) void formMap() }
+watch([selected, selectionImageSource], () => { previewFailed.value = false })
 watch(() => props.artworks, items => { nodes.value = layout.update(items); universe?.update(nodes.value) })
 onMounted(async () => {
   document.addEventListener('keydown', key)
@@ -199,6 +209,7 @@ onBeforeUnmount(() => {
     <div ref="root" class="au-root creative-theme" :class="`au-phase-${phase}`" role="dialog" aria-modal="true" aria-label="小泉宇宙星图" :data-phase="phase">
       <span class="au-sr" role="status" aria-live="polite">{{ status }}</span>
       <div ref="stage" class="au-stage">
+        <div class="au-nebula" aria-hidden="true"></div>
         <canvas ref="mapCanvas" class="au-map" :class="{ 'is-visible': montageFinished || phase === 'collapse' }" tabindex="0" role="img" aria-label="全作品星图，可拖动和缩放，点击选择星球" @dblclick="openSelected" @webglcontextlost.prevent="contextLost" />
         <div v-if="!montageFinished" ref="montage" class="au-montage" :class="{ 'is-unfolding': phase !== 'flight' }" aria-hidden="true">
           <div v-for="(row, rowIndex) in rows" :key="rowIndex" class="au-row" :class="{ reverse: rowIndex % 2 }" :style="{ '--row-duration': `${34 + rowIndex * 5}s` }">
@@ -219,7 +230,7 @@ onBeforeUnmount(() => {
       <div ref="surface" class="au-surface" :style="{ backgroundImage: `url('${origin.atlas || origin.image}')` }" aria-hidden="true"></div>
       <div ref="sprite" class="au-flight-planet" :style="originStyle" aria-hidden="true"></div>
       <header v-if="phase !== 'closing'" class="au-header">
-        <div class="au-heading"><span>XQECZ / STAR ATLAS</span><h2>小泉星系</h2><p>{{ nodes.length }} 颗星球</p></div>
+        <div class="au-heading"><span>XQECZ / STAR ATLAS</span><h2>小泉星系</h2><p>{{ nodes.length }} 颗星球<span v-if="imageProgress.total" class="au-image-progress">{{ imageProgress.pending ? `作品显影 ${imageProgress.ready} / ${imageProgress.total}` : `${imageProgress.ready} 幅作品已显影` }}</span></p></div>
         <div class="au-header-actions">
           <div v-if="isMap" class="au-search">
             <IconSearch /><input v-model="query" type="search" aria-label="搜索星球" placeholder="寻找一颗星球" />
@@ -235,9 +246,12 @@ onBeforeUnmount(() => {
       <div v-if="isMap" class="au-map-controls">
         <button class="au-icon" aria-label="放大星图" title="放大" @click="universe?.zoom(1.4)"><IconPlus /></button>
         <button class="au-icon" aria-label="缩小星图" title="缩小" @click="universe?.zoom(1 / 1.4)"><IconMinus /></button>
+        <button class="au-icon au-roam" aria-label="回到漫游视角" title="漫游" @click="universe?.enter()">漫游</button>
         <button class="au-icon" aria-label="显示全部星球" title="全景" @click="universe?.fit()"><IconExpand /></button>
       </div>
+      <p v-if="isMap && !selected" class="au-map-hint">拖动漫游 · 滚轮缩放 · 点击星球查看作品</p>
       <div v-if="isMap && selected" class="au-selection">
+        <img v-if="selected.artwork.thumb && !previewFailed" class="au-selection-image" :src="selectionImageSource" :alt="selected.artwork.title || '作品预览'" @error="previewFailed = true" />
         <span class="au-coordinate">COORDINATE / {{ selected.artwork.id }}</span>
         <h3>{{ selected.artwork.title || `星球 ${selected.artwork.id}` }}</h3>
         <button type="button" class="au-open" @click="openSelected">探访这颗星球<IconArrowRight /></button>
@@ -249,6 +263,10 @@ onBeforeUnmount(() => {
 <style scoped>
 .au-root { position: fixed; inset: 0; width: 100vw; z-index: 1100; overflow: hidden; background: #11101a; color: #f2edf4; isolation: isolate; }
 .au-stage { position: absolute; inset: 0; transform-origin: center; }
+.au-nebula { position: absolute; inset: -15%; pointer-events: none; background: radial-gradient(ellipse at 30% 42%, #80567724 0%, transparent 42%), radial-gradient(ellipse at 66% 58%, #486b8926 0%, transparent 40%), radial-gradient(ellipse at 50% 50%, #48406825 0%, transparent 65%); filter: blur(24px); }
+.au-image-progress { display: inline-block; margin-left: 14px; color: #d5b1bf; }
+.au-map-hint { position: absolute; bottom: 34px; left: 50%; transform: translateX(-50%); margin: 0; color: #cbbdcbd1; font-size: 12px; letter-spacing: 1px; pointer-events: none; text-shadow: 0 1px 12px #000; white-space: nowrap; }
+.au-selection-image { display: block; width: 100%; max-height: 220px; object-fit: contain; margin-bottom: 16px; border-radius: 12px; background: #ffffff0b; }
 .au-map { display: block; width: 100%; height: 100%; opacity: 0; transition: opacity 1.15s ease; cursor: grab; touch-action: none; }
 .au-map:active { cursor: grabbing; }
 .au-map.is-visible { opacity: 1; }
@@ -270,6 +288,7 @@ onBeforeUnmount(() => {
 .au-heading p { font-size: 12px; color: #9c96a6; }
 .au-header-actions { display: flex; gap: 10px; align-items: center; pointer-events: auto; }
 .au-icon { display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0; background: #25222ee8; border: 1px solid #ffffff26; color: #f1e6eb; border-radius: 50%; cursor: pointer; }
+.au-roam { font-size: 11px; }
 .au-icon svg { width: 18px; height: 18px; }
 .au-icon:hover { background: #473341; border-color: #d6a4b4; }
 .au-search { position: relative; display: flex; align-items: center; gap: 8px; width: 230px; height: 42px; padding: 0 12px; border-bottom: 1px solid #ffffff40; background: #211e29dd; }
@@ -279,7 +298,7 @@ onBeforeUnmount(() => {
 .au-search-results button, .au-search-results span { display: block; width: 100%; color: #ece3eb; padding: 10px; font-size: 13px; text-align: left; background: transparent; border: 0; overflow-wrap: anywhere; }
 .au-search-results button:hover { background: #43313c; cursor: pointer; }
 .au-map-controls { position: absolute; right: 32px; bottom: 32px; display: flex; gap: 8px; }
-.au-selection { position: absolute; left: 32px; bottom: 32px; width: min(340px, calc(100% - 150px)); padding: 16px 0; background: #11101ae0; border-top: 1px solid #cf9eaa70; }
+.au-selection { position: absolute; left: 32px; bottom: 32px; width: min(340px, calc(100% - 150px)); padding: 18px; background: #1d1826eb; border: 1px solid #cf9eaa70; border-radius: 18px; box-shadow: 0 12px 48px #0005; backdrop-filter: blur(18px); }
 .au-selection h3 { margin: 8px 0 14px; font: 20px/1.5 var(--creative-title-font); color: #f1e4eb; overflow-wrap: anywhere; max-height: 90px; overflow: auto; }
 .au-open { display: flex; align-items: center; gap: 12px; border: 0; padding: 8px 0; background: transparent; color: #eab8c5; cursor: pointer; }
 .au-fallback { position: absolute; inset: 130px 24px 100px; overflow: auto; display: flex; flex-wrap: wrap; gap: 24px; align-content: start; }
@@ -287,5 +306,5 @@ onBeforeUnmount(() => {
 .au-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 @keyframes au-drift { to { transform: translateX(calc(-50% - 7px)); } }
 @keyframes au-loading { to { transform: rotate(360deg); } }
-@media (max-width: 700px) { .au-header { padding: 18px 16px; } .au-heading h2 { font-size: 23px; } .au-heading span { font-size: 8px; } .au-search { width: 130px; } .au-search-results { width: 240px; } .au-map-controls { right: 16px; bottom: 20px; flex-direction: column; } .au-selection { left: 16px; bottom: 20px; } .au-tile { width: 180px; height: 20vh; } }
+@media (max-width: 700px) { .au-image-progress { display: block; margin: 5px 0 0; } .au-map-hint { bottom: 24px; left: 16px; transform: none; max-width: calc(100% - 100px); white-space: normal; font-size: 10px; } .au-selection-image { max-height: 130px; } .au-header { padding: 18px 16px; } .au-heading h2 { font-size: 23px; } .au-heading span { font-size: 8px; } .au-search { width: 130px; } .au-search-results { width: 240px; } .au-map-controls { right: 16px; bottom: 20px; flex-direction: column; } .au-selection { left: 16px; bottom: 20px; } .au-tile { width: 180px; height: 20vh; } }
 </style>
