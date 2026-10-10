@@ -34,24 +34,28 @@ describe('getRemoteFallbackUrl', () => {
 
   it('maps a relative media path to the production host', () => {
     expect(getRemoteFallbackUrl('/thumbs/14_thumb.webp', origin)).toBe(
-      'https://xq.xiey.work/thumbs/14_thumb.webp'
+      'https://api39.xiey.work/thumbs/14_thumb.webp'
     )
   })
 
   it('maps a localhost absolute URL to the production host', () => {
     expect(getRemoteFallbackUrl('http://localhost:3000/thumbs/a.jpg', origin)).toBe(
-      'https://xq.xiey.work/thumbs/a.jpg'
+      'https://api39.xiey.work/thumbs/a.jpg'
     )
   })
 
   it('keeps the query string', () => {
     expect(getRemoteFallbackUrl('/images/a.webp?v=2', origin)).toBe(
-      'https://xq.xiey.work/images/a.webp?v=2'
+      'https://api39.xiey.work/images/a.webp?v=2'
     )
   })
 
   it('returns empty string when the URL is already on the production host', () => {
-    expect(getRemoteFallbackUrl('https://xq.xiey.work/thumbs/a.jpg', origin)).toBe('')
+    expect(getRemoteFallbackUrl('https://api39.xiey.work/thumbs/a.jpg', origin)).toBe('')
+  })
+
+  it('replaces the frontend hostname with the media hostname for legacy fallback URLs', () => {
+    expect(getRemoteFallbackUrl('https://xq.xiey.work/thumbs/a.jpg', origin)).toBe('https://api39.xiey.work/thumbs/a.jpg')
   })
 
   it('returns empty string for external hosts (avatars / image hosts)', () => {

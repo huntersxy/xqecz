@@ -1,6 +1,6 @@
 import { fileURLToPath, URL } from 'node:url'
 
-import { defineConfig } from 'vite'
+import { defineConfig, type ProxyOptions } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import AutoImport from 'unplugin-auto-import/vite'
@@ -98,6 +98,20 @@ export default defineConfig(async ({ mode }) => {
       port: Number(process.env.VITE_PORT) || 5173,
       strictPort: false,
       proxy: {
+        // Only public media from the fixed production host. Local thumbnails may
+        // be missing, and localhost is not a production CORS origin for canvas.
+        '^/__planet-media/(thumbs|uploads|images)/': {
+          target: 'https://api39.xiey.work',
+          changeOrigin: true,
+          rewrite: (path: string) => path.replace(/^\/__planet-media/, ''),
+          configure(proxy: Parameters<NonNullable<ProxyOptions['configure']>>[0]) {
+            proxy.on('proxyReq', request => {
+              request.removeHeader('origin')
+              request.removeHeader('cookie')
+              request.removeHeader('authorization')
+            })
+          },
+        },
         '/api': {
           target: proxyTarget,
           changeOrigin: true,

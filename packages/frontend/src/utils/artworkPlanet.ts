@@ -1,4 +1,4 @@
-import { getImageUrl, getRemoteFallbackUrl } from '@/utils'
+import { getImageUrl, getRemoteFallbackUrl, REMOTE_MEDIA_BASE } from '@/utils'
 
 export interface PlanetArtwork { id: number; thumb: string }
 export const PLANET_COLUMNS = 6
@@ -41,8 +41,26 @@ export class PlanetArtworkDeck {
   }
 }
 
+/** Use the same media base as cards, with a separate CDN cache key for CORS textures. */
+export function planetImageSource(url: string, origin = window.location.origin, development = import.meta.env.DEV): string {
+  const resolved = getImageUrl(url)
+  if (!resolved) return ''
+  const parsed = new URL(resolved, origin)
+  if (parsed.origin === origin || !/^https?:$/.test(parsed.protocol)) return resolved
+  if (parsed.origin !== REMOTE_MEDIA_BASE && !getRemoteFallbackUrl(resolved, origin)) return resolved
+  if (development && parsed.origin === REMOTE_MEDIA_BASE && /^\/(thumbs|uploads|images)\//.test(parsed.pathname)) {
+    return `/__planet-media${parsed.pathname}${parsed.search}`
+  }
+  // Ordinary <img> CDN entries may lack ACAO. Separate origins to avoid reusing
+  // a response cached without CORS or with another site's Allow-Origin header.
+  parsed.searchParams.set('texture_origin', origin)
+  return parsed.href
+}
+
 /** 只读取缩略图，超时 / 离开视口取消；CORS 失败时保留其余可用作品。 */
 export async function loadPlanetImage(url: string, signal: AbortSignal): Promise<HTMLImageElement | null> {
+  const source = planetImageSource(url)
+  if (!source || signal.aborted) return null
   async function load(src: string): Promise<HTMLImageElement | null> {
     if (signal.aborted) return null
     return new Promise(resolve => {
@@ -68,10 +86,10 @@ export async function loadPlanetImage(url: string, signal: AbortSignal): Promise
       image.src = src
     })
   }
-  const image = await load(url)
+  const image = await load(source)
   if (image || signal.aborted) return image
-  const fallback = getRemoteFallbackUrl(url)
-  return fallback ? load(fallback) : null
+  const fallback = getRemoteFallbackUrl(getImageUrl(url))
+  return fallback ? load(planetImageSource(fallback)) : null
 }
 
 /** 局部重绘不重置尺寸；贴片边缘渐隐并重叠，横向 wrap 保证经度首尾无缝。 */

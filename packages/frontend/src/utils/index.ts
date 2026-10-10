@@ -16,7 +16,7 @@ export function getImageUrl(image?: string): string {
 }
 
 /** 生产服务器远程媒体兜底地址：开发环境图片 404 时，回退到该域名同路径重试。 */
-const REMOTE_MEDIA_BASE = 'https://xq.xiey.work'
+export const REMOTE_MEDIA_BASE = 'https://api39.xiey.work'
 
 /**
  * 生成本站媒体在生产服务器的同路径兜底 URL。
@@ -49,6 +49,7 @@ export function getRemoteFallbackUrl(url: string, origin?: string): string {
     u.hostname === 'localhost' ||
     u.hostname === '127.0.0.1' ||
     u.hostname === remoteHost ||
+    u.hostname === 'xq.xiey.work' ||
     (mediaHost !== '' && u.hostname === mediaHost) ||
     u.origin === baseOrigin
   if (!isOwnHost) return ''

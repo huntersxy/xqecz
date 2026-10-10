@@ -21,7 +21,7 @@ describe('MediaImage', () => {
     const wrapper = mount(MediaImage, { props: { src: '/thumbs/broken.jpg' } })
     await failImage(wrapper)
     expect(wrapper.find('.arco-image-img').attributes('src')).toBe(
-      'https://xq.xiey.work/thumbs/broken.jpg'
+      'https://api39.xiey.work/thumbs/broken.jpg'
     )
     expect(wrapper.emitted('error')).toBeUndefined()
     wrapper.unmount()
