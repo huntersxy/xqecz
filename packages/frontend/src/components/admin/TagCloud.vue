@@ -151,6 +151,7 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
       </div>
       <button
         v-else
+        type="button"
         class="add-tag-btn"
         @click="toggleCustomInput"
       >

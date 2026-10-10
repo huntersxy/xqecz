@@ -147,8 +147,10 @@ watch(() => props.open, (val) => {
         <section class="qus-media-column" aria-label="作品媒体">
           <div class="qus-field-heading"><span>作品画面</span><span class="qus-optional">可选</span></div>
           <input ref="fileInput" type="file" accept="image/*,video/*" class="qus-hidden" :disabled="uploading" @change="onFileChange" />
+          <Transition name="qus-media-state" mode="out-in">
           <button
             v-if="!file"
+            key="dropzone"
             type="button"
             class="qus-dropzone"
             :class="{ 'is-dragover': dragOver }"
@@ -163,7 +165,7 @@ watch(() => props.open, (val) => {
             <span class="qus-dropzone-hint">点击选择，或将图片 / 视频拖到这里</span>
             <span class="qus-file-limit">原格式上传 · 单个文件不超过 20 MB</span>
           </button>
-          <div v-else class="qus-preview">
+          <div v-else key="preview" class="qus-preview">
             <div class="qus-preview-stage">
               <img v-if="file.type.startsWith('image/')" :src="filePreview" :alt="file.name" class="qus-preview-img" />
               <video v-else :src="filePreview" controls class="qus-preview-video" />
@@ -175,6 +177,7 @@ watch(() => props.open, (val) => {
               <button type="button" class="qus-remove" aria-label="移除已选文件" :disabled="uploading" @click="removeFile"><IconClose /></button>
             </div>
           </div>
+          </Transition>
           <p class="qus-media-note"><span aria-hidden="true">✧</span> 没有图片也没关系，让文字成为主角。</p>
         </section>
 
@@ -277,4 +280,7 @@ button:disabled { cursor: not-allowed; }
   .qus-submit { min-width: 124px; }
 }
 @media (max-width: 360px) { .qus-grid { grid-template-columns: 1fr; } }
+.qus-media-state-enter-active, .qus-media-state-leave-active { transition: opacity .16s ease, transform .16s ease; }
+.qus-media-state-enter-from { opacity: 0; transform: translateY(4px); }
+.qus-media-state-leave-to { opacity: 0; transform: translateY(-4px); }
 </style>

@@ -25,14 +25,18 @@ const {
 
 const content = ref<Content | null>(null)
 const loadState = ref<'loading' | 'ready' | 'error'>('loading')
+let contentLoadSeq = 0
 const reportTarget = ref<Comment | null>(null)
 const showClaimModal = ref(false)
 
 // ── 加载内容 ──
 async function loadContent() {
+  const seq = ++contentLoadSeq
+  const id = currentId.value
   loadState.value = 'loading'
   try {
-    const res = await contentApi.detail(currentId.value)
+    const res = await contentApi.detail(id)
+    if (seq !== contentLoadSeq || id !== currentId.value) return
     if (res.code === 200) {
       content.value = res.data
       loadState.value = 'ready'
@@ -41,6 +45,7 @@ async function loadContent() {
       Message.error(res.message)
     }
   } catch {
+    if (seq !== contentLoadSeq || id !== currentId.value) return
     loadState.value = 'error'
     Message.error('加载内容失败')
   }
@@ -176,9 +181,10 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.cd-root { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; color: var(--creative-ink); animation: cd-fade-in .22s ease-out; }
-.cd-backdrop { position: absolute; inset: 0; background: color-mix(in srgb, var(--creative-canvas) 86%, transparent); backdrop-filter: blur(12px); }
-.cd-shell { position: relative; width: 100%; max-width: 1600px; height: 100%; display: flex; flex-direction: column; background: var(--creative-paper); border: 1px solid var(--creative-line); border-radius: 20px; overflow: hidden; box-shadow: var(--creative-shadow); }
+/* 底色从首帧就覆盖背景，只有内容面板执行入场动画。 */
+.cd-root { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; color: var(--creative-ink); background: var(--creative-canvas); }
+.cd-backdrop { position: absolute; inset: 0; }
+.cd-shell { position: relative; width: 100%; max-width: 1600px; height: 100%; display: flex; flex-direction: column; background: var(--creative-paper); border: 1px solid var(--creative-line); border-radius: 20px; overflow: hidden; box-shadow: var(--creative-shadow); animation: cd-fade-in .22s ease-out; }
 @keyframes cd-fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .cd-topbar { flex-shrink: 0; display: flex; align-items: center; gap: 18px; padding: 17px 24px; border-bottom: 1px solid var(--creative-line); background: var(--creative-paper); }
 .cd-back-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 38px; height: 38px; padding: 0 12px 0 9px; border: 1px solid var(--creative-line); border-radius: 999px; background: var(--creative-paper); color: var(--creative-muted); font: inherit; font-size: 11px; letter-spacing: .04em; cursor: pointer; flex-shrink: 0; transition: background .2s, color .2s, border-color .2s, box-shadow .2s, transform .2s; }
