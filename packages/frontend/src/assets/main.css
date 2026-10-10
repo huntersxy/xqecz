@@ -218,6 +218,11 @@ html:has(.cd-root) {
    plus-lighter 是 UA 给新旧快照定的混合模式（为了交叉淡出时不闪白），圆形揭示是
    上下两层都要完整不透明的，故改回 normal 并用 z-index 钉死「新的在上」。
    这些伪元素只在过渡期间存在；不认识的浏览器会丢弃整条规则，不影响其它样式。 */
+/* 全屏快照只负责视觉过渡，不应挡住用户继续操作页面。 */
+::view-transition {
+  pointer-events: none;
+}
+
 ::view-transition-image-pair(root) {
   isolation: auto;
 }

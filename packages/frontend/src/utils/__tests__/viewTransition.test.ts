@@ -14,7 +14,9 @@ function stubStartViewTransition(init: TransitionInit) {
 }
 
 function stubAnimate(impl?: () => Animation) {
-  const animate = vi.fn(impl ?? (() => ({}) as Animation))
+  const animate = vi.fn(
+    impl ?? (() => ({ finished: Promise.resolve(), cancel: vi.fn() }) as unknown as Animation),
+  )
   Object.defineProperty(document.documentElement, 'animate', { value: animate, configurable: true })
   return animate
 }
@@ -107,6 +109,23 @@ describe('withRevealTransition', () => {
     expect(options.pseudoElement).toBe('::view-transition-new(root)')
     expect(keyframes.clipPath[0]).toBe('circle(0px at 10px 20px)')
     expect(keyframes.clipPath[1]).toMatch(/^circle\(\d+(\.\d+)?px at 10px 20px\)$/)
+  })
+
+  it('揭示动画结束后取消动画，释放过渡快照', async () => {
+    const holder: { run?: () => Promise<void> } = {}
+    stubStartViewTransition((fn) => {
+      holder.run = fn
+      return { ready: Promise.resolve() }
+    })
+    const cancel = vi.fn()
+    stubAnimate(() => ({ finished: Promise.resolve(), cancel }) as unknown as Animation)
+
+    withRevealTransition(vi.fn(), { x: 10, y: 20 })
+    await holder.run?.()
+    await nextTick()
+    await Promise.resolve()
+
+    expect(cancel).toHaveBeenCalledTimes(1)
   })
 
   it('ready 被拒（页面在后台）时静默降级，不影响更新', async () => {

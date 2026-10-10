@@ -69,7 +69,7 @@ export function withRevealTransition(update: () => void | Promise<void>, origin?
   transition.ready
     .then(() => {
       const radius = revealRadius(x, y, globalThis.innerWidth || 0, globalThis.innerHeight || 0)
-      doc.documentElement.animate(
+      const animation = doc.documentElement.animate(
         {
           clipPath: [
             `circle(0px at ${x}px ${y}px)`,
@@ -79,9 +79,14 @@ export function withRevealTransition(update: () => void | Promise<void>, origin?
         {
           duration: REVEAL_MS,
           easing: 'ease-in-out',
-          fill: 'both',
+          // 结束后释放快照效果；forwards/both 会让过渡层继续覆盖页面、拦截点击。
+          fill: 'backwards',
           pseudoElement: '::view-transition-new(root)',
         },
+      )
+      void animation.finished.then(
+        () => animation.cancel(),
+        () => animation.cancel(),
       )
     })
     // ready 被拒（页面切到后台、同页只允许一个过渡等在途）时，DOM 更新在回调里已经
