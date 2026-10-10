@@ -5,7 +5,7 @@ import { createUniverseScene } from '@/utils/universeScene'
 
 const scene = vi.hoisted(() => ({ imageSource: vi.fn<(id: number) => string | undefined>(), update: vi.fn(), enter: vi.fn(), fit: vi.fn(), zoom: vi.fn(), focus: vi.fn(), project: vi.fn(() => ({ x: 200, y: 200, diameter: 40 })), setActive: vi.fn(), dispose: vi.fn() }))
 vi.mock('@/utils/universeScene', () => ({ createUniverseScene: vi.fn(() => scene) }))
-vi.mock('@/utils/artworkPlanet', () => ({ loadPlanetImage: vi.fn(async () => null), planetImageSource: vi.fn((url: string) => url) }))
+vi.mock('@/utils/artworkPlanet', () => ({ loadMontageImage: vi.fn(async () => null),  planetImageSource: vi.fn((url: string) => url) }))
 const origin = { left: 900, top: 140, width: 180, height: 180, image: '/planet.png' }
 const artworks = [{ id: 1, title: 'First planet', thumb: '/first.webp' }, { id: 2, title: 'Text planet', thumb: '' }]
 let wrapper: ReturnType<typeof mount> | undefined
@@ -60,6 +60,29 @@ describe('artwork universe lifecycle', () => {
     expect(phase()).toBe('map')
     expect(scene.setActive).toHaveBeenCalledWith(true)
     expect(document.querySelector('.au-montage')).toBeNull()
+  })
+  it('contracts visible artwork into a circle before handing it to its matching planet', async () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('au-tile')
+        ? { x: 20, y: 40, left: 20, top: 40, right: 220, bottom: 160, width: 200, height: 120, toJSON() {} }
+        : { x: 0, y: 0, left: 0, top: 0, right: 1024, bottom: 768, width: 1024, height: 768, toJSON() {} }
+    })
+    await start()
+    document.querySelector<HTMLButtonElement>('[aria-label="跳过展开动画"]')!.click()
+    await flushPromises()
+    expect(phase()).toBe('collapse')
+    const clones = document.querySelectorAll('.au-collapse-tile')
+    expect(clones.length).toBeGreaterThan(0)
+    const frames = vi.mocked(HTMLElement.prototype.animate).mock.calls.find(([keyframes]) =>
+      Array.isArray(keyframes) && keyframes.some(frame => frame.offset === .35),
+    )![0] as Keyframe[]
+    expect(frames[1]).toMatchObject({ offset: .35, clipPath: 'inset(0 round 50%)', opacity: 1 })
+    expect(frames[1]!.transform).toBe('translate(0,0) scale(0.6,1)')
+    expect(frames[2]).toMatchObject({ offset: .82, opacity: 1, transform: 'translate(80px,100px) scale(0.2,0.3333333333333333)' })
+    expect(scene.project).toHaveBeenCalledWith(expect.objectContaining({ artwork: expect.objectContaining({ id: 1 }) }))
+    await advance(1600)
+    expect(phase()).toBe('map')
+    expect(document.querySelector('.au-collapse-tile')).toBeNull()
   })
   it('can close during opening without a later phase resurrecting the universe', async () => {
     await start()

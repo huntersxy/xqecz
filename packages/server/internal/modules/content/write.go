@@ -302,6 +302,15 @@ func (h *Handler) removeOrphanMedia(ctx context.Context, paths ...*string) {
 		if err := db.Model(&store.Content{}).Where(col+" = ?", *p).Count(&n).Error; err != nil || n > 0 {
 			continue
 		}
+		if strings.HasPrefix(*p, "thumbs/") {
+			for _, atlas := range []string{media.AtlasThumbnailURL(FileURL(*p)), media.MontageThumbnailURL(FileURL(*p))} {
+				if atlas != "" {
+					if err := media.MoveToBin(h.absMediaPath(strings.TrimPrefix(atlas, "/")), h.deps.Cfg.BinDir); err != nil {
+						slog.Warn("星图小图入桶失败", "path", atlas, "err", err)
+					}
+				}
+			}
+		}
 		if err := media.MoveToBin(h.absMediaPath(*p), h.deps.Cfg.BinDir); err != nil {
 			slog.Warn("媒体文件入桶失败", "path", *p, "err", err)
 		}

@@ -1,4 +1,4 @@
-export interface UniverseArtwork { id: number; title?: string; thumb: string; text?: string }
+export interface UniverseArtwork { id: number; title?: string; thumb: string; atlas_thumb?: string; montage_thumb?: string; text?: string }
 export interface UniverseNode { artwork: UniverseArtwork; x: number; y: number; radius: number; hue: number }
 export interface PlanetOrigin { left: number; top: number; width: number; height: number; image: string; atlas?: string }
 export type UniversePhase = 'flight' | 'unfold' | 'marquee' | 'collapse' | 'map' | 'closing'

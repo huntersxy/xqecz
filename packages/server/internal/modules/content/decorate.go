@@ -6,6 +6,7 @@ import (
 
 	"github.com/huntersxy/xqecz/server/internal/app"
 	useravatar "github.com/huntersxy/xqecz/server/internal/avatar"
+	"github.com/huntersxy/xqecz/server/internal/media"
 	"github.com/huntersxy/xqecz/server/internal/store"
 	"github.com/huntersxy/xqecz/server/internal/web"
 )
@@ -112,13 +113,15 @@ type UserBrief struct {
 
 // Item 是内容列表/详情的对外形状，与旧后端 decorateContent 的输出逐字段一致。
 type Item struct {
-	ID     uint64 `json:"id"`
-	Title  string `json:"title"`
-	Text   string `json:"text"`
-	Thumb  string `json:"thumb"`
-	Video  string `json:"video"`
-	Img    string `json:"img"`
-	Origin string `json:"origin,omitempty"`
+	ID           uint64 `json:"id"`
+	Title        string `json:"title"`
+	Text         string `json:"text"`
+	Thumb        string `json:"thumb"`
+	AtlasThumb   string `json:"atlas_thumb"`
+	MontageThumb string `json:"montage_thumb"`
+	Video        string `json:"video"`
+	Img          string `json:"img"`
+	Origin       string `json:"origin,omitempty"`
 	// MirrorImg / MirrorVideo 是同一份文件在**主目标**（R2）上的绝对地址（未启用时为空）。
 	// 与源站不同 origin，无法用相对路径推导，因此这里给完整地址：
 	// 换公开域名只改服务端 .env，前端不必重新构建。
@@ -195,21 +198,23 @@ func decorateWith(mm app.MediaMirror, row store.Content, userMap map[uint64]stor
 	}
 
 	item := Item{
-		ID:          row.ID,
-		Title:       row.Title,
-		Text:        deref(row.Content),
-		Thumb:       thumb,
-		Video:       "",
-		Img:         img,
-		Origin:      FileURL(filePath),
-		FileSize:    row.FileSize,
-		User:        author,
-		AvatarURL:   avatar,
-		Tags:        ParseTags(row.Tags),
-		LikeCount:   likeCount,
-		AuditStatus: row.AuditStatus,
-		CreatedAt:   web.TimeOf(row.CreatedAt),
-		UpdatedAt:   web.TimeOf(row.UpdatedAt),
+		ID:           row.ID,
+		Title:        row.Title,
+		Text:         deref(row.Content),
+		Thumb:        thumb,
+		AtlasThumb:   media.AtlasThumbnailURL(FileURL(thumbPath)),
+		MontageThumb: media.MontageThumbnailURL(FileURL(thumbPath)),
+		Video:        "",
+		Img:          img,
+		Origin:       FileURL(filePath),
+		FileSize:     row.FileSize,
+		User:         author,
+		AvatarURL:    avatar,
+		Tags:         ParseTags(row.Tags),
+		LikeCount:    likeCount,
+		AuditStatus:  row.AuditStatus,
+		CreatedAt:    web.TimeOf(row.CreatedAt),
+		UpdatedAt:    web.TimeOf(row.UpdatedAt),
 	}
 	if isVideo {
 		item.Video = FileURL(filePath)

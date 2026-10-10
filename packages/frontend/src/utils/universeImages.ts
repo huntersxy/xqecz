@@ -1,4 +1,4 @@
-import { loadPlanetImage } from './artworkPlanet'
+import { loadUniverseImage } from './artworkPlanet'
 import type { UniverseNode } from './artworkUniverse'
 
 export interface UniverseImageProgress { total: number; ready: number; failed: number; pending: number }
@@ -24,13 +24,13 @@ export function createUniverseImages(onImage: (node: UniverseNode, image: HTMLIm
       const current = new Set(nodes.filter(node => node.artwork.thumb).map(node => node.artwork.id))
       entries.forEach((_, id) => { if (!current.has(id)) entries.delete(id) })
       for (const node of nodes) {
-        const url = node.artwork.thumb
+        const url = node.artwork.atlas_thumb || node.artwork.thumb
         if (!url || entries.get(node.artwork.id)?.url === url) continue
         const entry: Entry = { url, state: 'pending' }
         entries.set(node.artwork.id, entry)
         let request = requests.get(url)
         if (!request) {
-          request = loadPlanetImage(url, abort.signal, 20000).catch(() => null)
+          request = loadUniverseImage(node.artwork, abort.signal).catch(() => null)
           requests.set(url, request)
         }
         void request.then(image => {

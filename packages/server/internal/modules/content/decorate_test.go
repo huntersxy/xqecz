@@ -65,6 +65,9 @@ func TestDecorateVideoAndImage(t *testing.T) {
 	if item.Thumb != "/thumbs/v_thumb.webp" {
 		t.Errorf("缩略图应取 thumb_path: %q", item.Thumb)
 	}
+	if item.AtlasThumb != "/thumbs/atlas-v1/v_thumb.webp" {
+		t.Fatalf("atlas field: %q", item.AtlasThumb)
+	}
 	if item.LikeCount != 3 {
 		t.Errorf("点赞数错误: %d", item.LikeCount)
 	}
@@ -79,6 +82,9 @@ func TestDecorateVideoAndImage(t *testing.T) {
 	item2 := decorate(img, nil, 0, true)
 	if item2.Img != "/uploads/i.webp" || item2.Video != "" {
 		t.Errorf("图片行字段错误: img=%q video=%q", item2.Img, item2.Video)
+	}
+	if item2.AtlasThumb != "" {
+		t.Fatal("must not guess original image as atlas")
 	}
 	if item2.User.Username != "unknown" {
 		t.Errorf("缺用户表时应回退 unknown: %+v", item2.User)

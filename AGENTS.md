@@ -25,6 +25,8 @@
 | 详情大图来源优先级与探测缓存 | `packages/frontend/src/utils/imageSource.ts`，调用方 `ContentMedia.vue` / `MediaImage.vue` |
 | 星图全作品预加载、去重、显影进度与取消 | `packages/frontend/src/utils/universeImages.ts`；不在场景中另写限量图片队列 |
 | Canvas/WebGL 贴图加载与跨域缓存策略 | `packages/frontend/src/utils/artworkPlanet.ts:planetImageSource/loadPlanetImage` |
+| 星图贴图合批、帧调度、选中信息卡定位 | `universeAtlas.ts` / `universeFrame.ts` / `universeSelection.ts`；保持全部作品驻留与原有光影，不以丢图、降像素比或限帧换性能 |
+| 星图/走马灯专用小图生成 | `packages/server/internal/media/atlas.go`；策略按版本目录区分，经既有 `/thumbs` 托管，字段由后端下发，前端不得猜文件名 |
 | 星图随机坐标与可见候选 | `packages/frontend/src/utils/artworkUniverse.ts`（纯算法）；渲染资源归 `universeScene.ts` |
 | 星球/星图交互和动画阶段 | `ArtworkPlanet.vue` / `ArtworkUniverse.vue`；组件不重新定义共享媒体规则 |
 | 前后端字段形状、请求/响应契约 | `packages/frontend/src/api/index.ts` / `src/types/schemas.ts`，服务端对应模块 |
@@ -180,6 +182,7 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 - **媒体下载** — `/uploads`、`/thumbs`、`/images` 由 `content.RegisterMedia` 挂载（非 gin `r.Static`）：带 `?download=1` 时以附件返回，文件名取内容标题（ASCII 回退名 + RFC 5987 UTF-8 名）；`.html`/`.svg`/`.js` 等可直接执行或注入的扩展名拒绝下载（403），避免上传目录变分发通道
 - **前端素材与媒体地址归属** — Vite `import` 的 `/assets/*`、开发 `/src/*` 及 `public` 素材由前端托管，禁止补 `VITE_MEDIA_BASE_URL` 或回退到媒体源站；仅 `/thumbs/`、`/uploads/`、`/images/` 经共享 `isContentMediaPath/getImageUrl` 解析。绝对地址、签名参数、blob/data 保持原样，第三方地址不参与本站兜底。线上前端域名不是媒体域名；生产兜底常量仅在共享工具定义。新增媒体目录须同步服务端路由、共享判定、开发代理和契约测试。
 - **作品星球与星图的加载边界** — 普通图片可显示不代表允许读入 Canvas/WebGL；星球、展开阵列、星图共用 `loadPlanetImage`，不得绕开 CORS 加载与取消机制。开发代理只允许固定媒体源站的公开目录，不传 Cookie/Authorization，不扩成任意 URL 代理或放宽生产 CORS。底图失败要继续初始化并加载作品；当前星图按用户要求体验优先：展开期间全量预加载缩略图并常驻，不设 64 张可见/驻留上限，也不逐帧串行等图；共享 URL 仍只请求一次。默认打开近距离作品漫游，全景由按钮另行触发；纯文字、加载中和失败各有可辨认状态。渲染在隐藏/停用时暂停，卸载时取消请求并释放 GPU 与监听器；后续性能调整不能以大量无图或把首屏缩成点阵为代价。生命周期、所有权及验收步骤见 `docs/frontend-media.md`。
+- **星图与走马灯派生图** — 普通缩略图生成成功后由 `media/atlas.go` 派生两档：星图 `atlas_thumb`（最长边 256、WebP 55）与大幅走马灯 `montage_thumb`（最长边 640、WebP 78）；目录为 `thumbs/atlas-v1/` 与 `thumbs/montage-v1/`，不改原图与普通缩略图、不镜像、不新增 DB 列。新上传、手工重建、启动扫描与缺图请求共用幂等入口，最多两路编码、同文件去重、临时文件原子提交；失败保留旧产物并让前端回退普通缩略图。前端字段可选兼容旧 API/缓存，大幅走马灯不能拿星图低清档放大；清晰档重编码若比普通 WebP 更大，直接复用原 WebP 字节，尺寸可保留原值，不能为缩小尺寸反增流量。删除普通缩略图确认无其它引用后须一并把两档派生图移入垃圾桶。品质/尺寸策略变化需升目录版本避免 CDN 旧缓存。
 - **共享上传目录** — 物理目录为项目根 `data/`（`UPLOAD_DIR`/`THUMB_DIR`/`IMAGES_DIR`/`BIN_DIR` 由 .env 覆盖），媒体处理与静态托管在同一进程内，无需跨进程路径约定
 - **Redis 缓存** — 公开读路径走读穿缓存：`content:{id}`、`content_list:{sha1(规范化参数)}`、`tags`、`comments:{cid}:threads-v3:{page}:{size}`、`comment_count:{cid}`、`admin:dashboard`；TTL 仅作兜底，**所有写路径必须显式失效**（`ClearContentCache` / `ClearContentListCache` / `ClearCommentCache` / `ClearAllContentCaches`）
 - **评论回复链** — 数据库 `parent_id` 保留直接回复对象，列表按顶层评论分页，必须批量查询该页楼内的全部后代；`modules/comment/threads.go:buildThreads` 将多级回复铺在顶层 `replies` 一层数组中，附上直接 `parent` 引用供前端显示，不能只查顶层的直接回复，否则 A ← B ← C 的 C 会消失。列表缓存版本仍放在 `comments:{cid}:*` 下，确保 `ClearCommentCache` 可统一失效；删父评论时事务内把直接回复 `parent_id` 置空，保留后代。`CommentSections` 监听内容 id 自动加载并丢弃过期请求；提交回复后刷新当前页，不能强制跳回第一页。

@@ -60,7 +60,7 @@ func assertNoThumbJunk(t *testing.T, dir string) {
 		if strings.HasPrefix(e.Name(), ".thumb-") {
 			t.Fatalf("残留临时缩略图 %s", e.Name())
 		}
-		if info, err := e.Info(); err == nil && info.Size() == 0 {
+		if info, err := e.Info(); err == nil && !info.IsDir() && info.Size() == 0 {
 			t.Fatalf("残留 0 字节文件 %s", e.Name())
 		}
 	}

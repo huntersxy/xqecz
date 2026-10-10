@@ -49,6 +49,9 @@ export const RecommendContentSchema = z.object({
   id: num,
   title: str,
   thumb: str.optional().default(''),
+  // 星图专用低体积图片；可选以兼容旧服务响应和首页缓存。
+  atlas_thumb: str.optional(),
+  montage_thumb: str.optional(),
   tags: tagsArr,
   view_count: num.optional().default(0),
   like_count: num.optional().default(0),
@@ -63,6 +66,9 @@ export const ContentSchema = z.object({
   title: str,
   text: str.optional().default(''),
   thumb: str.optional().default(''),
+  // 星图专用低体积图片；可选以兼容旧服务响应和首页缓存。
+  atlas_thumb: str.optional(),
+  montage_thumb: str.optional(),
   video: str.optional().default(''),
   img: str.optional().default(''),
   origin: str.optional().default(''),

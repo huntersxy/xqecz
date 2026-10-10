@@ -110,4 +110,24 @@ describe('planet image source', () => {
     expect(image).not.toBeNull()
     expect(requested).toEqual(['/thumbs/6c28799d8edb4a3327fcd0062ec695bf_thumb.webp', '/__planet-media/thumbs/6c28799d8edb4a3327fcd0062ec695bf_thumb.webp'])
   })
+  it('uses distinct small-atlas and clear-montage variants, falling back on old backends', async () => {
+    const { loadUniverseImage, loadMontageImage } = await loader()
+    const requested: string[]=[]
+    class MockImage {
+      naturalWidth=256; onload: (()=>void)|null=null; onerror: (()=>void)|null=null
+      set src(value:string) { if (!value) return; requested.push(value); queueMicrotask(()=>value.includes('atlas-v1')?this.onerror?.():this.onload?.()) }
+    }
+    vi.stubGlobal('Image',MockImage)
+    const artwork={thumb:'/thumbs/a.webp',atlas_thumb:'/thumbs/atlas-v1/a.webp',montage_thumb:'/thumbs/montage-v1/a.webp'}
+    const signal=new AbortController().signal
+    expect(await loadUniverseImage(artwork,signal)).not.toBeNull()
+    expect(requested[0]).toBe('/thumbs/atlas-v1/a.webp')
+    expect(requested.at(-1)).toBe('/thumbs/a.webp')
+    requested.length=0
+    expect(await loadMontageImage(artwork,signal)).not.toBeNull()
+    expect(requested).toEqual(['/thumbs/montage-v1/a.webp'])
+    requested.length=0
+    expect(await loadUniverseImage({thumb:'/thumbs/old.webp'},signal)).not.toBeNull()
+    expect(requested).toEqual(['/thumbs/old.webp'])
+  })
 })

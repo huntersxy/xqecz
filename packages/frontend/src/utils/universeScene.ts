@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import { createUniverseFrame } from './universeFrame'
+import { createUniverseAtlas } from './universeAtlas'
 import { MapControls } from 'three/addons/controls/MapControls.js'
 import { createUniverseImages, type UniverseImageProgress } from './universeImages'
 import { universeOpeningView, type UniverseNode } from './artworkUniverse'
@@ -8,7 +10,7 @@ import { universeOpeningView, type UniverseNode } from './artworkUniverse'
  * 当前版本体验优先：预加载并保留全作品缩略图，不再限制可见贴图数和驻留数。
  * setActive 只暂停帧循环，dispose 才释放资源；图片地址一律交给 loadPlanetImage。
  */
-export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: UniverseNode | undefined) => void, onProgress: (progress: UniverseImageProgress) => void = () => {}) {
+export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: UniverseNode | undefined) => void, onProgress: (progress: UniverseImageProgress) => void = () => {}, onViewChange: () => void = () => {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true })
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
   const scene = new THREE.Scene()
@@ -30,11 +32,8 @@ export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: 
   let height = 1
   let disposed = false
   let active = false
-  let dirty = true
-  let frame = 0
-  let lastDraw = 0
-  const thumbnails = new Map<number, { mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>; texture: THREE.CanvasTexture; url: string; source?: string }>()
-  const plane = new THREE.PlaneGeometry(2, 2)
+  const frames = createUniverseFrame(() => { artworkAtlas.flush(); renderer.render(scene, camera); onViewChange() })
+  const artworkAtlas = createUniverseAtlas(scene)
   const matrix = new THREE.Matrix4()
   const position = new THREE.Vector3()
   const rotation = new THREE.Quaternion()
@@ -63,7 +62,7 @@ export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: 
   function selected(node: UniverseNode | undefined) {
     halo.visible = !!node
     if (node) { halo.position.set(node.x, node.y, node.radius + 8); halo.scale.setScalar(node.radius) }
-    dirty = true
+    frames.invalidate()
     onSelect(node)
   }
   function update(items: UniverseNode[]) {
@@ -78,21 +77,13 @@ export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: 
     })
     planets.computeBoundingSphere()
     scene.add(planets)
-    const current = new Set(nodes.map(node => node.artwork.id))
-    thumbnails.forEach((entry, id) => { if (!current.has(id)) release(id, entry) })
+    artworkAtlas.update(nodes)
     nodes.forEach(node => {
-      const entry = thumbnails.get(node.artwork.id)
-      if (!entry || entry.url !== node.artwork.thumb) paintArtwork(node, null, !!node.artwork.thumb)
-      else { entry.mesh.position.set(node.x, node.y, node.radius + 1); entry.mesh.scale.setScalar(node.radius) }
+      const entry = artworkAtlas.get(node.artwork.id)
+      if (!entry || entry.url !== (node.artwork.atlas_thumb || node.artwork.thumb)) paintArtwork(node, null, !!node.artwork.thumb)
     })
     images.update(nodes)
-    dirty = true
-  }
-  function release(id: number, entry: (typeof thumbnails extends Map<number, infer T> ? T : never)) {
-    scene.remove(entry.mesh)
-    entry.mesh.material.dispose()
-    entry.texture.dispose()
-    thumbnails.delete(id)
+    frames.invalidate()
   }
   function resize() {
     width = canvas.clientWidth || innerWidth
@@ -104,7 +95,7 @@ export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: 
     camera.top = size / 2
     camera.bottom = -size / 2
     camera.updateProjectionMatrix()
-    dirty = true
+    frames.invalidate()
   }
   function moveTo(x: number, y: number, viewHeight: number) {
     size = viewHeight
@@ -129,7 +120,7 @@ export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: 
   function zoom(factor: number) {
     camera.zoom = THREE.MathUtils.clamp(camera.zoom * factor, controls.minZoom, controls.maxZoom)
     camera.updateProjectionMatrix()
-    dirty = true
+    frames.invalidate()
   }
   function focus(node: UniverseNode) {
     camera.position.set(node.x, node.y, 2000)
@@ -175,40 +166,23 @@ export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: 
     ctx.restore()
     ctx.beginPath(); ctx.arc(256, 256, 235, 0, Math.PI * 2)
     ctx.strokeStyle = 'rgba(245,222,236,.5)'; ctx.lineWidth = 2; ctx.stroke()
-    const texture = new THREE.CanvasTexture(tile)
-    texture.colorSpace = THREE.SRGBColorSpace
-    const existing = thumbnails.get(node.artwork.id)
-    if (existing) { existing.texture.dispose(); existing.texture = texture; existing.mesh.material.map = texture; existing.mesh.material.needsUpdate = true; existing.url = node.artwork.thumb; existing.source = image?.src }
-    else {
-      const mesh = new THREE.Mesh(plane, new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }))
-      mesh.position.set(node.x, node.y, node.radius + 1); mesh.scale.setScalar(node.radius)
-      thumbnails.set(node.artwork.id, { mesh, texture, url: node.artwork.thumb, source: image?.src }); scene.add(mesh)
-    }
-    dirty = true
+    artworkAtlas.paint(node, tile, image?.src)
+    frames.invalidate()
   }
   // 在开场动画期间就启动全部缩略图，拖动/缩放不卸载作品，不再出现 64 张的比例天花板。
   const images = createUniverseImages((node, image) => paintArtwork(node, image), onProgress)
-  function draw(time: number) {
-    if (disposed || !active || document.hidden) return
-    frame = requestAnimationFrame(draw)
-    if (time - lastDraw < 33) return
-    lastDraw = time
-    controls.update()
-    if (dirty) { renderer.render(scene, camera); dirty = false }
-  }
   function setActive(value: boolean) {
     active = value
     controls.enabled = value
-    cancelAnimationFrame(frame)
-    if (value && !document.hidden) { dirty = true; frame = requestAnimationFrame(draw) }
+    frames.setActive(value && !document.hidden)
   }
   function visibility() { setActive(active) }
-  function change() { dirty = true }
+  function change() { frames.invalidate() }
   function key(event: KeyboardEvent) {
     const delta = size / camera.zoom / 10
     const moves: Record<string, [number, number]> = { ArrowLeft: [-delta, 0], ArrowRight: [delta, 0], ArrowUp: [0, delta], ArrowDown: [0, -delta] }
     const move = moves[event.key]
-    if (move) { event.preventDefault(); camera.position.x += move[0]; camera.position.y += move[1]; controls.target.x += move[0]; controls.target.y += move[1]; dirty = true }
+    if (move) { event.preventDefault(); camera.position.x += move[0]; camera.position.y += move[1]; controls.target.x += move[0]; controls.target.y += move[1]; frames.invalidate() }
     if (event.key === '+' || event.key === '=') zoom(1.3)
     if (event.key === '-') zoom(1 / 1.3)
     if (event.key === 'Home') fit()
@@ -236,9 +210,9 @@ export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: 
   return {
     update, enter, fit, zoom, focus, project, setActive,
     // 预览复用成功加载的最终地址，避免缩略图已回退成功、详情卡却再次请求失效源。
-    imageSource: (id: number) => thumbnails.get(id)?.source,
+    imageSource: (id: number) => artworkAtlas.imageSource(id),
     dispose() {
-      disposed = true; active = false; images.dispose(); cancelAnimationFrame(frame)
+      disposed = true; active = false; images.dispose(); frames.dispose()
       window.removeEventListener('resize', resize)
       document.removeEventListener('visibilitychange', visibility)
       canvas.removeEventListener('pointerdown', pointerDown)
@@ -246,8 +220,8 @@ export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: 
       canvas.removeEventListener('pointerup', pick)
       canvas.removeEventListener('keydown', key)
       controls.dispose()
-      thumbnails.forEach((entry, id) => release(id, entry))
-      planets?.dispose(); geometry.dispose(); material.dispose(); plane.dispose()
+      artworkAtlas.dispose()
+      planets?.dispose(); geometry.dispose(); material.dispose()
       halo.geometry.dispose(); haloMaterial.dispose(); starsGeometry.dispose(); starsMaterial.dispose()
       renderer.dispose()
     },

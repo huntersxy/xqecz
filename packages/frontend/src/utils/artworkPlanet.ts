@@ -94,6 +94,24 @@ export async function loadPlanetImage(url: string, signal: AbortSignal, timeoutM
   return fallback ? load(planetImageSource(fallback)) : null
 }
 
+/** 星图优先取后端专用小图，旧服务/生成失败再取普通缩略图；禁止组件猜文件名。 */
+export async function loadUniverseImage(artwork: { thumb: string; atlas_thumb?: string }, signal: AbortSignal) {
+  if (artwork.atlas_thumb) {
+    const small = await loadPlanetImage(artwork.atlas_thumb, signal, 20000)
+    if (small || signal.aborted) return small
+  }
+  return loadPlanetImage(artwork.thumb, signal, 20000)
+}
+
+/** 大幅走马灯使用清晰档，失败再取普通缩略图，不拿星图小球档放大。 */
+export async function loadMontageImage(artwork: { thumb: string; montage_thumb?: string }, signal: AbortSignal) {
+  if (artwork.montage_thumb) {
+    const image = await loadPlanetImage(artwork.montage_thumb, signal, 12000)
+    if (image || signal.aborted) return image
+  }
+  return loadPlanetImage(artwork.thumb, signal, 12000)
+}
+
 /** 局部重绘不重置尺寸；贴片边缘渐隐并重叠，横向 wrap 保证经度首尾无缝。 */
 export function paintPlanetTexture(canvas: HTMLCanvasElement, images: readonly HTMLImageElement[]) {
   const ctx = canvas.getContext('2d')

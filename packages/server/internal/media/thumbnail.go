@@ -11,6 +11,7 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
+	"log/slog"
 	"math"
 	"os"
 	"os/exec"
@@ -73,13 +74,13 @@ func GenerateThumbnail(ctx context.Context, absPath, contentType, thumbDir strin
 		if err := runFFmpeg(ctx, absPath, tmpPath); err != nil {
 			return "", err
 		}
-		return commitThumb(tmpPath, outPath, thumbDir)
+		return commitThumb(ctx, tmpPath, outPath, thumbDir)
 	}
 
 	var ffErr error
 	if ffmpegAvailable() {
 		if ffErr = runFFmpeg(ctx, absPath, tmpPath); ffErr == nil {
-			return commitThumb(tmpPath, outPath, thumbDir)
+			return commitThumb(ctx, tmpPath, outPath, thumbDir)
 		}
 		// ffmpeg（-y）在解码前就会建出输出文件，失败时先清掉它再降级。
 		_ = os.Remove(tmpPath)
@@ -91,11 +92,11 @@ func GenerateThumbnail(ctx context.Context, absPath, contentType, thumbDir strin
 		}
 		return "", err
 	}
-	return commitThumb(tmpPath, outPath, thumbDir)
+	return commitThumb(ctx, tmpPath, outPath, thumbDir)
 }
 
 // commitThumb 把生成好的临时缩略图原子替换为正式文件，并返回相对 data 目录的路径。
-func commitThumb(tmpPath, outPath, thumbDir string) (string, error) {
+func commitThumb(ctx context.Context, tmpPath, outPath, thumbDir string) (string, error) {
 	if _, err := os.Stat(tmpPath); err != nil {
 		return "", fmt.Errorf("thumbnail not produced: %w", err)
 	}
@@ -105,6 +106,13 @@ func commitThumb(tmpPath, outPath, thumbDir string) (string, error) {
 	}
 	if err := os.Rename(tmpPath, outPath); err != nil {
 		return "", fmt.Errorf("commit thumbnail: %w", err)
+	}
+	// 普通缩略图成功后派生星图小图；派生失败不能使正常上传/重建失败。
+	if _, err := EnsureAtlasThumbnail(ctx, thumbDir, filepath.Base(outPath)); err != nil {
+		slog.Warn("星图缩略图生成失败", "file", filepath.Base(outPath), "err", err)
+	}
+	if _, err := EnsureMontageThumbnail(ctx, thumbDir, filepath.Base(outPath)); err != nil {
+		slog.Warn("走马灯缩略图生成失败", "file", filepath.Base(outPath), "err", err)
 	}
 	return relThumb(thumbDir, outPath), nil
 }

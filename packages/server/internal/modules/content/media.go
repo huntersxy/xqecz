@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/huntersxy/xqecz/server/internal/media"
 	"github.com/huntersxy/xqecz/server/internal/store"
 )
 
@@ -35,12 +36,12 @@ func (h *Handler) RegisterMedia(r *gin.Engine) {
 	} {
 		dir := m.dir
 		r.GET(m.route, func(c *gin.Context) {
-			h.serveMedia(c, dir)
+			h.serveMedia(c, dir, dir == h.deps.Cfg.ThumbDir)
 		})
 	}
 }
 
-func (h *Handler) serveMedia(c *gin.Context, dir string) {
+func (h *Handler) serveMedia(c *gin.Context, dir string, thumbs bool) {
 	rel := strings.TrimPrefix(c.Param("filepath"), "/")
 	if rel == "" {
 		c.Status(404)
@@ -51,6 +52,20 @@ func (h *Handler) serveMedia(c *gin.Context, dir string) {
 	if clean == "." || strings.HasPrefix(clean, "..") || filepath.IsAbs(clean) {
 		c.Status(404)
 		return
+	}
+	// 专用小图首次未生成或普通缩略图已更新时按需补齐；入口只接受直属 WebP 文件。
+	if thumbs {
+		var variantErr error
+		switch {
+		case strings.HasPrefix(rel, media.AtlasDirectory+"/"):
+			_, variantErr = media.EnsureAtlasThumbnail(c.Request.Context(), dir, strings.TrimPrefix(rel, media.AtlasDirectory+"/"))
+		case strings.HasPrefix(rel, media.MontageDirectory+"/"):
+			_, variantErr = media.EnsureMontageThumbnail(c.Request.Context(), dir, strings.TrimPrefix(rel, media.MontageDirectory+"/"))
+		}
+		if variantErr != nil {
+			c.Status(404)
+			return
+		}
 	}
 	abs := filepath.Join(dir, clean)
 
