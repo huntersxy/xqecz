@@ -174,7 +174,8 @@ body[arco-theme='dark'] .creative-theme {
    锁在 html 而非 body：内联样式改 body 依赖「body 的 overflow 传播到视口」这条
    规则，而视口的滚动条槽由 html 的 scrollbar-gutter 常驻，两者分层容易对不上。 */
 html:has(.cd-root),
-html:has(.qu-sheet) {
+html:has(.qu-sheet),
+html:has(.au-root) {
   overflow: hidden;
 }
 

@@ -37,6 +37,7 @@ const swapSections = computed(
 )
 
 const allContents = ref<Content[]>([])
+const planetArtworks = computed(() => [...recommendLoader.recommendContents.value, ...allContents.value])
 const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
@@ -445,7 +446,7 @@ onActivated(() => {
           <span class="wf-hero-note">灵感落笔，星球亮起。</span>
         </div>
       </div>
-      <UniverseSketch class="wf-hero-mark" />
+      <UniverseSketch class="wf-hero-mark" :artworks="planetArtworks" @select="router.push(`/content/${$event}`)" />
     </section>
 
     <section v-if="!swapSections" class="wf-discovery" aria-label="发现内容">

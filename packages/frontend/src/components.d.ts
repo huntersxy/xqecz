@@ -48,6 +48,8 @@ declare module 'vue' {
     AProgress: typeof import('@arco-design/web-vue')['Progress']
     AResult: typeof import('@arco-design/web-vue')['Result']
     ARow: typeof import('@arco-design/web-vue')['Row']
+    ArtworkPlanet: typeof import('./components/ArtworkPlanet.vue')['default']
+    ArtworkUniverse: typeof import('./components/ArtworkUniverse.vue')['default']
     ASelect: typeof import('@arco-design/web-vue')['Select']
     ASpin: typeof import('@arco-design/web-vue')['Spin']
     AStatistic: typeof import('@arco-design/web-vue')['Statistic']
