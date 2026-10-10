@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { contentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
-import { IconHeart, IconStar, IconShareAlt, IconDownload, IconDown, IconImage, IconFile } from '@arco-design/web-vue/es/icon'
+import { IconHeart, IconStar, IconShareAlt, IconDownload } from '@arco-design/web-vue/es/icon'
 import { formatFileSize, getImageUrl, getUrlExtension, withDownloadFlag } from '@/utils'
 import type { Content } from '@/types'
 
@@ -64,36 +64,16 @@ async function shareContent() {
 }
 
 // ── 下载 ──
-// 原文件优先用 origin（未生成缩略图时 img 才可能指向缩略图）；缩略图单独提供入口。
-const originUrl = computed(() =>
-  getImageUrl(props.content.origin || props.content.img || props.content.video || ''),
-)
-const thumbUrl = computed(() => getImageUrl(props.content.thumb || ''))
+// origin 是作品文件；兼容旧数据时只回退到视频或非缩略图的图片。
+const originalFile = computed(() => {
+  const { origin, video, img, thumb } = props.content
+  return origin || video || (img !== thumb ? img : '')
+})
+const downloadUrl = computed(() => withDownloadFlag(getImageUrl(originalFile.value)))
 const isVideo = computed(() => !!props.content.video)
+// 大小直接使用详情接口，不为展示元信息额外请求媒体。
 const sizeText = computed(() => formatFileSize(props.content.file_size))
-const canDownload = computed(() => !!originUrl.value)
-const showThumbOption = computed(() => !!thumbUrl.value && thumbUrl.value !== originUrl.value)
-
-/** 主文件格式：优先取 URL 后缀，视频无后缀时按 video 标记兜底。 */
-const originExt = computed(() => getUrlExtension(props.content.origin || props.content.img || props.content.video))
-/** 缩略图格式（接口不返回其体积，只展示后缀便于区分）。 */
-const thumbExt = computed(() => getUrlExtension(props.content.thumb))
-
-/** 触发下载：链接尾附 ?download=1，由服务端回 Content-Disposition（文件名取内容标题）。 */
-function triggerDownload(url: string) {
-  if (!url) return
-  const a = document.createElement('a')
-  a.href = withDownloadFlag(url)
-  a.rel = 'noopener'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-}
-
-function onDownloadSelect(value: string | number | Record<string, unknown> | undefined) {
-  if (value === 'thumb') triggerDownload(thumbUrl.value)
-  else triggerDownload(originUrl.value)
-}
+const originExt = computed(() => getUrlExtension(originalFile.value))
 
 </script>
 
@@ -126,28 +106,16 @@ function onDownloadSelect(value: string | number | Record<string, unknown> | und
       <button type="button" class="cd-action cd-share-action" @click="shareContent">
         <IconShareAlt /> <span>分享</span>
       </button>
-      <a-dropdown v-if="canDownload" trigger="click" position="tr" popup-container=".cd-root" @select="onDownloadSelect">
-        <button type="button" class="cd-action cd-download-action" aria-label="下载" aria-haspopup="true">
-          <span class="cd-download-icon"><IconDownload /></span>
-          <span class="cd-download-label"><span>下载作品</span><small>{{ originExt || (isVideo ? 'VIDEO' : '原文件') }}<template v-if="sizeText"> · {{ sizeText }}</template></small></span>
-          <IconDown class="cd-download-chevron" />
-        </button>
-        <template #content>
-          <div class="cd-download-menu">
-            <div class="cd-download-menu-head">保存这份灵感 <span aria-hidden="true">✦</span></div>
-            <a-doption value="origin" class="cd-download-option">
-              <span class="cd-download-option-icon"><IconFile /></span>
-              <span class="cd-download-option-copy"><strong>原文件<span v-if="originExt"> · {{ originExt }}</span></strong><small>{{ isVideo ? '原始视频' : '保留原始画质' }} · {{ sizeText || '未知大小' }}</small></span>
-              <IconDownload class="cd-option-arrow" />
-            </a-doption>
-            <a-doption v-if="showThumbOption" value="thumb" class="cd-download-option">
-              <span class="cd-download-option-icon"><IconImage /></span>
-              <span class="cd-download-option-copy"><strong>缩略图<span v-if="thumbExt"> · {{ thumbExt }}</span></strong><small>轻量预览，方便分享</small></span>
-              <IconDownload class="cd-option-arrow" />
-            </a-doption>
-          </div>
-        </template>
-      </a-dropdown>
+      <a
+        v-if="downloadUrl"
+        :href="downloadUrl"
+        rel="noopener"
+        class="cd-action cd-download-action"
+        aria-label="下载作品"
+      >
+        <span class="cd-download-icon"><IconDownload /></span>
+        <span class="cd-download-label"><span>下载作品</span><small>{{ originExt || (isVideo ? 'VIDEO' : '作品文件') }}<template v-if="sizeText"> · {{ sizeText }}</template></small></span>
+      </a>
     </div>
   </footer>
 </template>
@@ -169,24 +137,12 @@ function onDownloadSelect(value: string | number | Record<string, unknown> | und
 .cd-action:disabled { cursor: not-allowed; color: var(--creative-muted); }
 .cd-action:disabled .cd-action-icon { color: color-mix(in srgb, var(--creative-accent) 70%, var(--creative-muted)); }
 .cd-share-action { color: var(--creative-muted); }
-.cd-download-action { height: 50px; padding: 0 16px 0 10px; gap: 11px; border: 1px solid color-mix(in srgb, var(--creative-accent) 22%, var(--creative-line)); border-radius: 15px; background: var(--creative-soft); color: var(--creative-accent); box-shadow: 0 3px 9px color-mix(in srgb, var(--creative-accent) 5%, transparent); }
+.cd-download-action { text-decoration: none; height: 50px; padding: 0 16px 0 10px; gap: 11px; border: 1px solid color-mix(in srgb, var(--creative-accent) 22%, var(--creative-line)); border-radius: 15px; background: var(--creative-soft); color: var(--creative-accent); box-shadow: 0 3px 9px color-mix(in srgb, var(--creative-accent) 5%, transparent); }
 .cd-download-action:hover { box-shadow: 0 5px 16px color-mix(in srgb, var(--creative-accent) 12%, transparent); }
 .cd-download-icon { display: grid; place-items: center; width: 32px; height: 32px; background: var(--creative-paper); border-radius: 10px; }
 .cd-download-icon svg { width: 17px; height: 17px; }
 .cd-download-label { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; line-height: 1.25; }
 .cd-download-label small { font-size: 9px; font-weight: 400; color: var(--creative-muted); letter-spacing: .03em; }
-.cd-download-chevron { width: 11px !important; height: 11px !important; margin-left: 4px; }
-.cd-download-menu { width: 250px; padding: 8px; background: var(--creative-paper); }
-.cd-download-menu-head { display: flex; align-items: center; justify-content: space-between; padding: 5px 8px 12px; color: var(--creative-muted); font-size: 10px; letter-spacing: .08em; }
-.cd-download-menu-head > span { color: var(--creative-accent); }
-.cd-download-option { padding: 11px 8px; border-radius: 9px; color: var(--creative-ink); }
-.cd-download-option :deep(.arco-dropdown-option-content) { display: flex; align-items: center; gap: 10px; }
-.cd-download-option-icon { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 36px; border: 1px solid var(--creative-line); border-radius: 7px; background: var(--creative-canvas); color: var(--creative-accent); font-size: 16px; }
-.cd-download-option-copy { display: flex; flex: 1; flex-direction: column; gap: 4px; }
-.cd-download-option-copy strong { font-size: 12px; font-weight: 500; }
-.cd-download-option-copy small { font-size: 10px; color: var(--creative-muted); }
-.cd-option-arrow { color: var(--creative-muted); font-size: 13px; }
-:global(.cd-root .arco-dropdown:has(.cd-download-menu)) { padding: 0; border: 1px solid var(--creative-line); border-radius: 14px; overflow: hidden; background: var(--creative-paper); box-shadow: 0 12px 40px color-mix(in srgb, var(--creative-ink) 12%, transparent); }
 @media (max-width: 1100px) { .cd-action-note { display: none; } }
 @media (max-width: 768px) {
   .cd-bottombar { padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); }
@@ -195,7 +151,6 @@ function onDownloadSelect(value: string | number | Record<string, unknown> | und
   .cd-interaction-group { padding: 3px; border-radius: 13px; }
   .cd-download-action { height: 48px; padding-inline: 8px; gap: 8px; border-radius: 13px; }
   .cd-download-icon { width: 27px; height: 30px; border-radius: 8px; }
-  .cd-download-chevron { display: none; }
 }
 @media (max-width: 380px) {
   .cd-bottombar { padding-inline: 10px; }

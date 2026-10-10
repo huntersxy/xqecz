@@ -79,14 +79,20 @@ function onLoadError() {
     <template #extra>
       <slot name="extra" />
     </template>
+    <template v-if="$slots.loader" #loader>
+      <slot name="loader" />
+    </template>
     <template #error>
       <span :ref="(el) => el && onLoadError()" />
-      <div v-if="finalFailed" class="arco-image-error">
-        <div class="arco-image-error-icon">
-          <IconImageClose />
+      <slot v-if="finalFailed" name="error">
+        <div class="arco-image-error">
+          <div class="arco-image-error-icon">
+            <IconImageClose />
+          </div>
+          <div v-if="alt" class="arco-image-error-alt">{{ alt }}</div>
         </div>
-        <div v-if="alt" class="arco-image-error-alt">{{ alt }}</div>
-      </div>
+      </slot>
+      <slot v-else name="loader" />
     </template>
   </a-image>
 </template>

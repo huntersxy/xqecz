@@ -3,6 +3,8 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { getImageUrl, renderMarkdown } from '@/utils'
 import { cachedImageSource, fallbackChain, markUnreachable, pickImageUrl, probeMirror, recheckNetwork, type MediaSource } from '@/utils/imageSource'
 import MediaImage from '@/components/MediaImage.vue'
+import SketchPlanet from '@/components/SketchPlanet.vue'
+import { IconImageClose } from '@arco-design/web-vue/es/icon'
 import Viewer from 'viewerjs'
 import 'viewerjs/dist/viewer.css'
 import type { Content } from '@/types'
@@ -122,7 +124,7 @@ const renderedText = computed(() => {
 
 function openViewerInline() {
   const img = document.querySelector('.cd-media-image img') as HTMLImageElement | null
-  if (!img) return
+  if (!img || !img.complete || img.naturalWidth === 0) return
   // 查看原图同样跟随来源选择，避免「预览快、点开慢」的割裂。
   const originUrl = pickImageUrl(
     props.content.origin ? getImageUrl(props.content.origin) : '',
@@ -147,9 +149,11 @@ defineExpose({ mediaKind, mediaUrl })
     <div
       v-if="(mediaKind === 'image' || mediaKind === 'video') && !resolved"
       class="cd-media-loading"
+      role="status"
       aria-busy="true"
     >
-      <span class="cd-media-loading-dot" />
+      <SketchPlanet class="cd-media-loading-planet" loading />
+      <p>{{ mediaKind === 'video' ? '正在加载作品视频…' : '正在加载作品图片…' }}</p>
     </div>
     <div
       v-else-if="mediaKind === 'image'"
@@ -164,7 +168,20 @@ defineExpose({ mediaKind, mediaUrl })
         :preview="false"
         draggable="false"
         @fallback="onMirrorBroken"
-      />
+      >
+        <template #loader>
+          <div class="cd-media-loading" role="status" aria-busy="true">
+            <SketchPlanet class="cd-media-loading-planet" loading />
+            <p>正在加载作品图片…</p>
+          </div>
+        </template>
+        <template #error>
+          <div class="cd-media-error" role="status">
+            <IconImageClose />
+            <p>图片加载失败，请稍后重试</p>
+          </div>
+        </template>
+      </MediaImage>
     </div>
     <video v-else-if="mediaKind === 'video'" :src="mediaUrl" controls playsinline class="cd-video">
       您的浏览器不支持视频播放。
@@ -183,9 +200,10 @@ defineExpose({ mediaKind, mediaUrl })
 }
 .cd-media-image { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: zoom-in; min-height: 0; }
 /* 冷启动唯一一次等待：镜像可达性尚未有结论时不渲染媒体，避免「先源站后换源」的重复请求 */
-.cd-media-loading { width: 100%; height: 100%; min-height: 12rem; display: flex; align-items: center; justify-content: center; }
-.cd-media-loading-dot { width: 1.25rem; height: 1.25rem; border-radius: 50%; background: var(--color-text-3); animation: cd-media-pulse 1s ease-in-out infinite alternate; }
-@keyframes cd-media-pulse { from { opacity: 0.25; } to { opacity: 0.85; } }
+.cd-media-loading, .cd-media-error { width: 100%; height: 100%; min-height: 12rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: var(--creative-muted); cursor: default; }
+.cd-media-loading p, .cd-media-error p { margin: 0; font-size: 12px; line-height: 1.6; }
+.cd-media-loading-planet { width: 52px; height: 52px; color: var(--creative-accent); }
+.cd-media-error > svg { width: 36px; height: 36px; color: var(--creative-muted); }
 /* Arco <Image> 的 .arco-image 包裹层：填满媒体区并居中，作为内部 .arco-image-img 的百分比高度基准 */
 /* 标题已在详情页头部展示，关闭 Arco 自动生成的空图片页脚遮罩。 */
 .cd-media-image :deep(.arco-image-footer) { display: none; }
