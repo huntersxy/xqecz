@@ -41,17 +41,26 @@ type UserBrief struct {
 	Username string `json:"username"`
 }
 
-// DTO 是单条评论的对外形状。
+// ParentDTO 是直接被回复评论的引用信息。
+type ParentDTO struct {
+	ID     uint64    `json:"id"`
+	UserID uint64    `json:"user_id"`
+	Text   string    `json:"text"`
+	User   UserBrief `json:"user"`
+}
+
+// DTO 保留直接父评论，同时将其引用信息交给前端展示。
 type DTO struct {
-	ID        uint64    `json:"id"`
-	ContentID uint64    `json:"content_id"`
-	UserID    uint64    `json:"user_id"`
-	Text      string    `json:"text"`
-	ParentID  *uint64   `json:"parent_id"`
-	IsBanned  bool      `json:"is_banned"`
-	CreatedAt web.Time  `json:"created_at"`
-	UpdatedAt web.Time  `json:"updated_at"`
-	User      UserBrief `json:"user"`
+	ID        uint64     `json:"id"`
+	ContentID uint64     `json:"content_id"`
+	UserID    uint64     `json:"user_id"`
+	Text      string     `json:"text"`
+	ParentID  *uint64    `json:"parent_id"`
+	Parent    *ParentDTO `json:"parent,omitempty"`
+	IsBanned  bool       `json:"is_banned"`
+	CreatedAt web.Time   `json:"created_at"`
+	UpdatedAt web.Time   `json:"updated_at"`
+	User      UserBrief  `json:"user"`
 }
 
 // TopDTO 是顶层评论（额外携带一层回复列表）。
@@ -85,7 +94,7 @@ func (h *Handler) list(c *gin.Context) {
 		pageSize = 20
 	}
 
-	key := "comments:" + strconv.FormatUint(contentID, 10) + ":" + strconv.Itoa(page) + ":" + strconv.Itoa(pageSize)
+	key := "comments:" + strconv.FormatUint(contentID, 10) + ":threads-v2:" + strconv.Itoa(page) + ":" + strconv.Itoa(pageSize)
 	data, err := cache.GetOrSetJSON(ctx, h.deps.Redis, key, cacheTTL, func() (Page, error) {
 		return h.query(ctx, contentID, page, pageSize)
 	})
@@ -100,7 +109,8 @@ func (h *Handler) query(ctx context.Context, contentID uint64, page, pageSize in
 	db := h.deps.DB.WithContext(ctx)
 
 	base := db.Model(&store.Comment{}).
-		Where("content_id = ? AND parent_id IS NULL AND is_banned = 0", contentID)
+		Where("content_id = ? AND parent_id IS NULL AND is_banned = 0", contentID).
+		Session(&gorm.Session{})
 
 	var total int64
 	if err := base.Count(&total).Error; err != nil {
@@ -108,8 +118,8 @@ func (h *Handler) query(ctx context.Context, contentID uint64, page, pageSize in
 	}
 
 	var tops []store.Comment
-	if err := db.Where("content_id = ? AND parent_id IS NULL AND is_banned = 0", contentID).
-		Order("created_at ASC").
+	if err := base.
+		Order("created_at ASC, id ASC").
 		Offset((page - 1) * pageSize).Limit(pageSize).
 		Find(&tops).Error; err != nil {
 		return Page{}, err
@@ -120,11 +130,27 @@ func (h *Handler) query(ctx context.Context, contentID uint64, page, pageSize in
 		topIDs = append(topIDs, t.ID)
 	}
 
+	// 逐层批量取整条回复链；分页仍只作用于顶层评论，不截断其后代。
 	var replies []store.Comment
-	if len(topIDs) > 0 {
-		if err := db.Where("parent_id IN ? AND is_banned = 0", topIDs).
-			Order("created_at ASC").Find(&replies).Error; err != nil {
+	frontier := topIDs
+	seen := make(map[uint64]bool, len(topIDs))
+	for _, id := range topIDs {
+		seen[id] = true
+	}
+	for len(frontier) > 0 {
+		var batch []store.Comment
+		if err := db.Where("content_id = ? AND parent_id IN ? AND is_banned = 0", contentID, frontier).
+			Order("created_at ASC, id ASC").Find(&batch).Error; err != nil {
 			return Page{}, err
+		}
+		frontier = nil
+		for _, row := range batch {
+			if seen[row.ID] {
+				continue
+			}
+			seen[row.ID] = true
+			replies = append(replies, row)
+			frontier = append(frontier, row.ID)
 		}
 	}
 
@@ -146,22 +172,7 @@ func (h *Handler) query(ctx context.Context, contentID uint64, page, pageSize in
 		}
 	}
 
-	replyMap := map[uint64][]DTO{}
-	for _, r := range replies {
-		if r.ParentID == nil {
-			continue
-		}
-		replyMap[*r.ParentID] = append(replyMap[*r.ParentID], toDTO(r, users))
-	}
-
-	list := make([]TopDTO, 0, len(tops))
-	for _, t := range tops {
-		children := replyMap[t.ID]
-		if children == nil {
-			children = []DTO{}
-		}
-		list = append(list, TopDTO{DTO: toDTO(t, users), Replies: children})
-	}
+	list := buildThreads(tops, replies, users)
 
 	totalPage := 1
 	if pageSize > 0 {
@@ -212,13 +223,26 @@ func (h *Handler) add(c *gin.Context) {
 		return
 	}
 
+	db := h.deps.DB.WithContext(ctx)
+	if req.ParentID != nil {
+		var parent store.Comment
+		err := db.Where("id = ? AND content_id = ? AND is_banned = 0", *req.ParentID, req.ContentID).First(&parent).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			web.SoftFail(c, 400, "回复的评论不存在或不可见")
+			return
+		}
+		if err != nil {
+			web.Fail(c, 500, "服务异常")
+			return
+		}
+	}
+
 	row := store.Comment{
 		ContentID: req.ContentID,
 		UserID:    identity.UID,
 		Text:      strings.TrimSpace(req.Text),
 		ParentID:  req.ParentID,
 	}
-	db := h.deps.DB.WithContext(ctx)
 	if err := db.Create(&row).Error; err != nil {
 		web.Fail(c, 500, "服务异常")
 		return
@@ -256,7 +280,16 @@ func (h *Handler) remove(c *gin.Context) {
 		web.Fail(c, 403, "无权删除该评论")
 		return
 	}
-	if err := h.deps.DB.WithContext(ctx).Delete(&store.Comment{}, id).Error; err != nil {
+	if err := h.deps.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 删除父评论时将直接回复提升为顶层，保留后续回复链。
+		if err := tx.Model(&store.Comment{}).Where("parent_id = ?", id).Update("parent_id", nil).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("comment_id = ?", id).Delete(&store.CommentReport{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&store.Comment{}, id).Error
+	}); err != nil {
 		web.Fail(c, 500, "服务异常")
 		return
 	}

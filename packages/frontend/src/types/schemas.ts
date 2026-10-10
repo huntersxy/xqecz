@@ -86,7 +86,7 @@ export const ContentSchema = z.object({
 export type Content = z.infer<typeof ContentSchema>
 
 // ── Comment ──
-const CommentSchema: z.ZodType<{
+export const CommentSchema: z.ZodType<{
   id: number
   content_id: number
   user_id: number

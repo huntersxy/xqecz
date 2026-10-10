@@ -4,6 +4,7 @@
 // 因此 CI（无后端）会自动跳过，不会拖慢或污染流水线。
 import { describe, expect, it } from 'vitest'
 import { ContentSchema, RecommendContentSchema } from '@/types'
+import { CommentSchema } from '@/types/schemas'
 
 const BASE = process.env.XQECZ_LIVE_API || ''
 const live = BASE ? describe : describe.skip
@@ -83,6 +84,11 @@ live('运行中的后端与前端契约一致', () => {
 
     const comments = await api<PageData>(`/comment/list/${contentId}?page=1&page_size=20`)
     for (const c of comments.data.list as Record<string, unknown>[]) {
+      const parsed = CommentSchema.parse(c)
+      for (const reply of parsed.replies ?? []) {
+        expect(reply.parent_id).not.toBeNull()
+        if (reply.parent) expect(reply.parent.id).toBe(reply.parent_id)
+      }
       expect(typeof c['id']).toBe('number')
       expect(typeof c['text']).toBe('string')
       expect(c['parent_id']).toBeNull()

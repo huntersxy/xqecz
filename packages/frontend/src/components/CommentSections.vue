@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { IconArrowRight, IconSend } from '@arco-design/web-vue/es/icon'
 import { Message } from '@arco-design/web-vue'
@@ -17,6 +17,10 @@ const { confirm } = useConfirm()
 
 const comments = ref<Comment[]>([])
 const commentText = ref('')
+const submitting = ref(false)
+const loading = ref(false)
+const loadError = ref(false)
+let loadSeq = 0
 const replyTarget = ref<Comment | null>(null)
 const currentPage = ref(1)
 const pageSize = ref(20)
@@ -24,42 +28,67 @@ const totalComments = ref(0)
 const totalPages = ref(1)
 
 async function loadComments(page: number = 1) {
+  const seq = ++loadSeq
+  const id = props.contentId
+  if (!id) return
+  loading.value = true
+  loadError.value = false
   try {
-    const id = props.contentId
     const res = await commentApi.list(id, page, pageSize.value)
+    if (seq !== loadSeq || id !== props.contentId) return
     if (res.code === 200) {
       currentPage.value = page
       comments.value = res.data.list
       totalComments.value = res.data.total
       totalPages.value = res.data.total_page
+    } else {
+      loadError.value = true
     }
-  } catch (error) {
-    console.error('加载评论失败:', error)
+  } catch {
+    if (seq === loadSeq) loadError.value = true
+  } finally {
+    if (seq === loadSeq) loading.value = false
   }
 }
 
+watch(() => props.contentId, () => {
+  comments.value = []
+  replyTarget.value = null
+  commentText.value = ''
+  currentPage.value = 1
+  totalComments.value = 0
+  totalPages.value = 1
+  loadComments()
+}, { immediate: true })
+
 async function submitComment() {
+  if (submitting.value) return
   if (!commentText.value.trim()) {
     Message.warning('请输入评论内容')
     return
   }
+  submitting.value = true
+  const targetPage = replyTarget.value ? currentPage.value : 1
+  const id = props.contentId
   try {
-    const id = props.contentId
     const res = await commentApi.add(
       id,
       commentText.value.trim(),
       replyTarget.value?.id || undefined,
     )
+    if (id !== props.contentId) return
     if (res.code === 200) {
       commentText.value = ''
       replyTarget.value = null
       Message.success('评论成功')
-      await loadComments(1)
+      await loadComments(targetPage)
     } else {
       Message.error(res.message || '评论失败')
     }
   } catch {
     Message.error('评论失败')
+  } finally {
+    submitting.value = false
   }
 }
 
@@ -108,18 +137,21 @@ defineExpose({ loadComments })
 
     <!-- 评论输入 -->
     <div v-if="isLoggedIn" class="cd-comment-input-wrap">
-      <div v-if="replyTarget" class="cd-reply-hint">
-        <span><b>正在回复</b> {{ replyTarget.user?.username }}</span>
-        <button type="button" @click="cancelReply">取消回复</button>
-      </div>
+      <Transition name="cd-reply-state">
+        <div v-if="replyTarget" class="cd-reply-hint">
+          <span><b>正在回复</b> {{ replyTarget.user?.username }}</span>
+          <button type="button" :disabled="submitting" @click="cancelReply">取消回复</button>
+        </div>
+      </Transition>
       <a-textarea
         v-model="commentText"
         class="cd-comment-textarea"
+        :disabled="submitting"
         placeholder="写下你的评论... (Ctrl+Enter 发送)"
         :auto-size="{ minRows: 3, maxRows: 6 }"
         @keyup.ctrl.enter="submitComment"
       />
-      <a-button type="primary" size="small" class="cd-comment-submit" @click="submitComment">
+      <a-button type="primary" size="small" class="cd-comment-submit" :loading="submitting" @click="submitComment">
         <IconSend />
         <span>发表评论</span>
       </a-button>
@@ -136,19 +168,21 @@ defineExpose({ loadComments })
     </div>
 
     <!-- 评论列表 -->
+    <div v-if="loading" class="cd-comment-status" role="status"><a-spin :loading="true" :size="16" /> 正在加载评论…</div>
+    <div v-else-if="loadError" class="cd-comment-status" role="status">评论加载失败<button type="button" @click="loadComments(currentPage)">重试</button></div>
     <div v-if="comments.length > 0" class="cd-comment-list">
       <template v-for="comment in comments" :key="comment.id">
         <CommentItem
           :comment="comment"
           :reply-target="replyTarget"
           :level="0"
-          @select-reply="replyTarget = $event"
+          @select-reply="!submitting && (replyTarget = $event)"
           @delete-comment="deleteComment($event)"
           @report-comment="openReport($event)"
         />
       </template>
     </div>
-    <div v-else class="cd-comment-empty">
+    <div v-else-if="!loading && !loadError" class="cd-comment-empty">
       <p>暂无评论，快来发表第一条评论吧</p>
     </div>
 
@@ -216,4 +250,8 @@ defineExpose({ loadComments })
 .cd-comment-submit { border-radius: 999px; padding-inline: 16px; }
 .cd-comment-empty::before { content: '✧'; display: block; color: var(--creative-accent); font-size: 24px; margin-bottom: 8px; opacity: .6; }
 .cd-comment-empty { line-height: 1.8; font-size: 11px; }
+.cd-comment-status { display: flex; align-items: center; gap: 8px; padding: 12px 0; color: var(--creative-muted); font-size: 11px; }
+.cd-comment-status button { border: 0; padding: 3px 8px; border-radius: 999px; background: var(--creative-soft); color: var(--creative-accent); cursor: pointer; }
+.cd-reply-state-enter-active, .cd-reply-state-leave-active { transition: opacity .16s ease, transform .16s ease; }
+.cd-reply-state-enter-from, .cd-reply-state-leave-to { opacity: 0; transform: translateY(-3px); }
 </style>

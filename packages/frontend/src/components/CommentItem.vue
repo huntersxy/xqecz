@@ -38,7 +38,7 @@ function onMenuSelect(value: string | number | Record<string, unknown> | undefin
 </script>
 
 <template>
-  <div class="cd-comment">
+  <div class="cd-comment" :class="{ 'is-reply-target': replyTarget?.id === comment.id }">
     <a-avatar :size="36" class="cd-comment-avatar">
       <IconUser />
     </a-avatar>
@@ -176,4 +176,6 @@ function onMenuSelect(value: string | number | Record<string, unknown> | undefin
   margin-top: 10px; padding: 2px 0 0 10px;
   border-left: 1px solid color-mix(in srgb, var(--creative-accent) 20%, transparent);
 }
+.cd-comment.is-reply-target { border-color: var(--creative-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--creative-accent) 8%, transparent); }
+.cd-comment-body { overflow-wrap: anywhere; }
 </style>
