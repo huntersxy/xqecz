@@ -128,6 +128,7 @@ watch(() => props.open, (val) => {
     height="auto"
     :header="false"
     :footer="false"
+    :unmount-on-close="true"
     :mask-closable="!uploading"
     :esc-to-close="!uploading"
     class="qu-sheet creative-theme"

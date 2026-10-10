@@ -21,21 +21,32 @@ export function useSearchFilter() {
 
   const cachedTags = useStorage<{ tags: string[]; date: string } | null>('home_tags_cache', null)
 
-  const sortedTags = computed(() => {
-    return [...allTags.value].sort((a, b) => a.localeCompare(b, 'zh-CN'))
-  })
+  // 展示顺序独立于每日缓存；只在加载或主动漫游时洗牌，筛选与重渲染不改顺序。
+  const shuffledTags = ref<string[]>([])
+  function reshuffleTags() {
+    const tags = [...allTags.value]
+    for (let i = tags.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      const current = tags[i]!
+      tags[i] = tags[j]!
+      tags[j] = current
+    }
+    shuffledTags.value = tags
+  }
 
   async function loadTags() {
     try {
       const today = new Date().toDateString()
       if (cachedTags.value?.date === today && Array.isArray(cachedTags.value?.tags)) {
         allTags.value = cachedTags.value.tags
+        reshuffleTags()
         return
       }
 
       const res = await contentApi.getTags()
       if (res.code === 200) {
         allTags.value = res.data
+        reshuffleTags()
         cachedTags.value = { tags: res.data, date: today }
       }
     } catch (error) {
@@ -57,7 +68,8 @@ export function useSearchFilter() {
     allTags,
     selectedTags,
     searchKeyword,
-    sortedTags,
+    shuffledTags,
+    reshuffleTags,
     loadTags,
     selectTag,
     handleSearch,

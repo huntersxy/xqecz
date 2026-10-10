@@ -20,6 +20,7 @@ import QuickUploadSheet from '@/components/QuickUploadSheet.vue'
 import SketchPlanet from '@/components/SketchPlanet.vue'
 import UniverseSketch from '@/components/UniverseSketch.vue'
 import UniverseMargins from '@/components/UniverseMargins.vue'
+import { IconRefresh } from '@arco-design/web-vue/es/icon'
 import type { Content, ListParams, RecommendContent } from '@/types'
 
 const router = useRouter()
@@ -359,6 +360,9 @@ onMounted(() => {
     listCache.clear()
   }
 
+  // 缓存恢复与搜索入口也需准备标签；展示顺序在本次浏览中保持稳定。
+  void searchFilter.loadTags()
+
   // 搜索模式不使用缓存
   if (homeStore.searchKeyword) {
     fetchPage(1)
@@ -398,7 +402,6 @@ onMounted(() => {
   }
 
   recommendLoader.loadRecommendContents()
-  searchFilter.loadTags()
 })
 
 // keep-alive 激活时恢复滚动位置
@@ -453,16 +456,28 @@ onActivated(() => {
         </div>
         <span class="wf-content-count">{{ total > 0 ? total : '—' }} 颗星球</span>
       </div>
-      <div class="wf-tag-row">
-        <button class="wf-tag-chip" :class="{ active: searchFilter.selectedTags.value.length === 0 }" type="button" @click="resetAndLoad()">全部</button>
-        <button
-          v-for="tag in searchFilter.sortedTags.value.slice(0, 8)"
-          :key="tag"
-          class="wf-tag-chip"
-          :class="{ active: searchFilter.selectedTags.value.includes(tag) }"
-          type="button"
-          @click="onTagSelect(tag)"
-        >{{ tag }}</button>
+      <div class="wf-tag-toolbar">
+        <div class="wf-tag-row" role="group" aria-label="探索星球坐标">
+          <button class="wf-tag-chip wf-tag-all" :class="{ active: searchFilter.selectedTags.value.length === 0 }" :aria-pressed="searchFilter.selectedTags.value.length === 0" type="button" @click="resetAndLoad()">
+            <SketchPlanet class="wf-tag-planet" /><span class="wf-tag-label">全部星球</span>
+          </button>
+          <button
+            v-for="tag in searchFilter.shuffledTags.value.slice(0, 8)"
+            :key="tag"
+            class="wf-tag-chip"
+            :class="{ active: searchFilter.selectedTags.value.includes(tag) }"
+            :aria-pressed="searchFilter.selectedTags.value.includes(tag)"
+            :title="tag"
+            type="button"
+            @click="onTagSelect(tag)"
+          >
+            <SketchPlanet class="wf-tag-planet" />
+            <span class="wf-tag-label"><span class="wf-tag-hash" aria-hidden="true">#</span>{{ tag }}</span>
+          </button>
+        </div>
+        <button v-if="searchFilter.shuffledTags.value.length > 1" class="wf-tag-shuffle" type="button" aria-label="换一组坐标" title="换一组坐标" @click="searchFilter.reshuffleTags()">
+          <IconRefresh /><span>换一组坐标</span>
+        </button>
       </div>
     </section>
 
@@ -569,10 +584,22 @@ onActivated(() => {
 .wf-discovery h2, .wf-feed-heading h2 { font-size: 20px; font-weight: 600; margin: 5px 0 0; line-height: 1.5; overflow-wrap: anywhere; }
 .wf-content-count { padding: 6px 10px; border: 1px solid var(--home-line); border-radius: 999px; background: var(--home-paper); }
 .wf-content-count, .wf-feed-caption { flex-shrink: 0; font-size: 11px; color: var(--home-muted); }
-.wf-tag-row { display: flex; align-items: center; gap: 22px; overflow-x: auto; margin-top: 18px; scrollbar-width: thin; scrollbar-color: var(--creative-line) transparent; padding-bottom: 3px; }
-.wf-tag-chip { flex-shrink: 0; padding: 5px 0; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--home-muted); font-size: 12px; cursor: pointer; }
-.wf-tag-chip.active { color: var(--home-accent); border-bottom-color: var(--home-accent); border-radius: 0 0 40% 20%; font-weight: 600; }
-.wf-tag-chip:hover { color: var(--home-accent); }
+.wf-tag-toolbar { display: flex; align-items: center; gap: 16px; margin-top: 18px; }
+.wf-tag-row { position: relative; display: flex; align-items: center; flex: 1; min-width: 0; gap: 10px; overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--creative-line) transparent; padding: 4px 3px 8px; }
+.wf-tag-chip { position: relative; display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; min-height: 42px; padding: 8px 13px; border: 1px solid var(--home-line); border-radius: 20px 24px 21px 18px; background: var(--home-paper); color: var(--home-muted); font: inherit; font-size: 12px; cursor: pointer; transition: color .18s, border-color .18s, background .18s; }
+.wf-tag-chip::after { content: ''; position: absolute; inset: 3px; border: 1px dashed color-mix(in srgb, var(--home-accent) 32%, transparent); border-radius: inherit; opacity: 0; pointer-events: none; }
+.wf-tag-chip.active { color: var(--home-accent); border-color: color-mix(in srgb, var(--home-accent) 40%, var(--home-line)); background: var(--home-soft); font-weight: 600; }
+.wf-tag-chip.active::after { opacity: 1; }
+.wf-tag-planet { width: 23px; height: 23px; color: var(--home-accent); opacity: .75; }
+.wf-tag-chip.active .wf-tag-planet { opacity: 1; }
+.wf-tag-label { max-width: 165px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.wf-tag-hash { margin-right: 5px; color: var(--home-accent); opacity: .65; font-size: 10px; }
+.wf-tag-shuffle { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0; min-height: 42px; padding: 8px 2px; margin-bottom: 4px; border: 0; background: transparent; color: var(--home-muted); font: inherit; font-size: 11px; cursor: pointer; transition: color .18s; }
+.wf-tag-shuffle svg { width: 15px; height: 15px; }
+@media (hover: hover) and (pointer: fine) {
+  .wf-tag-chip:hover { color: var(--home-accent); border-color: color-mix(in srgb, var(--home-accent) 45%, var(--home-line)); background: var(--home-soft); }
+  .wf-tag-shuffle:hover { color: var(--home-accent); }
+}
 .wf-masonry-wrap { padding: 28px 0 40px; }
 .wf-feed-heading { margin-bottom: 20px; }
 .wf-filter-summary { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; font-size: 12px; color: var(--home-accent); }
@@ -602,7 +629,12 @@ button:focus-visible { outline: 2px solid var(--home-accent); outline-offset: 4p
   .wf-hero-mark { display: none; }
   .wf-hero-note { font-size: 10px; }
   .wf-discovery { padding: 24px 0 18px; }
-  .wf-tag-row { gap: 18px; }
+  .wf-tag-toolbar { gap: 8px; }
+  .wf-tag-row { gap: 8px; }
+  .wf-tag-chip { min-height: 44px; padding-inline: 11px; }
+  .wf-tag-label { max-width: 132px; }
+  .wf-tag-shuffle { width: 44px; height: 44px; padding: 0; border: 1px solid var(--home-line); border-radius: 50%; background: var(--home-paper); }
+  .wf-tag-shuffle > span { display: none; }
   .wf-masonry-wrap { padding-top: 24px; }
   .wf-fab { display: grid; place-items: center; position: fixed; bottom: 24px; right: 20px; width: 48px; height: 48px; border-radius: 50%; background: var(--home-accent); color: var(--color-on-primary); border: 0; box-shadow: 0 4px 16px color-mix(in srgb, var(--home-accent) 22%, transparent); cursor: pointer; z-index: 100; font-size: 20px; }
 }

@@ -6,6 +6,9 @@
 #   TGT_HOST=... TGT_PORT=4000 TGT_USER=... TGT_PASS=... TGT_DB=xqecz \
 #   sh scripts/migrations/2026-09-26-migrate-to-tidb.sh
 #
+# TiDB 到 TiDB（源与目标都是托管实例）时源端必须显式开 TLS：
+#   SRC_SSL=--ssl sh scripts/migrations/2026-09-26-migrate-to-tidb.sh
+#
 # 依赖 mysql / mysqldump CLI（Alpine: apk add mariadb-client；Debian: apt install mariadb-client）。
 # 安全性：默认「不删目标库」；目标库已存在同名表时会因 CREATE TABLE 失败而中止，
 #         避免误覆盖。确认要重建时显式传 RECREATE=1。
@@ -18,6 +21,10 @@ set -eu
 
 : "${SRC_HOST:?}" "${SRC_USER:?}" "${SRC_DB:?}"
 : "${TGT_HOST:?}" "${TGT_USER:?}" "${TGT_DB:?}"
+# 源端 TLS：默认关（自建 MySQL/MariaDB 常无证书）；源是托管 TiDB（强制加密）时传 SRC_SSL=--ssl。
+# 目标端不加开关，让客户端自行协商，TiDB 走 TLS、自建库退明文。
+SRC_SSL="${SRC_SSL:---skip-ssl}"
+TGT_SSL="${TGT_SSL:-}"
 SRC_PORT="${SRC_PORT:-3306}"
 TGT_PORT="${TGT_PORT:-4000}"
 RECREATE="${RECREATE:-0}"
@@ -33,14 +40,13 @@ if [ -n "${SRC_PASS:-}" ]; then SRC_PASS_ARG="-p${SRC_PASS}"; fi
 TGT_PASS_ARG=""
 if [ -n "${TGT_PASS:-}" ]; then TGT_PASS_ARG="-p${TGT_PASS}"; fi
 
-src() { mysql --skip-ssl -h "$SRC_HOST" -P "$SRC_PORT" -u "$SRC_USER" $SRC_PASS_ARG "$@"; }
-# 托管 TiDB 强制加密：不加 --skip-ssl，让客户端自行协商 TLS
-tgt() { mysql -h "$TGT_HOST" -P "$TGT_PORT" -u "$TGT_USER" $TGT_PASS_ARG "$@"; }
+src() { mysql $SRC_SSL -h "$SRC_HOST" -P "$SRC_PORT" -u "$SRC_USER" $SRC_PASS_ARG "$@"; }
+tgt() { mysql $TGT_SSL -h "$TGT_HOST" -P "$TGT_PORT" -u "$TGT_USER" $TGT_PASS_ARG "$@"; }
 
 TABLES="users contents comments claims polls poll_votes content_likes content_favorites comment_reports api_keys"
 
 echo "== 1/5 导出源库 =="
-mysqldump --skip-ssl -h "$SRC_HOST" -P "$SRC_PORT" -u "$SRC_USER" $SRC_PASS_ARG \
+mysqldump $SRC_SSL -h "$SRC_HOST" -P "$SRC_PORT" -u "$SRC_USER" $SRC_PASS_ARG \
   --skip-add-locks --skip-comments --complete-insert "$SRC_DB" > "$WORK/raw.sql"
 echo "   原始 dump: $(wc -c < "$WORK/raw.sql") 字节"
 
@@ -85,10 +91,10 @@ echo "   导入完成"
 echo "== 5/5 逐表校验（按主键有序导出后比对 md5）=="
 fail=0
 for t in $TABLES; do
-  mysqldump --skip-ssl -h "$SRC_HOST" -P "$SRC_PORT" -u "$SRC_USER" $SRC_PASS_ARG \
+  mysqldump $SRC_SSL -h "$SRC_HOST" -P "$SRC_PORT" -u "$SRC_USER" $SRC_PASS_ARG \
     --no-create-info --skip-extended-insert --skip-comments --compact --skip-add-locks \
     --complete-insert --order-by-primary "$SRC_DB" "$t" 2>/dev/null | grep '^INSERT' > "$WORK/s_$t.sql" || true
-  mysqldump -h "$TGT_HOST" -P "$TGT_PORT" -u "$TGT_USER" $TGT_PASS_ARG \
+  mysqldump $TGT_SSL -h "$TGT_HOST" -P "$TGT_PORT" -u "$TGT_USER" $TGT_PASS_ARG \
     --no-create-info --skip-extended-insert --skip-comments --compact --skip-add-locks \
     --complete-insert --order-by-primary "$TGT_DB" "$t" 2>/dev/null | grep '^INSERT' > "$WORK/t_$t.sql" || true
   a=$(md5sum < "$WORK/s_$t.sql" | cut -d' ' -f1)
