@@ -430,21 +430,21 @@ onActivated(() => {
   <div class="wf-root creative-theme">
     <section v-if="!swapSections" class="wf-hero" aria-labelledby="home-title">
       <div class="wf-hero-copy">
-        <span class="wf-kicker"><span class="wf-kicker-dot"></span> XQECZ / CREATIVE ARCHIVE</span>
-        <h1 id="home-title">把喜欢的世界，<em>拼成自己的故事</em></h1>
-        <p>动漫二创灵感集 · 文字、画面与每一次心动，都在这里相遇。</p>
+        <span class="wf-kicker"><span class="wf-kicker-dot"></span> XQECZ / UNIVERSE OF CREATORS</span>
+        <h1 id="home-title">在小泉宇宙，<em>每个人都是造物主</em></h1>
+        <p>动漫二创内容分享平台 · 上传你的作品，点亮属于你的那颗星球。</p>
         <div class="wf-hero-actions">
           <button class="wf-primary-action" type="button" @click="showUploadSheet = true">
-            <IconUpload /> 发布新作品
+            <IconUpload /> 点亮一颗新星球
           </button>
-          <span class="wf-hero-note">自由创作 · 温柔分享</span>
+          <span class="wf-hero-note">自由创作 · 点亮星球</span>
         </div>
       </div>
       <div class="wf-hero-mark" :style="{ backgroundImage: `url(${heroArt})` }" aria-hidden="true">
         <span class="wf-spark wf-spark-one">✦</span>
         <span class="wf-spark wf-spark-two">✧</span>
         <span class="wf-circle"></span>
-        <span class="wf-art-label">a little world of our own</span>
+        <span class="wf-art-label">a little universe of our own</span>
         <span class="wf-mark-copy">MAKE<br /><b>YOUR</b><br />OWN</span>
       </div>
     </section>
@@ -452,10 +452,10 @@ onActivated(() => {
     <section v-if="!swapSections" class="wf-discovery" aria-label="发现内容">
       <div class="wf-discovery-heading">
         <div>
-          <span class="wf-section-kicker">CURATED FOR YOU</span>
-          <h2>今日灵感</h2>
+          <span class="wf-section-kicker">TRENDING COORDINATES</span>
+          <h2>正在发光的坐标</h2>
         </div>
-        <span class="wf-content-count">{{ total > 0 ? total : '—' }} 份创作</span>
+        <span class="wf-content-count">{{ total > 0 ? total : '—' }} 颗星球</span>
       </div>
       <div class="wf-tag-row">
         <button class="wf-tag-chip" :class="{ active: searchFilter.selectedTags.value.length === 0 }" type="button" @click="resetAndLoad()">全部</button>
@@ -480,9 +480,9 @@ onActivated(() => {
       <div class="wf-feed-heading">
         <div>
           <span class="wf-section-kicker">{{ swapSections ? 'SEARCH & DISCOVER' : 'THE LATEST STORIES' }}</span>
-          <h2>{{ homeStore.searchKeyword ? '搜索结果' : searchFilter.selectedTags.value[0] || '创作漫游' }}</h2>
+          <h2>{{ homeStore.searchKeyword ? '搜索结果' : searchFilter.selectedTags.value[0] || '宇宙漫游' }}</h2>
         </div>
-        <span class="wf-feed-caption">{{ swapSections ? total + ' 份相关创作' : '最新发布' }}</span>
+        <span class="wf-feed-caption">{{ swapSections ? total + ' 颗相关星球' : '最新发布' }}</span>
       </div>
       <div v-if="swapSections" class="wf-filter-summary">
         <span v-if="homeStore.searchKeyword">“{{ homeStore.searchKeyword }}”</span>
@@ -490,10 +490,10 @@ onActivated(() => {
         <button type="button" @click="clearFilters">清除筛选</button>
       </div>
       <div v-if="isLoading && allContents.length === 0" class="wf-center-state">
-        <div class="wf-spinner-lg"></div><p>加载中...</p>
+        <div class="wf-spinner-lg"></div><p>正在穿越小泉宇宙…</p>
       </div>
       <div v-else-if="!isLoading && allContents.length === 0" class="wf-center-state">
-        <p>暂无内容</p>
+        <p>{{ homeStore.searchKeyword || searchFilter.selectedTags.value.length ? '没有找到对应的坐标' : '还没有星球在这里诞生' }}</p>
       </div>
       <div
         v-else
@@ -519,11 +519,11 @@ onActivated(() => {
       </div>
       <div v-if="isLoadingMore" class="wf-loadmore"><div class="wf-spinner-sm"></div><span>加载更多...</span></div>
       <div ref="sentinelRef" class="wf-sentinel"></div>
-      <div v-if="!hasMore && allContents.length > 0" class="wf-end"><span>— 到底啦 —</span></div>
+      <div v-if="!hasMore && allContents.length > 0" class="wf-end"><span>— 你已抵达宇宙的边缘 —</span></div>
     </div>
 
     <!-- 移动端悬浮上传按钮 -->
-    <button class="wf-fab" type="button" title="发布新作品" aria-label="发布新作品" @click="showUploadSheet = true">
+    <button class="wf-fab" type="button" title="点亮一颗新星球" aria-label="点亮一颗新星球" @click="showUploadSheet = true">
       <IconUpload />
     </button>
 

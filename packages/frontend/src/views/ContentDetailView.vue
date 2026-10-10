@@ -78,8 +78,8 @@ onMounted(() => {
           <span>返回</span>
         </button>
         <div class="cd-topbar-title">
-          <span class="cd-eyebrow">CREATIVE ARCHIVE <span aria-hidden="true">✦</span></span>
-          <h2 class="cd-title">{{ content?.title || '加载中...' }}</h2>
+          <span class="cd-eyebrow">UNIVERSE OF CREATORS <span aria-hidden="true">✦</span></span>
+          <h2 class="cd-title">{{ content?.title || '正在穿越小泉宇宙…' }}</h2>
           <div v-if="content" class="cd-meta">
             <span class="cd-meta-item">
               <IconCalendar />
@@ -94,21 +94,21 @@ onMounted(() => {
             </span>
           </div>
         </div>
-        <span class="cd-topbar-note">每一份热爱，都有回响<span aria-hidden="true"> ✧</span></span>
+        <span class="cd-topbar-note">每一颗星球，都有一位造物主<span aria-hidden="true"> ✧</span></span>
       </header>
 
       <!-- 加载中 -->
       <div v-if="loadState === 'loading'" class="cd-loading">
         <a-spin :loading="true" :size="36" />
-        <p>加载中...</p>
+        <p>正在穿越小泉宇宙…</p>
       </div>
 
       <!-- 加载失败 -->
       <div v-else-if="loadState === 'error'" class="cd-loading">
         <a-result
           status="error"
-          title="加载失败"
-          subtitle="内容不存在或网络异常"
+          title="信号暂时离开了轨道"
+          subtitle="内容不存在或网络异常，请稍后再试"
         >
           <template #extra>
             <a-button type="primary" @click="loadContent">

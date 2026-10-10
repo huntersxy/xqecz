@@ -1,7 +1,7 @@
 {
-  "name": "小泉动漫二创站",
-  "short_name": "小泉动漫",
-  "description": "发现精彩二创内容",
+  "name": "小泉宇宙 · 小泉动漫二创站",
+  "short_name": "小泉宇宙",
+  "description": "小泉动漫二创内容分享平台：上传你的作品，点亮属于你的那颗星球。",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

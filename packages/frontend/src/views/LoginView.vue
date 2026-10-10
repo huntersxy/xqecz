@@ -100,13 +100,13 @@ function switchMode() {
   <div class="auth-page creative-theme">
     <div class="auth-layout">
       <section class="auth-story" aria-labelledby="auth-story-title">
-        <span class="auth-kicker">A LITTLE WORLD OF OUR OWN <span aria-hidden="true">✦</span></span>
-        <h1 id="auth-story-title">把喜欢的世界，<br>写成自己的故事<span>。</span></h1>
-        <p>收藏心动，分享灵感。<br>和同样热爱创作的人，在这里相遇。</p>
+        <span class="auth-kicker">A LITTLE UNIVERSE OF OUR OWN <span aria-hidden="true">✦</span></span>
+        <h1 id="auth-story-title">在小泉宇宙，<br>写下你的第一颗星球<span>。</span></h1>
+        <p>上传你的作品，点亮你的星球。<br>和第一批造物主，在这里相遇。</p>
         <div class="auth-art" aria-hidden="true">
           <div class="auth-orbit"></div>
           <div class="auth-art-card auth-art-back"><span>EVERY LITTLE IDEA</span><svg viewBox="0 0 120 100" fill="none"><path d="M18 68C40 2 76 2 103 68M24 62C54 96 76 80 100 38" stroke="currentColor" stroke-width="1.5"/><circle cx="60" cy="45" r="22" stroke="currentColor" stroke-width="1.5"/></svg><b>starts with you.</b></div>
-          <div class="auth-art-card auth-art-front"><span>CREATE / COLLECT / CONNECT</span><strong>Make<br>your own<span>✧</span></strong><span class="auth-art-caption">每一份热爱，都有回响</span></div>
+          <div class="auth-art-card auth-art-front"><span>CREATE / COLLECT / CONNECT</span><strong>Make<br>your own<span>✧</span></strong><span class="auth-art-caption">每一颗星球，都会被点亮</span></div>
           <span class="auth-spark auth-spark-one">✦</span><span class="auth-spark auth-spark-two">✧</span>
         </div>
         <RouterLink to="/" class="auth-home-link">← 返回创作首页</RouterLink>
@@ -114,8 +114,8 @@ function switchMode() {
 
       <section class="auth-card" aria-labelledby="auth-title">
         <span class="auth-card-kicker">YOUR CREATIVE CORNER <span aria-hidden="true">✦</span></span>
-        <h2 id="auth-title"><Transition name="auth-copy" mode="out-in"><span :key="isLoginMode ? 'login' : 'register'">{{ isLoginMode ? '欢迎回来' : '初次见面，请多指教' }}<i>。</i></span></Transition></h2>
-        <p class="auth-card-desc"><Transition name="auth-copy" mode="out-in"><span :key="isLoginMode ? 'login' : 'register'">{{ isLoginMode ? '登录，继续你的创作漫游。' : '创建账号，让灵感有一个小小的归处。' }}</span></Transition></p>
+        <h2 id="auth-title"><Transition name="auth-copy" mode="out-in"><span :key="isLoginMode ? 'login' : 'register'">{{ isLoginMode ? '欢迎回来' : '欢迎来到小泉宇宙' }}<i>。</i></span></Transition></h2>
+        <p class="auth-card-desc"><Transition name="auth-copy" mode="out-in"><span :key="isLoginMode ? 'login' : 'register'">{{ isLoginMode ? '登录，继续点亮你的星球。' : '创建你的造物主身份，点亮属于你的那颗星球。' }}</span></Transition></p>
         <div class="auth-mode" :class="{ 'is-register': !isLoginMode }" role="group" aria-label="账号操作">
           <button type="button" :class="{ 'is-active': isLoginMode }" :aria-pressed="isLoginMode" :disabled="isLoading" @click="!isLoginMode && switchMode()">登录</button>
           <button type="button" :class="{ 'is-active': !isLoginMode }" :aria-pressed="!isLoginMode" :disabled="isLoading" @click="isLoginMode && switchMode()">注册</button>
@@ -124,14 +124,14 @@ function switchMode() {
           <div class="auth-field"><label for="auth-username">用户名</label><input id="auth-username" v-model="username" type="text" placeholder="怎么称呼你？" autocomplete="username" required minlength="2" maxlength="32" :disabled="isLoading" /></div>
           <div class="auth-email-slot" :class="{ 'is-open': !isLoginMode }" :aria-hidden="isLoginMode" :inert="isLoginMode"><div class="auth-field"><label for="auth-email">邮箱</label><input id="auth-email" v-model="email" type="email" placeholder="用于账号联系，不会公开" autocomplete="email" :required="!isLoginMode" maxlength="254" :disabled="isLoading || isLoginMode" /></div></div>
           <div class="auth-field"><label for="auth-password">密码<span>至少 6 位</span></label><input id="auth-password" v-model="password" type="password" placeholder="请输入密码" :autocomplete="isLoginMode ? 'current-password' : 'new-password'" required minlength="6" :disabled="isLoading" /></div>
-          <button type="submit" :disabled="isLoading" class="auth-submit"><span v-if="isLoading" class="auth-spinner"></span>{{ isLoading ? '处理中…' : (isLoginMode ? '登录，开启创作漫游' : '注册，加入这个小世界') }}<span v-if="!isLoading" aria-hidden="true">↗</span></button>
+          <button type="submit" :disabled="isLoading" class="auth-submit"><span v-if="isLoading" class="auth-spinner"></span>{{ isLoading ? '处理中…' : (isLoginMode ? '登录，回到小泉宇宙' : '注册，成为造物主') }}<span v-if="!isLoading" aria-hidden="true">↗</span></button>
         </form>
-        <p class="auth-switch">{{ isLoginMode ? '还没有账号？' : '已有账号？' }}<button type="button" :disabled="isLoading" @click="switchMode">{{ isLoginMode ? '在这里安放你的灵感' : '欢迎回来，去登录' }} <span aria-hidden="true">→</span></button></p>
-        <div class="auth-card-note"><span aria-hidden="true">✧</span> 每一份创作，都值得被看见。</div>
+        <p class="auth-switch">{{ isLoginMode ? '还没有账号？' : '已有账号？' }}<button type="button" :disabled="isLoading" @click="switchMode">{{ isLoginMode ? '现在就加入宇宙' : '欢迎回来，去登录' }} <span aria-hidden="true">→</span></button></p>
+        <div class="auth-card-note"><span aria-hidden="true">✧</span> 每一颗星球，都值得被看见。</div>
       </section>
     </div>
     <a-modal v-model:visible="showEmailModal" title="为账号添一份联系" modal-class="auth-email-modal creative-theme" :mask-closable="false" :closable="false" :esc-to-close="false">
-      <a-typography-text type="secondary" class="email-modal-desc">你的账号尚未绑定邮箱。设置邮箱后，就可以继续创作漫游。</a-typography-text>
+      <a-typography-text type="secondary" class="email-modal-desc">你的账号尚未绑定邮箱。设置邮箱后，就可以继续点亮你的星球。</a-typography-text>
       <a-typography-text v-if="emailModalError" type="danger" class="email-modal-error">{{ emailModalError }}</a-typography-text>
       <a-input v-model="newEmail" placeholder="请输入邮箱地址" :maxlength="254" class="email-modal-input" :disabled="emailModalLoading" @keyup.enter="submitEmail" />
       <template #footer><a-button type="primary" :loading="emailModalLoading" @click="submitEmail">保存邮箱</a-button></template>

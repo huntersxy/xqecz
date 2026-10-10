@@ -148,7 +148,7 @@ defineExpose({ loadComments })
         class="cd-comment-textarea"
         :disabled="submitting"
         aria-label="评论内容"
-        placeholder="聊聊这份作品，留下你的想法…"
+        placeholder="对这颗星球说点什么…"
         :auto-size="{ minRows: 3, maxRows: 6 }"
         @keyup.ctrl.enter="submitComment"
       />
@@ -162,7 +162,7 @@ defineExpose({ loadComments })
     </div>
     <div v-else class="cd-login-prompt">
       <div class="cd-login-copy">
-        <span class="cd-login-kicker">想留下你的想法？</span>
+        <span class="cd-login-kicker">想对这颗星球说点什么？</span>
         <span>登录后即可参与评论</span>
       </div>
       <RouterLink to="/login" class="cd-login-link">
@@ -172,7 +172,7 @@ defineExpose({ loadComments })
     </div>
 
     <!-- 评论列表 -->
-    <div v-if="loading" class="cd-comment-status" role="status"><a-spin :loading="true" :size="16" /> 正在加载评论…</div>
+    <div v-if="loading" class="cd-comment-status" role="status"><a-spin :loading="true" :size="16" /> 正在接收信号…</div>
     <div v-else-if="loadError" class="cd-comment-status" role="status">评论加载失败<button type="button" @click="loadComments(currentPage)">重试</button></div>
     <div v-if="comments.length > 0" class="cd-comment-list">
       <template v-for="comment in comments" :key="comment.id">
@@ -187,7 +187,7 @@ defineExpose({ loadComments })
       </template>
     </div>
     <div v-else-if="!loading && !loadError" class="cd-comment-empty">
-      <p>暂无评论，快来发表第一条评论吧</p>
+      <p>还没有人造访，来留下第一条信号吧</p>
     </div>
 
   </div>

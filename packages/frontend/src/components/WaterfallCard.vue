@@ -37,7 +37,7 @@ async function toggleLike(event: MouseEvent) {
     // request() 已对非 401 失败弹过 toast；只有未登录这一种需要额外引导，
     // 其余情况静默即可，不能在事件回调里把异常放出去（会冒泡到 ErrorBoundary 顶掉整页）。
     if ((err as { status?: number })?.status === 401) {
-      toast.info('登录后即可点赞')
+      toast.info('登录后即可点亮')
     }
   } finally {
     isLikePending.value = false

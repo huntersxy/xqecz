@@ -123,7 +123,7 @@ watch(() => props.open, (val) => {
 <template>
   <a-drawer
     v-model:visible="visible"
-    title="发布新作品"
+    title="点亮一颗新星球"
     placement="bottom"
     height="auto"
     :header="false"
@@ -136,9 +136,9 @@ watch(() => props.open, (val) => {
     <form class="qus-panel" aria-labelledby="qus-title" @submit.prevent="handleSubmit">
       <header class="qus-heading">
         <div>
-          <span class="qus-kicker">CREATE & SHARE <span aria-hidden="true">✦</span></span>
-          <h2 id="qus-title">让灵感，在这里落笔<span class="qus-title-dot">。</span></h2>
-          <p>一段文字，一张画面，都可以是故事的开始。</p>
+          <span class="qus-kicker">LIGHT UP YOUR PLANET <span aria-hidden="true">✦</span></span>
+          <h2 id="qus-title">点亮属于你的星球<span class="qus-title-dot">。</span></h2>
+          <p>一段文字，一张画面，都可以是宇宙的第一笔。</p>
         </div>
         <button type="button" class="qus-close" aria-label="关闭上传窗口" :disabled="uploading" @click="visible = false"><IconClose /></button>
       </header>
@@ -178,7 +178,7 @@ watch(() => props.open, (val) => {
             </div>
           </div>
           </Transition>
-          <p class="qus-media-note"><span aria-hidden="true">✧</span> 没有图片也没关系，让文字成为主角。</p>
+          <p class="qus-media-note"><span aria-hidden="true">✧</span> 没有图片也没关系，一段文字也能成为一颗星球。</p>
         </section>
 
         <section class="qus-fields" aria-label="作品信息">
@@ -196,9 +196,9 @@ watch(() => props.open, (val) => {
       <footer class="qus-footer">
         <div class="qus-footer-note" aria-live="polite">
           <template v-if="uploading"><span>正在上传 {{ progress }}%</span><a-progress :percent="progress" :show-text="false" :stroke-width="4" /></template>
-          <template v-else><span class="qus-footer-spark" aria-hidden="true">✦</span> 每一份创作，都值得被看见。</template>
+          <template v-else><span class="qus-footer-spark" aria-hidden="true">✦</span> 每一颗星球，都值得被点亮。</template>
         </div>
-        <a-button type="primary" size="large" html-type="submit" class="qus-submit" :loading="uploading">{{ uploading ? '正在发布' : '发布作品' }}<IconArrowRight v-if="!uploading" /></a-button>
+        <a-button type="primary" size="large" html-type="submit" class="qus-submit" :loading="uploading">{{ uploading ? '正在点亮…' : '点亮这颗星球' }}<IconArrowRight v-if="!uploading" /></a-button>
       </footer>
     </form>
   </a-drawer>

@@ -118,7 +118,7 @@ onMounted(async () => {
   <div class="qu-page creative-theme">
     <div class="qu-layout">
       <header class="qu-heading">
-        <div><span class="qu-kicker">CREATE & SHARE <span aria-hidden="true">✦</span></span><h1>让灵感，在这里落笔<span>。</span></h1><p>一段文字，一张画面，都可以是故事的开始。</p></div>
+        <div><span class="qu-kicker">LIGHT UP YOUR PLANET <span aria-hidden="true">✦</span></span><h1>点亮属于你的星球<span>。</span></h1><p>一段文字，一张画面，都可以是宇宙的第一笔。</p></div>
         <RouterLink to="/" class="qu-back">← 返回首页</RouterLink>
       </header>
       <a-form class="qu-card" layout="vertical" :model="form" @submit="handleSubmit">
@@ -136,8 +136,8 @@ onMounted(async () => {
               <div class="qu-file-row"><span class="qu-file-name">{{ file.name }}</span><button type="button" class="qu-remove" aria-label="移除已选文件" :disabled="uploading" @click="removeFile"><IconClose /></button></div>
             </div>
             </Transition>
-            <p class="qu-media-note"><span aria-hidden="true">✧</span> 没有图片也没关系，一段文字同样可以成为作品。</p>
-            <div class="qu-tip-card"><span class="qu-tip-kicker">A SMALL REMINDER</span><p>创作不必完美，<br>热爱自有回响<span>。</span></p><span class="qu-tip-spark" aria-hidden="true">✧</span></div>
+            <p class="qu-media-note"><span aria-hidden="true">✧</span> 没有图片也没关系，一段文字也能成为一颗星球。</p>
+            <div class="qu-tip-card"><span class="qu-tip-kicker">A SMALL REMINDER</span><p>创作不必完美，<br>宇宙会记住你的坐标<span>。</span></p><span class="qu-tip-spark" aria-hidden="true">✧</span></div>
           </section>
 
           <section class="qu-fields" aria-labelledby="qu-story-title">
@@ -151,8 +151,8 @@ onMounted(async () => {
           </section>
         </div>
         <footer class="qu-footer">
-          <div class="qu-footer-copy"><div class="qu-license" v-html="CC_LICENSE_TEXT"></div><div v-if="uploading" class="qu-progress" aria-live="polite"><span>正在上传 {{ progress }}%</span><a-progress :percent="progress" :show-text="false" :stroke-width="4" /></div><p v-else><span aria-hidden="true">✦</span> 每一份创作，都值得被看见。</p></div>
-          <a-button type="primary" size="large" html-type="submit" class="qu-submit" :loading="uploading">{{ uploading ? '正在发布' : '发布作品' }}<IconArrowRight v-if="!uploading" /></a-button>
+          <div class="qu-footer-copy"><div class="qu-license" v-html="CC_LICENSE_TEXT"></div><div v-if="uploading" class="qu-progress" aria-live="polite"><span>正在上传 {{ progress }}%</span><a-progress :percent="progress" :show-text="false" :stroke-width="4" /></div><p v-else><span aria-hidden="true">✦</span> 每一颗星球，都值得被点亮。</p></div>
+          <a-button type="primary" size="large" html-type="submit" class="qu-submit" :loading="uploading">{{ uploading ? '正在点亮…' : '点亮这颗星球' }}<IconArrowRight v-if="!uploading" /></a-button>
         </footer>
       </a-form>
     </div>

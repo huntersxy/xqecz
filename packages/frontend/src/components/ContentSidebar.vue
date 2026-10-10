@@ -61,7 +61,7 @@ defineExpose({ commentRef })
         <UserAvatar :src="content.avatar_url" :email="content.user.email" :username="content.user.username" :size="38" class="cd-avatar" />
         <div class="cd-author-info">
           <span class="cd-author-name">{{ content.user.username }}</span>
-          <span class="cd-author-id">作品分享者 · ID #{{ content.user.id }}</span>
+          <span class="cd-author-id">造物主 · ID #{{ content.user.id }}</span>
         </div>
       </div>
       <div class="cd-author-actions">
@@ -78,7 +78,7 @@ defineExpose({ commentRef })
 
     <div v-if="content.text" class="cd-section">
       <div class="cd-section-head">
-        <span class="cd-section-title">关于这份创作</span>
+        <span class="cd-section-title">关于这颗星球</span>
         <button class="cd-copy-btn" type="button" @click="copyPrompt"><IconCopy /> <span>复制正文</span></button>
       </div>
       <div class="cd-prompt" v-html="renderedText"></div>

@@ -99,13 +99,13 @@ function onDownloadSelect(value: string | number | Record<string, unknown> | und
 
 <template>
   <footer class="cd-bottombar" aria-label="作品操作">
-    <span class="cd-action-note"><span aria-hidden="true">✧</span> 把心动，留在这里</span>
+    <span class="cd-action-note"><span aria-hidden="true">✧</span> 点亮，或收进星图</span>
     <div class="cd-action-tools">
       <div class="cd-interaction-group" aria-label="喜欢与收藏">
         <button
           type="button" class="cd-action cd-like-action" :class="{ active: isLiked }"
           :disabled="!userStore.isLoggedIn" :aria-pressed="isLiked"
-          :aria-label="isLiked ? '取消点赞' : '点赞'" :title="userStore.isLoggedIn ? '喜欢这份创作' : '登录后可点赞'"
+          :aria-label="isLiked ? '取消点赞' : '点赞'" :title="userStore.isLoggedIn ? '点亮这颗星球' : '登录后即可点亮'"
           @click="toggleLike"
         >
           <span class="cd-action-icon"><IconHeart :fill="isLiked ? 'currentColor' : 'none'" /></span>
@@ -116,7 +116,7 @@ function onDownloadSelect(value: string | number | Record<string, unknown> | und
         <button
           type="button" class="cd-action" :class="{ active: isFavorited }"
           :disabled="!userStore.isLoggedIn" :aria-pressed="isFavorited"
-          :aria-label="isFavorited ? '取消收藏' : '收藏'" :title="userStore.isLoggedIn ? '收藏这份创作' : '登录后可收藏'"
+          :aria-label="isFavorited ? '取消收藏' : '收藏'" :title="userStore.isLoggedIn ? '收进你的星图' : '登录后即可收进星图'"
           @click="toggleFavorite"
         >
           <span class="cd-action-icon"><IconStar :fill="isFavorited ? 'currentColor' : 'none'" /></span>

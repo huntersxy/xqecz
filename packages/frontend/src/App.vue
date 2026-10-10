@@ -136,8 +136,8 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
       <LayoutHeader class="app-header creative-theme">
         <div class="app-header-inner">
           <RouterLink v-if="!isMobile" to="/" class="app-logo" @click="isMobileMenuOpen = false" aria-label="返回首页">
-            <img :src="logoImg" alt="小泉动漫二创站" class="app-logo-img" />
-            <span class="app-brand-copy" aria-hidden="true"><b>小泉二创</b><span>A LITTLE CREATIVE WORLD <i>✦</i></span></span>
+            <img :src="logoImg" alt="小泉宇宙" class="app-logo-img" />
+            <span class="app-brand-copy" aria-hidden="true"><b>小泉宇宙</b><span>A LITTLE UNIVERSE OF OUR OWN <i>✦</i></span></span>
           </RouterLink>
 
           <!-- 桌面端：用 Space + text Button 做导航，避免 Arco 横向 Menu 的「…」折叠 -->
@@ -171,13 +171,13 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
           />
 
           <!-- 移动端非首页：弹性占位把右侧操作区推到最右 -->
-          <RouterLink v-else-if="isMobile" to="/" class="app-mobile-brand" aria-label="小泉二创首页">小泉二创 <span aria-hidden="true">✦</span></RouterLink>
+          <RouterLink v-else-if="isMobile" to="/" class="app-mobile-brand" aria-label="小泉宇宙首页">小泉宇宙 <span aria-hidden="true">✦</span></RouterLink>
 
           <!-- 桌面端首页：横向菜单右侧的搜索框（固定宽度，百分比+上限） -->
           <InputSearch
             v-if="!isMobile && route.path === '/'"
             v-model="searchInput"
-            placeholder="搜索作品/标签/作者..."
+            placeholder="搜索作品、造物主或星球坐标..."
             class="app-search-input"
             @search="onGlobalSearch"
             allow-clear
@@ -271,7 +271,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
         role="contentinfo"
       >
         <div class="app-footer-inner">
-          <div class="app-footer-brand"><span class="app-footer-mark" aria-hidden="true">✧</span><div><RouterLink to="/" class="app-footer-name">小泉动漫二创站</RouterLink><p>让灵感有归处，让热爱有回响。</p></div></div>
+          <div class="app-footer-brand"><span class="app-footer-mark" aria-hidden="true">✧</span><div><RouterLink to="/" class="app-footer-name">小泉宇宙</RouterLink><p>这里不是粉丝聚集地，这里是宇宙的起点。</p></div></div>
           <div class="app-footer-info"><div class="app-footer-legal"><span>© {{ currentYear }} 小泉动漫二创站</span><span class="app-footer-badge">CC BY-NC 4.0 · 非商业使用</span><span v-if="showICP">桂 ICP 备 2024031550 号</span></div><span class="app-footer-build">WITH LOVE & CREATIVITY <span aria-hidden="true">✦</span> <span>构建于 {{ buildDate }}</span></span></div>
         </div>
       </footer>
@@ -283,7 +283,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
       placement="left"
       :closable="true"
       :footer="false"
-      title="小泉动漫二创站"
+      title="小泉宇宙"
       :width="280"
       class="app-mobile-drawer creative-theme"
       @cancel="isMobileMenuOpen = false"

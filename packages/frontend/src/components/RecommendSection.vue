@@ -116,12 +116,12 @@ onBeforeUnmount(() => {
 <template>
   <section id="recommend-section" class="wf-recommend">
     <div class="wf-recommend-head">
-      <h2><span class="wf-rec-spark" aria-hidden="true">✦</span> 精选推荐</h2>
+      <h2><span class="wf-rec-spark" aria-hidden="true">✦</span> 造物主精选</h2>
       <button
         class="wf-rec-refresh"
         type="button"
         :disabled="isRecommendLoading"
-        aria-label="换一批推荐"
+        aria-label="换一批造物主精选"
         :title="isRecommendLoading ? '刷新中…' : '换一批'"
         @click="onRefresh"
       >
