@@ -62,7 +62,7 @@ export function getRemoteFallbackUrl(url: string, origin?: string): string {
  * @param size 头像尺寸，默认 80
  */
 export function getAvatarUrl(email: string, size: number = 80): string {
-  if (!email) return ''
+  if (!email.trim()) return ''
   // QQ 邮箱 → QQ 头像接口
   const qqMatch = /^(\d{5,11})@qq\.com$/i.exec(email.trim())
   if (qqMatch) {

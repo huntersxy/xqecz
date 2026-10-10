@@ -1,7 +1,7 @@
-// 宝塔 Node 项目用的后端启动器：把 Go 二进制作为子进程拉起，保持「Node 项目」形态无需改面板类型。
+// 本机/旧形态用的后端启动器：把 Go 二进制作为子进程拉起（生产由 OpenRC 直接执行二进制，不经这一层）。
 //
 // 用法：node scripts/start-backend.mjs
-// 若不希望多一层 Node 进程，可在面板里直接运行 packages/server/xqecz-server（见 docs/deploy.md）。
+// 若不希望多一层 Node 进程，可直接运行 packages/server/xqecz-server（见 docs/deploy.md）。
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -19,7 +19,7 @@ if (!bin) {
   process.exit(1)
 }
 
-// stdio: inherit —— 日志直接进面板，信号原样转发，Node 只做进程守护。
+// stdio: inherit —— 日志直接进当前终端，信号原样转发，Node 只做进程守护。
 const child = spawn(bin, [], { cwd: serverDir, stdio: 'inherit', env: process.env })
 
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {

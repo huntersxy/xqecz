@@ -1,13 +1,11 @@
 package content
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"encoding/json"
-	"regexp"
 	"strings"
 
 	"github.com/huntersxy/xqecz/server/internal/app"
+	useravatar "github.com/huntersxy/xqecz/server/internal/avatar"
 	"github.com/huntersxy/xqecz/server/internal/store"
 	"github.com/huntersxy/xqecz/server/internal/web"
 )
@@ -71,21 +69,6 @@ func mirrorKey(rel string) string {
 	return strings.TrimPrefix(rel, "uploads/")
 }
 
-var qqMailPattern = regexp.MustCompile(`^(\d{5,11})@qq\.com$`)
-
-// MakeAvatarURL 由邮箱生成头像地址（不暴露原始邮箱）。
-func MakeAvatarURL(email string, size int) string {
-	if email == "" {
-		return ""
-	}
-	trimmed := strings.ToLower(strings.TrimSpace(email))
-	if m := qqMailPattern.FindStringSubmatch(trimmed); m != nil {
-		return "https://q.qlogo.cn/headimg_dl?dst_uin=" + m[1] + "&spec=100"
-	}
-	sum := md5.Sum([]byte(trimmed))
-	return "https://www.gravatar.com/avatar/" + hex.EncodeToString(sum[:]) + "?d=identicon&s=" + itoa(size)
-}
-
 // ParseTags 解析 tags 列（JSON 数组字符串，兼容历史逗号分隔写法）。
 func ParseTags(raw string) []string {
 	out := []string{}
@@ -129,13 +112,13 @@ type UserBrief struct {
 
 // Item 是内容列表/详情的对外形状，与旧后端 decorateContent 的输出逐字段一致。
 type Item struct {
-	ID          uint64    `json:"id"`
-	Title       string    `json:"title"`
-	Text        string    `json:"text"`
-	Thumb       string    `json:"thumb"`
-	Video       string    `json:"video"`
-	Img         string    `json:"img"`
-	Origin      string    `json:"origin,omitempty"`
+	ID     uint64 `json:"id"`
+	Title  string `json:"title"`
+	Text   string `json:"text"`
+	Thumb  string `json:"thumb"`
+	Video  string `json:"video"`
+	Img    string `json:"img"`
+	Origin string `json:"origin,omitempty"`
 	// MirrorImg / MirrorVideo 是同一份文件在**主目标**（R2）上的绝对地址（未启用时为空）。
 	// 与源站不同 origin，无法用相对路径推导，因此这里给完整地址：
 	// 换公开域名只改服务端 .env，前端不必重新构建。
@@ -145,17 +128,17 @@ type Item struct {
 	// Mirror2Img / Mirror2Video 是同一份文件在自建 OpenList（首选镜像）上的地址。
 	// 取值规则与 R2 那一组一致，只是对象落在自己的机器上。
 	// 前端按 OpenList → R2 → 源站 逐级回退，任一为空即跳过该级。
-	Mirror2Img   string `json:"mirror2_img,omitempty"`
-	Mirror2Video string `json:"mirror2_video,omitempty"`
-	FileSize    int64     `json:"file_size"`
-	User        UserBrief `json:"user"`
-	AvatarURL   string    `json:"avatar_url,omitempty"`
-	Tags        []string  `json:"tags"`
-	LikeCount   int64     `json:"like_count"`
-	ViewCount   *int64    `json:"view_count,omitempty"`
-	AuditStatus string    `json:"audit_status"`
-	CreatedAt   web.Time  `json:"created_at"`
-	UpdatedAt   web.Time  `json:"updated_at"`
+	Mirror2Img   string    `json:"mirror2_img,omitempty"`
+	Mirror2Video string    `json:"mirror2_video,omitempty"`
+	FileSize     int64     `json:"file_size"`
+	User         UserBrief `json:"user"`
+	AvatarURL    string    `json:"avatar_url,omitempty"`
+	Tags         []string  `json:"tags"`
+	LikeCount    int64     `json:"like_count"`
+	ViewCount    *int64    `json:"view_count,omitempty"`
+	AuditStatus  string    `json:"audit_status"`
+	CreatedAt    web.Time  `json:"created_at"`
+	UpdatedAt    web.Time  `json:"updated_at"`
 }
 
 // Page 是列表类接口的统一分页包装。
@@ -182,12 +165,12 @@ func decorateWith(mm app.MediaMirror, row store.Content, userMap map[uint64]stor
 	if row.GuestNickname != nil && *row.GuestNickname != "" {
 		author = UserBrief{ID: 0, Username: *row.GuestNickname}
 		if row.GuestEmail != nil {
-			avatar = MakeAvatarURL(*row.GuestEmail, 80)
+			avatar = useravatar.URL(*row.GuestEmail, 80)
 		}
 	} else if u, ok := userMap[row.UserID]; ok {
 		author = UserBrief{ID: u.ID, Username: u.Username}
 		if u.Email != nil {
-			avatar = MakeAvatarURL(*u.Email, 80)
+			avatar = useravatar.URL(*u.Email, 80)
 		}
 	} else {
 		author = UserBrief{ID: row.UserID, Username: "unknown"}

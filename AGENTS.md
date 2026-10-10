@@ -38,6 +38,7 @@ packages/
 │   ├── internal/config/        # env 配置（.env + .env.local 覆盖）
 │   ├── internal/mysqldsn/      # MySQL/TiDB 连接串统一组装（TLS 参数收敛到一处）
 │   ├── internal/store/         # GORM 模型（10 张表）与连接
+│   ├── internal/avatar/        # 由邮箱生成 QQ / Gravatar 公开头像地址（内容与评论共用）
 │   ├── internal/cache/         # Redis 封装：前缀、会话、读穿缓存、ZSet、失效、限频、锁
 │   ├── internal/web/           # 响应包装、身份中间件、CORS、静态目录、端口自适应与优雅关停
 │   ├── internal/media/         # 缩略图生成、垃圾桶目录搬运
@@ -61,7 +62,7 @@ packages/
 scripts/
 ├── dev.mjs                     # 开发编排器（Go 后端 + 前端，端口自适应 + 进程树自愈）
 ├── build-server.mjs            # 后端构建包装：按平台选产物名（Windows 必须 .exe）并剥离符号表
-├── start-backend.mjs           # 部署启动器（宝塔 Node 项目用，把二进制作为子进程拉起）
+├── start-backend.mjs           # 启动器：把二进制作为子进程拉起（本地/旧形态用，生产由 OpenRC 直启）
 └── migrations/                 # 一次性 SQL 迁移（历史归档，如内容统一模型清理脚本）
 
 .moon/workspace.yml             # moon 工作区定义（工程映射：frontend / server）
@@ -81,7 +82,7 @@ pnpm-workspace.yaml             # 前端依赖与传递依赖安全覆盖
 | 内容 | `/content/*`（14） | `modules/content` | 列表/搜索/推荐/标签/我的/详情/上传/快速上传/编辑/删除/认领/点赞/收藏 |
 | 评论 | `/comment/*`（5） | `modules/comment` | 树形列表（一层回复）/计数/发表/删除/举报 |
 | 投票 | `/poll/*`（5） | `modules/poll` | 列表/详情/投票/创建/删除；游客按 visitor_id 去重 |
-| 管理端 | `/admin/*`（18） | `modules/admin` | 审核、待审、全量内容、用户管理、仪表盘、举报、认领、缩略图重建、推荐刷新 |
+| 管理端 | `/admin/*`（17） | `modules/admin` | 审核、待审、全量内容、用户管理、仪表盘、举报、认领、缩略图重建、推荐刷新 |
 | API 密钥 | `/api-keys`（4） | `modules/apikey` | 创建（完整密钥仅返回一次）/列表/更新/删除 |
 
 静态挂载点：`/uploads` → `data/uploads`、`/thumbs` → `data/thumbs`、`/images` → `data/images`（历史兼容，已无新写入）。挂载由 `content.RegisterMedia` 提供而非 gin `r.Static`：带 `?download=1` 时改为附件下载（文件名取内容标题），并屏蔽 `.html`/`.svg` 等可直接执行或注入的扩展名。
@@ -103,8 +104,8 @@ pnpm dev:server                                # 仅 Go 后端（go run ./cmd/se
 pnpm dev:fe                                    # 仅前端 Vite
 pnpm build                                     # 后端二进制 + 前端产物（Go 侧剥离符号表）
 pnpm start                                     # 构建后 concurrently 起后端 + 前端预览
-pnpm start:backend                             # 部署用：直接运行后端二进制
-pnpm start:backend:node                        # 部署用：经 scripts/start-backend.mjs 拉起（面板保持 Node 项目形态）
+pnpm start:backend                             # 本机直接运行后端二进制
+pnpm start:backend:node                        # 经 scripts/start-backend.mjs 拉起（本机/旧形态用）
 
 # ── 后端 ──
 pnpm server:test                               # go test ./...
@@ -136,13 +137,14 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 
 - **前端是契约** — `packages/frontend/src/api/index.ts` 与 `src/types/schemas.ts` 定义接口形状；后端响应必须能被前端 zod schema 直接解析（改接口后跑契约冒烟）
 - **统一响应** — `{ code, message, data }`；错误文案放 `message`（前端直接展示）。**校验类失败沿用 HTTP 200 + 业务码**（如 `{code:400,message:"描述正文与媒体文件至少填一项"}`），鉴权类失败才改 HTTP 状态码
+- **用户头像** — 内容的 `avatar_url` 与评论的 `user.avatar_url` 均由 `internal/avatar.URL` 生成，公开响应不返回作者邮箱；前端统一用 `components/UserAvatar.vue`（QQ 邮箱走 QQ，其余走 Gravatar），空地址、加载中和远端失败均显示打包在前端的本地默认头像，切换作者/地址时重置失败状态。首页卡片头像尺寸仍由容器查询控制，不影响瀑布流测量。
 - **时间字段** — 一律用 `web.Time` 序列化为 UTC 毫秒（`2026-09-13T11:28:04.865Z`），与前端 `Date.toJSON()` 逐字节一致
 - **CORS 白名单** — `internal/web/middleware.go` 按 `CORS_ORIGINS`（逗号分隔，由 `config.Load` 拆分）放行，**命中才回 `ACAO` + `Allow-Credentials`，未命中不回任何 CORS 头**；`OPTIONS` 一律 204。两种条目：精确 origin（`https://xq.xiey.work`，整串比对，端口也算在内）与子域通配（`*.edgeone.cool` 或带协议 `https://*.edgeone.cool`）——通配按主机名后缀匹配，**不覆盖裸域、要求点边界**（防 `notedgeone.cool` 借尾巴），忽略端口、主机名大小写不敏感。通配只用于平台按项目动态分配的调试域名，生产来源应写精确条目
 - **认证双通道** — 请求头 `X-API-Key`（sha256 比对 `api_keys.key_hash`，权限数组随身份注入）优先，其次 Session Cookie（`session_id`）；`web.RequireAPIKeyPermission` 仅约束密钥调用，Session 用户不受限。新增受保护接口按此挂中间件
 - **上传约定** — multipart 字段名 `file`；**流式解析边收边写盘**（`Request.MultipartReader`），文件名沿用前端的 `<md5>.<ext>`、不合规则随机兜底；单文件 ≤ 20MB、仅 `image/*` 与 `video/*`；**上传不做转码**（保留源格式与后缀），压缩统一由后台 TinyPNG 任务就地替换
 - **媒体下载** — `/uploads`、`/thumbs`、`/images` 由 `content.RegisterMedia` 挂载（非 gin `r.Static`）：带 `?download=1` 时以附件返回，文件名取内容标题（ASCII 回退名 + RFC 5987 UTF-8 名）；`.html`/`.svg`/`.js` 等可直接执行或注入的扩展名拒绝下载（403），避免上传目录变分发通道
 - **共享上传目录** — 物理目录为项目根 `data/`（`UPLOAD_DIR`/`THUMB_DIR`/`IMAGES_DIR`/`BIN_DIR` 由 .env 覆盖），媒体处理与静态托管在同一进程内，无需跨进程路径约定
-- **Redis 缓存** — 公开读路径走读穿缓存：`content:{id}`、`content_list:{sha1(规范化参数)}`、`tags`、`comments:{cid}:threads-v2:{page}:{size}`、`comment_count:{cid}`、`admin:dashboard`；TTL 仅作兜底，**所有写路径必须显式失效**（`ClearContentCache` / `ClearContentListCache` / `ClearCommentCache` / `ClearAllContentCaches`）
+- **Redis 缓存** — 公开读路径走读穿缓存：`content:{id}`、`content_list:{sha1(规范化参数)}`、`tags`、`comments:{cid}:threads-v3:{page}:{size}`、`comment_count:{cid}`、`admin:dashboard`；TTL 仅作兜底，**所有写路径必须显式失效**（`ClearContentCache` / `ClearContentListCache` / `ClearCommentCache` / `ClearAllContentCaches`）
 - **评论回复链** — 数据库 `parent_id` 保留直接回复对象，列表按顶层评论分页，必须批量查询该页楼内的全部后代；`modules/comment/threads.go:buildThreads` 将多级回复铺在顶层 `replies` 一层数组中，附上直接 `parent` 引用供前端显示，不能只查顶层的直接回复，否则 A ← B ← C 的 C 会消失。列表缓存版本仍放在 `comments:{cid}:*` 下，确保 `ClearCommentCache` 可统一失效；删父评论时事务内把直接回复 `parent_id` 置空，保留后代。`CommentSections` 监听内容 id 自动加载并丢弃过期请求；提交回复后刷新当前页，不能强制跳回第一页。
 - **物理删除** — 删除一律是 `Delete()` 真删（无 `deleted_at` 软删除列，模型亦不含 `gorm.DeletedAt`）；历史软删行已由 `scripts/migrations/2026-09-14-drop-soft-delete-columns.sql` 物理清理并删列。删内容走 `purgeContent`（同一事务清评论及其举报、点赞、收藏；回复的 `parent_id` 置空而非连带删除），再经 `removeOrphanMedia` 把**无其它引用的**媒体文件移入 `data/bin`（同一文件可能被多条内容共用，必须先查引用计数）
 - **TinyPNG 后台压缩** — `internal/compress`：每 `COMPRESS_INTERVAL_SECONDS`（默认 60s）挑一张最大的待压缩图片，就地替换（先落 `.tinify-tmp` 再 `MoveToBin` 原图后改名，任一步失败都保留原图）；跳过 GIF 与 `< COMPRESS_MIN_KB`（默认 400KB）；`compressed_at` 非空即视为已处理（压缩未变小也标记，避免反复消耗配额）；**未配置 `TINIFY_API_KEY` 时任务静默休眠**
@@ -176,7 +178,7 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 4. **数据库变更** — 改 `internal/store/models.go`（显式 `column` 标签 + `TableName()`）；生产用正式 migration（存 `scripts/migrations/`），勿开 `AutoMigrate`。热点查询的索引见 `scripts/migrations/2026-09-13-add-hot-path-indexes.sql`
 5. **媒体管线** — `internal/media/`：缩略图优先 ffmpeg、失败降级纯 Go（WebP 质量 85）；镜像链见 `internal/mirror`（`Target` 定义目标、`Chain` 编排多目标，推送侧不分主次），`Push` 与回填共用同一判定，**改镜像范围只需动 `mirrorable()`**；新增一个镜像目标只需加一个 `TargetFrom*` 映射，不必碰推送与回填逻辑。`MoveToBin` 负责把文件搬进垃圾桶目录。**上传不再做 WebP 无损转换**（`internal/media/webp.go` 已删除），压缩交给 `internal/compress` 的 TinyPNG 任务；改压缩策略只需动 `compress/worker.go` 的候选筛选与 `shrinkInPlace`
 6. **推荐算法** — 见「核心约束」单一入口条目
-7. **瀑布流布局改动（前端首页）** — 纯布局算法在 `packages/frontend/src/composables/useWaterfallLayout.ts:computeLayout()`（与 DOM 解耦，输出 `Map<id, Position>`，可直接单测，勿写死在组件里）；改布局逻辑优先改纯函数并补 `__tests__/useWaterfallLayout.test.ts`。核心约定：**稳定列**（卡片落列后不再换列，`preserveColumns` 默认 true，仅列数/列宽变化时全量最短列重排）、**full 全量重排**（数据集合变化——分页追加/diff 更新/列表替换——时强制重新平衡列底，避免增量分配被懒加载测量失真带偏导致短列空缺；图片尺寸变化仍走增量顺移）、**列底失衡收敛**（增量后 max-min 列高差超过 `IMBALANCE_THRESHOLD` 时自动补一次带锚定的全量重排）、**单一调度**（图片加载/尺寸/宽度变化合并到一帧 `requestAnimationFrame` 只 layout 一次）、**滚动锚定**（重算前 captureAnchor 固定视口顶部卡片）、卡片高度由 `[data-wf-id]` 批量量取、`restore`/`reset` 管 keep-alive 缓存。**卡片内部排版按容器查询而非视口媒体查询**——列宽由 JS 按容器实测宽算出，与视口不等价（375px 窄屏 2 列时每列约 170px），故 `.wf-card` 声明为 `container: wfc / inline-size`、内部字号/行数用 `@container wfc (...)`。只能用 `inline-size`：它只隔离行内方向、块高仍由内容驱动；写成 `size` 会给卡片加全尺寸包含使固有高度归零，瀑布流量到的全是 0 高，整页塌掉。**加载策略**：首页进入即自动连续拉取全部页（`loadAllPages`，每页 100 条），不依赖滚动触发，图片保持懒加载；keep-alive 往返用**增量同步**（`syncLatestOnActivated`）。**缓存**：`listCache`（localStorage）统一在 `onBeforeRouteLeave` 离开时写一次；`diffLists` 有全量快照守卫。列表筛选/搜索用自增 `loadSeq` 丢弃过期响应防竞态
+7. **瀑布流布局改动（前端首页）** — 纯布局算法在 `packages/frontend/src/composables/useWaterfallLayout.ts:computeLayout()`（与 DOM 解耦，输出 `Map<id, Position>`，可直接单测，勿写死在组件里）；改布局逻辑优先改纯函数并补 `__tests__/useWaterfallLayout.test.ts`。核心约定：**稳定列**（卡片落列后不再换列，`preserveColumns` 默认 true，仅列数/列宽变化时全量最短列重排）、**full 全量重排**（数据集合变化——分页追加/diff 更新/列表替换——时强制重新平衡列底，避免增量分配被懒加载测量失真带偏导致短列空缺；图片尺寸变化仍走增量顺移）、**列底失衡收敛**（增量后 max-min 列高差超过 `IMBALANCE_THRESHOLD` 时自动补一次带锚定的全量重排）、**单一调度**（图片加载/尺寸/宽度变化合并到一帧 `requestAnimationFrame` 只 layout 一次）、**滚动锚定**（重算前 captureAnchor 固定视口顶部卡片）、卡片高度由 `[data-wf-id]` 批量量取、`restore`/`reset` 管 keep-alive 缓存。**卡片内部排版按容器查询而非视口媒体查询**——列宽由 JS 按容器实测宽算出，与视口不等价（375px 窄屏 2 列时每列约 170px），故 `.wf-card` 声明为 `container: wfc / inline-size`、内部字号/行数用 `@container wfc (...)`。只能用 `inline-size`：它只隔离行内方向、块高仍由内容驱动；写成 `size` 会给卡片加全尺寸包含使固有高度归零，瀑布流量到的全是 0 高，整页塌掉。**加载策略**：首页进入即自动连续拉取全部页（`loadAllPages`，每页 100 条），不依赖滚动触发，图片保持懒加载；keep-alive 往返用**增量同步**（`syncLatestOnActivated`）。**缓存**：`listCache`（localStorage）统一在 `onBeforeRouteLeave` 离开时写一次；`diffLists` 有全量快照守卫。列表筛选/搜索用自增 `loadSeq` 丢弃过期响应防竞态。**卡片内的写操作必须回传父级**——卡片只持有 props 的副本（点赞数、点赞态等），父级 `allContents` 才是缓存与 `onBeforeRouteLeave` 写入 localStorage 的唯一来源，不回写就会在 keep-alive 往返后被旧值复原，故点赞成功后 `emit('liked', ...)` 由首页原地更新。**卡片媒体区要隐藏 Arco 的 `.arco-image-footer`**（`:deep()` 限定在 `.wf-card-media` 内，推荐栏的标题叠层仍需它）；**事件回调里的异步失败必须就地 catch**——未捕获的拒绝会冒泡到 `ErrorBoundary` 把整页换成错误页（点赞未登录返回 401 就是这样踩到的），需要统一提示时优先走 `request()` 的既有 toast，只有要额外引导（如「登录后即可点赞」）才在回调里按 `ApiError.status` 补文案
 8. **踩坑记忆** — `MYSQL_POOL_SIZE` 过小会在并发下成为瓶颈（实测 20 并发 × 每请求 3 次查询：池 5 → p50 616ms、池 30 → p50 304ms），示例值见 `.env.example`；`silent=1` 的详情请求**按旧语义跳过缓存读**（只写不读），因此会比命中缓存的请求多出三次回表，评估时延时要分开看；`contents.file_path` 表示「无媒体」时**既有 NULL 也有空串**两种写法，过滤必须同时判 `IS NOT NULL AND <> ''`，否则会把纯文本行当成缺图内容；`moon` 的常驻任务用 `preset: 'server'`（不是 `local: true`，后者在 2.x 已移除会直接解析失败）；GORM 的 `Count` 与 `Find` 若不共用条件会话，会出现「总数带过滤、列表不带过滤」的错位；`bigint` 主键在 JSON 与 ZSet 之间比对要显式转字符串；**pnpm 11 起不再读取 `package.json` 的 `pnpm` 字段**——`overrides` 等设置必须写在 `pnpm-workspace.yaml`；Windows 下 git-bash 会把命令行里的中文按 GBK 传给 curl，导致 MySQL 拒收非法 UTF-8（`Incorrect string value`），涉及中文的接口测试要用 `-F "field=<文件"` 或 `--data-binary @文件` 传参；**控制台里跑 `taskkill /PID` 可能静默失败**，清理占用端口的旧服务改用 `powershell Stop-Process` 并复核 `netstat`；**不要用 `taskkill /T`**（会连带杀掉自身会话）；**SigV4 对时钟敏感**——新机器未同步时间时 R2 全部请求返回 403（实测偏差 13.7 小时，`HEAD`/`PUT` 一律 403，日志刷 `r2 回填失败`），表现为「凭据明明没错却全部被拒」，排查 R2 403 先看 `chronyc tracking` 的 offset，用 `chronyc makestep` 校正并在 `chrony.conf` 补 `makestep 1.0 3` 让开机也步进；**本仓库工作区文件是 CRLF**（`git` autocrlf 检出所致，仓库内存的是 LF），因此 `gofmt -l` 会把大批未改动文件报成「未格式化」——**不要对目录跑 `gofmt -w`**，那会把无关文件的行尾从 CRLF 改成 LF 造成大面积污染，只对本次改动的具体文件执行；**部署用的 shell 脚本必须保持 LF**（`.gitattributes` 里 `*.sh text eol=lf` 已钉死）——CRLF 的 shebang 在 Linux 上是 `bad interpreter`，出事时没人盯着；**Windows 上 Vite 的 dev 服务器会被编辑器的原子保存打死**——保存 .vue 时若先在同目录落临时文件再改名（`.WaterfallCard.vue.<uuid>.tmpdir/`），chokidar 会 `EBUSY: resource busy or locked, watch '...'` 抛错退出，`scripts/dev.mjs` 随即销毁整个进程树，表现为「什么都没干、前后端一起没了」。看到 fe 退出 code=1 先翻 stderr 找 EBUSY，是工具链问题不是代码问题，重启即可；**OpenList 的 HTTP 接口三处反直觉**——① 鉴权头是 `Authorization: <token>`，**不带 `Bearer`**，带了必被拒；② 推送走 `PUT /api/fs/put` 且路径放 **`File-Path` 头**，该头会被服务端 URL 解码，故送 `EscapedPath()`（纯 ASCII 最安全），而 `/api/fs/get` 的 body `path` **不解码**，送原始 Unicode；③ 对象不存在时 `/api/fs/get` 返回 `code:500 object not found` 而非 404，判存在只能靠匹配 message，且免签下载 `/d/*` 对不存在的文件同样回 **500**；另需实例侧 `sign_all=false` 才能免签直链，否则 `/d/` 与 `/p/` 裸访问一律 401；**且 `OPENLIST_PUBLIC_BASE` 必须带直链前缀 `/d`（如 `https://drive.xiey.work/d`）**——OpenList 的裸域名是它自己的 SPA 前端，未加前缀的路径一律回 `200 text/html` 的 index.html，下发的 `mirror2_*` 会「换源成功但图全是 HTML」
 
 ## 迭代规范（AGENTS.md 自身）
@@ -193,7 +195,7 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 | 新增/修改 HTTP 接口或其分组 | HTTP 接口表 / 修改指南 3 |
 | 新增/删除数据库表、模型字段或列语义变化 | 目录结构 store / 修改指南 4 / 核心约束·内容统一模型 |
 | 新增/删除前端组件、composable、页面或目录调整 | 目录结构 frontend / 修改指南 7 |
-| API 密钥权限、Redis 缓存键、软删除、降级策略等约束变化 | 核心约束对应条目 |
+| API 密钥权限、Redis 缓存键、物理删除、降级策略等约束变化 | 核心约束对应条目 |
 | 增减依赖版本或换技术栈 | 技术栈表 |
 | 新增/调整根脚本、moon 任务或常用命令 | 快速命令 |
 | 出现新的"踩坑记忆"（类型比对、构建、平台差异等） | 修改指南 8 |

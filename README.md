@@ -26,13 +26,13 @@ packages/
 │   ├── cmd/server/             # 入口：读 .env → 连 MySQL/Redis → 启动 HTTP + 推荐刷新
 │   ├── cmd/{dbsync,dbinfo,dbsql,rediskeys}/   # 排查与对拍用的小工具
 │   ├── internal/modules/       # 业务模块：auth / content / comment / poll / admin / apikey
-│   ├── internal/{api,web,store,cache,media,recommend,config,cli,project}/
+│   ├── internal/{api,config,mysqldsn,store,cache,web,media,objstore,r2,openlist,mirror,compress,recommend,logx,cli,project}/
 │   └── internal/app/           # Deps：各层共享依赖集
 └── frontend/                   # Vue 3 前端
     └── src/{api,components,composables,stores,views,router,types,utils}/
 
-scripts/                        # 开发编排、构建包装、部署启动器、一次性 SQL 迁移
-data/                           # 运行期媒体目录（uploads / thumbs / bin），不入库
+scripts/                        # 开发编排、构建包装、启动器、一次性 SQL 迁移
+data/                           # 运行期媒体目录（uploads / thumbs / images 历史兼容 / bin），不入库
 docs/deploy.md                  # 部署与 CI 说明
 AGENTS.md                       # 面向贡献者与 AI 的工程约定（改代码前先读）
 ```
@@ -100,14 +100,14 @@ pnpm exec moon run server:test frontend:test
 
 | 侧 | 形态 | 产物 |
 |----|------|------|
-| 后端 | 宝塔「Go 项目」 | `CGO_ENABLED=0 GOOS=linux GOARCH=amd64` 单二进制 + `.env` |
-| 前端 | 宝塔「静态站点」 | `dist` 静态文件，`/api` 反代到后端端口 |
+| 后端 | CI 经 SSH 直传 + OpenRC | `CGO_ENABLED=0 GOOS=linux GOARCH=amd64` 单二进制 + `.env`，由 `/etc/init.d/xqecz` 接管 |
+| 前端 | EdgeOne Makers 自行构建 | `dist` 静态文件，`VITE_API_BASE_URL` / `VITE_MEDIA_BASE_URL` 指向后端域名（CI 不发前端） |
 
 推送到 `master` 后由 GitHub Actions 自动构建、上传并重启后端，并以生产 `/api/health` 探针收尾。完整流程、`.env` 定位规则、nginx 参考配置与回滚方式见 **[docs/deploy.md](docs/deploy.md)**。
 
 ## 接口约定（摘要）
 
-- 全部挂在 `/api` 前缀下，共 60 条；统一响应 `{ code, message, data }`，`code === 200` 为成功
+- 全部挂在 `/api` 前缀下，共 52 条；统一响应 `{ code, message, data }`，`code === 200` 为成功
 - 校验类失败沿用 HTTP 200 + 业务码；鉴权类失败才改 HTTP 状态码
 - 时间字段统一序列化为 UTC 毫秒（与前端 `Date.toJSON()` 逐字节一致）
 - 认证双通道：请求头 `X-API-Key` 优先，其次 Cookie 会话 `session_id`

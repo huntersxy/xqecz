@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import { renderMarkdown } from '@/utils'
 import { useUserStore } from '@/stores/user'
 import CommentSections from '@/components/CommentSections.vue'
+import UserAvatar from '@/components/UserAvatar.vue'
 import type { Content, Comment } from '@/types'
 
 interface Props {
@@ -57,8 +58,7 @@ defineExpose({ commentRef })
   <aside class="cd-side">
     <div v-if="content.user" class="cd-author">
       <div class="cd-author-left">
-        <a-image v-if="content.avatar_url" :src="content.avatar_url" class="cd-avatar-img" :preview="false" :alt="content.user.username" />
-        <div v-else class="cd-avatar">{{ (content.user.username || '?').slice(0, 1).toUpperCase() }}</div>
+        <UserAvatar :src="content.avatar_url" :email="content.user.email" :username="content.user.username" :size="38" class="cd-avatar" />
         <div class="cd-author-info">
           <span class="cd-author-name">{{ content.user.username }}</span>
           <span class="cd-author-id">作品分享者 · ID #{{ content.user.id }}</span>
@@ -114,27 +114,19 @@ defineExpose({ commentRef })
 
 <style scoped>
 .cd-side {
-  flex: 0 0 360px; max-width: 400px; display: flex; flex-direction: column; gap: 22px;
-  padding: 24px; background: var(--color-header-bg);
-  border-left: 1px solid var(--color-border); overflow-y: scroll; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--creative-line) var(--creative-paper);
+  flex: 0 0 clamp(360px, 27vw, 420px); min-width: 0; display: flex; flex-direction: column; gap: 24px;
+  padding: 28px; background: var(--creative-paper);
+  border-left: 1px solid var(--creative-line); overflow-y: auto; scrollbar-gutter: stable;
+  scrollbar-width: thin; scrollbar-color: var(--creative-line) transparent;
 }
 
 .cd-author {
-  position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 14px; background: linear-gradient(135deg, var(--creative-soft), var(--creative-paper) 72%);
-  border: 1px solid var(--creative-line); border-radius: 15px; overflow: hidden;
+  display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 0 0 24px; border-bottom: 1px solid var(--creative-line);
 }
-.cd-author::after { content: ''; position: absolute; right: -20px; top: -22px; width: 74px; height: 74px; border: 1px solid color-mix(in srgb, var(--creative-accent) 18%, transparent); border-radius: 50%; box-shadow: 0 0 0 10px color-mix(in srgb, var(--creative-accent) 5%, transparent); pointer-events: none; }
 .cd-author-left { display: flex; align-items: center; gap: 0.625rem; min-width: 0; }
-.cd-avatar {
-  width: 38px; height: 38px; border-radius: 50%;
-  background: var(--creative-soft); border: 1px solid var(--creative-line);
-  color: var(--creative-accent); display: flex; align-items: center; justify-content: center;
-  font-size: 1rem; font-weight: 700; flex-shrink: 0;
-}
-.cd-avatar-img { width: 38px; height: 38px; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
-.cd-avatar-img :deep(.arco-image-img) { width: 100%; height: 100%; object-fit: cover; display: block; }
-.cd-author-info { display: flex; flex-direction: column; min-width: 0; }
+.cd-avatar { border: 1px solid var(--creative-line); }
+.cd-author-info { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .cd-author-name { font-size: 0.875rem; font-weight: 600; color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cd-author-id { font-size: 0.6875rem; color: var(--color-text-secondary); }
 .cd-author-actions { display: flex; gap: 0.375rem; flex-shrink: 0; }
@@ -147,8 +139,8 @@ defineExpose({ commentRef })
 .cd-copy-btn:hover { color: var(--creative-accent); border-color: color-mix(in srgb, var(--creative-accent) 35%, var(--creative-line)); background: var(--creative-soft); }
 
 .cd-section {
-  display: flex; flex-direction: column; gap: 12px; padding: 0 0 22px;
-  background: var(--color-surface); border: 0; border-bottom: 1px solid var(--color-border); border-radius: 0;
+  display: flex; flex-direction: column; flex-shrink: 0; gap: 12px; padding: 0 0 22px;
+  background: transparent; border: 0; border-bottom: 1px solid var(--creative-line); border-radius: 0;
 }
 .cd-section-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .cd-section-title { display: inline-flex; align-items: center; gap: 7px; font-size: 0.75rem; font-weight: 600; color: var(--creative-ink); letter-spacing: .04em; }
@@ -232,6 +224,6 @@ defineExpose({ commentRef })
 }
 .cd-gen-label { color: var(--color-text-secondary); font-weight: 600; letter-spacing: 0.04em; }
 .cd-gen-value { color: var(--color-text); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-@media (min-width: 769px) and (max-width: 1024px) { .cd-side { flex-basis: 320px; padding: 20px; } }
-@media (max-width: 768px) { .cd-side { padding: 22px; gap: 20px; } }
+@media (min-width: 769px) and (max-width: 1024px) { .cd-side { flex-basis: 340px; padding: 22px; } }
+@media (max-width: 768px) { .cd-side { padding: 24px 20px; gap: 22px; } }
 </style>

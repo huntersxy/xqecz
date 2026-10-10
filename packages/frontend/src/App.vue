@@ -12,7 +12,6 @@ import {
   MenuItem,
   Dropdown,
   Doption,
-  Avatar,
   Button,
   Tag,
   InputSearch,
@@ -36,7 +35,7 @@ import {
 } from '@arco-design/web-vue/es/icon'
 import type { Component } from 'vue'
 import ErrorBoundary from './components/ErrorBoundary.vue'
-import { getAvatarUrl } from '@/utils'
+import UserAvatar from '@/components/UserAvatar.vue'
 import { revealOriginFrom, withRevealTransition } from '@/utils/viewTransition'
 
 const route = useRoute()
@@ -67,8 +66,6 @@ function onGlobalSearch() {
   searchKeyword.value = searchInput.value.trim()
   triggerSearch()
 }
-
-const userAvatarUrl = computed(() => userStore.user?.email ? getAvatarUrl(userStore.user.email) : '')
 
 const buildDate = import.meta.env.VITE_BUILD_DATE || new Date().toISOString().split('T')[0]
 const currentYear = new Date().getFullYear()
@@ -209,9 +206,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
                   @keydown.enter.prevent
                   @keydown.space.prevent
                 >
-                  <Avatar :size="28" :image-url="userAvatarUrl" class="app-avatar-primary">
-                    <IconUser v-if="!userAvatarUrl" />
-                  </Avatar>
+                  <UserAvatar :size="28" :email="userStore.user?.email" :username="userStore.user?.username" class="app-avatar-primary" />
                   <span class="app-username">{{ userStore.user?.username }}</span>
                   <Tag
                     v-if="userStore.user?.is_admin"
@@ -297,9 +292,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
       <!-- 用户区 -->
       <div v-if="userStore.isLoggedIn" class="drawer-user">
         <Space :size="12" align="center">
-          <Avatar :size="44" :image-url="userAvatarUrl" class="app-avatar-primary">
-            <IconUser v-if="!userAvatarUrl" />
-          </Avatar>
+          <UserAvatar :size="44" :email="userStore.user?.email" :username="userStore.user?.username" class="app-avatar-primary" />
           <div class="drawer-user-meta">
             <TypographyTitle :heading="6" class="drawer-user-name">
               {{ userStore.user?.username }}

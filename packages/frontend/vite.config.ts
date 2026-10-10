@@ -87,7 +87,6 @@ export default defineConfig(async ({ mode }) => {
               if (id.includes('@arco-design')) return 'arco-vendor'
               if (id.includes('marked') || id.includes('dompurify') || id.includes('ofetch'))
                 return 'utils-vendor'
-              if (id.includes('motion-v')) return 'motion-vendor'
             }
           },
         },

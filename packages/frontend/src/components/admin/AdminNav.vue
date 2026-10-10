@@ -17,8 +17,8 @@ export interface AdminNavGroup {
 // 后台侧边导航：品牌区 + 分组菜单（带待办角标）+ 底部用户卡
 // 同时用于桌面侧边栏与移动端抽屉
 import type { Component } from 'vue'
-import { IconUser, IconLeft, IconDashboard } from '@arco-design/web-vue/es/icon'
-import { getAvatarUrl } from '@/utils'
+import { IconLeft, IconDashboard } from '@arco-design/web-vue/es/icon'
+import UserAvatar from '@/components/UserAvatar.vue'
 
 interface Props {
   groups: AdminNavGroup[]
@@ -67,9 +67,7 @@ const emit = defineEmits<{
 
     <div class="admin-nav-foot">
       <div class="admin-nav-user">
-        <a-avatar :size="32" class="admin-nav-avatar" :image-url="email ? getAvatarUrl(email) : ''">
-          <IconUser v-if="!email" />
-        </a-avatar>
+        <UserAvatar :size="32" class="admin-nav-avatar" :email="email" :username="username" />
         <div class="admin-nav-user-meta">
           <span class="admin-nav-username">{{ username || '未登录' }}</span>
           <span class="admin-nav-role">{{ isAdmin ? '管理员' : '成员' }}</span>

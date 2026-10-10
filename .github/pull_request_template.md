@@ -17,7 +17,7 @@
 ## 自查
 - [ ] 未破坏前端契约（`packages/frontend/src/api/index.ts` + `src/types/schemas.ts`）
 - [ ] 无密钥 / `.env` / 大二进制入库
-- [ ] 业务删除走软删除（未物理删）
+- [ ] 业务删除走物理删除（Delete() 真删，无 deleted_at；媒体交 removeOrphanMedia 按引用计数入 data/bin）
 - [ ] 外部依赖缺失有降级（ffmpeg / Tinify / Redis 不可用时不影响主流程）
 
 ## 审查关注点

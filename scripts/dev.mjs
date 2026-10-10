@@ -36,7 +36,7 @@ function canListen(port, host) {
 async function findFreePort(preferred, taken) {
   for (let p = preferred; p < preferred + 200; p++) {
     if (taken.has(p)) continue
-    // Nest 监听 '::'、Vite 监听全接口，两个族都要空闲才算真空闲
+    // 后端 Go 服务可能绑 '::'、前端 Vite 监听全接口，两个族都要空闲才算真空闲
     if ((await canListen(p, '0.0.0.0')) && (await canListen(p, '::'))) {
       taken.add(p)
       return p
@@ -107,7 +107,7 @@ function descendantsOf(root, pairs) {
 
 /** 启动前自愈：清理上一次 dev 会话遗留的孤儿进程。
  *  同时按「根 pid 递归」与「后代快照逐个杀」双路清理——
- *  覆盖父进程已死、孙进程（如 vite/nest 的 node、worker 的 exe）仍存活的断链场景。 */
+ *  覆盖父进程已死、孙进程（如 vite 的 node、go run 编出的临时二进制）仍存活的断链场景。 */
 function cleanupStale() {
   try {
     const stale = JSON.parse(readFileSync(pidFile, 'utf8'))
@@ -135,7 +135,7 @@ function savePids() {
   try {
     mkdirSync(cacheDir, { recursive: true })
     // 附带整棵后代 pid 快照：即使编排器被强杀（无信号机会）、父子链断裂，
-    // 下次启动也能按快照逐个清理孤儿（vite/nest 的 node、worker exe 等孙进程）。
+    // 下次启动也能按快照逐个清理孤儿（vite 的 node、go run 的临时二进制等孙进程）。
     const pairs = listPidPairs()
     writeFileSync(pidFile, JSON.stringify(children.map((c) => ({
       name: c.name,
@@ -228,7 +228,7 @@ async function main() {
     VITE_PROXY_TARGET: `http://localhost:${serverPort}`,
   })
   savePids()
-  // nest --watch 重编译会更换孙进程 pid，定期刷新快照保证自愈精准
+  // go run 重新编译会更换孙进程 pid，定期刷新快照保证自愈精准
   setInterval(savePids, 30_000).unref()
 
   process.on('SIGINT', () => shutdown(0))

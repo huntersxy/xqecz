@@ -12,7 +12,6 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AAlert: typeof import('@arco-design/web-vue')['Alert']
-    AAvatar: typeof import('@arco-design/web-vue')['Avatar']
     AButton: typeof import('@arco-design/web-vue')['Button']
     ACard: typeof import('@arco-design/web-vue')['Card']
     ACheckbox: typeof import('@arco-design/web-vue')['Checkbox']
@@ -76,6 +75,7 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     TagCloud: typeof import('./components/admin/TagCloud.vue')['default']
+    UserAvatar: typeof import('./components/UserAvatar.vue')['default']
     WaterfallCard: typeof import('./components/WaterfallCard.vue')['default']
   }
 }

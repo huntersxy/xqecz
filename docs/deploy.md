@@ -15,14 +15,14 @@ cd packages/server && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
   go build -ldflags="-s -w" -o xqecz-server ./cmd/server
 ```
 
-## 生产形态：宝塔「Go 项目 + 静态站点」
+## 生产形态：CI 直传 + OpenRC（后端）/ EdgeOne Makers（前端）
 
-生产**不使用 pnpm/npm 统一编排**：后端与前端分别作为独立项目发布，服务器上不需要包管理器。
+生产**不使用 pnpm/npm 统一编排**：后端与前端分别发布，服务器上不需要包管理器。
 
-| 侧 | 面板项目类型 | 配置要点 |
-|----|--------------|----------|
-| 后端 | Go 项目 | 项目目录＝部署目录；启动命令 `./xqecz-server`；运行用户 `www`；端口与 `.env` 的 `PORT` 一致 |
-| 前端 | 静态站点 | 站点根目录＝上传上来的 `dist` 内容；`/api/` 反代到后端端口；媒体目录 alias 到 `data/` |
+| 侧 | 形态 | 配置要点 |
+|----|------|----------|
+| 后端 | CI 经 SSH 直传 + OpenRC | 部署目录＝`/opt/xqecz`；启动命令 `./xqecz-server`；运行用户 `alpine`；端口与 `.env` 的 `PORT` 一致 |
+| 前端 | EdgeOne Makers 自行构建 | Makers 控制台配 `VITE_API_BASE_URL` / `VITE_MEDIA_BASE_URL`（都打后端域名）；站点自身不反代 `/api`，跨域由后端 `CORS_ORIGINS` 白名单放行 |
 
 后端只需以下文件即可运行（不依赖任何 Node 生态文件）：
 
@@ -30,31 +30,33 @@ cd packages/server && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 <部署目录>/
 ├── xqecz-server          # 二进制（chmod +x）
 ├── .env                  # 配置（凭据、PORT、UPLOAD_DIR 等）
-└── data/                 # 运行期生成：uploads / thumbs / images
+└── data/                 # 运行期生成：uploads / thumbs / images（历史兼容）/ bin
 ```
 
-`package.json`、`pnpm-workspace.yaml`、`scripts/start-backend.mjs` 只服务本地开发与旧的 Node 项目形态，生产可不传。
+`package.json`、`pnpm-workspace.yaml`、`scripts/start-backend.mjs` 只服务本地开发，生产可不传。
 
 ### `.env` 定位规则（重要）
 
 进程启动时按以下优先级确定「项目根」，再读取 `项目根/.env`（`.env.local` 可覆盖）：
 
-1. 环境变量 `PROJECT_ROOT`，其次 `XQECZ_ROOT`（面板里配环境变量最省事，绝对路径）
+1. 环境变量 `PROJECT_ROOT`，其次 `XQECZ_ROOT`（在服务配置里设环境变量最省事，绝对路径）
 2. 自工作目录向上查找根标记：`.env`、`pnpm-workspace.yaml`、`.git`（命中即止，最多 8 层）
 
 因此：
 
 - 二进制与 `.env` 放在同一目录（或 `.env` 在二进制所在目录的上级）时，无需任何额外配置；
-- 若面板工作目录与 `.env` 不在同一条父链上，请显式设 `PROJECT_ROOT`；
+- 若进程工作目录与 `.env` 不在同一条父链上（如经 OpenRC/systemd 拉起、工作目录是 `/`），请显式设 `PROJECT_ROOT`；
 - 未命中任何标记时配置全部走默认值，典型症状是 `Access denied for user 'root'@'localhost' (using password: NO)`——看到了就是根目录没找对。
 
-### nginx（前端站点）参考配置
+### nginx（自建前端站点）参考配置
+
+> 当前生产前端由 EdgeOne Makers 托管、不经过 nginx；本节只在把 `dist` 放到自有服务器时参考。
 
 ```nginx
 server {
     listen 80;
     server_name your.domain;
-    root /www/wwwroot/<前端目录>;      # dist 内容所在目录
+    root /srv/xqecz-web;              # dist 内容所在目录
     index index.html;
 
     location /api/ {
@@ -67,9 +69,9 @@ server {
     }
 
     # 媒体文件由 nginx 直出更快；也可不配，交给后端托管
-    location ^~ /uploads/ { alias /www/wwwroot/<部署目录>/data/uploads/; expires 30d; try_files $uri =404; }
-    location ^~ /thumbs/  { alias /www/wwwroot/<部署目录>/data/thumbs/;  expires 30d; try_files $uri =404; }
-    location ^~ /images/  { alias /www/wwwroot/<部署目录>/data/images/;  expires 30d; try_files $uri =404; }
+    location ^~ /uploads/ { alias /opt/xqecz/data/uploads/; expires 30d; try_files $uri =404; }
+    location ^~ /thumbs/  { alias /opt/xqecz/data/thumbs/;  expires 30d; try_files $uri =404; }
+    location ^~ /images/  { alias /opt/xqecz/data/images/;  expires 30d; try_files $uri =404; }
 
     location / { try_files $uri $uri/ /index.html; }   # SPA 深链兜底
 }
@@ -81,7 +83,7 @@ server {
 
 1. **Redis 前缀**：新旧实例并存时必须区分（如 `xqeczgo:`），否则缓存键互相覆盖；完全替换旧实例则沿用原前缀。
 2. **媒体目录**：`UPLOAD_DIR` / `THUMB_DIR` / `IMAGES_DIR` 决定落盘位置，必须与数据库里存量的 `/uploads`、`/thumbs`、`/images` 指向同一批文件，否则老图全部 404。
-3. **端口**：`.env` 的 `PORT` 需与面板项目配置、nginx `proxy_pass` 三处一致。
+3. **端口**：`.env` 的 `PORT` 需与服务管理配置（OpenRC 读同一份 `.env`）、nginx `proxy_pass` 三处一致。
 
 ## CI（`.github/workflows/deploy.yml`）
 
@@ -118,7 +120,7 @@ SSH 输出是同步的，读回即可，不必像旧版（宝塔 `ExecShell` 异
 
 ## 另一台生产机：Alpine + OpenRC（39.101.76.249）
 
-除宝塔形态外，后端也可直接跑在精简 Linux 上。当前 39.101.76.249 即此形态（Alpine 3.20、非 root 用户 `alpine` 配免密 `doas`、无 Docker/宝塔）：
+后端跑在精简 Linux 上，无 Docker、无面板。当前 39.101.76.249 即此形态（Alpine 3.20、非 root 用户 `alpine` 配免密 `doas`）：
 
 ```
 /opt/xqecz/
@@ -196,7 +198,7 @@ R2_PUBLIC_BASE=https://file.example.com   # 对象公开域名（自定义域名
 
 ```bash
 grep -iE '^(R2|OPENLIST)_' /opt/xqecz/.env   # 确认配置已就位
-tail -f /www/wwwlogs/go/xqeczserver.log | grep -E 'r2 '  # 看镜像/回填日志
+tail -f /var/log/xqecz-server.log | grep -E 'r2 '  # 看镜像/回填日志
 ```
 
 ### 自建 OpenList 镜像（可选，首选）
@@ -298,5 +300,5 @@ apk del certbot                      # 若只为该链路装的
 
 ## 回滚
 
-- 后端：部署前保留上一版 `xqecz-server`，回滚即覆盖回去并重启面板项目
+- 后端：部署前保留上一版 `xqecz-server`，回滚即覆盖回去并执行 `doas rc-service xqecz restart`
 - 前端：`dist` 为静态文件，保留上一版目录或压缩包，回滚即替换目录内容

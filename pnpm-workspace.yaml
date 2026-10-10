@@ -2,17 +2,13 @@ packages:
   - 'packages/*'
 allowBuilds:
   '@parcel/watcher': true
-  core-js: true
-  protobufjs: set this to true or false
   sharp: true
-  vue-demi: true
+# 仅在开启 minimumReleaseAge（默认关闭）时生效；pnpm 的忽略构建列表由本文件 allowBuilds 接管
 minimumReleaseAgeExclude:
   - baseline-browser-mapping@2.11.23
 onlyBuiltDependencies:
   - '@parcel/watcher'
-  - core-js
   - sharp
-  - vue-demi
 
 # 传递依赖安全覆盖。
 # 上游把传递依赖精确锁死时，pnpm update 无法推进，只能在此钉住；

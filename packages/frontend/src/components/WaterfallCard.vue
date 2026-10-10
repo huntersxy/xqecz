@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import MediaImage from '@/components/MediaImage.vue'
+import UserAvatar from '@/components/UserAvatar.vue'
 import { getPreviewText } from '@/utils'
 import type { Content } from '@/types'
 import { contentApi } from '@/api'
@@ -95,7 +96,7 @@ onBeforeUnmount(() => ro?.disconnect())
       <span class="wf-card-title">{{ props.item.title }}</span>
       <div class="wf-card-meta">
         <span class="wf-card-user">
-          <span class="wf-card-user-mark" aria-hidden="true">{{ (props.item.user?.username || '?').slice(0, 1) }}</span>
+          <UserAvatar class="wf-card-user-mark" :src="props.item.avatar_url" :email="props.item.user?.email" :username="props.item.user?.username" />
           <span class="wf-card-user-name">{{ props.item.user?.username }}</span>
         </span>
         <button
@@ -153,7 +154,7 @@ onBeforeUnmount(() => ro?.disconnect())
 .wf-card-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; margin-bottom: 10px; font-size: 14px; font-weight: 600; line-height: 1.5; color: var(--card-ink); transition: color .18s ease; }
 .wf-card-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .wf-card-user { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11px; color: var(--card-muted); }
-.wf-card-user-mark { display: grid; place-items: center; flex: 0 0 22px; height: 22px; border-radius: 50%; background: var(--card-soft); color: var(--card-accent); font-size: 10px; font-weight: 600; }
+.wf-card-user-mark { --avatar-size: 22px; }
 .wf-card-user-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wf-card-like { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; padding: 3px 0; border: 0; background: transparent; color: var(--card-muted); cursor: pointer; font: inherit; font-size: 11px; font-variant-numeric: tabular-nums; transition: color .18s ease, opacity .18s ease; }
 .wf-card-like svg { width: 13px; height: 13px; color: var(--card-accent); transition: transform .18s ease; }
@@ -171,7 +172,7 @@ onBeforeUnmount(() => ro?.disconnect())
   .wf-card-info { padding: 10px 5px 6px; }
   .wf-card-title { font-size: 12px; margin-bottom: 8px; }
   .wf-card-user { gap: 4px; font-size: 10px; }
-  .wf-card-user-mark { flex-basis: 18px; height: 18px; font-size: 9px; }
+  .wf-card-user-mark { --avatar-size: 18px; }
   .wf-card-like { font-size: 10px; gap: 3px; }
   .wf-mini-tag { font-size: 9px; padding: 2px 5px; }
   .wf-card-tags { gap: 4px; margin-top: 8px; padding-top: 8px; }

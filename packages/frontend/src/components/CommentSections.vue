@@ -121,9 +121,9 @@ defineExpose({ loadComments })
 </script>
 
 <template>
-  <div class="cd-section cd-comments-section">
+  <div class="cd-comments-section">
     <div class="cd-section-head">
-      <span class="cd-section-title">评论 ({{ totalComments }})</span>
+      <span class="cd-section-title">评论 <span class="cd-comment-count">{{ totalComments }}</span></span>
       <a-pagination
         v-if="totalPages > 1"
         size="small"
@@ -147,14 +147,18 @@ defineExpose({ loadComments })
         v-model="commentText"
         class="cd-comment-textarea"
         :disabled="submitting"
-        placeholder="写下你的评论... (Ctrl+Enter 发送)"
+        aria-label="评论内容"
+        placeholder="聊聊这份作品，留下你的想法…"
         :auto-size="{ minRows: 3, maxRows: 6 }"
         @keyup.ctrl.enter="submitComment"
       />
-      <a-button type="primary" size="small" class="cd-comment-submit" :loading="submitting" @click="submitComment">
-        <IconSend />
-        <span>发表评论</span>
-      </a-button>
+      <div class="cd-comment-input-footer">
+        <span class="cd-comment-shortcut">Ctrl + Enter 发送</span>
+        <a-button type="primary" size="small" class="cd-comment-submit" :loading="submitting" @click="submitComment">
+          <IconSend />
+          <span>{{ replyTarget ? '发送回复' : '发表评论' }}</span>
+        </a-button>
+      </div>
     </div>
     <div v-else class="cd-login-prompt">
       <div class="cd-login-copy">
@@ -190,42 +194,33 @@ defineExpose({ loadComments })
 </template>
 
 <style scoped>
-.cd-section {
-  display: flex; flex-direction: column; gap: 0.5rem;
-  padding: 0; background: var(--color-surface);
-  border: 0; border-radius: 0;
+.cd-comments-section {
+  display: flex; flex-direction: column; flex-shrink: 0; gap: 20px;
+  padding: 0 0 8px; background: transparent; border: 0;
 }
-.cd-section-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-.cd-section-title {
-  font-size: 0.75rem; font-weight: 600; color: var(--color-text);
-  letter-spacing: 0.05em; text-transform: uppercase;
+.cd-section-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.cd-section-title { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 650; color: var(--creative-ink); }
+.cd-comment-count { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 22px; padding: 0 7px; border-radius: 7px; background: var(--creative-soft); color: var(--creative-accent); font-size: 11px; font-weight: 600; }
+.cd-comment-input-wrap {
+  display: flex; flex-direction: column; gap: 10px; padding: 12px;
+  border: 1px solid var(--creative-line); border-radius: 14px; background: var(--creative-canvas);
+  transition: border-color .18s, box-shadow .18s;
 }
-.cd-comments-section { flex: 1; min-height: 200px; gap: 14px; }
-.cd-comment-input-wrap { display: flex; flex-direction: column; gap: 0.625rem; }
-.cd-reply-hint {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0.5rem 0.7rem; background: var(--creative-soft); border: 1px solid color-mix(in srgb, var(--creative-accent) 16%, var(--creative-line));
-  border-radius: 9px; font-size: 0.75rem; color: var(--creative-muted);
-  box-shadow: 0 5px 16px color-mix(in srgb, var(--creative-accent) 5%, transparent);
-}
-.cd-comment-textarea {
-  width: 100%;
-}
-.cd-comment-textarea :deep(.arco-textarea-wrapper),
-:deep(.cd-comment-textarea.arco-textarea-wrapper) {
-  border: 1px solid var(--creative-line); border-radius: 13px; background: var(--creative-canvas);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.72); transition: border-color .18s, box-shadow .18s, background .18s;
-}
-.cd-comment-textarea :deep(.arco-textarea-wrapper:hover),
+.cd-comment-input-wrap:focus-within { border-color: color-mix(in srgb, var(--creative-accent) 55%, var(--creative-line)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--creative-accent) 8%, transparent); }
+.cd-reply-hint { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; background: var(--creative-soft); border-radius: 8px; font-size: 12px; color: var(--creative-muted); }
+.cd-reply-hint > span { min-width: 0; overflow-wrap: anywhere; }
+.cd-reply-hint b { color: var(--creative-accent); font-weight: 500; }
+.cd-reply-hint button { flex-shrink: 0; padding: 0; border: 0; background: transparent; color: var(--creative-muted); font: inherit; cursor: pointer; }
+.cd-reply-hint button:hover { color: var(--creative-accent); }
+.cd-comment-textarea { width: 100%; }
+:deep(.cd-comment-textarea.arco-textarea-wrapper),
 :deep(.cd-comment-textarea.arco-textarea-wrapper:hover),
-.cd-comment-textarea :deep(.arco-textarea-wrapper.arco-textarea-focus),
-:deep(.cd-comment-textarea.arco-textarea-wrapper.arco-textarea-focus) {
-  border-color: color-mix(in srgb, var(--creative-accent) 48%, var(--creative-line));
-  background: var(--creative-paper); box-shadow: 0 0 0 3px color-mix(in srgb, var(--creative-accent) 8%, transparent);
-}
-.cd-comment-submit {
-  align-self: flex-end; display: inline-flex; align-items: center; gap: 6px;
-}
+:deep(.cd-comment-textarea.arco-textarea-wrapper.arco-textarea-focus) { border: 0; background: transparent; box-shadow: none; }
+.cd-comment-textarea :deep(.arco-textarea) { padding: 2px; font-size: 13px; line-height: 1.7; color: var(--creative-ink); resize: none; }
+.cd-comment-textarea :deep(.arco-textarea::placeholder) { color: var(--creative-muted); }
+.cd-comment-input-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cd-comment-shortcut { font-size: 10px; color: var(--creative-muted); }
+.cd-comment-submit { display: inline-flex; align-items: center; flex-shrink: 0; gap: 6px; height: 30px; border-radius: 9px; padding-inline: 12px; }
 
 .cd-login-prompt {
   display: flex; align-items: center; gap: 0.625rem;
@@ -241,17 +236,17 @@ defineExpose({ loadComments })
   position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
   padding: 6px 10px 6px 12px; border: 1px solid color-mix(in srgb, var(--creative-accent) 28%, var(--creative-line));
   border-radius: 999px; color: var(--creative-accent); font-size: 12px; font-weight: 600; text-decoration: none;
-  background: rgb(255 255 255 / 0.7); transition: background .18s, color .18s, border-color .18s, transform .18s;
+  background: var(--creative-paper); transition: background .18s, color .18s, border-color .18s, transform .18s;
 }
 .cd-login-link:hover { color: #fff; background: var(--creative-accent); border-color: var(--creative-accent); transform: translateY(-1px); }
 
-.cd-comment-list { display: flex; flex-direction: column; gap: 0.5rem; }
-.cd-comment-empty { text-align: center; padding: 1.5rem 0; font-size: 0.8125rem; color: var(--color-text-secondary); }
-.cd-comment-submit { border-radius: 999px; padding-inline: 16px; }
-.cd-comment-empty::before { content: '✧'; display: block; color: var(--creative-accent); font-size: 24px; margin-bottom: 8px; opacity: .6; }
-.cd-comment-empty { line-height: 1.8; font-size: 11px; }
+.cd-comment-list { display: flex; flex-direction: column; gap: 0; }
+.cd-comment-empty { padding: 28px 12px; border: 1px dashed var(--creative-line); border-radius: 12px; text-align: center; line-height: 1.8; font-size: 12px; color: var(--creative-muted); }
+.cd-comment-empty p { margin: 8px 0 0; }
+.cd-comment-empty::before { content: '✧'; display: block; color: var(--creative-accent); font-size: 24px; opacity: .6; }
 .cd-comment-status { display: flex; align-items: center; gap: 8px; padding: 12px 0; color: var(--creative-muted); font-size: 11px; }
 .cd-comment-status button { border: 0; padding: 3px 8px; border-radius: 999px; background: var(--creative-soft); color: var(--creative-accent); cursor: pointer; }
 .cd-reply-state-enter-active, .cd-reply-state-leave-active { transition: opacity .16s ease, transform .16s ease; }
 .cd-reply-state-enter-from, .cd-reply-state-leave-to { opacity: 0; transform: translateY(-3px); }
+@media (max-width: 768px) { .cd-comment-shortcut { display: none; } .cd-comment-input-footer { justify-content: flex-end; } }
 </style>

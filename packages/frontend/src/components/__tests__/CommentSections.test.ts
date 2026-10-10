@@ -10,7 +10,7 @@ vi.mock('@/composables/useToast', () => ({ useConfirm: () => ({ confirm: mocks.c
 vi.mock('@arco-design/web-vue', async importOriginal => ({ ...await importOriginal<typeof import('@arco-design/web-vue')>(), Message: mocks }))
 
 function comment(id: number, parentId: number | null, text: string) {
-  return CommentSchema.parse({ id, content_id: 9, user_id: id, text, parent_id: parentId, is_banned: false, created_at: '2026-10-10T00:00:00.000Z', user: { id, username: '作者' + text } })
+  return CommentSchema.parse({ id, content_id: 9, user_id: id, text, parent_id: parentId, is_banned: false, created_at: '2026-10-10T00:00:00.000Z', user: { id, username: '作者' + text, avatar_url: 'https://example.com/author-' + id + '.png' } })
 }
 const a = comment(1, null, '评论A'), b = comment(2, 1, '评论B'), c = comment(3, 2, '评论C')
 const thread = { ...a, replies: [{ ...b, parent: { id: 1, user_id: 1, text: a.text, user: a.user } }, { ...c, parent: { id: 2, user_id: 2, text: b.text, user: b.user } }] }
@@ -29,6 +29,7 @@ describe('comment reply chains', () => {
     await flushPromises()
     expect(mocks.list).toHaveBeenCalledWith(9, 1, 20)
     expect(wrapper.findAll('.cd-comment')).toHaveLength(3)
+    expect(wrapper.findAll('.cd-comment-avatar .site-avatar-image').map(image => image.attributes('src'))).toEqual([1, 2, 3].map(id => 'https://example.com/author-' + id + '.png'))
   })
   it('discards an old response when switching to another content', async () => {
     let finish!: (result: unknown) => void

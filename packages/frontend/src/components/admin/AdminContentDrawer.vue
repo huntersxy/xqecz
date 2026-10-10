@@ -1,13 +1,14 @@
 <script setup lang="ts">
+import UserAvatar from '@/components/UserAvatar.vue'
 import { useAdminStore } from '@/stores/admin'
 import { adminApi } from '@/api'
-import { getAvatarUrl, getImageUrl, renderMarkdown } from '@/utils'
+import { getImageUrl, renderMarkdown } from '@/utils'
 import MediaImage from '@/components/MediaImage.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 import { Tag, type FileItem } from '@arco-design/web-vue'
 import { toast, useConfirm } from '@/composables/useToast'
 import type { User } from '@/types'
-import { IconUpload, IconSearch, IconUser } from '@arco-design/web-vue/es/icon'
+import { IconUpload, IconSearch } from '@arco-design/web-vue/es/icon'
 
 const admin = useAdminStore()
 
@@ -214,10 +215,7 @@ function onFileChange(_fileList: FileItem[], fileItem: FileItem) {
             <a-list v-if="filteredUsers.length" :data="filteredUsers" :bordered="false" :split="false" class="user-list">
               <template #item="{ item }">
                 <a-list-item class="user-item" @click="handleChangeAuthor(item.id, item.username)">
-                  <a-avatar :size="24" :image-url="item.email ? getAvatarUrl(item.email) : ''">
-                    <IconUser v-if="!item.email" />
-                    <template #error><IconUser /></template>
-                  </a-avatar>
+                  <UserAvatar :size="24" :email="item.email" :username="item.username" />
                   <span class="admin-cell-title">{{ item.username }}</span>
                   <Tag v-if="item.is_admin" color="arcoblue" size="small" :bordered="false" class="drawer-tag-inline">管理员</Tag>
                 </a-list-item>

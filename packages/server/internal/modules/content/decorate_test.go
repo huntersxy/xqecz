@@ -37,19 +37,6 @@ func TestFileURL(t *testing.T) {
 	}
 }
 
-func TestMakeAvatarURL(t *testing.T) {
-	qq := MakeAvatarURL("12345@qq.com", 80)
-	if qq != "https://q.qlogo.cn/headimg_dl?dst_uin=12345&spec=100" {
-		t.Errorf("QQ 头像生成错误: %s", qq)
-	}
-	if got := MakeAvatarURL("a@b.com", 80); len(got) < 32 || got[:32] != "https://www.gravatar.com/avatar/" {
-		t.Errorf("Gravatar 生成错误: %s", got)
-	}
-	if got := MakeAvatarURL("", 80); got != "" {
-		t.Errorf("空邮箱应返回空串，实际 %q", got)
-	}
-}
-
 func TestParseTags(t *testing.T) {
 	if got := ParseTags(`["a","b"]`); len(got) != 2 || got[0] != "a" {
 		t.Errorf("JSON 数组解析错误: %v", got)

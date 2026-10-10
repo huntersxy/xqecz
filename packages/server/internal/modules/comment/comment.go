@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/huntersxy/xqecz/server/internal/app"
+	useravatar "github.com/huntersxy/xqecz/server/internal/avatar"
 	"github.com/huntersxy/xqecz/server/internal/cache"
 	"github.com/huntersxy/xqecz/server/internal/store"
 	"github.com/huntersxy/xqecz/server/internal/web"
@@ -37,8 +38,9 @@ func Register(api *gin.RouterGroup, deps app.Deps) {
 
 // UserBrief 是评论内嵌的作者信息。
 type UserBrief struct {
-	ID       uint64 `json:"id"`
-	Username string `json:"username"`
+	ID        uint64 `json:"id"`
+	Username  string `json:"username"`
+	AvatarURL string `json:"avatar_url,omitempty"`
 }
 
 // ParentDTO 是直接被回复评论的引用信息。
@@ -94,7 +96,7 @@ func (h *Handler) list(c *gin.Context) {
 		pageSize = 20
 	}
 
-	key := "comments:" + strconv.FormatUint(contentID, 10) + ":threads-v2:" + strconv.Itoa(page) + ":" + strconv.Itoa(pageSize)
+	key := "comments:" + strconv.FormatUint(contentID, 10) + ":threads-v3:" + strconv.Itoa(page) + ":" + strconv.Itoa(pageSize)
 	data, err := cache.GetOrSetJSON(ctx, h.deps.Redis, key, cacheTTL, func() (Page, error) {
 		return h.query(ctx, contentID, page, pageSize)
 	})
@@ -330,6 +332,9 @@ func toDTO(row store.Comment, users map[uint64]store.User) DTO {
 	var author UserBrief
 	if u, ok := users[row.UserID]; ok {
 		author = UserBrief{ID: u.ID, Username: u.Username}
+		if u.Email != nil {
+			author.AvatarURL = useravatar.URL(*u.Email, 80)
+		}
 	} else {
 		author = UserBrief{ID: row.UserID, Username: "unknown"}
 	}

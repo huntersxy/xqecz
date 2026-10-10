@@ -23,6 +23,11 @@ function textItem(overrides: Record<string, unknown> = {}) {
 }
 
 describe('WaterfallCard text branch', () => {
+  it('renders the server-provided author avatar', () => {
+    const wrapper = mount(WaterfallCard, { props: { item: textItem({ avatar_url: 'https://example.com/author.png' }) } })
+    expect(wrapper.find('.wf-card-user-mark .site-avatar-image').attributes('src')).toBe('https://example.com/author.png')
+    wrapper.unmount()
+  })
   it('renders a markdown-stripped excerpt with a read-more hint', () => {
     const wrapper = mount(WaterfallCard, { props: { item: textItem() } })
     const excerpt = wrapper.find('.wf-card-text-excerpt')

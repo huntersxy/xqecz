@@ -73,3 +73,35 @@ func TestEmptyRepliesMarshalAsArray(t *testing.T) {
 		t.Fatalf("前端契约要求空数组: %s, %v", data, err)
 	}
 }
+
+func TestCommentAvatarsDoNotExposeEmail(t *testing.T) {
+	qq, gravatar := "12345@qq.com", "Test@Example.com"
+	users := map[uint64]store.User{
+		1: {ID: 1, Username: "QQ作者", Email: &qq},
+		2: {ID: 2, Username: "Gravatar作者", Email: &gravatar},
+		3: {ID: 3, Username: "未设置邮箱"},
+	}
+	threads := buildThreads([]store.Comment{commentRow(1, 0, "A")}, []store.Comment{commentRow(2, 1, "B"), commentRow(3, 2, "C"), commentRow(4, 3, "D")}, users)
+	thread := threads[0]
+	if thread.User.AvatarURL != "https://q.qlogo.cn/headimg_dl?dst_uin=12345&spec=100" {
+		t.Fatalf("顶层评论缺少 QQ 头像: %+v", thread.User)
+	}
+	if thread.Replies[0].User.AvatarURL != "https://www.gravatar.com/avatar/55502f40dc8b7c769880b10874abc9d0?d=identicon&s=80" {
+		t.Fatalf("回复缺少 Gravatar 头像: %+v", thread.Replies[0].User)
+	}
+	if thread.Replies[0].Parent.User.AvatarURL != thread.User.AvatarURL {
+		t.Fatal("直接回复引用丢失作者头像")
+	}
+	for _, r := range thread.Replies[1:] {
+		if r.User.AvatarURL != "" {
+			t.Fatalf("缺失邮箱或作者不应生成远端头像: %+v", r.User)
+		}
+	}
+	raw, err := json.Marshal(threads)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "@") || strings.Contains(string(raw), "\"email\"") {
+		t.Fatalf("公开评论响应泄漏邮箱: %s", raw)
+	}
+}

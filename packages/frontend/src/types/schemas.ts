@@ -41,6 +41,7 @@ export type User = z.infer<typeof UserSchema>
 const UserBriefSchema = z.object({
   id: num,
   username: str,
+  avatar_url: str.optional(),
 })
 
 // ── RecommendContent(推荐页) ──
@@ -95,8 +96,8 @@ export const CommentSchema: z.ZodType<{
   is_banned: boolean
   created_at: number
   updated_at?: number
-  user?: { id: number; username: string }
-  parent?: { id: number; user_id: number; text: string; user?: { id: number; username: string } }
+  user?: z.infer<typeof UserBriefSchema>
+  parent?: { id: number; user_id: number; text: string; user?: z.infer<typeof UserBriefSchema> }
   replies?: Comment[]
 }> = z.object({
   id: num,

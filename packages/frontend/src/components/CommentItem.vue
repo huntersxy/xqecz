@@ -2,8 +2,9 @@
 import { computed } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { formatTime } from '@/utils'
+import UserAvatar from '@/components/UserAvatar.vue'
 import {
-  IconUser, IconMore, IconReply, IconDelete, IconExclamationCircle,
+  IconMore, IconReply, IconDelete, IconExclamationCircle,
 } from '@arco-design/web-vue/es/icon'
 import type { Comment } from '@/types'
 
@@ -38,10 +39,8 @@ function onMenuSelect(value: string | number | Record<string, unknown> | undefin
 </script>
 
 <template>
-  <div class="cd-comment" :class="{ 'is-reply-target': replyTarget?.id === comment.id }">
-    <a-avatar :size="36" class="cd-comment-avatar">
-      <IconUser />
-    </a-avatar>
+  <div class="cd-comment" :class="{ 'is-reply-target': replyTarget?.id === comment.id, 'cd-comment-child': level > 0 }">
+    <UserAvatar :src="comment.user?.avatar_url" :username="comment.user?.username" :size="level > 0 ? 26 : 32" class="cd-comment-avatar" />
 
     <div class="cd-comment-main">
       <div class="cd-comment-head">
@@ -103,79 +102,28 @@ function onMenuSelect(value: string | number | Record<string, unknown> | undefin
 
 <style scoped>
 .cd-comment {
-  display: flex;
-  gap: 10px;
-  position: relative; padding: 13px 14px;
-  border-radius: 13px;
-  background: var(--creative-paper);
-  border: 1px solid var(--creative-line);
-  box-shadow: 0 7px 22px color-mix(in srgb, var(--creative-accent) 4%, transparent);
-  transition: border-color .18s, box-shadow .18s, transform .18s;
+  display: flex; align-items: flex-start; gap: 10px; position: relative;
+  padding: 18px 0; border-bottom: 1px solid var(--creative-line);
 }
-
-.cd-comment:hover { border-color: color-mix(in srgb, var(--creative-accent) 18%, var(--creative-line)); box-shadow: 0 10px 26px color-mix(in srgb, var(--creative-accent) 7%, transparent); }
-
-.cd-comment-avatar {
-  flex-shrink: 0; background: linear-gradient(145deg, var(--creative-soft), var(--creative-paper));
-  border: 1px solid color-mix(in srgb, var(--creative-accent) 14%, var(--creative-line)); color: var(--creative-accent);
-}
-
-.cd-comment-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.cd-comment-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.cd-comment-username {
-  font-weight: 650;
-  font-size: 13px;
-  color: var(--creative-ink);
-}
-
-.cd-comment-time {
-  font-size: 11px;
-  color: var(--creative-muted);
-}
-
-.cd-comment-more {
-  margin-left: auto; width: 28px; height: 28px; border-radius: 50%; color: var(--creative-muted);
-}
+.cd-comment:first-child { padding-top: 0; }
+.cd-comment:last-child { border-bottom: 0; padding-bottom: 0; }
+.cd-comment-avatar { flex-shrink: 0; background: var(--creative-soft); border: 1px solid var(--creative-line); color: var(--creative-accent); }
+.cd-comment-main { flex: 1; min-width: 0; }
+.cd-comment-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 3px 8px; margin-bottom: 9px; }
+.cd-comment-username { font-size: 13px; font-weight: 650; color: var(--creative-ink); overflow-wrap: anywhere; }
+.cd-comment-time { grid-column: 1; grid-row: 2; font-size: 10px; line-height: 1.5; color: var(--creative-muted); }
+.cd-comment-more { grid-column: 2; grid-row: 1 / 3; width: 26px; height: 26px; border-radius: 7px; color: var(--creative-muted); }
 .cd-comment-more:hover { color: var(--creative-accent); background: var(--creative-soft); }
-
-.cd-comment-body {
-  font-size: 13px;
-  line-height: 1.7;
-  color: var(--creative-ink);
-}
-
-.cd-comment-quote {
-  margin-bottom: 7px; padding: 7px 9px;
-  border-left: 2px solid color-mix(in srgb, var(--creative-accent) 55%, transparent);
-  border-radius: 7px; background: var(--creative-soft);
-  font-size: 11px;
-  color: var(--creative-muted);
-}
-
-.cd-comment-quote-user {
-  font-weight: 500;
-}
-
-.cd-comment-actions { margin-top: 8px; }
-.cd-comment-reply {
-  height: 27px; padding-inline: 8px; border-radius: 999px; color: var(--creative-muted);
-}
+.cd-comment-body { font-size: 13px; line-height: 1.8; color: var(--creative-ink); overflow-wrap: anywhere; white-space: pre-wrap; }
+.cd-comment-quote { margin-bottom: 8px; padding: 6px 9px; border-left: 2px solid color-mix(in srgb, var(--creative-accent) 45%, var(--creative-line)); border-radius: 0 6px 6px 0; background: var(--creative-soft); font-size: 11px; line-height: 1.6; color: var(--creative-muted); max-height: 5.2em; overflow-y: auto; }
+.cd-comment-quote-user { font-weight: 500; color: var(--creative-accent); }
+.cd-comment-actions { display: flex; margin-top: 6px; }
+.cd-comment-reply { height: 26px; padding-inline: 0; border-radius: 6px; color: var(--creative-muted); font-size: 11px; }
 .cd-comment-reply:hover { color: var(--creative-accent); background: var(--creative-soft); }
-
-.cd-comment-replies {
-  margin-top: 10px; padding: 2px 0 0 10px;
-  border-left: 1px solid color-mix(in srgb, var(--creative-accent) 20%, transparent);
-}
-.cd-comment.is-reply-target { border-color: var(--creative-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--creative-accent) 8%, transparent); }
-.cd-comment-body { overflow-wrap: anywhere; }
+.cd-comment-replies { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; padding-left: 12px; border-left: 2px solid var(--creative-line); }
+.cd-comment-child { padding: 0; border: 0; gap: 8px; }
+.cd-comment-child .cd-comment-head { margin-bottom: 6px; }
+.cd-comment-child .cd-comment-username { font-size: 12px; }
+.cd-comment.is-reply-target > .cd-comment-main > .cd-comment-head .cd-comment-username { color: var(--creative-accent); }
+.cd-comment.is-reply-target > .cd-comment-avatar { border-color: var(--creative-accent); box-shadow: 0 0 0 3px var(--creative-soft); }
 </style>

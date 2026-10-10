@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import UserAvatar from '@/components/UserAvatar.vue'
 import { ref, computed, onMounted, type Component } from 'vue'
 import { adminApi } from '@/api'
-import { getAvatarUrl, formatTime } from '@/utils'
+import { formatTime } from '@/utils'
 import MediaImage from '@/components/MediaImage.vue'
 import { useAdminStore } from '@/stores/admin'
 import AdminPanel from './AdminPanel.vue'
@@ -9,7 +10,7 @@ import type { DashboardStats } from '@/types'
 import { Tag, Tooltip } from '@arco-design/web-vue'
 import {
   IconRefresh, IconFile, IconEye, IconUserGroup, IconMessage, IconBarChart,
-  IconFire, IconTag, IconUser, IconClockCircle, IconCheckCircle, IconCloseCircle,
+  IconFire, IconTag, IconClockCircle, IconCheckCircle, IconCloseCircle,
 } from '@arco-design/web-vue/es/icon'
 
 const admin = useAdminStore()
@@ -195,10 +196,7 @@ const maxTag = computed(() => Math.max(1, ...(stats.value?.topTags.map((t) => t.
             <a-card title="最新用户" :bordered="false" class="dash-card">
               <div v-if="stats!.recentUsers.length" class="dash-list">
                 <div v-for="u in stats!.recentUsers" :key="u.id" class="dash-list-item">
-                  <a-avatar :size="30" :image-url="u.email ? getAvatarUrl(u.email) : ''">
-                    <IconUser v-if="!u.email" />
-                    <template #error><IconUser /></template>
-                  </a-avatar>
+                  <UserAvatar :size="30" :email="u.email" :username="u.username" />
                   <div class="dash-list-main">
                     <div class="flex items-center gap-1.5">
                       <span class="admin-cell-title">{{ u.username }}</span>

@@ -17,13 +17,10 @@ packages/server/xqecz-server.exe
 !.env.example
 .npmrc
 
-# ── 运行时数据（上传目录内容不入库，仅保留占位文件）──
+# ── 运行时数据（上传目录内容不入库）──
 data/uploads/
 data/thumbs/
 data/images/
-!data/uploads/.gitkeep
-!data/thumbs/.gitkeep
-!data/images/.gitkeep
 
 # ── OS / IDE / 日志 ──
 .DS_Store

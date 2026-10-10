@@ -307,7 +307,7 @@ async function main() {
   record('管理端改作者', Boolean(authorChange.body && authorChange.body.code === 200 && restored.body && restored.body.data.user.id === originalUserId), 'oldUserId=' + (authorChange.body && authorChange.body.data ? authorChange.body.data.oldUserId : '?'))
 
   // 未过审内容的可见性：匿名 404、管理员可见
-  const rejectedId = sql("SELECT id FROM contents WHERE audit_status='rejected' AND deleted_at IS NULL LIMIT 1").split('\n').pop().trim()
+  const rejectedId = sql("SELECT id FROM contents WHERE audit_status='rejected' LIMIT 1").split('\n').pop().trim()
   if (/^\d+$/.test(rejectedId)) {
     const anonView = await api('/api/content/' + rejectedId + '?silent=1')
     const adminView = await api('/api/content/' + rejectedId + '?silent=1', { cookie: adminCookie })
@@ -334,7 +334,7 @@ async function main() {
 
   // ── 删除链路 ──
   const del = await api('/api/content/' + contentId, { method: 'DELETE', cookie: userCookie })
-  record('删除内容（软删除）', del.body && del.body.code === 200)
+  record('删除内容（物理删除）', del.body && del.body.code === 200)
   const gone = await api('/api/content/' + contentId + '?silent=1')
   record('已删除内容不可见', gone.status === 404)
 }
