@@ -165,7 +165,7 @@ onMounted(async () => {
 .qu-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
 .qu-kicker { font-size: 9px; letter-spacing: .16em; color: var(--creative-muted); }
 .qu-kicker > span { margin-left: 8px; color: var(--creative-accent); }
-.qu-heading h1 { margin: 14px 0 10px; font-size: 30px; font-weight: 650; letter-spacing: .02em; color: var(--creative-ink); line-height: 1.5; }
+.qu-heading h1 { font-family: var(--creative-title-font); margin: 14px 0 10px; font-size: 30px; font-weight: 650; letter-spacing: .02em; color: var(--creative-ink); line-height: 1.5; }
 .qu-heading h1 > span { color: var(--creative-accent); }
 .qu-heading p { color: var(--creative-muted); font-size: 12px; line-height: 1.8; }
 .qu-back { padding-bottom: 3px; text-decoration: none; color: var(--creative-muted); font-size: 11px; white-space: nowrap; }

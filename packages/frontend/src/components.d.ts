@@ -74,7 +74,10 @@ declare module 'vue' {
     ReportModal: typeof import('./components/ReportModal.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SketchPlanet: typeof import('./components/SketchPlanet.vue')['default']
     TagCloud: typeof import('./components/admin/TagCloud.vue')['default']
+    UniverseMargins: typeof import('./components/UniverseMargins.vue')['default']
+    UniverseSketch: typeof import('./components/UniverseSketch.vue')['default']
     UserAvatar: typeof import('./components/UserAvatar.vue')['default']
     WaterfallCard: typeof import('./components/WaterfallCard.vue')['default']
   }

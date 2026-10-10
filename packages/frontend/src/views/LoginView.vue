@@ -144,14 +144,15 @@ function switchMode() {
 .auth-layout { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 1fr 430px; gap: 80px; align-items: center; }
 .auth-kicker, .auth-card-kicker { display: block; font-size: 9px; letter-spacing: .16em; color: var(--creative-muted); }
 .auth-kicker > span, .auth-card-kicker > span { margin-left: 8px; color: var(--creative-accent); }
-.auth-story h1 { margin: 22px 0 18px; font-size: clamp(28px, 3.2vw, 39px); line-height: 1.6; letter-spacing: .02em; font-weight: 650; color: var(--creative-ink); }
+.auth-story h1 { margin: 22px 0 18px; font-size: clamp(28px, 3.2vw, 39px); line-height: 1.6; letter-spacing: .025em; font-family: var(--creative-title-font); font-weight: 600; color: var(--creative-ink); }
 .auth-story h1 > span, .auth-card h2 i { color: var(--creative-accent); }
 .auth-story > p { font-size: 13px; color: var(--creative-muted); line-height: 2; }
 .auth-art { position: relative; height: 240px; margin: 30px 0 22px; max-width: 360px; }
+.auth-art::before { content: ''; position: absolute; inset: 8px 0 0; border-radius: 50%; pointer-events: none; background-image: linear-gradient(color-mix(in srgb, var(--creative-muted) 8%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--creative-muted) 8%, transparent) 1px, transparent 1px); background-size: 24px 24px; mask-image: radial-gradient(ellipse, #000 25%, transparent 70%); }
 .auth-orbit { position: absolute; width: 260px; height: 180px; top: 32px; left: 28px; border: 1px solid var(--creative-line); border-radius: 50%; transform: rotate(-24deg); }
 .auth-art-card { position: absolute; width: 168px; height: 192px; padding: 18px; border: 1px solid var(--creative-line); border-radius: 12px; box-shadow: var(--creative-shadow); }
 .auth-art-card > span { font-size: 7px; letter-spacing: .07em; }
-.auth-art-back { top: 20px; left: 10px; background: var(--creative-soft); color: var(--creative-accent); transform: rotate(-10deg); }
+.auth-art-back { top: 20px; left: 10px; background: color-mix(in srgb, var(--creative-warm) 18%, var(--creative-paper)); color: var(--creative-accent); transform: rotate(-10deg); }
 .auth-art-back svg { display: block; width: 100%; height: 105px; margin-top: 8px; }
 .auth-art-back b { font-family: Georgia, serif; font-size: 18px; font-style: italic; font-weight: 400; }
 .auth-art-front { top: 36px; left: 148px; background: var(--creative-paper); color: var(--creative-muted); transform: rotate(8deg); }

@@ -7,6 +7,7 @@ import { useUserStore } from '@/stores/user'
 import { useContentBrowse } from '@/composables/useContentBrowse'
 import { formatTime } from '@/utils'
 import MediaImage from '@/components/MediaImage.vue'
+import SketchPlanet from '@/components/SketchPlanet.vue'
 import { IconArrowLeft, IconCalendar, IconHeart, IconLeft, IconRight, IconRefresh } from '@arco-design/web-vue/es/icon'
 import ContentMedia from '@/components/ContentMedia.vue'
 import ContentSidebar from '@/components/ContentSidebar.vue'
@@ -98,8 +99,8 @@ onMounted(() => {
       </header>
 
       <!-- 加载中 -->
-      <div v-if="loadState === 'loading'" class="cd-loading">
-        <a-spin :loading="true" :size="36" />
+      <div v-if="loadState === 'loading'" class="cd-loading" role="status">
+        <SketchPlanet class="cd-loading-planet" loading />
         <p>正在穿越小泉宇宙…</p>
       </div>
 
@@ -215,6 +216,7 @@ onMounted(() => {
 .cd-thumb-current { border-color: var(--creative-accent); box-shadow: 0 0 0 2px var(--creative-soft); }
 .cd-carousel-thumb :deep(.arco-image) { display: block; width: 100%; height: 100%; border-radius: 5px; overflow: hidden; }
 .cd-carousel-thumb :deep(.arco-image-img) { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cd-loading-planet { width: 52px; height: 52px; color: var(--creative-accent); }
 .cd-loading { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; color: var(--creative-muted); background: var(--creative-canvas); }
 @media (max-width: 1024px) { .cd-topbar-note { display: none; } }
 @media (max-width: 768px) {

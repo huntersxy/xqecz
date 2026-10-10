@@ -17,8 +17,9 @@ import { ContentSchema } from '@/types/schemas'
 import WaterfallCard from '@/components/WaterfallCard.vue'
 import RecommendSection from '@/components/RecommendSection.vue'
 import QuickUploadSheet from '@/components/QuickUploadSheet.vue'
-import { IconUpload } from '@arco-design/web-vue/es/icon'
-import heroArt from '@/assets/bg.webp'
+import SketchPlanet from '@/components/SketchPlanet.vue'
+import UniverseSketch from '@/components/UniverseSketch.vue'
+import UniverseMargins from '@/components/UniverseMargins.vue'
 import type { Content, ListParams, RecommendContent } from '@/types'
 
 const router = useRouter()
@@ -428,6 +429,7 @@ onActivated(() => {
 
 <template>
   <div class="wf-root creative-theme">
+    <UniverseMargins v-if="!swapSections" />
     <section v-if="!swapSections" class="wf-hero" aria-labelledby="home-title">
       <div class="wf-hero-copy">
         <span class="wf-kicker"><span class="wf-kicker-dot"></span> XQECZ / UNIVERSE OF CREATORS</span>
@@ -435,18 +437,12 @@ onActivated(() => {
         <p>动漫二创内容分享平台 · 上传你的作品，点亮属于你的那颗星球。</p>
         <div class="wf-hero-actions">
           <button class="wf-primary-action" type="button" @click="showUploadSheet = true">
-            <IconUpload /> 点亮一颗新星球
+            <SketchPlanet /> 点亮一颗新星球
           </button>
-          <span class="wf-hero-note">自由创作 · 点亮星球</span>
+          <span class="wf-hero-note">灵感落笔，星球亮起。</span>
         </div>
       </div>
-      <div class="wf-hero-mark" :style="{ backgroundImage: `url(${heroArt})` }" aria-hidden="true">
-        <span class="wf-spark wf-spark-one">✦</span>
-        <span class="wf-spark wf-spark-two">✧</span>
-        <span class="wf-circle"></span>
-        <span class="wf-art-label">a little universe of our own</span>
-        <span class="wf-mark-copy">MAKE<br /><b>YOUR</b><br />OWN</span>
-      </div>
+      <UniverseSketch class="wf-hero-mark" />
     </section>
 
     <section v-if="!swapSections" class="wf-discovery" aria-label="发现内容">
@@ -489,10 +485,11 @@ onActivated(() => {
         <span v-for="tag in searchFilter.selectedTags.value" :key="tag"># {{ tag }}</span>
         <button type="button" @click="clearFilters">清除筛选</button>
       </div>
-      <div v-if="isLoading && allContents.length === 0" class="wf-center-state">
-        <div class="wf-spinner-lg"></div><p>正在穿越小泉宇宙…</p>
+      <div v-if="isLoading && allContents.length === 0" class="wf-center-state" role="status">
+        <SketchPlanet class="wf-state-planet" loading /><p>正在点亮小泉宇宙…</p>
       </div>
       <div v-else-if="!isLoading && allContents.length === 0" class="wf-center-state">
+        <SketchPlanet class="wf-state-planet wf-state-empty" />
         <p>{{ homeStore.searchKeyword || searchFilter.selectedTags.value.length ? '没有找到对应的坐标' : '还没有星球在这里诞生' }}</p>
       </div>
       <div
@@ -524,7 +521,7 @@ onActivated(() => {
 
     <!-- 移动端悬浮上传按钮 -->
     <button class="wf-fab" type="button" title="点亮一颗新星球" aria-label="点亮一颗新星球" @click="showUploadSheet = true">
-      <IconUpload />
+      <SketchPlanet />
     </button>
 
     <!-- 快速上传弹窗 -->
@@ -540,38 +537,33 @@ onActivated(() => {
   --home-muted: var(--creative-muted);
   --home-line: var(--creative-line);
   --home-paper: var(--creative-paper);
+  position: relative;
+  isolation: isolate;
   min-height: 100vh;
-  background: var(--home-paper);
+  background-color: var(--creative-canvas);
   color: var(--home-ink);
   padding: 0 28px;
 }
 .wf-hero, .wf-discovery, .wf-masonry-wrap { max-width: 1440px; margin: 0 auto; }
 .wf-hero {
   display: flex; align-items: center; justify-content: space-between; gap: 30px;
-  padding: 48px 0 42px; border-bottom: 1px solid var(--home-line);
+  position: relative; isolation: isolate; padding: 40px 0 36px; border-bottom: 1px solid var(--home-line);
 }
+.wf-hero::before { content: ''; position: absolute; inset: 0 -28px; z-index: -1; pointer-events: none; background-image: var(--creative-grain), radial-gradient(ellipse at 80% 35%, color-mix(in srgb, var(--creative-warm) 14%, transparent), transparent 55%); background-size: 5px 5px, 100% 100%; }
 .wf-hero-copy { min-width: 0; }
+.wf-hero-copy::after { content: ''; display: block; width: 44px; height: 3px; margin-top: 24px; border-bottom: 1px solid var(--creative-warm); border-radius: 50%; transform: rotate(-4deg); }
 .wf-kicker, .wf-section-kicker { font-size: 10px; font-weight: 600; letter-spacing: .13em; color: var(--home-muted); }
 .wf-kicker { display: flex; align-items: center; gap: 8px; }
 .wf-kicker-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--home-accent); }
-.wf-hero h1 { margin: 14px 0 12px; font-size: clamp(28px, 2.5vw, 38px); font-weight: 600; line-height: 1.5; letter-spacing: -.035em; }
-.wf-hero h1 em { font-style: normal; color: var(--home-accent); }
+.wf-hero h1 { margin: 14px 0 12px; font-family: var(--creative-title-font); font-size: clamp(29px, 2.7vw, 40px); font-weight: 600; line-height: 1.55; letter-spacing: .015em; }
+.wf-hero h1 em { position: relative; display: inline-block; font-style: normal; color: var(--home-accent); }
+.wf-hero h1 em::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 5px; border-bottom: 2px solid color-mix(in srgb, var(--creative-warm) 80%, transparent); border-radius: 50%; transform: rotate(-1.5deg); pointer-events: none; }
 .wf-hero p { margin: 0; color: var(--home-muted); font-size: 13px; line-height: 1.8; }
 .wf-hero-actions { display: flex; align-items: center; gap: 20px; margin-top: 22px; }
-.wf-primary-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 18px; background: var(--home-accent); color: #fff; border: 0; border-radius: 999px; cursor: pointer; font-size: 12px; font-weight: 600; box-shadow: 0 5px 14px color-mix(in srgb, var(--home-accent) 16%, transparent); transition: background .2s, box-shadow .2s; }
+.wf-primary-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 18px; background: var(--home-accent); color: var(--color-on-primary); border: 0; border-radius: 999px; cursor: pointer; font-size: 12px; font-weight: 600; box-shadow: 0 5px 14px color-mix(in srgb, var(--home-accent) 16%, transparent); transition: background .2s, box-shadow .2s; }
 .wf-primary-action:hover { background: var(--creative-accent-hover); box-shadow: 0 6px 18px color-mix(in srgb, var(--home-accent) 24%, transparent); }
 .wf-hero-note { color: var(--home-muted); font-size: 11px; }
-.wf-hero-mark { position: relative; flex: 0 0 240px; height: 184px; display: grid; place-items: center; overflow: hidden; border-radius: 80px 14px 14px 14px; background-position: center 22%; background-size: cover; box-shadow: 10px 10px 0 var(--home-soft); }
-.wf-hero-mark::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(255,255,255,.88), rgba(255,240,245,.12)); }
-.wf-circle { position: absolute; width: 142px; height: 142px; border: 1px solid #efccda; border-radius: 50%; }
-.wf-mark-copy { position: relative; z-index: 1; transform: rotate(-8deg); font-family: Georgia, serif; font-size: 26px; line-height: 1.1; color: var(--home-accent); text-align: center; }
-.wf-mark-copy b { font-weight: 400; font-style: italic; }
-.wf-spark { position: absolute; z-index: 2; color: var(--home-accent); font-size: 27px; }
-.wf-spark-one { right: 18px; top: 18px; }
-.wf-spark-two { left: 18px; bottom: 20px; font-size: 38px; }
-.wf-art-label { position: absolute; bottom: 12px; right: 13px; z-index: 2; font: italic 11px/1.4 Georgia, serif; color: #8c4766; }
-:global(body[arco-theme='dark'] .wf-hero-mark::after) { background: linear-gradient(90deg, rgba(37,33,39,.88), rgba(37,33,39,.18)); }
-:global(body[arco-theme='dark'] .wf-art-label) { color: var(--home-accent); }
+.wf-hero-mark { flex: 0 0 340px; }
 .wf-discovery { padding: 27px 0 22px; }
 .wf-discovery-heading, .wf-feed-heading { display: flex; justify-content: space-between; align-items: end; gap: 16px; }
 .wf-discovery h2, .wf-feed-heading h2 { font-size: 20px; font-weight: 600; margin: 5px 0 0; line-height: 1.5; overflow-wrap: anywhere; }
@@ -579,7 +571,7 @@ onActivated(() => {
 .wf-content-count, .wf-feed-caption { flex-shrink: 0; font-size: 11px; color: var(--home-muted); }
 .wf-tag-row { display: flex; align-items: center; gap: 22px; overflow-x: auto; margin-top: 18px; scrollbar-width: thin; scrollbar-color: var(--creative-line) transparent; padding-bottom: 3px; }
 .wf-tag-chip { flex-shrink: 0; padding: 5px 0; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--home-muted); font-size: 12px; cursor: pointer; }
-.wf-tag-chip.active { color: var(--home-accent); border-bottom-color: var(--home-accent); font-weight: 600; }
+.wf-tag-chip.active { color: var(--home-accent); border-bottom-color: var(--home-accent); border-radius: 0 0 40% 20%; font-weight: 600; }
 .wf-tag-chip:hover { color: var(--home-accent); }
 .wf-masonry-wrap { padding: 28px 0 40px; }
 .wf-feed-heading { margin-bottom: 20px; }
@@ -589,8 +581,9 @@ onActivated(() => {
 .wf-masonry { width: 100%; }
 .wf-center-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 260px; color: var(--home-muted); }
 .wf-center-state p { font-size: 13px; margin-top: 14px; }
-.wf-spinner-lg, .wf-spinner-sm { border: 2px solid var(--home-line); border-top-color: var(--home-accent); border-radius: 50%; animation: wf-spin .7s linear infinite; }
-.wf-spinner-lg { width: 28px; height: 28px; }
+.wf-state-planet { width: 52px; height: 52px; color: var(--home-accent); }
+.wf-state-empty { opacity: .55; }
+.wf-spinner-sm { border: 2px solid var(--home-line); border-top-color: var(--home-accent); border-radius: 50%; animation: wf-spin .7s linear infinite; }
 .wf-spinner-sm { width: 18px; height: 18px; }
 .wf-loadmore { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 24px; font-size: 12px; color: var(--home-muted); }
 .wf-sentinel { height: 1px; }
@@ -601,15 +594,17 @@ button:focus-visible { outline: 2px solid var(--home-accent); outline-offset: 4p
 @media (max-width: 768px) {
   .wf-root { padding: 0 16px; }
   .wf-hero { padding: 28px 0; }
-  .wf-hero h1 { font-size: 23px; }
-  .wf-hero h1 em { display: block; }
+  .wf-hero h1 { font-size: 27px; }
+  .wf-hero::before { inset-inline: -16px; }
+  .wf-hero-copy::after { margin-top: 18px; }
+  .wf-hero h1 em { display: table; }
   .wf-hero p { max-width: 300px; font-size: 12px; }
   .wf-hero-mark { display: none; }
   .wf-hero-note { font-size: 10px; }
   .wf-discovery { padding: 24px 0 18px; }
   .wf-tag-row { gap: 18px; }
   .wf-masonry-wrap { padding-top: 24px; }
-  .wf-fab { display: grid; place-items: center; position: fixed; bottom: 24px; right: 20px; width: 48px; height: 48px; border-radius: 50%; background: var(--home-accent); color: #fff; border: 0; box-shadow: 0 4px 16px #c8487633; cursor: pointer; z-index: 100; font-size: 20px; }
+  .wf-fab { display: grid; place-items: center; position: fixed; bottom: 24px; right: 20px; width: 48px; height: 48px; border-radius: 50%; background: var(--home-accent); color: var(--color-on-primary); border: 0; box-shadow: 0 4px 16px color-mix(in srgb, var(--home-accent) 22%, transparent); cursor: pointer; z-index: 100; font-size: 20px; }
 }
 @keyframes wf-spin { to { transform: rotate(360deg); } }
 </style>

@@ -129,10 +129,10 @@ onBeforeUnmount(() => ro?.disconnect())
   --card-accent: var(--creative-accent);
   margin-bottom: 12px;
   padding: 6px;
-  border-radius: 16px;
+  border-radius: 14px 16px 13px 17px;
   background: var(--card-paper);
   border: 1px solid var(--card-line);
-  box-shadow: 0 2px 5px rgba(61, 29, 46, .025);
+  box-shadow: 0 2px 6px rgba(83, 57, 35, .035);
   cursor: pointer;
   box-sizing: border-box;
   /* Preserve content-driven block height for waterfall measurement. */
@@ -164,7 +164,7 @@ onBeforeUnmount(() => ro?.disconnect())
 .wf-card-like.pending { opacity: .55; cursor: wait; }
 .wf-card-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 11px; padding-top: 10px; border-top: 1px solid var(--card-line); }
 .wf-mini-tag { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 7px; border-radius: 5px; font-size: 10px; line-height: 1.4; color: var(--card-muted); background: var(--card-soft); }
-.wf-card-text-body { position: relative; display: flex; flex-direction: column; min-height: 185px; padding: 20px 16px 15px; border-radius: 11px; background: linear-gradient(145deg, var(--card-soft), var(--card-paper)); }
+.wf-card-text-body { position: relative; display: flex; flex-direction: column; min-height: 185px; padding: 20px 16px 15px; border-radius: 11px; background-color: var(--card-paper); background-image: var(--creative-grain), linear-gradient(145deg, color-mix(in srgb, var(--creative-warm) 12%, var(--card-paper)), var(--card-paper)); background-size: 5px 5px, 100% 100%; }
 .wf-card-text-mark { font: 42px/1 Georgia, serif; color: var(--card-accent); opacity: .45; height: 28px; pointer-events: none; }
 .wf-card-text-excerpt { display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; margin: 10px 0 18px; color: var(--card-ink); font-size: 13px; line-height: 1.85; }
 .wf-card-text-more { margin-top: auto; align-self: flex-end; font-size: 11px; color: var(--card-accent); }

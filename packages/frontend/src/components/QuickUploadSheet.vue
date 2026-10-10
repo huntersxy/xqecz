@@ -217,7 +217,7 @@ watch(() => props.open, (val) => {
 .qus-heading::after { content: ''; position: absolute; bottom: 0; left: 36px; width: 48px; height: 2px; background: var(--creative-accent); opacity: .5; }
 .qus-kicker { font-size: 10px; letter-spacing: .16em; font-weight: 600; color: var(--creative-muted); }
 .qus-kicker span { margin-left: 8px; color: var(--creative-accent); }
-.qus-heading h2 { margin: 10px 0 8px; font-size: 25px; font-weight: 600; letter-spacing: -.035em; line-height: 1.4; }
+.qus-heading h2 { font-family: var(--creative-title-font); margin: 10px 0 8px; font-size: 25px; font-weight: 600; letter-spacing: -.035em; line-height: 1.4; }
 .qus-title-dot { color: var(--creative-accent); }
 .qus-heading p { color: var(--creative-muted); font-size: 12px; line-height: 1.7; margin: 0; }
 .qus-close, .qus-remove { display: grid; place-items: center; flex-shrink: 0; border: 1px solid var(--creative-line); border-radius: 50%; background: var(--creative-paper); color: var(--creative-muted); cursor: pointer; transition: color .2s, background .2s; }

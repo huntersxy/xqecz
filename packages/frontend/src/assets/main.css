@@ -6,7 +6,7 @@
 
 /* ── 基础配色：Arco 语义别名 + 公开创作界面的局部调色板 ──
    默认 --color-* 指向 Arco token，随 <body arco-theme="dark"> 切换日/夜。
-   下方 .creative-theme 局部覆盖为白粉创作风格，不影响管理后台。 */
+   下方 .creative-theme 局部覆盖为暖纸白与柔粉创作风格，不影响管理后台。 */
 
 body {
   /* 语义别名 → Arco token（直接挂在 body 作用域，与 Arco 的 token 同层。
@@ -88,38 +88,42 @@ body[arco-theme='dark'] {
 /* 创作界面的共享调色板：仅 .creative-theme 使用，管理后台等仍沿用 Arco。
    抽屉通过 Teleport 挂到 body，必须在抽屉根节点显式携带此类。 */
 body {
-  --creative-paper: #fff;
-  --creative-canvas: #faf8fa;
-  --creative-soft: #fff2f6;
-  --creative-ink: #362f38;
-  --creative-muted: #817681;
-  --creative-line: #eee5eb;
-  --creative-accent: #bc4772;
-  --creative-accent-hover: #a93761;
-  --creative-shadow: 0 12px 40px rgba(72, 36, 54, .06);
+  --creative-paper: #fffcf7;
+  --creative-canvas: #f7f2e9;
+  --creative-soft: #f9eae8;
+  --creative-ink: #3e3532;
+  --creative-muted: #786b63;
+  --creative-line: #e9dfd2;
+  --creative-accent: #ad4c63;
+  --creative-accent-hover: #9d3d54;
+  --creative-warm: #e6c48d;
+  --creative-grain: radial-gradient(circle, color-mix(in srgb, var(--creative-muted) 9%, transparent) .65px, transparent .8px);
+  --creative-title-font: 'Kaiti SC', 'STKaiti', 'KaiTi', 'LXGW WenKai', 'Noto Serif CJK SC', serif;
+  --creative-shadow: 0 12px 36px rgba(83, 57, 35, .065);
 }
 body[arco-theme='dark'] {
-  --creative-paper: #252127;
-  --creative-canvas: #1e1b21;
-  --creative-soft: #362731;
-  --creative-ink: #f3edf1;
-  --creative-muted: #b8aab6;
-  --creative-line: #453740;
-  --creative-accent: #f09abb;
-  --creative-accent-hover: #f6b2cb;
+  --creative-paper: #2b2525;
+  --creative-canvas: #211d1d;
+  --creative-soft: #3c2b2e;
+  --creative-ink: #f3e9df;
+  --creative-muted: #bdafa4;
+  --creative-line: #4a3d39;
+  --creative-accent: #efa3b2;
+  --creative-accent-hover: #f6bcc6;
+  --creative-warm: #b89260;
   --creative-shadow: 0 12px 40px rgba(0, 0, 0, .16);
 }
 .creative-theme {
-  --primary-1: 255, 242, 246;
-  --primary-2: 252, 223, 234;
-  --primary-3: 245, 192, 212;
-  --primary-4: 229, 151, 180;
-  --primary-5: 209, 106, 145;
-  --primary-6: 188, 71, 114;
-  --primary-7: 169, 55, 97;
-  --primary-8: 142, 40, 79;
-  --primary-9: 115, 28, 62;
-  --primary-10: 88, 18, 46;
+  --primary-1: 249, 234, 232;
+  --primary-2: 245, 218, 218;
+  --primary-3: 235, 188, 193;
+  --primary-4: 220, 151, 165;
+  --primary-5: 200, 114, 138;
+  --primary-6: 173, 76, 99;
+  --primary-7: 157, 61, 84;
+  --primary-8: 131, 44, 68;
+  --primary-9: 106, 31, 54;
+  --primary-10: 81, 21, 41;
   --color-primary: var(--creative-accent);
   --color-primary-hover: var(--creative-accent-hover);
   --color-on-primary: #fff;
@@ -134,14 +138,21 @@ body[arco-theme='dark'] {
   color: var(--creative-ink);
 }
 body[arco-theme='dark'] .creative-theme {
-  --primary-1: 54, 39, 49;
-  --primary-2: 79, 46, 64;
-  --primary-3: 109, 58, 83;
-  --primary-4: 152, 79, 112;
-  --primary-5: 197, 112, 152;
-  --primary-6: 240, 154, 187;
-  --primary-7: 246, 178, 203;
+  --primary-1: 60, 43, 46;
+  --primary-2: 82, 49, 58;
+  --primary-3: 113, 64, 80;
+  --primary-4: 155, 88, 110;
+  --primary-5: 199, 124, 146;
+  --primary-6: 239, 163, 178;
+  --primary-7: 246, 188, 198;
+  --primary-8: 250, 210, 215;
+  --primary-9: 253, 229, 231;
+  --primary-10: 255, 242, 241;
   --color-on-primary: #30202a;
+}
+/* Arco 的 primary 按钮默认白字，夜间浅粉按钮需使用深色前景。 */
+.creative-theme .arco-btn-primary:not(.arco-btn-disabled) {
+  color: var(--color-on-primary);
 }
 .creative-theme button:focus-visible,
 .creative-theme a:focus-visible {
