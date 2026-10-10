@@ -570,8 +570,8 @@ onActivated(() => {
 .wf-spark-one { right: 18px; top: 18px; }
 .wf-spark-two { left: 18px; bottom: 20px; font-size: 38px; }
 .wf-art-label { position: absolute; bottom: 12px; right: 13px; z-index: 2; font: italic 11px/1.4 Georgia, serif; color: #8c4766; }
-:global(body[arco-theme='dark']) .wf-hero-mark::after { background: linear-gradient(90deg, rgba(37,33,39,.88), rgba(37,33,39,.18)); }
-:global(body[arco-theme='dark']) .wf-art-label { color: var(--home-accent); }
+:global(body[arco-theme='dark'] .wf-hero-mark::after) { background: linear-gradient(90deg, rgba(37,33,39,.88), rgba(37,33,39,.18)); }
+:global(body[arco-theme='dark'] .wf-art-label) { color: var(--home-accent); }
 .wf-discovery { padding: 27px 0 22px; }
 .wf-discovery-heading, .wf-feed-heading { display: flex; justify-content: space-between; align-items: end; gap: 16px; }
 .wf-discovery h2, .wf-feed-heading h2 { font-size: 20px; font-weight: 600; margin: 5px 0 0; line-height: 1.5; overflow-wrap: anywhere; }

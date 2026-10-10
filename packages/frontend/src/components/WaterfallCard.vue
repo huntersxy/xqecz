@@ -147,7 +147,7 @@ onBeforeUnmount(() => ro?.disconnect())
 .wf-card-media :deep(.arco-image) { display: block; width: 100%; min-height: 80px; border-radius: 0; }
 .wf-card-media :deep(.arco-image-img) { display: block; width: 100%; height: auto; vertical-align: top; }
 .wf-card-media :deep(.arco-image-footer) { display: none !important; }
-:global(body[arco-theme='dark']) .wf-card-media::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.18); pointer-events: none; }
+:global(body[arco-theme='dark'] .wf-card-media::after) { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.18); pointer-events: none; }
 .wf-badge-ai { position: absolute; top: 9px; left: 9px; z-index: 2; padding: 5px 7px; border: 1px solid rgba(255,255,255,.75); border-radius: 6px; background: #fff4f8; color: #a43664; font-size: 9px; font-weight: 700; line-height: 1; letter-spacing: .04em; }
 .wf-card-info { padding: 13px 9px 9px; }
 .wf-card-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; margin-bottom: 10px; font-size: 14px; font-weight: 600; line-height: 1.5; color: var(--card-ink); transition: color .18s ease; }

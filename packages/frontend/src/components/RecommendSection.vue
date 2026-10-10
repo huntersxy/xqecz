@@ -167,7 +167,7 @@ onBeforeUnmount(() => {
   margin: 0; font-size: 0.9rem; font-weight: 600; color: var(--creative-ink);
 }
 
-:global(body[arco-theme='dark']) .wf-recommend-head h2 { color: var(--color-text-1); }
+:global(body[arco-theme='dark'] .wf-recommend-head h2) { color: var(--color-text-1); }
 
 .wf-rec-refresh {
   display: inline-flex; align-items: center; justify-content: center;
@@ -196,7 +196,7 @@ onBeforeUnmount(() => {
   background: var(--color-fill-2);
 }
 /* 暗色下给推荐缩略图叠一层灰色半透明遮罩，与壁纸/瀑布流卡片压暗保持一致 */
-:global(body[arco-theme='dark']) .wf-recommend-card::after {
+:global(body[arco-theme='dark'] .wf-recommend-card::after) {
   content: '';
   position: absolute;
   inset: 0;
@@ -205,7 +205,7 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 /* 暗色下 --color-fill-2 为 rgba(255,255,255,0.08) 半透明，卡片会透出壁纸 → 改用实色深色 token */
-:global(body[arco-theme='dark']) .wf-recommend-card { background: var(--color-bg-3); }
+:global(body[arco-theme='dark'] .wf-recommend-card) { background: var(--color-bg-3); }
 /* Arco <Image> 包裹层需填满卡片，内层 .arco-image-img 的 cover 才生效 */
 .wf-recommend-card :deep(.arco-image) { display: block; width: 100%; height: 100%; }
 .wf-recommend-card :deep(.arco-image-img) {
