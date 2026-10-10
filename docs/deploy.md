@@ -135,7 +135,7 @@ SSH 输出是同步的，读回即可，不必像旧版（宝塔 `ExecShell` 异
 | 服务管理 | `/etc/init.d/xqecz`（OpenRC，`command_user=alpine`，日志 `/var/log/xqecz-server.log`） |
 | 自启 | `rc-update add xqecz default`，与 `chronyd` 同 runlevel |
 | SSH 端口 | **20222**（定义在 `/etc/ssh/sshd_config.d/20-port.conf`）。安全组**未放行 2222**——实测 22/20222/29418/40022 通、2222 不通，改端口别想当然选 2222。原 22 上常态有爆破连接（一排 `sshd [accepted]` 子进程），换掉后降到个位数 |
-| 数据库 | TiDB Cloud Serverless（`MYSQL_TLS=true`，独立库 `xqecz`） |
+| 数据库 | TiDB Cloud Serverless **北京实例**（网关 `gateway01.cn-beijing.aliyun.pingkai.cn:4000`，`MYSQL_TLS=true`，独立库 `xqecz`）；2026-10-10 自广州实例等量搬入，见「从 MySQL/MariaDB 迁移到 TiDB」 |
 | Redis | 共享实例，**独立前缀 `xqeczgo:`**（与旧实例 `xqecz:` 隔离） |
 | 媒体 | 本地 `data/` 托管；`thumbs` 不镜像（纯本地），必须随库一起迁移 |
 | 日志轮转 | `/etc/periodic/daily/xqecz-logrotate`（超 5MB 轮转，保留 7 份，copytruncate 免重启） |
@@ -166,7 +166,34 @@ sh scripts/migrations/2026-09-26-migrate-to-tidb.sh        # 目标库已有同�
 
 脚本自动处理三处差异并做逐字节校验：去掉 `TEXT`/`BLOB`/`JSON` 的 `DEFAULT`（TiDB 报 1101）、丢弃 MariaDB 私有 `/*M!` 指令、按主键有序导出后比对 md5（TiDB 不支持 `CHECKSUM TABLE`）。任一张表不一致即非零退出。
 
-TiDB 侧另两点：`sys`/`mysql` 等系统库对业务账号**只读**，必须建独立库；连接强制加密，`.env` 需 `MYSQL_TLS=true`。
+**源端也是托管 TiDB 时要显式开 TLS**：脚本对源端默认 `--skip-ssl`（自建 MySQL/MariaDB 常无证书），托管实例会直接拒连。这种「TiDB → TiDB」的等量搬运加 `SRC_SSL=--ssl`：
+
+```bash
+SRC_HOST=<源网关> SRC_USER=<u> SRC_PASS=<p> SRC_DB=xqecz SRC_SSL=--ssl \
+TGT_HOST=<目标网关> TGT_PORT=4000 TGT_USER=<u> TGT_PASS=<p> TGT_DB=xqecz \
+sh scripts/migrations/2026-09-26-migrate-to-tidb.sh
+```
+
+目标库要**先手建**，并显式指定源库的 collation——托管 TiDB 新实例的默认是 `utf8mb4_bin`，照搬会整库 collation 不一致：
+
+```sql
+CREATE DATABASE IF NOT EXISTS `xqecz` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+```
+
+校验自增游标**不要看 `information_schema.tables.auto_increment`**：TiDB 对 `CLUSTERED` 自增主键的表（如 `content_likes`）恒返回 0，`ALTER TABLE ... AUTO_INCREMENT=` 也不生效。可靠判据是 `SHOW CREATE TABLE` 的 `AUTO_INCREMENT=` 与 `SHOW TABLE <t> NEXT_ROW_ID`，两端一致即无需手工对齐。
+
+TiDB 侧另两点：`sys`/`mysql` 等系统库对业务账号**只读**，必须建独立库（建到 `sys` 上直接报 `ERROR 1142 ... CREATE command denied`）；连接强制加密，`.env` 需 `MYSQL_TLS=true`。
+
+### 实例搬迁记录
+
+**2026-09-26（首次）**：自建 MySQL → 广州 TiDB Cloud Serverless，脚本首版即为此用途。
+
+**2026-10-10**：广州 TiDB → 北京 TiDB 等量搬迁，在 39 机上用 `/opt/xqecz/migrate-to-tidb.sh` 执行（`SRC_SSL=--ssl`），30 秒完成。
+
+- 十张表逐表 md5 **全部一致**：users 59 / contents 313 / comments 37 / claims 13 / polls 1 / poll_votes 74 / content_likes 5 / content_favorites 1 / comment_reports 2 / api_keys 0；另做四轮结构对账（DDL、表级 collation 与注释、列级 79 行、索引定义）全部 SAME。
+- 切换只改 39 机 `/opt/xqecz/.env` 的三个键（`MYSQL_HOST` / `MYSQL_USER` / `MYSQL_PASSWORD`），旧文件备份为 `.env.bak-20261010-134412`；`doas rc-service xqecz restart` 后 `/api/health`、`/api/content/tags`、`/api/content/recommend`、`/api/poll/list` 均 200 且是搬迁后数据。
+- 开发机 `.env` 同步切到北京实例；39 机脚本副本已换成带 `SRC_SSL` 的版本（旧副本留作 `migrate-to-tidb.sh.bak-20260926`）。
+- **旧广州实例未删，保留作回滚**：把 `.env` 三个键换回旧值并重启即可。注意搬迁后两端会分叉，回滚等于丢掉北京实例上的新写入，只在确认新实例异常时使用。
 
 ## Cloudflare R2 媒体镜像（可选，次选）
 
@@ -302,3 +329,4 @@ apk del certbot                      # 若只为该链路装的
 
 - 后端：部署前保留上一版 `xqecz-server`，回滚即覆盖回去并执行 `doas rc-service xqecz restart`
 - 前端：`dist` 为静态文件，保留上一版目录或压缩包，回滚即替换目录内容
+- 数据库：换实例时**旧实例不删**，回滚即把 `/opt/xqecz/.env` 的 `MYSQL_*` 换回旧值再重启（备份文件名带切换时间戳，见「从 MySQL/MariaDB 迁移到 TiDB」的实例搬迁记录）
