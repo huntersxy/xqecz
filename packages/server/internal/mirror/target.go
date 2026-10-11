@@ -37,7 +37,8 @@ type Target struct {
 	Token      string
 	Prefix     string
 	PublicBase string
-	// SyncEvery 是回填周期；两目标共用同一节奏，取首个非零值。
+	// SyncEvery 是回填周期；两个目标各自读自己的 R2_SYNC_INTERVAL_SECONDS /
+	// OPENLIST_SYNC_INTERVAL_SECONDS，各自建 ticker。
 	SyncEvery time.Duration
 	Timeout   time.Duration
 }

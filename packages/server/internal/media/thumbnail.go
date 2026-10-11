@@ -1,5 +1,5 @@
-// Package media 提供图片/视频的缩略图生成与 WebP 转换，均为进程内纯计算，
-// 原 Worker 的 gRPC 边界取消后其能力并入本服务。
+// Package media 提供缩略图、星图/走马灯派生图的生成与垃圾桶搬运，
+// 均为进程内纯计算；原 Worker 的 gRPC 边界取消后其能力并入本服务。
 package media
 
 import (
@@ -39,9 +39,12 @@ var ffmpegAvailable = sync.OnceValue(func() bool {
 	return err == nil
 })
 
-// GenerateThumbnail 生成 800px 宽的缩略图，返回相对 data 目录的路径（thumbs/<stem>_thumb.webp）。
+// GenerateThumbnail 生成缩略图（目标宽度 ThumbMaxWidth），返回相对 data 目录的
+// 路径（thumbs/<stem>_thumb.webp）。
 //
 // 图片：ffmpeg 可用时优先用 ffmpeg；缺失或失败时降级为纯 Go 解码缩放。
+// 两条路径的缩放口径不同：ffmpeg 的 scale=800:-1 一定输出 800 宽（小图会被放大），
+// 纯 Go 路径取 min(源宽, 800)（小图保持原尺寸）。
 // 视频：只能依赖 ffmpeg 抽帧，缺失即返回错误（由调用方降级，不阻断上传）。
 //
 // 两种实现都只写同目录临时文件，成功后才原子改名覆盖正式缩略图。
@@ -123,7 +126,7 @@ func thumbName(absPath, ext string) string {
 	return stem + "_thumb." + ext
 }
 
-// runFFmpeg 取首帧并缩放到宽 800，输出 WebP（质量 85）。
+// runFFmpeg 取首帧并缩放到宽 800（不足则放大），输出 WebP（质量 85）。
 func runFFmpeg(ctx context.Context, absPath, outPath string) error {
 	ffCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
@@ -157,7 +160,7 @@ func relThumb(thumbDir, outPath string) string {
 	return filepath.ToSlash(rel)
 }
 
-// generateWithGo 纯 Go 路径：解码 → 合成白底 → 缩放到宽 800 → 编码 WebP。
+// generateWithGo 纯 Go 路径：解码 → 合成白底 → 缩放到源宽与 800 中的较小值 → 编码 WebP。
 // 不依赖任何外部二进制，ffmpeg 缺失时仍能生成图片缩略图。
 func generateWithGo(absPath, outPath string) error {
 	f, err := os.Open(absPath)

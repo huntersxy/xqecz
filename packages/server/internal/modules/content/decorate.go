@@ -54,7 +54,7 @@ func FileURL(rel string) string {
 	return "/uploads/" + rel
 }
 
-// isMirrorablePath 判定该存储路径是否参与 R2 镜像：
+// isMirrorablePath 判定该存储路径是否参与媒体镜像链（R2 与 OpenList 共用同一判定）：
 // 只有 uploads 目录（裸文件名，含原图与压缩图）会被镜像，缩略图与历史 images/ 不镜像。
 func isMirrorablePath(rel string) bool {
 	if rel == "" {
@@ -122,7 +122,8 @@ type Item struct {
 	Video        string `json:"video"`
 	Img          string `json:"img"`
 	Origin       string `json:"origin,omitempty"`
-	// MirrorImg / MirrorVideo 是同一份文件在**主目标**（R2）上的绝对地址（未启用时为空）。
+	// MirrorImg / MirrorVideo 是同一份文件在 R2 那一级上的绝对地址（未启用时为空）。
+	// 注意这一组是历史命名，R2 在前端只是次选，真正的优先级见前端 bestSource()。
 	// 与源站不同 origin，无法用相对路径推导，因此这里给完整地址：
 	// 换公开域名只改服务端 .env，前端不必重新构建。
 	// 前端据此在「源站」与「镜像」之间做可达性选择，本地缩略图不受影响。
@@ -153,13 +154,13 @@ type Page struct {
 	TotalPage int    `json:"total_page"`
 }
 
-// decorate 把一行内容转换为对外形状（不带 R2 镜像地址，供内部/测试使用）。
+// decorate 把一行内容转换为对外形状（不带镜像地址，供内部/测试使用）。
 func decorate(row store.Content, userMap map[uint64]store.User, likeCount int64, includeViewCount bool) Item {
 	return decorateWith(nil, row, userMap, likeCount, includeViewCount)
 }
 
-// decorateWith 在 decorate 的基础上补 R2 备份地址。
-// mirror 为 nil（未启用 R2）时与 decorate 完全等价。
+// decorateWith 在 decorate 的基础上补镜像地址（R2 与 OpenList 两级各自独立下发）。
+// mirror 为 nil（未启用镜像）时与 decorate 完全等价。
 // userMap 为批量预取的用户表（nil 时按需单查）；likeCount 为已统计的点赞数。
 func decorateWith(mm app.MediaMirror, row store.Content, userMap map[uint64]store.User, likeCount int64, includeViewCount bool) Item {
 	var author UserBrief

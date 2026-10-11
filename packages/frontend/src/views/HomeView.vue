@@ -226,7 +226,7 @@ async function loadAllPages() {
       const parsed = res.data.list.map((item: unknown) => ContentSchema.parse(item))
       total.value = res.data.total
       // totalPages 统一按滚动分页的 page_size（pageSize.value=20）计算，
-      // 与 hasMore / fetchMore / fetchFreshList 的页码基准一致。
+      // 与 hasMore / fetchMore 的页码基准一致（本函数每页要 100 条，但不能改基准）。
       totalPages.value = Math.ceil(res.data.total / pageSize.value)
       const fresh = parsed.filter((item) => !loaded.has(item.id))
       for (const item of fresh) { loaded.add(item.id); all.push(item) }
@@ -242,7 +242,8 @@ async function loadAllPages() {
   }
 }
 
-// 增量加载更多时也更新缓存（全量加载后的兜底：diff 期间有新内容时补拉）
+// 滚动到底部的增量加载：按已加载条数推导下一页，只追加不写缓存
+//（缓存唯一写入点在 onBeforeRouteLeave）。
 async function fetchMore() {
   if (!hasMore.value || isLoading.value || isLoadingMore.value) return
   // 页码由已加载条数推导，而非 currentPage+1：列表可能被 diff 替换，

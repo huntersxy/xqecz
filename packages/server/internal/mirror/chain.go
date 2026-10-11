@@ -48,7 +48,8 @@ func (c *Chain) secondaryOpen() bool {
 	return c != nil && c.secondary != nil && c.secondary.Enabled()
 }
 
-// R2URL 返回 R2 侧的公开地址（未配置公开基址时为空）。
+// R2URL 返回 R2（primary）那一级的公开地址；未配置公开基址时为空串。
+// 注意方法名里的 R2 是给调用方的历史命名，不代表优先级——顺序见 bestSource()。
 func (c *Chain) R2URL(rel string) string {
 	if c == nil || c.primary == nil {
 		return ""
@@ -56,7 +57,8 @@ func (c *Chain) R2URL(rel string) string {
 	return c.primary.PublicURL(rel)
 }
 
-// OpenListURL 返回 OpenList 侧的公开地址（未配置公开基址时为空）。
+// OpenListURL 返回自建 OpenList（secondary）那一级的公开地址；
+// 未配置公开基址或该级停用时为空串。前端把这一级当首选。
 //
 // 注意这里不再有签名环节：七牛的替补层曾需要时间戳防盗链签名，
 // OpenList 的直链靠服务端 sign_all=false 免签开放，

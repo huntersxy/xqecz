@@ -40,6 +40,8 @@ async function handleOk(): Promise<boolean> {
 
 <template>
   <a-modal
+    class="creative-theme creative-dialog"
+    :width="480"
     v-model:visible="visible"
     title="举报评论"
     :on-before-ok="handleOk"
@@ -78,7 +80,9 @@ async function handleOk(): Promise<boolean> {
 .rm-quote {
   padding: 8px 10px;
   background: var(--color-hover);
-  border-radius: 6px;
+  border-radius: 12px;
+  border-left: 2px solid var(--creative-accent);
+  overflow-wrap: anywhere;
   font-size: 13px;
   color: var(--color-text-secondary);
   font-style: italic;

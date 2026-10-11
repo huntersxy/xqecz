@@ -13,6 +13,9 @@ import (
 
 // Open 建立 MySQL 连接。DSN 与旧 TypeORM 连接参数对齐（utf8mb4 / parseTime / 本地时区），
 // 加密模式由 cfg.MySQL.TLS 决定（托管实例如 TiDB Cloud 强制加密）。
+//
+// 注意：cfg.MySQL.ConnMaxLifetime 与 Options.Timeout 在这里都不参与——
+// 连接最长存活固定 1 小时，建连超时用驱动默认值。
 func Open(cfg config.Config) (*gorm.DB, error) {
 	dsn := mysqldsn.Format(mysqldsn.Options{
 		Host:      cfg.MySQL.Host,

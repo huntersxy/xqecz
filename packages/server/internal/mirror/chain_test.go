@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// chainFixture 造一条双目标链（R2 为主、OpenList 为次），各用一个假存储，
+// chainFixture 造一条双目标链（装配顺序 R2 在前、OpenList 在后），各用一个假存储，
 // 便于分别断言谁被推送了。顺序只影响 Setups 的排列，不代表优先级。
 func chainFixture(t *testing.T) (*Chain, *fakeStore, *fakeStore) {
 	t.Helper()

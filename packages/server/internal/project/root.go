@@ -8,7 +8,7 @@ import (
 
 // rootMarkers 用于判定「项目根」的标记文件/目录，按可信度排序。
 //
-// pnpm-workspace.yaml / .git 是 monorepo 开发期的标记；生产形态是「宝塔 Go 项目 + 静态站点」，
+// pnpm-workspace.yaml / .git 是 monorepo 开发期的标记；生产形态是「CI 直传 + OpenRC 直启后端」，
 // 只上传二进制与 .env，不携带包管理器清单，因此 .env 必须能独立作为根标记。
 var rootMarkers = []string{"pnpm-workspace.yaml", ".git", ".env"}
 

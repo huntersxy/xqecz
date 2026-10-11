@@ -81,7 +81,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="admin-shell admin-theme">
+  <div class="admin-shell admin-theme creative-theme">
     <aside class="admin-side">
       <AdminNav
         :groups="navGroups"
@@ -99,13 +99,26 @@ onMounted(() => {
           <IconMenu />
         </button>
         <nav class="admin-crumb" aria-label="breadcrumb">
-          <span class="admin-crumb-root">管理控制台</span>
+          <span class="admin-crumb-root">{{ userStore.user?.is_admin ? '管理控制台' : '创作工作台' }}</span>
           <span class="admin-crumb-sep">/</span>
           <span class="admin-crumb-current">{{ sectionTitle }}</span>
         </nav>
       </header>
 
       <main class="admin-content">
+        <div class="admin-intro">
+          <div>
+            <span class="admin-intro-label">YOUR CREATIVE SPACE <span aria-hidden="true">✦</span></span>
+            <h1>{{ userStore.user?.is_admin ? '照料每一份灵感' : '让灵感慢慢生长' }}</h1>
+            <p>{{ userStore.user?.is_admin ? '整理作品，回应创作者，让这个小宇宙有序生长。' : '收藏创作的足迹，在这里整理与分享你的作品。' }}</p>
+          </div>
+          <svg class="admin-intro-art" viewBox="0 0 160 100" fill="none" aria-hidden="true">
+            <ellipse cx="80" cy="52" rx="60" ry="20" transform="rotate(-22 80 52)" />
+            <circle cx="80" cy="52" r="29" />
+            <path d="M78 15v10m-5-5h10M130 64v14m-7-7h14M31 27v8m-4-4h8" />
+            <circle cx="37" cy="72" r="3" />
+          </svg>
+        </div>
         <transition name="admin-page" mode="out-in">
           <div :key="admin.activeTab" class="admin-page">
             <AdminDashboard v-if="admin.activeTab === 'dashboard'" @select="onMenuSelect" />
@@ -135,7 +148,7 @@ onMounted(() => {
       placement="left"
       :closable="false"
       :width="264"
-      class="admin-theme admin-mobile-drawer"
+      class="admin-theme creative-theme admin-mobile-drawer"
     >
       <AdminNav
         :groups="navGroups"
@@ -155,26 +168,47 @@ onMounted(() => {
      类名 admin-* 仅后台使用，不影响其他页面 -->
 <style lang="scss">
 .admin-theme {
-  --admin-text: var(--color-text-1);
-  --admin-text-2: var(--color-text-2);
-  --admin-text-3: var(--color-text-3);
-  --admin-border: var(--color-border-2);
-  --admin-border-soft: var(--color-border-1);
-  --admin-fill: var(--color-fill-2);
-  --admin-surface: var(--color-bg-2);
-  --admin-primary: rgb(var(--primary-6));
-  --admin-primary-soft: color-mix(in srgb, rgb(var(--primary-6)) 10%, transparent);
+  --admin-text: var(--creative-ink);
+  --admin-text-2: var(--creative-muted);
+  --admin-text-3: var(--creative-muted);
+  --admin-border: var(--creative-line);
+  --admin-border-soft: color-mix(in srgb, var(--creative-line) 70%, var(--admin-surface));
+  --admin-fill: var(--creative-soft);
+  --admin-surface: color-mix(in srgb, var(--creative-paper) 35%, white);
+  --admin-canvas: color-mix(in srgb, var(--creative-paper) 65%, var(--creative-soft));
+  --admin-primary: var(--creative-accent);
+  --admin-primary-soft: var(--creative-soft);
   --admin-danger: rgb(var(--danger-6));
   --admin-danger-soft: color-mix(in srgb, rgb(var(--danger-6)) 10%, transparent);
-  --admin-radius: 14px;
-  --admin-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -12px rgba(15, 23, 42, 0.08);
+  --admin-radius: 18px;
+  --admin-shadow: var(--creative-shadow);
+  // Arco 表单、表格与弹层使用同一语义色；状态色继续保留成功/警告/危险的含义。
+  --color-bg-1: var(--admin-canvas);
+  --color-bg-2: var(--admin-surface);
+  --color-bg-3: var(--admin-surface);
+  --color-fill-1: var(--admin-canvas);
+  --color-fill-2: var(--creative-soft);
+  --color-border-2: var(--creative-line);
+  --color-border-1: var(--admin-border-soft);
+  --color-text-1: var(--creative-ink);
+  --color-text-2: var(--creative-muted);
+  --color-text-3: var(--creative-muted);
 }
 
 body[arco-theme='dark'] .admin-theme {
-  --admin-primary-soft: color-mix(in srgb, rgb(var(--primary-6)) 22%, transparent);
+  --admin-surface: var(--creative-paper);
   --admin-danger-soft: color-mix(in srgb, rgb(var(--danger-6)) 20%, transparent);
   --admin-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
 }
+
+.admin-theme .arco-btn { border-radius: 999px; }
+.admin-theme .arco-pagination-item { border-radius: 50%; }
+.admin-theme .arco-input-wrapper,
+.admin-theme .arco-textarea-wrapper,
+.admin-theme .arco-select-view,
+.admin-theme .arco-input-tag { border-radius: 10px; }
+.admin-theme .arco-drawer,
+.admin-theme .arco-modal { background: var(--admin-surface); }
 
 .admin-mobile-drawer .arco-drawer-body {
   padding: 0;
@@ -188,8 +222,8 @@ body[arco-theme='dark'] .admin-theme {
 .admin-shell {
   display: flex;
   align-items: flex-start;
-  min-height: calc(100vh - 56px);
-  background: var(--color-bg-1);
+  min-height: calc(100vh - 72px);
+  background: var(--admin-canvas);
   color: var(--admin-text);
 }
 
@@ -198,8 +232,8 @@ body[arco-theme='dark'] .admin-theme {
   width: 240px;
   flex-shrink: 0;
   position: sticky;
-  top: 56px;
-  height: calc(100vh - 56px);
+  top: 72px;
+  height: calc(100vh - 72px);
   background: var(--admin-surface);
   border-right: 1px solid var(--admin-border-soft);
 }
@@ -214,14 +248,14 @@ body[arco-theme='dark'] .admin-theme {
 
 .admin-topbar {
   position: sticky;
-  top: 56px;
+  top: 72px;
   z-index: 40;
   height: 56px;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 0 24px;
-  background: color-mix(in srgb, var(--color-bg-1) 80%, transparent);
+  background: color-mix(in srgb, var(--admin-canvas) 92%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--admin-border-soft);
@@ -278,6 +312,13 @@ body[arco-theme='dark'] .admin-theme {
   margin: 0 auto;
 }
 
+.admin-intro { max-width: 1120px; margin: 4px auto 28px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.admin-intro-label { color: var(--admin-primary); font-size: 10px; letter-spacing: .18em; }
+.admin-intro-label span { margin-left: 8px; }
+.admin-intro h1 { margin: 10px 0 8px; font-size: clamp(22px, 2.2vw, 30px); font-weight: 600; letter-spacing: .03em; }
+.admin-intro p { color: var(--admin-text-2); font-size: 13px; line-height: 1.8; }
+.admin-intro-art { width: 150px; flex-shrink: 0; stroke: var(--admin-primary); stroke-width: 1.2; opacity: .55; pointer-events: none; }
+
 // ── 页签切换过渡 ──
 .admin-page-enter-active {
   transition: opacity 0.22s ease, transform 0.22s ease;
@@ -302,6 +343,7 @@ body[arco-theme='dark'] .admin-theme {
   }
 
   .admin-topbar {
+    top: 62px;
     padding: 0 16px;
   }
 
@@ -312,5 +354,9 @@ body[arco-theme='dark'] .admin-theme {
   .admin-content {
     padding: 16px 12px;
   }
+  .admin-intro { margin: 8px 4px 22px; }
+  .admin-intro-art { width: 72px; }
+  .admin-intro-label { font-size: 9px; letter-spacing: .1em; }
+  .admin-shell { min-height: calc(100vh - 62px); }
 }
 </style>

@@ -34,7 +34,8 @@ func (c R2Config) Enabled() bool {
 }
 
 // Exposed 表示对象是否有可供浏览器直连的公开地址。
-// 只有凭据完备且配置了 PublicBase 时，详情页才存在「本地 vs R2」二选一。
+// 只有凭据完备且配置了 PublicBase 时这一级才会给前端候选地址；
+// 返回空串即「本级没有候选」，前端据此跳过并退到下一级。
 func (c R2Config) Exposed() bool { return c.Enabled() && c.PublicBase != "" }
 
 // ObjectURL 返回对象的公开访问地址；key 形如 "14_thumb.webp"（桶内名为 Prefix/key）。

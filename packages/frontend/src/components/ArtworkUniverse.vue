@@ -92,7 +92,8 @@ async function prepareScene() {
     universe.enter()
   } catch { failed.value = true }
 }
-// 清晰走马灯在场景模块导入前优先启动，取消旧的三张串行队列。
+// 清晰走马灯在场景模块导入前就发起：每个作品登记一个请求（montageRequests），
+// 成功后写入 imageUrls 供选择卡预览直接复用，不再重复下载。
 function preloadMontage() {
   for (const node of montageItems) {
     if (montageRequests.has(node.artwork.id)) continue

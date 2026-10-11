@@ -269,7 +269,7 @@ func TestDisabledSetupIsNoop(t *testing.T) {
 }
 
 // TestPublicURLWithoutExposedBase 只配了凭据、没配公开域名时不给前端地址
-// （前端测速没有候选，直接走本地）。
+// （前端没有候选，据此退到下一级）。
 func TestPublicURLWithoutExposedBase(t *testing.T) {
 	s := newWithStore(config.R2Config{AccountID: "a", AccessKey: "k", SecretKey: "s", Bucket: "b"}, newFakeStore())
 	if got := s.PublicURL("a.webp"); got != "" {
@@ -453,7 +453,7 @@ func TestArchiveKeyNamespace(t *testing.T) {
 	}
 }
 
-// TestFindInBin 垃圾桶查找：同名优先，其次兼容 MoveToBin 为防同秒覆盖而加的时间戳前缀版本。
+// TestFindInBin 垃圾桶查找：同名优先，其次兼容 MoveToBin 为防覆盖而加的时间戳前缀版本。
 func TestFindInBin(t *testing.T) {
 	dir := t.TempDir()
 	if _, ok := FindInBin(dir, "missing.webp"); ok {

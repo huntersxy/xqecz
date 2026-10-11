@@ -41,6 +41,8 @@ async function handleOk(): Promise<boolean> {
 
 <template>
   <a-modal
+    class="creative-theme creative-dialog"
+    :width="480"
     v-model:visible="visible"
     title="认领此内容"
     :on-before-ok="handleOk"

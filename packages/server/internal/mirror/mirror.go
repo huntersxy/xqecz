@@ -112,7 +112,7 @@ func newStore(t Target) (ObjectStore, error) {
 func (s *Setup) Enabled() bool { return s != nil && s.store != nil }
 
 // PublicURL 返回对象的公开访问地址；未配置公开域名时返回空串，
-// 前端的「本地 vs 远端测速」也就无从谈起，直接走本地。
+// 前端这一级就没有候选，会退到下一条候选（另一级镜像或源站）。
 // 对 nil 接收者安全：调用方无需先判空（与 Push 一致的取向）。
 //
 // 公开地址必须走 ObjectKey：对象在远端叫 <prefix>/<name>，而调用方传进来的是
@@ -284,7 +284,7 @@ func (s *Setup) ArchiveOriginalAsync(rel, origPath string) {
 }
 
 // FindInBin 在垃圾桶目录里找 rel 对应的原件（与 MoveToBin 的命名约定一致：
-// 优先同名，其次 MoveToBin 为防同秒覆盖而加的时间戳前缀版本，取最新一个）。
+// 优先同名，其次 MoveToBin 为防覆盖而加的时间戳前缀版本，取最新一个）。
 func FindInBin(binDir, rel string) (string, bool) {
 	if binDir == "" || rel == "" {
 		return "", false

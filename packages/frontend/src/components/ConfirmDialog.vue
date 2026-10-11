@@ -12,6 +12,8 @@ watch(pendingConfirm, v => {
 
 <template>
   <a-modal
+    class="creative-theme creative-dialog"
+    :width="440"
     v-model:visible="visible"
     title="确认操作"
     @cancel="respond(false)"

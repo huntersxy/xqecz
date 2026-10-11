@@ -519,7 +519,7 @@ func (h *Handler) processMedia(id uint64, absPath, contentType string) {
 // prepareUploadFile 返回上传文件的相对路径、大小与绝对路径。
 // 保留原始格式不做转码（压缩交给后台 TinyPNG 任务，压缩后后缀不变）。
 //
-// 落盘成功即异步把这一份推到 R2（本地为主、R2 为备份，两份都留）。
+// 落盘成功即异步把这一份推给镜像链的每个目标（本地为主、对象存储为备份，两份都留）。
 // 推送失败不影响上传结果，由回填任务兜底。
 func (h *Handler) prepareUploadFile(f *uploadedFile) (string, int64, string) {
 	if f == nil {

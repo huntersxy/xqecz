@@ -77,7 +77,7 @@ const api = ofetch.create({
       }
       return
     }
-    // F3: 不再吞掉后端返回的业务错误文案，统一透出给用户
+    // 不再吞掉后端返回的业务错误文案，统一透出给用户
     const msg =
       pickServerMessage((response as unknown as { _data?: unknown })._data) ||
       `请求失败 (${status})`
@@ -86,7 +86,7 @@ const api = ofetch.create({
   },
 })
 
-// F3: 从后端返回体里提取可读错误文案（兼容 {message} 与 {data:{message}} 两种结构）
+// 从后端返回体里提取可读错误文案（兼容 {message} 与 {data:{message}} 两种结构）
 function pickServerMessage(body: unknown): string | null {
   if (body && typeof body === 'object') {
     const b = body as Record<string, unknown>
@@ -119,7 +119,7 @@ async function request<T>(
   try {
     return (await api(url, options)) as unknown as Promise<ApiResponse<T>>
  } catch (err) {
-    // F3: 把后端文案包进 Error，供调用方 catch 后直接展示
+    // 把后端文案包进 Error，供调用方 catch 后直接展示
     const e = err as {
       response?: { _data?: unknown; status?: number }
       status?: number
@@ -269,8 +269,8 @@ export const contentApi = {
     })
   },
 
-  // 详情接口。options.silent=true 时附加 ?silent=1，后端不计入浏览量
-  // （用于推荐页 hero 大图等仅展示、不应视为“进入详情页”的场景）。
+  // 详情接口。options.silent=true 时附加 ?silent=1：后端既不计浏览量，
+  // 也按旧语义跳过缓存读（只写不读），会多几次回表。当前调用方都走默认值。
   detail: (id: number, options?: { silent?: boolean }) =>
     request<Content>(`/content/${id}`, { query: options?.silent ? { silent: 1 } : {} }),
 

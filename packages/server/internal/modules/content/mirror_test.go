@@ -39,7 +39,7 @@ func (f *fakeMirror) ArchiveOriginalAsync(rel, origPath string) {
 	f.archived = append(f.archived, rel)
 }
 
-// TestDecorateWithMirrorExposesBackupURL 图片行的 R2 备份地址与主地址同路径、仅换 host。
+// TestDecorateWithMirrorExposesBackupURL 图片行的镜像地址（mirror_*）与源站地址同路径、仅换 host。
 func TestDecorateWithMirrorExposesBackupURL(t *testing.T) {
 	now := time.Now()
 	mm := &fakeMirror{base: "https://file.example.com"}
@@ -77,7 +77,7 @@ func TestDecorateWithMirrorVideo(t *testing.T) {
 	}
 }
 
-// TestDecorateWithoutMirrorHasNoBackup 未接入 R2 时输出与旧实现逐字段一致（无备份字段）。
+// TestDecorateWithoutMirrorHasNoBackup 未接入镜像时输出与旧实现逐字段一致（无镜像字段）。
 func TestDecorateWithoutMirrorHasNoBackup(t *testing.T) {
 	now := time.Now()
 	row := store.Content{
@@ -110,7 +110,7 @@ func TestDecorateThumbOnlyRowHasNoMirror(t *testing.T) {
 	}
 }
 
-// TestPrepareUploadFilePushesToMirror 上传落盘后立即异步推 R2（原图先落本地，再推一份）。
+// TestPrepareUploadFilePushesToMirror 上传落盘后立即异步推给镜像链每个目标（原图先落本地，再推一份）。
 func TestPrepareUploadFilePushesToMirror(t *testing.T) {
 	mm := &fakeMirror{base: "https://file.example.com"}
 	h := &Handler{mirror: mm}
@@ -126,7 +126,7 @@ func TestPrepareUploadFilePushesToMirror(t *testing.T) {
 	}
 }
 
-// TestPrepareUploadFileWithoutMirror 未接入 R2 时上传流程不受影响，且 nil 文件安全。
+// TestPrepareUploadFileWithoutMirror 未接入镜像时上传流程不受影响，且 nil 文件安全。
 func TestPrepareUploadFileWithoutMirror(t *testing.T) {
 	h := &Handler{}
 	if rel, size, abs := h.prepareUploadFile(nil); rel != "" || size != 0 || abs != "" {

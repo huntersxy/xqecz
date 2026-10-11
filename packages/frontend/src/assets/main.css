@@ -6,7 +6,7 @@
 
 /* ── 基础配色：Arco 语义别名 + 公开创作界面的局部调色板 ──
    默认 --color-* 指向 Arco token，随 <body arco-theme="dark"> 切换日/夜。
-   下方 .creative-theme 局部覆盖为暖纸白与柔粉创作风格，不影响管理后台。 */
+   下方 .creative-theme 局部覆盖为纸白与柔粉创作风格；工作台显式复用该主题。 */
 
 body {
   /* 语义别名 → Arco token（直接挂在 body 作用域，与 Arco 的 token 同层。
@@ -85,15 +85,15 @@ body[arco-theme='dark'] {
   }
 }
 
-/* 创作界面的共享调色板：仅 .creative-theme 使用，管理后台等仍沿用 Arco。
+/* 创作界面的共享调色板：仅 .creative-theme 使用，工作台保留独立布局与状态色。
    抽屉通过 Teleport 挂到 body，必须在抽屉根节点显式携带此类。 */
 body {
-  --creative-paper: #fffcf7;
-  --creative-canvas: #f7f2e9;
-  --creative-soft: #f9eae8;
-  --creative-ink: #3e3532;
-  --creative-muted: #786b63;
-  --creative-line: #e9dfd2;
+  --creative-paper: #fffdfd;
+  --creative-canvas: #faf7f8;
+  --creative-soft: #fbeef2;
+  --creative-ink: #40363c;
+  --creative-muted: #806f78;
+  --creative-line: #eee1e7;
   --creative-accent: #ad4c63;
   --creative-accent-hover: #9d3d54;
   --creative-warm: #e6c48d;
@@ -126,6 +126,11 @@ body[arco-theme='dark'] {
   --primary-10: 81, 21, 41;
   --color-primary: var(--creative-accent);
   --color-primary-hover: var(--creative-accent-hover);
+  /* Arco 的浅主色别名在 body 上已计算，局部替换 primary-* 后需同步覆盖。 */
+  --color-primary-light-1: var(--creative-soft);
+  --color-primary-light-2: color-mix(in srgb, var(--creative-accent) 16%, var(--creative-paper));
+  --color-primary-light-3: color-mix(in srgb, var(--creative-accent) 24%, var(--creative-paper));
+  --color-primary-light-4: color-mix(in srgb, var(--creative-accent) 32%, var(--creative-paper));
   --color-on-primary: #fff;
   --color-text: var(--creative-ink);
   --color-text-secondary: var(--creative-muted);
@@ -160,6 +165,40 @@ body[arco-theme='dark'] .creative-theme {
   outline-offset: 3px;
 }
 
+/* 认领、举报、确认及工作台弹窗由 Teleport 挂载，根节点携带主题，
+   样式只约束本组弹窗；窄屏保持边距，长消息不会撑破操作区。 */
+.creative-dialog.arco-modal,
+.creative-dialog .arco-modal {
+  max-width: calc(100vw - 32px);
+  background: var(--creative-paper);
+  border: 1px solid var(--creative-line);
+  border-radius: 20px;
+  box-shadow: var(--creative-shadow);
+  color: var(--creative-ink);
+}
+.creative-dialog .arco-modal-header { border-color: var(--creative-line); padding-inline: 24px; }
+.creative-dialog .arco-modal-title { color: var(--creative-ink); font-weight: 600; }
+.creative-dialog .arco-modal-title::before { content: '✧'; color: var(--creative-accent); margin-right: 9px; }
+.creative-dialog .arco-modal-body { padding: 24px; line-height: 1.8; overflow-wrap: anywhere; }
+.creative-dialog .arco-modal-footer { border-color: var(--creative-line); padding: 16px 24px; }
+.creative-dialog .arco-btn { border-radius: 999px; }
+.creative-dialog .arco-input-wrapper,
+.creative-dialog .arco-textarea-wrapper { border-radius: 10px; background: var(--creative-canvas); }
+.creative-dialog .arco-modal-close-btn { border-radius: 50%; color: var(--creative-muted); }
+
+/* 编辑器在上传页与编辑抽屉共用；覆盖其公开变量，保留工具栏行为和代码高亮。 */
+.creative-theme .markdown-editor.vditor {
+  --border-color: var(--creative-line);
+  --panel-background-color: var(--creative-paper);
+  --toolbar-background-color: var(--creative-canvas);
+  --toolbar-icon-color: var(--creative-muted);
+  --toolbar-icon-hover-color: var(--creative-accent);
+  --textarea-background-color: var(--creative-paper);
+  --textarea-text-color: var(--creative-ink);
+  --second-color: var(--creative-muted);
+  border-radius: 12px;
+}
+
 /* ── Arco Image 错误态：只显示图标，不显示 alt / description 文字 ──
    用 .arco-image 前缀提升特异性，确保压过后加载的 arco.css（main.ts 中 arco.css 在 main.css 之后引入）。
    结构见 @arco-design/web-vue/es/image/image.js：isError 时渲染
@@ -168,11 +207,12 @@ body[arco-theme='dark'] .creative-theme {
   display: none;
 }
 
-/* ── 详情页 / 上传面板覆盖：锁定背景滚动 ─────────────────────────
+/* ── 详情页 / 上传面板 / 星图覆盖：锁定背景滚动 ─────────────────────────
    由「覆盖层在不在 DOM 里」直接决定，不再 onMounted 改内联样式、onBeforeUnmount
    还原——那套要先把旧值存下来再恢复，漏一处就把全站锁死在 overflow:hidden。
    锁在 html 而非 body：内联样式改 body 依赖「body 的 overflow 传播到视口」这条
-   规则，而视口的滚动条槽由 html 的 scrollbar-gutter 常驻，两者分层容易对不上。 */
+   规则，而视口的滚动条槽由 html 的 scrollbar-gutter 常驻，两者分层容易对不上。
+   .au-root 是星图覆盖层（ArtworkUniverse），与 .cd-root / .qu-sheet 共用这一条。 */
 html:has(.cd-root),
 html:has(.qu-sheet),
 html:has(.au-root) {

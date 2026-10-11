@@ -31,8 +31,8 @@ const (
 
 // Options 是内容模块的可选依赖，用零值即「不启用」。
 type Options struct {
-	// Mirror 为 R2 媒体镜像：只影响对外返回的备份地址与上传后的异步推送，
-	// 为 nil 时行为与接入 R2 之前完全一致。
+	// Mirror 为媒体镜像链（R2 与自建 OpenList 两个目标）：只影响对外返回的镜像地址
+	// 与上传/压缩后的异步推送，为 nil 时行为与接入镜像之前完全一致。
 	Mirror app.MediaMirror
 }
 
@@ -105,7 +105,7 @@ func (o *listOpts) normalize() {
 	}
 }
 
-// listCacheKey 与旧实现完全一致的规范化参数哈希，避免迁移期新旧进程串缓存。
+// cacheKey 与旧实现完全一致的规范化参数哈希，避免迁移期新旧进程串缓存。
 func (o *listOpts) cacheKey() string {
 	statuses := append([]string{}, o.AuditStatuses...)
 	sortStrings(statuses)

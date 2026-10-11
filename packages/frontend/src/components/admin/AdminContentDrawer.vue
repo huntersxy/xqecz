@@ -100,7 +100,7 @@ function onFileChange(_fileList: FileItem[], fileItem: FileItem) {
 
 <template>
   <a-drawer
-    class="content-drawer admin-theme"
+    class="content-drawer admin-theme creative-theme"
     v-model:visible="admin.drawerOpen"
     :title="admin.drawerContent?.title || '内容详情'"
     :width="720"

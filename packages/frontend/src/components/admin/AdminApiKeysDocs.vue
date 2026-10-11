@@ -420,7 +420,7 @@ function copyFrame(e: MouseEvent) {
           </p>
         </section>
 
-        <!-- GET list -->
+        <!-- 接口卡片：按目录当前项渲染 /content/list 等 5 个接口的说明 -->
                 <section v-else-if="currentCard" :id="currentCard.id" class="api-endpoint-card">
           <div class="api-ep-head">
             <span class="api-method" :class="currentCard.methodCls">{{ currentCard.method }}</span>

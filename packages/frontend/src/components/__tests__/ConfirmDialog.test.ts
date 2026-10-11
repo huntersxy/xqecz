@@ -71,6 +71,16 @@ describe('ConfirmDialog', () => {
     wrapper.unmount()
   })
 
+  it('keeps the creative theme on the teleported dialog outside the page', async () => {
+    mockPendingConfirm.value = { message: '确认前请检查内容' }
+    const wrapper = await mountDialog()
+    const dialog = queryModal()!
+    expect(dialog.closest('.creative-theme')).not.toBeNull()
+    expect(dialog.closest('.creative-dialog')).not.toBeNull()
+    expect(wrapper.element.contains(dialog)).toBe(false)
+    wrapper.unmount()
+  })
+
   it('calls respond with false when cancel button clicked', async () => {
     mockPendingConfirm.value = {
       message: '测试消息',

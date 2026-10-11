@@ -29,7 +29,8 @@ type Item struct {
 	LikeCount     int64
 }
 
-// timeDecayScore 时间衰减分数：1 天内 100，7 天内线性衰减到 0，更久为 0。
+// timeDecayScore 时间衰减分数：1 天内 100；1–7 天按 50×(1-day/7) 衰减，
+// 因此第 1 天直接落到约 42.9；7 天及以后为 0。
 func timeDecayScore(createdAtUnix int64) float64 {
 	daysAgo := time.Since(time.Unix(createdAtUnix, 0)).Hours() / 24
 	switch {

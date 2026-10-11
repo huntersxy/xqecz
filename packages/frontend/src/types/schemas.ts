@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-// ── 通用宽松 transform(匹配原 normalize 的 `Number()||0` / `typeof==='string'? : ''` 兜底语义)──
+// ── 通用宽松 transform(沿用旧实现 normalize 的 `Number()||0` / `typeof==='string'? : ''` 兜底语义)──
 // 用 z.unknown + transform 而不是 z.coerce,避免 NaN 不触发 default 的边界问题;
 // 严格校验留给"值域有界的字段"(type/audit_status)用 enum/catch。
 const num = z.unknown().transform((v) => Number(v) || 0)
@@ -25,7 +25,7 @@ const tagsArr = z
   )
 
 // ── User(完整) ──
-// 与原 normalize 等价:id/username 必填(契约保证),其他 optional 兜空。
+// 与旧实现 normalize 等价:id/username 必填(契约保证),其他 optional 兜空。
 const UserSchema = z.object({
   id: num,
   username: str,

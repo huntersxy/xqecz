@@ -1,10 +1,11 @@
 // Package logx 提供比 slog TextHandler 更适合人眼阅读的控制台日志格式：
 //
-//	2026-09-14 22:09:49 INFO  tinypng 压缩完成  id=844 file=db36….webp before=1.36MB after=92.9KB saved=1.27MB
-//	2026-09-14 22:22:29 WARN  http  req=GET / status=404 cost=0.1ms
+//	[2026-09-14 22:09:49 INFO] tinypng 压缩完成  id=844  file=db36a.webp  before=1.36MB  after=92.9KB  saved=1.27MB
+//	[2026-09-14 22:22:29 WARN] http  req="GET /"  status=404  cost=100µs
 //
-// 设计取舍：单行、无引号噪音；字节类字段自动转人类可读；duration 转 ms/µs；
-// 输出为终端时上色，重定向到文件（生产 `>> log`）时自动纯文本。
+// 设计取舍：单行、无引号噪音；字节类字段自动转人类可读；duration 按量级转
+// µs/ms/s/m；值里含空白才加引号（如 `req="GET /"`）；输出为终端时给时间/级别/键
+// 上色，重定向到文件（生产 `>> log`）时自动纯文本。
 package logx
 
 import (

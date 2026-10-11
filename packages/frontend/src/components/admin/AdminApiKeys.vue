@@ -161,7 +161,7 @@ onMounted(loadKeys)
     </a-spin>
 
     <!-- 新建弹窗 -->
-    <a-modal v-model:visible="showCreateModal" title="新建 API 密钥" @ok="handleCreate" ok-text="创建" cancel-text="取消">
+    <a-modal class="admin-theme creative-theme creative-dialog" v-model:visible="showCreateModal" title="新建 API 密钥" @ok="handleCreate" ok-text="创建" cancel-text="取消">
       <a-form layout="vertical" :model="createForm">
         <a-form-item label="名称" required>
           <a-input v-model="createForm.name" placeholder="例如：我的上传工具" :maxlength="100" />
@@ -173,7 +173,7 @@ onMounted(loadKeys)
     </a-modal>
 
     <!-- 显示完整 Key 弹窗 -->
-    <a-modal v-model:visible="showKeyModal" title="API 密钥已创建" :footer="false">
+    <a-modal class="admin-theme creative-theme creative-dialog" v-model:visible="showKeyModal" title="API 密钥已创建" :footer="false">
       <div class="mb-3">
         <p class="text-sm mb-2">请保存以下密钥，<strong>关闭后将无法再次查看</strong>：</p>
         <div class="key-reveal">

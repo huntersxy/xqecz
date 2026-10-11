@@ -35,7 +35,7 @@ const visibleContents = computed(() =>
   )
 )
 
-// 展示窗口：从可见池中取一整批（坏图 / 文字类已剔除，不占名额）。
+// 展示窗口：从可见池中取一整批（无封面与破图已剔除，不占名额）。
 const displayList = computed(() =>
   visibleContents.value.slice(displayStart.value, displayStart.value + pageSize)
 )
@@ -44,7 +44,7 @@ const filling = ref(false)
 const fillQueued = ref(false)
 async function ensureFilled() {
   // 加载中或已在填充：标记排队，待当前批次结束后再次补偿，
-  // 保证"坏几张就补几张"（坏图 / 文字类一律不算进可见数量）。
+  // 保证"坏几张就补几张"（无封面与破图一律不算进可见数量）。
   if (isRecommendLoading.value) {
     fillQueued.value = true
     return

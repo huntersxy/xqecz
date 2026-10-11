@@ -54,7 +54,7 @@ onMounted(() => admin.loadPolls())
     </a-spin>
   </AdminPanel>
 
-  <a-modal v-model:visible="admin.showCreatePollModal" title="创建投票" @ok="admin.createPoll">
+  <a-modal class="admin-theme creative-theme creative-dialog" v-model:visible="admin.showCreatePollModal" title="创建投票" @ok="admin.createPoll">
     <a-form layout="vertical" :model="admin.createPollForm">
       <a-form-item label="投票标题" required><a-input v-model="admin.createPollForm.title" placeholder="请输入投票标题" /></a-form-item>
       <a-form-item label="投票描述"><a-textarea v-model="admin.createPollForm.description" :auto-size="{ minRows: 3, maxRows: 6 }" placeholder="可选描述" /></a-form-item>

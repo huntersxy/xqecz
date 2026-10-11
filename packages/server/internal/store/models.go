@@ -4,7 +4,8 @@ import (
 	"time"
 )
 
-// 表结构与现有 MySQL 完全一致（bigint 主键、tinyint 布尔、datetime(3)）。
+// 表结构与线上库完全一致（bigint 主键、tinyint 布尔、datetime(3)；
+// 线上为 MySQL 兼容引擎，2026-09 起迁到 TiDB，列类型与语义未变）。
 // 删除一律为物理删除（无 deleted_at 软删除列）。
 
 type User struct {

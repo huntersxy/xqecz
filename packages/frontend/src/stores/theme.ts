@@ -2,9 +2,10 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 
 /**
- * 切换日间/暗色：仅通过 <body arco-theme="dark"> 触发 Arco 原生暗色。
- * 项目原有调色板已移除，自定义 UI 颜色全部走 Arco token（arco.css 的
- * body[arco-theme='dark'] 选择器），随其自动翻日/夜。antd 组件走自身 ConfigProvider。
+ * 切换日间/暗色：只在 <body> 上增删 arco-theme="dark" 属性，Arco 按自身
+ * body[arco-theme='dark'] 选择器翻日/夜；公开创作界面的 --creative-* 调色板
+ * （assets/main.css）同样挂在 body[arco-theme='dark'] 下，因此随之切换。
+ * 工作台与管理端通过 admin-theme 复用这组语义色，状态色仍走 Arco token。
  */
 function applyMode(mode: 'light' | 'dark') {
   if (typeof document !== 'undefined' && document.body) {
@@ -34,7 +35,7 @@ export const useThemeStore = defineStore('theme', () => {
     }
   } catch {}
 
-  // 首次注入 class、后续 watch mode 变化自动切换
+  // 启动时按本地偏好立即应用一次，之后由 watch 跟随 mode 变化切换
   applyMode(mode.value)
   watch(mode, (v) => applyMode(v))
 

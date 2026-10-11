@@ -51,7 +51,7 @@ func validAtlasName(name string) bool {
 }
 
 // EnsureAtlasThumbnail 从已存在的普通缩略图缩放，视频也复用抽帧图，不重复解码原媒体。
-// 原图更新则重建；已有有效文件直接返回。失败保留旧产物，取消后不得提交新文件。
+// 源缩略图更新则重建（走马灯档另比字节数）；已有有效文件直接返回。失败保留旧产物，取消后不得提交新文件。
 func EnsureAtlasThumbnail(ctx context.Context, thumbDir, name string) (string, error) {
 	return ensureThumbnailVariant(ctx, thumbDir, name, AtlasDirectory, AtlasMaxEdge, AtlasQuality)
 }

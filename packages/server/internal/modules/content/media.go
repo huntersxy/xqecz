@@ -139,7 +139,8 @@ func contentDisposition(filename string) string {
 	return "attachment; filename=\"" + ascii + "\"; filename*=UTF-8''" + url.PathEscape(filename)
 }
 
-// 供测试与调试使用：把查询参数值解析为布尔。
+// 把查询参数值解析为布尔。当前没有调用方——serveMedia 直接比对字符串，
+// 这里保留为测试/调试备用；接入前不要把它当成既有路径。
 func downloadRequested(raw string) bool {
 	if raw == "" {
 		return false

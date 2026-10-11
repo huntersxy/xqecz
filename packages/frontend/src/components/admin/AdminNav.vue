@@ -42,8 +42,8 @@ const emit = defineEmits<{
         <IconDashboard />
       </div>
       <div class="admin-nav-brand-text">
-        <strong>管理控制台</strong>
-        <span>Admin Console</span>
+        <strong>{{ isAdmin ? '管理控制台' : '创作工作台' }}</strong>
+        <span>A LITTLE SPACE TO CREATE</span>
       </div>
     </div>
 
@@ -56,6 +56,7 @@ const emit = defineEmits<{
           type="button"
           class="admin-nav-item"
           :class="{ 'is-active': active === item.key }"
+          :aria-current="active === item.key ? 'page' : undefined"
           @click="emit('select', item.key)"
         >
           <component :is="item.icon" class="admin-nav-icon" />
@@ -103,11 +104,11 @@ const emit = defineEmits<{
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: 10px;
+  border-radius: 50%;
   font-size: 18px;
-  color: #fff;
-  background: linear-gradient(135deg, rgb(var(--primary-5)), rgb(var(--primary-7)));
-  box-shadow: 0 4px 12px color-mix(in srgb, rgb(var(--primary-6)) 35%, transparent);
+  color: var(--admin-primary);
+  background: var(--admin-primary-soft);
+  border: 1px solid var(--admin-border);
   flex-shrink: 0;
 }
 
@@ -157,10 +158,10 @@ const emit = defineEmits<{
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 11px 12px;
   margin-top: 2px;
   border: none;
-  border-radius: 9px;
+  border-radius: 12px;
   background: transparent;
   font-size: 13.5px;
   color: var(--admin-text-2);

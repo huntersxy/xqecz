@@ -183,7 +183,7 @@ async function handleSubmit() {
   padding: 32px 24px;
   border: 1.5px dashed $admin-border;
   border-radius: $admin-radius;
-  background: transparent;
+  background: color-mix(in srgb, var(--admin-primary-soft) 35%, var(--admin-surface));
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -208,7 +208,7 @@ async function handleSubmit() {
   font-size: 20px;
   margin-bottom: 4px;
   background: $admin-fill;
-  color: $admin-text-3;
+  color: $admin-primary;
   transition: background 0.2s ease, color 0.2s ease;
 
   .upload-area:hover &,

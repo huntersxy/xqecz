@@ -129,8 +129,8 @@ func (w *Worker) CompressOne(ctx context.Context) error {
 	w.deps.Redis.ClearContentCache(ctx, row.ID)
 	w.deps.Redis.ClearContentListCache(ctx)
 
-	// 两份都上 R2，各按各的对象名：
-	//   - 压缩到位图（abs 上已是压缩后的字节）→ <prefix>/<name>，前端按此加载；
+	// 两份都推给镜像链的每个目标，各按各的对象名：
+	//   - 压缩后的图（abs 上已是压缩后的字节）→ <prefix>/<name>，前端按此加载；
 	//   - 压缩前的原图（binPath 即垃圾桶里的同名原件）→ <prefix>/original/<name> 归档。
 	// 归档键由文件名推得（内容寻址），重复调用幂等；失败只记日志，
 	// 回填任务会从垃圾桶补传，不会出现「原图只在本地」的静默缺口。
@@ -195,7 +195,7 @@ func (w *Worker) markFailed(id uint64) {
 // 任一步失败都保留原图，不会出现「原图没了、新图没写上」的空缺。
 //
 // 第三个返回值是原图在垃圾桶里的落地路径（未发生替换时为空串），
-// 调用方据此把压缩前的原图归档到 R2 的 original/ 命名空间。
+// 调用方据此把压缩前的原图归档到镜像侧的 original/ 命名空间。
 func (w *Worker) shrinkInPlace(ctx context.Context, abs string, origSize int64) (int64, string, error) {
 	body, _, err := w.client.Shrink(ctx, abs)
 	if err != nil {
@@ -238,7 +238,7 @@ func (w *Worker) shrinkInPlace(ctx context.Context, abs string, origSize int64) 
 	}
 	// 原文件属主可能被替换，保持与目录一致的权限，避免 Web 进程读不到。
 	_ = os.Chmod(abs, 0o644)
-	// MoveToBin 保留文件名（同秒同名才加时间戳前缀），这里按文件名回找落地路径。
+	// MoveToBin 保留文件名（仅当目标已存在才加毫秒时间戳前缀），这里按文件名回找落地路径。
 	binPath, _ := mirror.FindInBin(w.deps.Cfg.BinDir, filepath.Base(abs))
 	return written, binPath, nil
 }

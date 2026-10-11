@@ -14,7 +14,7 @@ import (
 )
 
 // New 创建 HTTP 引擎并挂载全部模块路由。
-// opts 透传给内容模块（目前只承载 R2 媒体镜像）。
+// opts 透传给内容模块（目前只承载媒体镜像链）。
 func New(deps app.Deps, opts ...content.Options) *gin.Engine {
 	return web.New(deps,
 		// 媒体目录：带 ?download=1 时以附件下载，文件名取内容标题。

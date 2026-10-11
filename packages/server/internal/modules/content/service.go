@@ -47,7 +47,7 @@ func (h *Handler) ListPage(ctx context.Context, o ListOpts) (Page, error) {
 	})
 }
 
-// RowByID 取单行原始记录（软删除行不可见）。
+// RowByID 取单行原始记录（不存在时 ok=false）。
 func (h *Handler) RowByID(ctx context.Context, id uint64) (store.Content, bool, error) {
 	var row store.Content
 	err := h.deps.DB.WithContext(ctx).First(&row, id).Error
@@ -233,7 +233,7 @@ type RegenStatus struct {
 	Error      string `json:"error,omitempty"`
 }
 
-// regenerateAllThumbnails 立即返回、后台异步处理；多实例用 Redis 锁 + 心跳防重。
+// RegenerateAllThumbnails 立即返回、后台异步处理；多实例用 Redis 锁 + 心跳防重。
 func (h *Handler) RegenerateAllThumbnails(ctx context.Context) RegenResult {
 	if !h.deps.Redis.AcquireLock(ctx, regenLockKey, regenLockTTL) {
 		return RegenResult{Running: true}
