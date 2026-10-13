@@ -21,6 +21,7 @@
 
 | 要修改的规则 | 先读/先改的位置 |
 |--------------|------------------|
+| AI 工作室、角色设定库、创意广场的页面与控件外观 | `packages/frontend/src/assets/creative-pages.css`；配色复用 `main.css` 的 `--creative-*`，弹层显式带 `creative-theme creative-dialog`，画布/侧栏布局由对应页面负责 |
 | 素材与 API 媒体地址、媒体目录归属、生产同路径回退 | `packages/frontend/src/utils/index.ts`；设计说明见 `docs/frontend-media.md` |
 | 详情大图来源优先级与探测缓存 | `packages/frontend/src/utils/imageSource.ts`，调用方 `ContentMedia.vue` / `MediaImage.vue` |
 | 星图全作品预加载、去重、显影进度与取消 | `packages/frontend/src/utils/universeImages.ts`；不在场景中另写限量图片队列 |

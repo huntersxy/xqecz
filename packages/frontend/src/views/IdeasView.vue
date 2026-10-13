@@ -136,7 +136,7 @@ onBeforeUnmount(() => {
   <div class="creative-page creative-theme">
     <header class="creative-page-head">
       <div>
-        <span class="creative-eyebrow">XQECZ / IDEAS</span>
+        <span class="creative-eyebrow">✧ 灵感接力 / IDEAS</span>
         <h1>{{ detail?.idea.title || '一起，让创意发生' }}</h1>
         <p>
           {{ detail?.idea.description || '提出一个完整的创作方案，或用你的额度支持别人的灵感。' }}
@@ -211,10 +211,11 @@ onBeforeUnmount(() => {
           v-for="row in rows"
           :key="row.idea.id"
           :to="`/ideas/${row.idea.id}`"
-          class="creative-box idea-card"
+          class="creative-box creative-card idea-card"
           ><div v-if="row.results[0] || row.references[0]" class="creative-image-tile">
             <CreativeImage :id="(row.results[0] || row.references[0])!.id" :idea-id="row.idea.id" />
           </div>
+          <div v-else class="creative-image-tile creative-card-placeholder"><span aria-hidden="true">✧</span>一段灵感，等待被点亮</div>
           <a-tag>{{ labels[row.idea.status] }}</a-tag>
           <h2>{{ row.idea.title }}</h2>
           <p>{{ row.idea.description }}</p>
@@ -242,6 +243,11 @@ onBeforeUnmount(() => {
   line-height: 1.8;
   color: var(--creative-ink);
   margin: 20px 0;
+  padding: 24px;
+  border-radius: 14px;
+  background: var(--creative-canvas);
+  font: inherit;
+  overflow-wrap: anywhere;
 }
 .idea-results {
   margin-bottom: 24px;
@@ -261,17 +267,33 @@ onBeforeUnmount(() => {
 }
 .idea-card .arco-tag {
   margin-top: 16px;
+  align-self: flex-start;
+  border-radius: 999px;
+  color: var(--creative-accent);
+  background: var(--creative-soft);
 }
 .idea-filters {
   margin-bottom: 24px;
+  padding: 16px;
+  border: 1px solid var(--creative-line);
+  border-radius: 16px;
+  background: var(--creative-paper);
 }
 .idea-filters .arco-input-wrapper {
   max-width: 320px;
 }
-.idea-filters .arco-select {
+.idea-filters .arco-select-view-single {
   width: 180px;
 }
 .idea-cost {
   color: var(--creative-accent) !important;
+  padding-top: 14px;
+  border-top: 1px solid var(--creative-line);
+  font-size: 12px;
+  margin-bottom: 0 !important;
+}
+@media (max-width: 540px) {
+  .idea-filters .arco-input-wrapper { max-width: none; width: 100%; }
+  .idea-filters .arco-select-view-single { flex: 1; min-width: 120px; width: auto; }
 }
 </style>

@@ -30,7 +30,7 @@ onBeforeUnmount(() => controller?.abort())
   <section v-if="rows.length" class="home-ideas">
     <header>
       <div>
-        <span>✧ 灵感接力</span>
+        <span class="home-ideas-label">✧ 灵感接力</span>
         <h2>一起，让创意发生</h2>
       </div>
       <RouterLink to="/ideas">创意广场 →</RouterLink>
@@ -39,7 +39,7 @@ onBeforeUnmount(() => controller?.abort())
       <RouterLink v-for="row in rows" :key="row.idea.id" :to="`/ideas/${row.idea.id}`"
         ><small>{{ row.idea.status === 'realized' ? '已实现' : '等待赞助' }}</small
         ><strong>{{ row.idea.title }}</strong
-        ><span>{{ row.author.username }} · {{ row.current_cost }} 额度</span></RouterLink
+        ><span>{{ row.author.username }} · {{ row.current_cost }} 额度 <span aria-hidden="true">↗</span></span></RouterLink
       >
     </div>
   </section>
@@ -48,7 +48,9 @@ onBeforeUnmount(() => controller?.abort())
 .home-ideas {
   margin: 24px 0 34px;
   padding: 24px 28px;
-  border-block: 1px solid var(--creative-line);
+  border: 1px solid var(--creative-line);
+  border-radius: 22px;
+  background: var(--creative-paper);
   color: var(--creative-ink);
 }
 .home-ideas header {
@@ -67,17 +69,26 @@ onBeforeUnmount(() => controller?.abort())
   color: var(--creative-accent);
   font-size: 11px;
 }
+.home-ideas header a { color: var(--creative-accent); text-decoration: none; font-size: 12px; }
+.home-ideas-label { letter-spacing: .12em; }
 .home-idea-list {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 24px;
+  gap: 14px;
 }
 .home-idea-list a {
   display: grid;
   gap: 10px;
   text-decoration: none;
   color: var(--creative-ink);
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid var(--creative-line);
+  background: var(--creative-canvas);
+  transition: background .2s, border-color .2s;
 }
+.home-idea-list a:hover { background: var(--creative-soft); border-color: var(--creative-accent); }
+.home-idea-list strong { line-height: 1.6; overflow-wrap: anywhere; }
 .home-idea-list span {
   font-size: 12px;
   color: var(--creative-muted);

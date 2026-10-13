@@ -179,9 +179,11 @@ onBeforeUnmount(() => controller.abort())
   text-align: left;
   width: 100%;
   border: 0;
-  border-bottom: 1px solid var(--creative-line);
-  background: transparent;
-  padding: 15px 8px;
+  border: 1px solid var(--creative-line);
+  border-radius: 12px;
+  margin-bottom: 10px;
+  background: var(--creative-paper);
+  padding: 15px;
   color: var(--creative-ink);
   cursor: pointer;
 }
@@ -191,7 +193,13 @@ onBeforeUnmount(() => controller.abort())
 }
 .library-row.active {
   background: var(--creative-soft);
+  border-color: var(--creative-accent);
 }
+.library-row:hover { background: var(--creative-soft); }
+.creative-library > div { min-width: 0; }
+.creative-library p { color: var(--creative-muted); line-height: 1.8; }
+.creative-library h3 { color: var(--creative-ink); font-size: 20px; margin-bottom: 12px; }
+.creative-library .arco-checkbox { display: flex; margin-top: 12px; }
 .library-images {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -206,6 +214,10 @@ onBeforeUnmount(() => controller.abort())
   background: var(--creative-canvas);
   border-radius: 8px;
   margin: 16px 0;
+  color: var(--creative-ink);
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: 1.8;
 }
 .creative-library .creative-actions {
   margin-top: 16px;

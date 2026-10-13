@@ -88,7 +88,7 @@ onBeforeUnmount(() => {
   <div class="creative-page creative-theme">
     <header class="creative-page-head">
       <div>
-        <span class="creative-eyebrow">XQECZ / CHARACTERS</span>
+        <span class="creative-eyebrow">✧ 角色手册 / CHARACTERS</span>
         <h1>{{ detail?.title || '角色设定库' }}</h1>
         <p>{{ detail?.summary || '从角色的轮廓、表情与细节出发，延续你的创作。' }}</p>
       </div>
@@ -135,16 +135,16 @@ onBeforeUnmount(() => {
           v-for="row in filtered"
           :key="row.id"
           :to="`/characters/${row.slug}`"
-          class="creative-box character-card"
+          class="creative-box creative-card character-card"
           ><div class="creative-image-tile">
             <CreativeImage
               v-if="row.payload.asset_ids[0]"
               :id="row.payload.asset_ids[0]"
               public-asset
-            /><span v-else class="character-mark">✧</span>
+            /><span v-else class="character-mark" aria-hidden="true">✧</span>
           </div>
           <h2>{{ row.title }}</h2>
-          <p>{{ row.summary }}</p></RouterLink
+          <p>{{ row.summary }}</p><span class="character-card-footer">查看角色设定 <span aria-hidden="true">↗</span></span></RouterLink
         >
       </div>
       <div v-if="!filtered.length && !error" class="creative-empty">
@@ -174,6 +174,7 @@ onBeforeUnmount(() => {
 .character-card h2 {
   margin: 20px 0 8px;
 }
+.character-card-footer { display: flex; justify-content: space-between; margin-top: auto; padding-top: 16px; border-top: 1px solid var(--creative-line); color: var(--creative-accent); font-size: 12px; }
 .character-story {
   margin-bottom: 24px;
 }

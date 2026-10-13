@@ -113,12 +113,17 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.reference-library { margin: 28px 0; padding-top: 20px; border-top: 1px solid var(--admin-border-soft); }
+.reference-library { margin: 32px 0; padding: 24px; border: 1px solid var(--admin-border-soft); border-radius: 20px; background: var(--admin-canvas); }
+.reference-library h3 { font-size: 18px; color: var(--admin-text); }
+.reference-library h3 small { margin-left: 10px; font-weight: 400; }
 .reference-library p, small { color: var(--admin-text-3); font-size: 12px; line-height: 1.8; }
 .reference-heading, .reference-actions, .reference-upload { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:12px 0; }
 .reference-heading { justify-content:space-between; }
 .reference-upload .arco-input-wrapper { max-width:220px; }
 .reference-upload input { max-width:100%; }
+.reference-upload { padding: 16px; border: 1px dashed var(--admin-border-soft); border-radius: 14px; background: var(--admin-surface); }
+.reference-library input[type='file'] { color: var(--admin-text-3); font-size: 12px; }
+.reference-library input[type='file']::file-selector-button { border: 1px solid var(--admin-border-soft); padding: 7px 12px; margin-right: 10px; border-radius: 999px; background: var(--admin-surface); color: var(--admin-primary); cursor: pointer; }
 .reference-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
 .reference-card { min-width:0; padding:16px; border:1px solid var(--admin-border-soft); border-radius:14px; background:var(--admin-surface); }
 .reference-card img, .reference-preview-empty { width:100%; height:180px; object-fit:contain; border-radius:8px; background:var(--admin-canvas); }
@@ -126,5 +131,5 @@ onBeforeUnmount(() => {
 .reference-replace { cursor:pointer; font-size:12px; color:var(--admin-primary); }
 .reference-replace input { display:block; width:160px; font-size:11px; }
 .reference-card p.reference-stale { color:rgb(var(--warning-6)); }
-@media(max-width:640px) { .reference-grid { grid-template-columns:1fr; } .reference-upload { align-items:stretch; flex-direction:column; } }
+@media(max-width:640px) { .reference-library { padding:16px; } .reference-grid { grid-template-columns:1fr; } .reference-upload { align-items:stretch; flex-direction:column; } }
 </style>

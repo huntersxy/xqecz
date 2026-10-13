@@ -278,13 +278,11 @@ watch(ready, (value) => {
 </script>
 <template>
   <div class="creative-page creative-theme ai-studio">
-    <header class="studio-top">
+    <header class="creative-page-head studio-top">
       <div>
-        <span class="creative-eyebrow">XQECZ / CREATE</span
-        ><a-input v-model="name" aria-label="创作会话名称" :disabled="!!pending" /><span
-          class="creative-note"
-          >{{ saveState }}</span
-        >
+        <span class="creative-eyebrow">✧ 创作手记 / AI STUDIO</span>
+        <h1>让想象，有了形状</h1>
+        <p>从一段灵感开始，在这里慢慢打磨你的作品。</p>
       </div>
       <div class="creative-actions">
         <a-select
@@ -310,6 +308,10 @@ watch(ready, (value) => {
       >
     </div>
     <div class="studio-toolbar creative-actions">
+      <div class="studio-session">
+        <a-input v-model="name" :input-attrs="{ 'aria-label': '创作会话名称' }" :disabled="!!pending" />
+        <span class="creative-note" role="status">{{ saveState }}</span>
+      </div>
       <a-button size="small" @click="leftOpen = !leftOpen"
         >{{ leftOpen ? '收起' : '展开' }}参数</a-button
       ><span class="creative-note">可用 {{ account.available }} · 预留 {{ account.reserved }}</span
@@ -326,7 +328,7 @@ watch(ready, (value) => {
         @dragover.prevent
         @drop.prevent="(event) => uploadFiles(event.dataTransfer?.files ?? null)"
       >
-        <h2>创作参数</h2>
+        <h2 class="studio-panel-title"><span aria-hidden="true">01</span> 创作参数</h2>
         <fieldset :disabled="!!pending || busy">
           <label class="creative-field"
             >生成方式<select :value="generationMode" @change="changeGenerationMode">
@@ -359,7 +361,7 @@ watch(ready, (value) => {
             >提示词<textarea
               ref="promptArea"
               v-model="prompt"
-              rows="10"
+              rows="6"
               maxlength="8000"
               placeholder="描述你想创作的画面…"
             /></label
@@ -406,7 +408,7 @@ watch(ready, (value) => {
               ><button @click="studio.removeReference(index)">移除</button>
             </div>
           </div>
-          <label class="creative-field"
+          <div class="studio-output-fields"><label class="creative-field"
             >画面尺寸<select v-model="size">
               <option v-for="s in provider?.sizes" :key="s">{{ s }}</option>
             </select></label
@@ -421,7 +423,7 @@ watch(ready, (value) => {
               type="number"
               min="1"
               :max="provider?.max_count ?? 1"
-          /></label>
+          /></label></div>
         </fieldset>
         <p class="creative-note">
           {{ mode === 'byok' ? '不消耗站点额度；供应商可能收费' : `预计消耗 ${cost} 额度` }}
@@ -445,6 +447,7 @@ watch(ready, (value) => {
         </div>
       </aside>
       <section class="studio-canvas">
+        <div class="canvas-heading"><span>作品画布</span><span class="creative-note">{{ selectedAsset ? '预览与编辑' : '你的下一幅作品，从这里开始' }}</span></div>
         <p v-if="activeTask" role="status" class="creative-note">
           任务 #{{ activeTask.task.id }} · {{ labels[activeTask.task.status]
           }}{{
@@ -492,7 +495,7 @@ watch(ready, (value) => {
         </div>
       </section>
       <aside class="studio-history creative-box">
-        <h2>任务与历史</h2>
+        <h2 class="studio-panel-title"><span aria-hidden="true">02</span> 任务与历史</h2>
         <label class="creative-field"
           >历史范围<select v-model="historyScope">
             <option value="session">本会话</option>
@@ -536,7 +539,7 @@ watch(ready, (value) => {
         <a-button v-if="studio.moreTasks.value" long @click="studio.run(studio.loadMoreTasks)"
           >加载更早的任务</a-button
         >
-        <p v-if="!shownTasks.length">还没有生成任务</p>
+        <div v-if="!shownTasks.length" class="studio-history-empty"><span aria-hidden="true">✧</span><p>还没有生成任务</p><small>每一次尝试，都会留在这里。</small></div>
       </aside>
     </div>
     <a-modal
@@ -676,35 +679,31 @@ watch(ready, (value) => {
 </template>
 <style scoped>
 .ai-studio {
-  max-width: none;
-  margin: 22px auto;
+  max-width: 1600px;
 }
 .studio-top {
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
-  align-items: center;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
 .studio-top > div:first-child {
-  min-width: 220px;
-  max-width: 340px;
+  min-width: 0;
 }
-.studio-top .arco-select {
+.studio-top .arco-select-view-single {
   width: 180px;
 }
 .studio-grid {
+  --studio-left-width: 300px;
+  --studio-right-width: 260px;
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr) 270px;
+  grid-template-columns: var(--studio-left-width) minmax(0, 1fr) var(--studio-right-width);
   grid-template-areas: 'parameters canvas history';
   gap: 18px;
   min-height: 640px;
 }
 .studio-grid.hide-left {
-  grid-template-columns: 0 minmax(0, 1fr) 270px;
+  grid-template-columns: 0 minmax(0, 1fr) var(--studio-right-width);
 }
 .studio-grid.hide-right {
-  grid-template-columns: 300px minmax(0, 1fr) 0;
+  grid-template-columns: var(--studio-left-width) minmax(0, 1fr) 0;
 }
 .studio-grid.hide-left.hide-right {
   grid-template-columns: 0 minmax(0, 1fr) 0;
@@ -718,12 +717,12 @@ watch(ready, (value) => {
 }
 .studio-parameters {
   grid-area: parameters;
-  max-height: calc(100vh - 220px);
+  max-height: clamp(640px, calc(100dvh - 320px), 900px);
   overflow: auto;
 }
 .studio-history {
   grid-area: history;
-  max-height: calc(100vh - 220px);
+  max-height: clamp(640px, calc(100dvh - 320px), 900px);
   overflow: auto;
 }
 .studio-canvas {
@@ -739,9 +738,21 @@ watch(ready, (value) => {
   min-height: 440px;
   overflow: auto;
   border: 1px solid var(--creative-line);
-  border-radius: 16px;
-  background: var(--creative-canvas);
+  border-radius: 22px;
+  background: var(--creative-grain), var(--creative-canvas);
+  background-size: 8px 8px;
 }
+.canvas-surface .creative-empty { background: none; border: 0; padding: 40px 24px; }
+.canvas-surface .creative-empty p { font-size: 13px; }
+.canvas-heading { display: flex; justify-content: space-between; gap: 12px; padding: 4px 4px 16px; color: var(--creative-muted); font-size: 13px; }
+.studio-panel-title { display: flex; align-items: center; gap: 10px; padding-bottom: 16px; border-bottom: 1px solid var(--creative-line); }
+.studio-panel-title span { color: var(--creative-accent); font-size: 11px; font-weight: 400; letter-spacing: .1em; }
+.studio-output-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+.studio-history-empty { text-align: center; padding: 42px 0; color: var(--creative-muted); }
+.studio-history-empty > span { font-size: 32px; color: var(--creative-accent); }
+.studio-history-empty small { font-size: 11px; }
+.studio-session { display: flex; align-items: center; gap: 12px; margin-right: auto; }
+.studio-session .arco-input-wrapper { width: 190px; }
 .canvas-image {
   width: 100%;
   height: 500px;
@@ -752,6 +763,15 @@ watch(ready, (value) => {
   font-size: 72px;
   color: var(--creative-accent);
   font-weight: 200;
+  display: grid;
+  place-items: center;
+  width: 124px;
+  height: 124px;
+  margin: 0 auto 24px;
+  border: 1px solid var(--creative-line);
+  border-radius: 50%;
+  background: var(--creative-paper);
+  box-shadow: 12px -8px 0 -4px var(--creative-soft);
 }
 .canvas-actions {
   padding: 18px 0;
@@ -833,8 +853,11 @@ watch(ready, (value) => {
   display: none;
 }
 .studio-toolbar {
-  margin-bottom: 12px;
-  justify-content: space-between;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  background: var(--creative-paper);
+  border: 1px solid var(--creative-line);
+  border-radius: 16px;
 }
 .studio-parameters fieldset {
   padding: 0;
@@ -855,7 +878,8 @@ watch(ready, (value) => {
 }
 @media (max-width: 1100px) {
   .studio-grid {
-    grid-template-columns: 260px minmax(0, 1fr) 220px;
+    --studio-left-width: 260px;
+    --studio-right-width: 220px;
   }
   .studio-top {
     align-items: flex-start;
@@ -872,8 +896,11 @@ watch(ready, (value) => {
     margin: 14px 0;
   }
   .studio-toolbar {
-    display: none;
+    display: flex;
   }
+  .studio-toolbar > .arco-btn, .studio-toolbar > .creative-note { display: none; }
+  .studio-session { width: 100%; flex-wrap: wrap; }
+  .studio-session .arco-input-wrapper { flex: 1; min-width: 140px; }
   .studio-grid,
   .studio-grid.hide-left,
   .studio-grid.hide-right,
@@ -905,7 +932,7 @@ watch(ready, (value) => {
   .studio-top .creative-actions {
     gap: 8px;
   }
-  .studio-top .arco-select {
+  .studio-top .arco-select-view-single {
     max-width: 160px;
   }
   .ai-studio {

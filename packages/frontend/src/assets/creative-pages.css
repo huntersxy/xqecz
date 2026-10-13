@@ -1,6 +1,6 @@
 .creative-page {
   max-width: 1440px;
-  margin: 32px auto;
+  margin: 40px auto 64px;
   padding: 0 28px;
   color: var(--creative-ink);
 }
@@ -12,12 +12,43 @@
   overflow: auto;
 }
 .creative-page-head {
+  position: relative;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 20px;
-  margin-bottom: 26px;
+  margin-bottom: 28px;
+  padding: 30px 0;
+  border-bottom: 1px solid var(--creative-line);
 }
+.creative-page-head > div { min-width: 0; }
+.creative-page-head > div:first-child { flex: 1; }
+.creative-page-head p { margin: 12px 0 0; max-width: 640px; }
+.creative-page-head::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 36px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--creative-accent);
+  pointer-events: none;
+}
+.creative-page-head .creative-actions { justify-content: flex-end; max-width: 520px; }
+.creative-page-head .creative-actions > a,
+.studio-task .creative-actions > a {
+  color: var(--creative-accent);
+  text-decoration: none;
+  font-size: 13px;
+}
+.creative-page-head .creative-actions > a:not(:has(button)) {
+  padding: 8px 14px;
+  border: 1px solid var(--creative-line);
+  border-radius: 999px;
+  background: var(--creative-paper);
+}
+.creative-page-head .creative-actions > a:hover { color: var(--creative-accent-hover); }
 .creative-page h1 {
   font-size: 30px;
   letter-spacing: 0.03em;
@@ -48,8 +79,47 @@
   padding: 22px;
   background: var(--creative-paper);
   border: 1px solid var(--creative-line);
-  border-radius: 16px;
+  border-radius: 20px;
+  min-width: 0;
 }
+/* 页面与传送到 body 的弹层共用控件外观，状态色仍由 Arco 的 status 决定。 */
+:is(.creative-page, .ai-dialog) .arco-btn { border-radius: 999px; }
+:is(.creative-page, .ai-dialog) .arco-btn-secondary.arco-btn-status-normal:not(.arco-btn-disabled) {
+  color: var(--creative-ink);
+  border: 1px solid var(--creative-line);
+  background: var(--creative-paper);
+}
+:is(.creative-page, .ai-dialog) .arco-btn-secondary.arco-btn-status-normal:not(.arco-btn-disabled):hover {
+  color: var(--creative-accent);
+  border-color: var(--creative-accent);
+  background: var(--creative-soft);
+}
+:is(.creative-page, .ai-dialog) :is(.arco-input-wrapper, .arco-select-view-single, .arco-textarea-wrapper) {
+  border-radius: 10px;
+  background: var(--creative-canvas);
+  border-color: var(--creative-line);
+}
+:is(.creative-page, .ai-dialog) :is(.arco-input, .arco-select-view-value, .arco-textarea) { color: var(--creative-ink); }
+:is(.creative-page, .ai-dialog) .arco-radio-group-button { background: var(--creative-canvas); border-radius: 999px; padding: 4px; }
+:is(.creative-page, .ai-dialog) .arco-radio-button { border-radius: 999px; }
+:is(.creative-page, .ai-dialog) .arco-radio-button::before { display: none; }
+:is(.creative-page, .ai-dialog) .arco-radio-button-content { border-radius: 999px; color: var(--creative-muted); }
+:is(.creative-page, .ai-dialog) .arco-radio-checked .arco-radio-button-content {
+  color: var(--creative-accent);
+  background: var(--creative-paper);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--creative-ink) 8%, transparent);
+}
+.creative-card {
+  display: flex;
+  flex-direction: column;
+  transition: border-color .2s, box-shadow .2s, transform .2s;
+}
+.creative-card:hover { border-color: color-mix(in srgb, var(--creative-accent) 40%, var(--creative-line)); box-shadow: var(--creative-shadow); transform: translateY(-3px); }
+.creative-card h2 { font-size: 19px; line-height: 1.5; overflow-wrap: anywhere; }
+.creative-card > p { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 16px; }
+.creative-card .creative-note { margin-top: auto; }
+.creative-card-placeholder { display: grid; place-content: center; gap: 8px; text-align: center; color: var(--creative-muted); font-size: 12px; }
+.creative-card-placeholder span { font-size: 48px; color: var(--creative-accent); }
 .creative-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -59,6 +129,10 @@
   padding: 60px 20px;
   text-align: center;
   color: var(--creative-muted);
+  border-radius: 20px;
+  background: var(--creative-grain), var(--creative-paper);
+  background-size: 7px 7px;
+  border: 1px dashed var(--creative-line);
 }
 .creative-field {
   display: grid;
@@ -74,7 +148,7 @@
   min-width: 0;
   padding: 10px 12px;
   border: 1px solid var(--creative-line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--creative-canvas);
   color: var(--creative-ink);
   font: inherit;
@@ -91,9 +165,9 @@
   outline-offset: 2px;
 }
 .creative-image-tile {
-  height: 180px;
+  height: 220px;
   background: var(--creative-canvas);
-  border-radius: 10px;
+  border-radius: 14px;
   overflow: hidden;
 }
 .creative-error {
@@ -118,7 +192,10 @@
   }
   .creative-page-head {
     flex-direction: column;
+    align-items: stretch;
+    padding: 24px 0;
   }
+  .creative-page-head .creative-actions { justify-content: flex-start; max-width: none; }
   .creative-page h1 {
     font-size: 25px;
   }

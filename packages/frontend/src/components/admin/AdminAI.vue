@@ -240,6 +240,7 @@ onBeforeUnmount(() => {
     ><template #actions
       ><a-button size="small" :loading="loading" @click="run(load)">刷新</a-button></template
     >
+    <div class="admin-ai-body">
     <div class="admin-ai-tabs">
       <button
         v-for="menu in menus"
@@ -556,19 +557,23 @@ onBeforeUnmount(() => {
         consumed ? '确认结算' : '确认未消耗，释放预留'
       }}</a-button></a-modal
     >
+    </div>
   </AdminPanel>
 </template>
 <style scoped>
+.admin-ai-body { padding: 24px; }
 .admin-ai-tabs {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
   margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--creative-line);
 }
 .admin-ai-tabs button {
-  padding: 8px 12px;
+  padding: 9px 16px;
   border: 1px solid var(--creative-line);
-  border-radius: 8px;
+  border-radius: 999px;
   background: var(--creative-paper);
   color: var(--creative-muted);
   cursor: pointer;
@@ -576,14 +581,18 @@ onBeforeUnmount(() => {
 .admin-ai-tabs button.active {
   background: var(--creative-soft);
   color: var(--creative-accent);
+  border-color: var(--creative-accent);
 }
 .admin-ai-row {
   display: flex;
   justify-content: space-between;
   gap: 20px;
   align-items: flex-start;
-  padding: 22px 0;
-  border-bottom: 1px solid var(--creative-line);
+  padding: 22px;
+  margin-top: 14px;
+  border: 1px solid var(--creative-line);
+  border-radius: 16px;
+  background: var(--creative-paper);
 }
 .admin-ai-row > div:first-child {
   min-width: 0;
@@ -627,13 +636,14 @@ onBeforeUnmount(() => {
 .creative-actions > .arco-input-wrapper {
   max-width: 280px;
 }
-.creative-actions > .arco-select {
+.creative-actions > .arco-select-view-single {
   max-width: 180px;
 }
 .creative-grid {
   margin-top: 20px;
 }
 @media (max-width: 650px) {
+  .admin-ai-body { padding: 16px; }
   .admin-ai-row {
     flex-direction: column;
   }
