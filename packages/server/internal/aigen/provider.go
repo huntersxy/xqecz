@@ -58,6 +58,13 @@ func (p OpenAIProvider) Generate(ctx context.Context, cfg ProviderConfig, key st
 		defer client.CloseIdleConnections()
 	}
 	endpoint, contentType := cfg.Endpoint, "application/json"
+	if len(files) > 0 && strings.Contains(input.Prompt, "@图片") {
+		labels := make([]string, len(files))
+		for i := range files {
+			labels[i] = fmt.Sprintf("@图片%d 对应按顺序上传的第%d张参考图", i+1, i+1)
+		}
+		input.Prompt += "\n\n参考图编号说明：" + strings.Join(labels, "；") + "。请按提示词中的编号使用对应参考图。"
+	}
 	var body io.Reader
 	if len(files) != 0 && cfg.EditTransport == "multipart" {
 		endpoint = strings.TrimSuffix(endpoint, "/generations") + "/edits"

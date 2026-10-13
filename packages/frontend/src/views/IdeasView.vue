@@ -92,7 +92,7 @@ async function sponsor() {
   const row = detail.value
   if (
     !(await confirm(
-      `赞助「${row.idea.title}」将预留 ${row.current_cost} 额度。提示词、参考图和成功结果已由投稿者同意公开；赞助不代表取得著作权。确认？`,
+      `赞助「${row.idea.title}」${user.user?.is_admin ? '不消耗管理员的站点额度' : `将预留 ${row.current_cost} 额度`}。提示词、参考图和成功结果已由投稿者同意公开；赞助不代表取得著作权。确认？`,
     ))
   )
     return
@@ -181,8 +181,11 @@ onBeforeUnmount(() => {
           <p v-if="detail.idea.status === 'waiting' && !detail.sponsorable" class="creative-note">
             当前供应商或参考图暂不可用，等待管理员配置后可赞助。
           </p>
-          <a-button v-if="detail.sponsorable" type="primary" :loading="busy" @click="sponsor"
-            >赞助生成 · {{ detail.current_cost }} 额度</a-button
+          <a-button v-if="detail.sponsorable" type="primary" :loading="busy" @click="sponsor">{{
+            user.user?.is_admin
+              ? '管理员赞助生成（不消耗额度）'
+              : `赞助生成 · ${detail.current_cost} 额度`
+          }}</a-button
           ><a-button v-if="user.user?.id === detail.idea.user_id" status="danger" @click="withdraw"
             >撤回创意</a-button
           >
@@ -215,7 +218,9 @@ onBeforeUnmount(() => {
           ><div v-if="row.results[0] || row.references[0]" class="creative-image-tile">
             <CreativeImage :id="(row.results[0] || row.references[0])!.id" :idea-id="row.idea.id" />
           </div>
-          <div v-else class="creative-image-tile creative-card-placeholder"><span aria-hidden="true">✧</span>一段灵感，等待被点亮</div>
+          <div v-else class="creative-image-tile creative-card-placeholder">
+            <span aria-hidden="true">✧</span>一段灵感，等待被点亮
+          </div>
           <a-tag>{{ labels[row.idea.status] }}</a-tag>
           <h2>{{ row.idea.title }}</h2>
           <p>{{ row.idea.description }}</p>
@@ -293,7 +298,14 @@ onBeforeUnmount(() => {
   margin-bottom: 0 !important;
 }
 @media (max-width: 540px) {
-  .idea-filters .arco-input-wrapper { max-width: none; width: 100%; }
-  .idea-filters :deep(.arco-select-view-single) { flex: 1; min-width: 120px; width: auto; }
+  .idea-filters .arco-input-wrapper {
+    max-width: none;
+    width: 100%;
+  }
+  .idea-filters :deep(.arco-select-view-single) {
+    flex: 1;
+    min-width: 120px;
+    width: auto;
+  }
 }
 </style>

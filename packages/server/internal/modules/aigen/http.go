@@ -67,6 +67,7 @@ func Register(api *gin.RouterGroup, deps app.Deps, contentHandler *content.Handl
 	g.DELETE("/ideas/:id", h.withdraw)
 	a := api.Group("/admin/ai", ready, web.RequireAuth(deps), web.RequireAdmin(), sessionOnly)
 	a.GET("/providers", h.adminProviders)
+	a.GET("/users", h.grantUsers)
 	a.POST("/providers", h.saveProvider)
 	a.POST("/providers/:id/test", h.testSite)
 	a.GET("/tasks", h.adminTasks)

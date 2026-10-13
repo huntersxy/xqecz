@@ -44,6 +44,19 @@ async function checked<T>(url: string, schema: z.ZodType<T>, options: Options = 
 }
 const nil = z.unknown()
 export const aiApi = {
+  grantUsers: () =>
+    checked('/admin/ai/users', z.array(z.object({ id: z.number(), username: z.string() }))),
+  grantBatch: (
+    user_ids: number[],
+    all_users: boolean,
+    amount: number,
+    note: string,
+    idempotency_key: string,
+  ) =>
+    checked('/admin/ai/grants', z.object({ count: z.number() }), {
+      method: 'POST',
+      body: { user_ids, all_users, amount, note, idempotency_key },
+    }),
   config: (signal?: AbortSignal) => checked('/ai/config', AIConfigSchema, { signal }),
   account: (signal?: AbortSignal) => checked('/ai/account', AIAccountSchema, { signal }),
   ledger: () => checked('/ai/ledger', z.array(AILedgerSchema)),

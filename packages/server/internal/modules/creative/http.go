@@ -1,6 +1,8 @@
 package creative
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -78,6 +80,14 @@ func (h *Handler) save(c *gin.Context) {
 	}
 	row := req.Resource
 	row.ID = id(c)
+	if row.Slug == "" && row.ID == 0 {
+		var suffix [8]byte
+		if _, err := rand.Read(suffix[:]); err != nil {
+			web.Fail(c, 500, "资源标识生成失败")
+			return
+		}
+		row.Slug = row.Kind + "-" + hex.EncodeToString(suffix[:])
+	}
 	row.Payload = string(req.Payload)
 	payload, err := core.Validate(row)
 	if err != nil {
@@ -102,8 +112,8 @@ func (h *Handler) save(c *gin.Context) {
 		}
 		for _, asset := range payload.AssetIDs {
 			var n int64
-			if h.db(c).Model(&aigen.Asset{}).Where("id = ? AND public = ? AND archived = ?", asset, true, false).Count(&n).Error != nil || n != 1 {
-				web.SoftFail(c, 400, "请先发布关联素材并填写授权说明")
+			if h.db(c).Model(&aigen.Asset{}).Where("id = ? AND public = ? AND download_allowed = ? AND archived = ?", asset, true, true, false).Count(&n).Error != nil || n != 1 {
+				web.SoftFail(c, 400, "关联图片须公开并允许用于生成与二创，请检查图片授权")
 				return
 			}
 		}

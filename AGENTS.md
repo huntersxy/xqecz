@@ -22,6 +22,7 @@
 | 要修改的规则 | 先读/先改的位置 |
 |--------------|------------------|
 | AI 工作室、角色设定库、创意广场的页面与控件外观 | `packages/frontend/src/assets/creative-pages.css`；配色复用 `main.css` 的 `--creative-*`，弹层显式带 `creative-theme creative-dialog`，画布/侧栏布局由对应页面负责 |
+| 角色/模板/旧组合关系、图片引用编号与授权预设 | `packages/frontend/src/utils/creativeResources.ts` / `packages/frontend/src/utils/creativeMentions.ts` / `packages/frontend/src/utils/creativeLicenses.ts`；资源统一展开后同时导入角色与参考图，重排图片须保持提示词引用目标 |
 | 素材与 API 媒体地址、媒体目录归属、生产同路径回退 | `packages/frontend/src/utils/index.ts`；设计说明见 `docs/frontend-media.md` |
 | 详情大图来源优先级与探测缓存 | `packages/frontend/src/utils/imageSource.ts`，调用方 `ContentMedia.vue` / `MediaImage.vue` |
 | 星图全作品预加载、去重、显影进度与取消 | `packages/frontend/src/utils/universeImages.ts`；不在场景中另写限量图片队列 |
@@ -111,7 +112,7 @@ pnpm-workspace.yaml             # 前端依赖与传递依赖安全覆盖
 
 ## HTTP 接口
 
-全部挂在 `/api` 前缀下，共 52 条；统一响应 `{ code, message, data }`，`code === 200` 为成功。
+全部挂在 `/api` 前缀下；统一响应 `{ code, message, data }`，`code === 200` 为成功。
 
 | 模块 | 路由 | 实现文件 | 说明 |
 |------|------|----------|------|
@@ -122,6 +123,9 @@ pnpm-workspace.yaml             # 前端依赖与传递依赖安全覆盖
 | 投票 | `/poll/*`（5） | `modules/poll` | 列表/详情/投票/创建/删除；游客按 visitor_id 去重 |
 | 管理端 | `/admin/*`（17） | `modules/admin` | 审核、待审、全量内容、用户管理、仪表盘、举报、认领、缩略图重建、推荐刷新 |
 | API 密钥 | `/api-keys`（4） | `modules/apikey` | 创建（完整密钥仅返回一次）/列表/更新/删除 |
+| AI 创作 | `/ai/*` / `/ideas/*` / `/creative/assets*` | `modules/aigen` | 会话、生成、资产、额度与创意赞助 |
+| AI 管理 | `/admin/ai/*` | `modules/aigen/admin.go` | 供应商、任务核查、资产、用户选择与单用户/批量/全体额度发放 |
+| 角色资源 | `/creative/resources*` / `/creative/templates/*` / `/admin/creative/*` | `modules/creative` | 角色与图片、提示词模板，兼容旧组合 |
 
 静态挂载点：`/uploads` → `data/uploads`、`/thumbs` → `data/thumbs`、`/images` → `data/images`（历史兼容，已无新写入）。挂载由 `content.RegisterMedia` 提供而非 gin `r.Static`：带 `?download=1` 时改为附件下载（文件名取内容标题），并屏蔽 `.html`/`.svg` 等可直接执行或注入的扩展名。
 
@@ -172,6 +176,8 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 ```
 
 ## 核心约束
+
+- **AI 管理与资源** — 管理员的站点生成/赞助不扣额度，权限判定归后端，普通用户仍需预留与结算。额度发放使用用户名选择或全体用户；批量余额/账本同事务提交，全体用户幂等重试复用首次快照。角色和图片统一在“角色资源”维护，旧 `preset` 保留兼容；公开资源关联图须有授权并允许用于生成与二创。详细接口与行为见 `docs/ai-creation.md`。
 
 - **前端是契约** — `packages/frontend/src/api/index.ts` 与 `src/types/schemas.ts` 定义接口形状；后端响应必须能被前端 zod schema 直接解析（改接口后跑契约冒烟）
 - **统一响应** — `{ code, message, data }`；错误文案放 `message`（前端直接展示）。**校验类失败沿用 HTTP 200 + 业务码**（如 `{code:400,message:"描述正文与媒体文件至少填一项"}`），鉴权类失败才改 HTTP 状态码

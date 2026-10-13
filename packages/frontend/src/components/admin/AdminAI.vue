@@ -12,6 +12,7 @@ import CreativeImage from '@/components/CreativeImage.vue'
 import AIProviderEditor from './AIProviderEditor.vue'
 import CreativeResourceEditor from './CreativeResourceEditor.vue'
 import '@/assets/creative-pages.css'
+import { creativeLicenseOptions } from '@/utils/creativeLicenses'
 const tab = ref('providers'),
   providers = ref<AIProvider[]>([]),
   assets = ref<AIAsset[]>([]),
@@ -33,10 +34,22 @@ const providerOpen = ref(false),
   resolveId = ref(0),
   consumed = ref(false),
   resolveNote = ref(''),
-  grantForm = ref({ userId: 0, amount: 1, note: '' }),
+  grantForm = ref({ users: [] as number[], scope: 'selected', amount: 1, note: '' }),
   grantKey = ref(newKey()),
   fileInput = ref<HTMLInputElement>(),
   selected = ref<number[]>([])
+const assetError = ref(''),
+  assetSaving = ref(false)
+const assetLicenseChoice = ref('')
+watch(assetLicenseChoice, (value) => {
+  if (editingAsset.value && value && value !== 'other') editingAsset.value.license = value
+})
+const grantBusy = ref(false)
+const grantUsers = ref<{ id: number; username: string }[]>([])
+const pendingGrant = ref<{ users: number[]; all: boolean; amount: number; note: string } | null>(
+  null,
+)
+const grantSuccess = ref('')
 const { confirm } = useConfirm()
 let stopped = false
 let queryController: AbortController | undefined
@@ -91,11 +104,23 @@ const menus = [
   ['tasks', '生图任务'],
   ['ideas', '创意投稿'],
   ['sponsors', '赞助记录'],
-  ['character', '角色'],
-  ['assets', '设定图'],
-  ['preset', '参考图组合'],
+  ['character', '角色资源'],
   ['template', '提示词模板'],
 ]
+const taskLabels: Record<string, string> = {
+  queued: '等待生成',
+  running: '正在生成',
+  succeeded: '生成成功',
+  failed: '生成失败',
+  unknown: '结果待核查',
+  cancelled: '已取消',
+}
+const ledgerLabels: Record<string, string> = {
+  grant: '额度发放',
+  reserve: '生成预留',
+  settle: '生成扣减',
+  release: '退回额度',
+}
 const kind = computed(() =>
   ['character', 'preset', 'template'].includes(tab.value)
     ? (tab.value as CreativeResource['kind'])
@@ -104,7 +129,9 @@ const kind = computed(() =>
 const shownResources = computed(() =>
   resources.value.filter(
     (r) =>
-      r.kind === kind.value &&
+      (kind.value === 'character'
+        ? ['character', 'preset'].includes(r.kind)
+        : r.kind === kind.value) &&
       `${r.title} ${r.summary}`.includes(search.value) &&
       (!status.value || r.status === status.value),
   ),
@@ -115,6 +142,12 @@ const shownTasks = computed(() =>
       (tab.value !== 'sponsors' || t.task.idea_id > 0) &&
       (!status.value || t.task.status === status.value) &&
       t.task.prompt.includes(search.value),
+  ),
+)
+const unassignedAssets = computed(() =>
+  assets.value.filter(
+    (a) =>
+      !resources.value.some((r) => r.kind !== 'template' && r.payload.asset_ids.includes(a.id)),
   ),
 )
 async function run(fn: () => Promise<unknown>) {
@@ -128,13 +161,14 @@ async function run(fn: () => Promise<unknown>) {
 async function load() {
   loading.value = true
   try {
-    const [p, a, t, i, r, l] = await Promise.all([
+    const [p, a, t, i, r, l, users] = await Promise.all([
       aiApi.providers(),
       aiApi.adminAssets(),
       aiApi.adminTasks(),
       aiApi.adminIdeas(),
       creativeApi.adminResources(),
       aiApi.adminLedger(),
+      aiApi.grantUsers(),
     ])
     if (stopped) return
     providers.value = p
@@ -143,6 +177,7 @@ async function load() {
     ideas.value = i
     resources.value = r
     ledger.value = l
+    grantUsers.value = users
     await queryRows()
   } finally {
     loading.value = false
@@ -163,7 +198,13 @@ function editProvider(row: AIProvider | null) {
   providerOpen.value = true
 }
 function editAsset(row: AIAsset) {
+  assetError.value = ''
   editingAsset.value = { ...row }
+  assetLicenseChoice.value = creativeLicenseOptions.some((option) => option.value === row.license)
+    ? row.license
+    : row.license
+      ? 'other'
+      : ''
   assetOpen.value = true
 }
 function startResolve(id: number) {
@@ -179,34 +220,92 @@ async function saved() {
   await run(load)
 }
 async function grant() {
-  await run(async () => {
-    await aiApi.grant(
-      grantForm.value.userId,
-      grantForm.value.amount,
-      grantForm.value.note,
+  if (grantBusy.value) return
+  const { users, scope, amount, note } = grantForm.value
+  if (!pendingGrant.value && scope === 'selected' && !users.length) {
+    error.value = '请选择要发放额度的用户'
+    return
+  }
+  if (!Number.isSafeInteger(amount) || amount < 1 || amount > 10000) {
+    error.value = '发放额度须为1–10000的整数'
+    return
+  }
+  grantBusy.value = true
+  grantSuccess.value = ''
+  try {
+    error.value = ''
+    pendingGrant.value ??= {
+      users: scope === 'all' ? [] : [...users],
+      all: scope === 'all',
+      amount,
+      note,
+    }
+    const target = pendingGrant.value
+    const result = await aiApi.grantBatch(
+      target.users,
+      target.all,
+      target.amount,
+      target.note,
       grantKey.value,
     )
-    grantKey.value = newKey()
-    await load()
-  })
+    if (!stopped) {
+      grantKey.value = newKey()
+      pendingGrant.value = null
+      grantSuccess.value = `已为 ${result.count} 位用户各增加 ${target.amount} 额度`
+      await load()
+    }
+  } catch (e) {
+    if (!stopped) error.value = (e as Error).message
+    if ((e as Error).name === 'BusinessError') pendingGrant.value = null
+  } finally {
+    grantBusy.value = false
+  }
 }
 async function upload(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]
   if (!file) return
   await run(async () => {
     const row = await aiApi.upload(file)
-    editingAsset.value = { ...row, title: file.name, license: '', public: false }
-    assetOpen.value = true
+    editAsset({ ...row, title: file.name, license: '', public: false })
     await load()
   })
   if (fileInput.value) fileInput.value.value = ''
 }
 async function saveAsset() {
-  if (!editingAsset.value) return
-  await run(async () => {
-    await aiApi.metadata(editingAsset.value!.id, editingAsset.value!)
-    await saved()
-  })
+  if (!editingAsset.value || assetSaving.value) return
+  assetError.value = ''
+  const {
+    id,
+    title,
+    description,
+    license,
+    purpose,
+    public: isPublic,
+    download_allowed,
+    archived,
+  } = editingAsset.value
+  if (isPublic && !license.trim()) {
+    assetError.value = '公开素材前请填写来源与授权说明'
+    return
+  }
+  assetSaving.value = true
+  try {
+    // Submit editable metadata only; ownership and task provenance remain server-owned.
+    await aiApi.metadata(id, {
+      title,
+      description,
+      license,
+      purpose,
+      public: isPublic,
+      download_allowed,
+      archived,
+    })
+    if (!stopped) await saved()
+  } catch (e) {
+    if (!stopped) assetError.value = (e as Error).message
+  } finally {
+    assetSaving.value = false
+  }
 }
 async function archiveSelected() {
   if (!selected.value.length || !(await confirm('将选中资源归档？历史生成任务会保留原快照。')))
@@ -241,327 +340,486 @@ onBeforeUnmount(() => {
       ><a-button size="small" :loading="loading" @click="run(load)">刷新</a-button></template
     >
     <div class="admin-ai-body">
-    <div class="admin-ai-tabs">
-      <button
-        v-for="menu in menus"
-        :key="menu[0]"
-        :class="{ active: tab === menu[0] }"
-        @click="switchTab(menu[0]!)"
-      >
-        {{ menu[1] }}
-      </button>
-    </div>
-    <div v-if="error" class="creative-error">{{ error }}</div>
-    <template v-if="tab === 'providers'"
-      ><a-button type="primary" @click="editProvider(null)">添加供应商</a-button>
-      <div v-for="p in providers" :key="p.id" class="admin-ai-row">
-        <div>
-          <strong>{{ p.name }}</strong>
-          <p>
-            {{ p.model }} · {{ p.enabled ? '启用' : '停用' }} ·
-            {{ p.has_key ? '密钥已加密保存' : '未配置密钥' }}
-          </p>
-          <small>{{ p.endpoint }}</small>
-        </div>
-        <div class="creative-actions">
-          <a-button @click="editProvider(p)">编辑</a-button
-          ><a-button
-            :disabled="!p.enabled"
-            @click="
-              run(async () => {
-                if (await confirm('测试会请求生成一张图，可能产生供应商费用。继续？')) {
-                  await aiApi.testProvider(p.id, newKey())
-                  tab = 'tasks'
-                  await load()
-                }
-              })
-            "
-            >生成连通测试</a-button
-          >
-        </div>
-      </div></template
-    >
-    <template v-else-if="tab === 'quota'"
-      ><div class="creative-box">
-        <h3>发放额度</h3>
-        <div class="creative-actions">
-          <a-input-number
-            v-model="grantForm.userId"
-            placeholder="用户 ID"
-            :min="1"
-          /><a-input-number v-model="grantForm.amount" :min="1" :max="10000" /><a-input
-            v-model="grantForm.note"
-            placeholder="发放原因"
-          /><a-button type="primary" @click="grant">发放</a-button>
-        </div>
-      </div>
-      <div class="admin-ai-table">
-        <table>
-          <thead>
-            <tr>
-              <th>时间</th>
-              <th>用户</th>
-              <th>任务</th>
-              <th>类型</th>
-              <th>可用额度变化</th>
-              <th>记录</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in ledger" :key="row.id">
-              <td>{{ new Date(row.created_at).toLocaleString() }}</td>
-              <td>{{ row.user_id }}</td>
-              <td>{{ row.task_id || '—' }}</td>
-              <td>{{ row.kind }}</td>
-              <td>{{ row.amount }}</td>
-              <td>{{ row.note }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div></template
-    >
-    <template v-else-if="tab === 'tasks' || tab === 'sponsors'"
-      ><div class="creative-actions">
-        <a-input v-model="search" placeholder="搜索提示词" /><a-select
-          v-model="status"
-          placeholder="全部状态"
-          allow-clear
-          ><a-option
-            v-for="s in ['queued', 'running', 'succeeded', 'failed', 'unknown', 'cancelled']"
-            :key="s"
-            >{{ s }}</a-option
-          ></a-select
+      <div class="admin-ai-tabs">
+        <button
+          v-for="menu in menus"
+          :key="menu[0]"
+          :class="{ active: tab === menu[0] }"
+          @click="switchTab(menu[0]!)"
         >
-        <a-button @click="run(() => queryRows())">搜索全部任务</a-button>
+          {{ menu[1] }}
+        </button>
       </div>
-      <div v-for="row in shownTasks" :key="row.task.id" class="admin-ai-row">
-        <div>
-          <strong>#{{ row.task.id }} · {{ row.task.status }}</strong>
-          <p>{{ row.task.prompt }}</p>
-          <small
-            >用户 {{ row.task.user_id }} · {{ row.task.model }} · {{ row.task.cost }} 额度 · 创意
-            {{ row.task.idea_id || '—' }}</small
-          >
-          <p v-if="row.task.error">{{ row.task.error }}</p>
-          <div class="admin-result-images">
-            <CreativeImage v-for="asset in row.assets" :key="asset.id" :id="asset.id" />
+      <div v-if="error" class="creative-error">{{ error }}</div>
+      <template v-if="tab === 'providers'"
+        ><a-button type="primary" @click="editProvider(null)">添加供应商</a-button>
+        <div v-for="p in providers" :key="p.id" class="admin-ai-row">
+          <div>
+            <strong>{{ p.name }}</strong>
+            <p>
+              {{ p.model }} · {{ p.enabled ? '启用' : '停用' }} ·
+              {{ p.has_key ? '密钥已加密保存' : '未配置密钥' }}
+            </p>
+            <small>{{ p.endpoint }}</small>
           </div>
-          <details v-if="row.references?.length">
-            <summary>原始参考图</summary>
+          <div class="creative-actions">
+            <a-button @click="editProvider(p)">编辑</a-button
+            ><a-button
+              :disabled="!p.enabled"
+              @click="
+                run(async () => {
+                  if (await confirm('测试会请求生成一张图，可能产生供应商费用。继续？')) {
+                    await aiApi.testProvider(p.id, newKey())
+                    tab = 'tasks'
+                    await load()
+                  }
+                })
+              "
+              >生成连通测试</a-button
+            >
+          </div>
+        </div></template
+      >
+      <template v-else-if="tab === 'quota'"
+        ><div class="creative-box">
+          <h3>发放额度</h3>
+          <p class="creative-note">
+            选择用户或全体用户。以下数量是每位用户本次增加的可用额度；管理员生成不消耗站点额度。
+          </p>
+          <a-radio-group
+            v-model="grantForm.scope"
+            :disabled="grantBusy || !!pendingGrant"
+            type="button"
+            ><a-radio value="selected">选择用户</a-radio
+            ><a-radio value="all">全体用户</a-radio></a-radio-group
+          >
+          <div class="grant-fields">
+            <label v-if="grantForm.scope === 'selected'" class="creative-field"
+              >发放给谁
+              <a-select
+                v-model="grantForm.users"
+                multiple
+                allow-search
+                placeholder="搜索并选择用户"
+                :disabled="grantBusy || !!pendingGrant"
+                ><a-option v-for="u in grantUsers" :key="u.id" :value="u.id"
+                  >{{ u.username }}（#{{ u.id }}）</a-option
+                ></a-select
+              >
+            </label>
+            <div v-else class="creative-field">
+              <span>发放给谁</span><strong>全体用户</strong
+              ><span class="creative-note">提交时由服务器确定完整用户列表</span>
+            </div>
+            <label class="creative-field"
+              >发放额度
+              <a-input-number
+                v-model="grantForm.amount"
+                :input-attrs="{ 'aria-label': '发放额度' }"
+                :min="1"
+                :max="10000"
+                :precision="0"
+                :disabled="grantBusy || !!pendingGrant"
+              />
+              <span class="creative-note">本次增加的额度，1–10000</span>
+            </label>
+            <label class="creative-field"
+              >发放原因（选填）
+              <a-input
+                v-model="grantForm.note"
+                :input-attrs="{ 'aria-label': '发放原因' }"
+                placeholder="如：活动奖励、创作支持"
+                :max-length="300"
+                :disabled="grantBusy || !!pendingGrant"
+              />
+            </label>
+            <a-button type="primary" :loading="grantBusy" @click="grant">{{
+              pendingGrant ? '确认上次发放' : '发放额度'
+            }}</a-button>
+          </div>
+          <p v-if="grantSuccess" role="status" class="creative-note">{{ grantSuccess }}</p>
+          <p v-if="pendingGrant" class="creative-note">
+            发放结果尚未确认，再次提交会核对上次操作，不会重复增加额度。
+          </p>
+        </div>
+        <div class="admin-ai-table">
+          <table>
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>用户</th>
+                <th>任务</th>
+                <th>类型</th>
+                <th>可用额度变化</th>
+                <th>记录</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in ledger" :key="row.id">
+                <td>{{ new Date(row.created_at).toLocaleString() }}</td>
+                <td>
+                  {{
+                    grantUsers.find((user) => user.id === row.user_id)?.username ||
+                    `用户 #${row.user_id}`
+                  }}
+                </td>
+                <td>{{ row.task_id || '—' }}</td>
+                <td>{{ ledgerLabels[row.kind] || row.kind }}</td>
+                <td>{{ row.amount }}</td>
+                <td>{{ row.note }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div></template
+      >
+      <template v-else-if="tab === 'tasks' || tab === 'sponsors'"
+        ><div class="creative-actions">
+          <a-input v-model="search" placeholder="搜索提示词" /><a-select
+            v-model="status"
+            placeholder="全部生成状态"
+            allow-clear
+            ><a-option
+              v-for="s in ['queued', 'running', 'succeeded', 'failed', 'unknown', 'cancelled']"
+              :key="s"
+              :value="s"
+              >{{ taskLabels[s] }}</a-option
+            ></a-select
+          >
+          <a-button @click="run(() => queryRows())">搜索全部任务</a-button>
+        </div>
+        <p class="creative-note">
+          {{
+            tab === 'sponsors'
+              ? '这里显示赞助产生的生成任务。状态表示生成进度；“结果待核查”表示执行或费用尚未确认，需要管理员核查。'
+              : '状态表示图片生成进度；失败与结果待核查的任务会显示具体原因。'
+          }}
+        </p>
+        <div v-for="row in shownTasks" :key="row.task.id" class="admin-ai-row">
+          <div>
+            <strong>#{{ row.task.id }} · {{ taskLabels[row.task.status] }}</strong>
+            <p>{{ row.task.prompt }}</p>
+            <small
+              >用户 {{ row.task.user_id }} · {{ row.task.model }} · {{ row.task.cost }} 额度 · 创意
+              {{ row.task.idea_id || '—' }}</small
+            >
+            <p v-if="row.task.error">{{ row.task.error }}</p>
+            <div class="admin-result-images">
+              <CreativeImage v-for="asset in row.assets" :key="asset.id" :id="asset.id" />
+            </div>
+            <details v-if="row.references?.length">
+              <summary>原始参考图</summary>
+              <div class="admin-result-images">
+                <CreativeImage v-for="asset in row.references" :key="asset.id" :id="asset.id" />
+              </div>
+            </details>
+          </div>
+          <a-button v-if="row.task.status === 'unknown'" @click="startResolve(row.task.id)"
+            >核查结算</a-button
+          >
+        </div>
+        <a-button v-if="moreRows" @click="run(() => queryRows(true))"
+          >加载更早的任务</a-button
+        ></template
+      >
+      <template v-else-if="tab === 'ideas'"
+        ><div class="creative-actions">
+          <a-input
+            v-model="search"
+            placeholder="搜索投稿"
+            @press-enter="run(() => queryRows())"
+          /><a-select v-model="status" placeholder="全部状态" allow-clear
+            ><a-option
+              v-for="s in [
+                'waiting',
+                'generating',
+                'realized',
+                'unknown',
+                'unavailable',
+                'hidden',
+                'withdrawn',
+              ]"
+              :key="s"
+              :value="s"
+              >{{ s }}</a-option
+            ></a-select
+          ><a-button @click="run(() => queryRows())">搜索投稿</a-button>
+        </div>
+        <div v-for="row in ideas" :key="row.idea.id" class="admin-ai-row">
+          <div>
+            <strong>{{ row.idea.title }} · {{ row.idea.status }}</strong>
+            <p>{{ row.idea.description }}</p>
+            <details>
+              <summary>提示词与参数</summary>
+              <pre>{{ row.idea.snapshot }}</pre>
+            </details>
             <div class="admin-result-images">
               <CreativeImage v-for="asset in row.references" :key="asset.id" :id="asset.id" />
             </div>
-          </details>
-        </div>
-        <a-button v-if="row.task.status === 'unknown'" @click="startResolve(row.task.id)"
-          >核查结算</a-button
-        >
-      </div>
-      <a-button v-if="moreRows" @click="run(() => queryRows(true))"
-        >加载更早的任务</a-button
-      ></template
-    >
-    <template v-else-if="tab === 'ideas'"
-      ><div class="creative-actions">
-        <a-input
-          v-model="search"
-          placeholder="搜索投稿"
-          @press-enter="run(() => queryRows())"
-        /><a-select v-model="status" placeholder="全部状态" allow-clear
-          ><a-option
-            v-for="s in [
-              'waiting',
-              'generating',
-              'realized',
-              'unknown',
-              'unavailable',
-              'hidden',
-              'withdrawn',
-            ]"
-            :key="s"
-            :value="s"
-            >{{ s }}</a-option
-          ></a-select
-        ><a-button @click="run(() => queryRows())">搜索投稿</a-button>
-      </div>
-      <div v-for="row in ideas" :key="row.idea.id" class="admin-ai-row">
-        <div>
-          <strong>{{ row.idea.title }} · {{ row.idea.status }}</strong>
-          <p>{{ row.idea.description }}</p>
-          <details>
-            <summary>提示词与参数</summary>
-            <pre>{{ row.idea.snapshot }}</pre>
-          </details>
-          <div class="admin-result-images">
-            <CreativeImage v-for="asset in row.references" :key="asset.id" :id="asset.id" />
+            <p class="creative-note">
+              创意 {{ row.author.username }} · 赞助 {{ row.sponsor?.username || '等待赞助' }} ·
+              {{ row.current_cost }} 额度
+            </p>
           </div>
-          <p class="creative-note">
-            创意 {{ row.author.username }} · 赞助 {{ row.sponsor?.username || '等待赞助' }} ·
-            {{ row.current_cost }} 额度
-          </p>
+          <div class="creative-actions">
+            <a-button @click="showEvents(row.idea.id)">操作与核查记录</a-button>
+            <RouterLink :to="`/ideas/${row.idea.id}`">预览</RouterLink
+            ><a-button
+              v-if="row.sponsorable"
+              @click="
+                run(async () => {
+                  if (await confirm(`赞助此创意，预留 ${row.current_cost} 额度？`)) {
+                    await aiApi.sponsor(row.idea.id, row.current_cost, newKey())
+                    await load()
+                  }
+                })
+              "
+              >赞助</a-button
+            ><a-button
+              status="danger"
+              @click="
+                run(async () => {
+                  if (await confirm('下架此创意与公开成果？')) {
+                    await aiApi.hideIdea(row.idea.id, '管理员下架')
+                    await load()
+                  }
+                })
+              "
+              >下架</a-button
+            >
+          </div>
         </div>
+        <a-button v-if="moreRows" @click="run(() => queryRows(true))"
+          >加载更早的投稿</a-button
+        ></template
+      >
+      <template v-else-if="tab === 'character'">
         <div class="creative-actions">
-          <a-button @click="showEvents(row.idea.id)">操作与核查记录</a-button>
-          <RouterLink :to="`/ideas/${row.idea.id}`">预览</RouterLink
-          ><a-button
-            v-if="row.sponsorable"
-            @click="
-              run(async () => {
-                if (await confirm(`赞助此创意，预留 ${row.current_cost} 额度？`)) {
-                  await aiApi.sponsor(row.idea.id, row.current_cost, newKey())
-                  await load()
-                }
-              })
-            "
-            >赞助</a-button
-          ><a-button
-            status="danger"
-            @click="
-              run(async () => {
-                if (await confirm('下架此创意与公开成果？')) {
-                  await aiApi.hideIdea(row.idea.id, '管理员下架')
-                  await load()
-                }
-              })
-            "
-            >下架</a-button
+          <a-button type="primary" @click="editResource(null)">新建角色资源</a-button
+          ><a-input v-model="search" placeholder="搜索角色资源" />
+        </div>
+        <p class="creative-note">
+          一个角色资源包含名称、外观说明和参考图片。在同一处管理，生成时一起导入。
+        </p>
+        <div v-for="row in shownResources" :key="row.id" class="admin-ai-row">
+          <div>
+            <strong>{{ row.title }}</strong>
+            <p>
+              {{ row.summary || '暂无简介' }} ·
+              {{ row.status === 'published' ? '已公开展示' : '未公开展示' }} ·
+              {{ row.payload.asset_ids.length }} 张参考图
+            </p>
+            <div class="admin-result-images">
+              <CreativeImage v-for="id in row.payload.asset_ids.slice(0, 4)" :key="id" :id="id" />
+            </div>
+          </div>
+          <a-button @click="editResource(row)">管理角色与图片</a-button>
+        </div>
+        <p v-if="!shownResources.length" class="creative-empty">
+          添加角色名称与图片，就可以开始建立角色资源。
+        </p>
+        <details class="resource-advanced">
+          <summary>未归入角色的图片（{{ unassignedAssets.length }}）</summary>
+          <a-button @click="fileInput?.click()">单独上传图片</a-button
+          ><input
+            ref="fileInput"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            hidden
+            @change="upload"
+          />
+          <p class="creative-note">
+            文件不可原地替换。修改图像请上传新版本，旧图与历史引用继续保留。
+          </p>
+          <div class="creative-grid">
+            <article v-for="asset in unassignedAssets" :key="asset.id" class="creative-box">
+              <div class="creative-image-tile"><CreativeImage :id="asset.id" /></div>
+              <h3>#{{ asset.id }} {{ asset.title || '未命名图片' }}</h3>
+              <p>
+                {{ asset.public ? '公开' : '私人' }} · {{ asset.archived ? '已归档' : '可用' }} ·
+                {{ asset.license || '尚未填写授权' }}
+              </p>
+              <a-button @click="editAsset(asset)">编辑 / 发布 / 归档</a-button>
+            </article>
+          </div>
+        </details></template
+      >
+      <template v-else
+        ><div class="creative-actions">
+          <a-button type="primary" @click="editResource(null)"
+            >新建{{
+              kind === 'character' ? '角色' : kind === 'preset' ? '参考组合' : '提示词'
+            }}</a-button
+          ><a-button :disabled="!selected.length" @click="archiveSelected">批量归档</a-button
+          ><a-input v-model="search" placeholder="搜索资源" /><a-select
+            v-model="status"
+            placeholder="全部状态"
+            allow-clear
+            ><a-option value="draft">草稿</a-option><a-option value="published">发布</a-option
+            ><a-option value="archived">归档</a-option></a-select
           >
         </div>
-      </div>
-      <a-button v-if="moreRows" @click="run(() => queryRows(true))"
-        >加载更早的投稿</a-button
-      ></template
-    >
-    <template v-else-if="tab === 'assets'"
-      ><a-button type="primary" @click="fileInput?.click()">上传新的设定图版本</a-button
-      ><input
-        ref="fileInput"
-        type="file"
-        accept="image/png,image/jpeg,image/webp"
-        hidden
-        @change="upload"
-      />
-      <p class="creative-note">文件不可原地替换。修改图像请上传新版本，旧图与历史引用继续保留。</p>
-      <div class="creative-grid">
-        <article v-for="asset in assets" :key="asset.id" class="creative-box">
-          <div class="creative-image-tile"><CreativeImage :id="asset.id" /></div>
-          <h3>#{{ asset.id }} {{ asset.title || '未命名图片' }}</h3>
-          <p>
-            {{ asset.public ? '公开' : '私人' }} · {{ asset.archived ? '已归档' : '可用' }} ·
-            {{ asset.license || '尚未填写授权' }}
-          </p>
-          <a-button @click="editAsset(asset)">编辑 / 发布 / 归档</a-button>
-        </article>
-      </div></template
-    >
-    <template v-else
-      ><div class="creative-actions">
-        <a-button type="primary" @click="editResource(null)"
-          >新建{{
-            kind === 'character' ? '角色' : kind === 'preset' ? '参考组合' : '提示词'
-          }}</a-button
-        ><a-button :disabled="!selected.length" @click="archiveSelected">批量归档</a-button
-        ><a-input v-model="search" placeholder="搜索资源" /><a-select
-          v-model="status"
-          placeholder="全部状态"
-          allow-clear
-          ><a-option value="draft">草稿</a-option><a-option value="published">发布</a-option
-          ><a-option value="archived">归档</a-option></a-select
-        >
-      </div>
-      <div v-for="row in shownResources" :key="row.id" class="admin-ai-row">
-        <div>
-          <a-checkbox
-            :model-value="selected.includes(row.id)"
+        <div v-for="row in shownResources" :key="row.id" class="admin-ai-row">
+          <div>
+            <a-checkbox
+              :model-value="selected.includes(row.id)"
+              @change="
+                (checked) =>
+                  (selected = checked
+                    ? [...selected, row.id]
+                    : selected.filter((id) => id !== row.id))
+              "
+              >{{ row.title }}</a-checkbox
+            >
+            <p>
+              {{ row.summary }} · {{ row.status }} · 版本 {{ row.version }} · 排序
+              {{ row.sort_order }}
+            </p>
+          </div>
+          <a-button @click="editResource(row)">编辑 / 预览</a-button>
+        </div></template
+      >
+      <a-modal
+        v-model:visible="providerOpen"
+        class="admin-theme creative-theme creative-dialog ai-dialog"
+        title="供应商配置"
+        :width="760"
+        :footer="false"
+        ><AIProviderEditor v-if="providerOpen" :provider="editingProvider" @saved="saved"
+      /></a-modal>
+      <a-modal
+        v-model:visible="eventsOpen"
+        class="admin-theme creative-theme creative-dialog ai-dialog"
+        title="创意操作与核查记录"
+        :footer="false"
+        ><div v-for="event in events" :key="event.id" class="studio-task">
+          <strong
+            >{{ event.action }} · 任务 #{{ event.task_id }} · 操作人 #{{ event.actor_id }}</strong
+          >
+          <p>{{ event.note }}</p>
+          <small>{{ event.created_at }}</small>
+        </div></a-modal
+      >
+      <a-modal
+        v-model:visible="resourceOpen"
+        class="admin-theme creative-theme creative-dialog ai-dialog"
+        title="创作资源"
+        :width="800"
+        :footer="false"
+        ><CreativeResourceEditor
+          v-if="resourceOpen"
+          :resource="editingResource"
+          :kind="editingResource?.kind ?? kind"
+          :assets="assets"
+          :resources="resources"
+          @saved="saved"
+          @assets-changed="assets = $event"
+      /></a-modal>
+      <a-modal
+        v-model:visible="assetOpen"
+        class="admin-theme creative-theme creative-dialog ai-dialog"
+        title="设定图信息"
+        :footer="false"
+        ><template v-if="editingAsset"
+          ><div v-if="assetError" class="creative-error" role="alert">{{ assetError }}</div>
+          <label class="creative-field"
+            >标题<a-input v-model="editingAsset.title" :max-length="150" /></label
+          ><label class="creative-field"
+            >描述<a-textarea v-model="editingAsset.description" :max-length="3000" /></label
+          ><label class="creative-field"
+            >用途<a-input
+              v-model="editingAsset.purpose"
+              :max-length="80"
+              placeholder="标准设定、服装、表情、场景…" /></label
+          ><label class="creative-field"
+            >来源与授权{{ editingAsset.public ? '（公开素材必选）' : ''
+            }}<select v-model="assetLicenseChoice">
+              <option value="">请选择（私人图片可留空）</option>
+              <option
+                v-for="option in creativeLicenseOptions"
+                :key="option.value"
+                :value="option.value"
+              >
+                {{ option.label }}
+              </option>
+              <option value="other">其他授权说明</option></select
+            ><a-textarea
+              v-if="assetLicenseChoice === 'other'"
+              v-model="editingAsset.license"
+              :max-length="300"
+              placeholder="说明素材来源及允许使用的范围" /></label
+          ><a-checkbox
+            v-model="editingAsset.public"
             @change="
-              (checked) =>
-                (selected = checked
-                  ? [...selected, row.id]
-                  : selected.filter((id) => id !== row.id))
+              (checked) => {
+                if (checked && editingAsset) editingAsset.download_allowed = true
+              }
             "
-            >{{ row.title }}</a-checkbox
+            >公开素材（允许生成、二创及下载）</a-checkbox
           >
-          <p>
-            {{ row.summary }} · {{ row.status }} · 版本 {{ row.version }} · 排序
-            {{ row.sort_order }}
+          <p class="creative-note">
+            只有自己上传的设定图可设为公开素材，并需填写来源与授权说明。生成结果请在 AI
+            工作台发布到站内。
           </p>
-        </div>
-        <a-button @click="editResource(row)">编辑 / 预览</a-button>
-      </div></template
-    >
-    <a-modal
-      v-model:visible="providerOpen"
-      class="admin-theme creative-theme creative-dialog ai-dialog"
-      title="供应商配置"
-      :width="760"
-      :footer="false"
-      ><AIProviderEditor v-if="providerOpen" :provider="editingProvider" @saved="saved"
-    /></a-modal>
-    <a-modal
-      v-model:visible="eventsOpen"
-      class="admin-theme creative-theme creative-dialog ai-dialog"
-      title="创意操作与核查记录"
-      :footer="false"
-      ><div v-for="event in events" :key="event.id" class="studio-task">
-        <strong
-          >{{ event.action }} · 任务 #{{ event.task_id }} · 操作人 #{{ event.actor_id }}</strong
-        >
-        <p>{{ event.note }}</p>
-        <small>{{ event.created_at }}</small>
-      </div></a-modal
-    >
-    <a-modal
-      v-model:visible="resourceOpen"
-      class="admin-theme creative-theme creative-dialog ai-dialog"
-      title="创作资源"
-      :width="800"
-      :footer="false"
-      ><CreativeResourceEditor
-        v-if="resourceOpen"
-        :resource="editingResource"
-        :kind="kind"
-        :assets="assets"
-        :resources="resources"
-        @saved="saved"
-    /></a-modal>
-    <a-modal
-      v-model:visible="assetOpen"
-      class="admin-theme creative-theme creative-dialog ai-dialog"
-      title="设定图信息"
-      :footer="false"
-      ><template v-if="editingAsset"
-        ><label class="creative-field">标题<a-input v-model="editingAsset.title" /></label
-        ><label class="creative-field">描述<a-textarea v-model="editingAsset.description" /></label
+          <a-checkbox v-model="editingAsset.archived">归档</a-checkbox
+          ><a-button type="primary" :loading="assetSaving" @click="saveAsset"
+            >保存</a-button
+          ></template
+        ></a-modal
+      >
+      <a-modal
+        v-model:visible="resolveOpen"
+        class="admin-theme creative-theme creative-dialog ai-dialog"
+        title="核查结果不明的任务"
+        :footer="false"
+        ><p>先在供应商侧核查实际执行与计费情况，再释放或结算预留额度。此操作不会重新请求生图。</p>
+        <a-checkbox v-model="consumed">已确认产生供应商费用，结算预留额度</a-checkbox
         ><label class="creative-field"
-          >用途<a-input
-            v-model="editingAsset.purpose"
-            placeholder="标准设定、服装、表情、场景…" /></label
-        ><label class="creative-field"
-          >来源与授权说明<a-textarea v-model="editingAsset.license" /></label
-        ><a-checkbox v-model="editingAsset.public">公开素材</a-checkbox
-        ><a-checkbox v-model="editingAsset.download_allowed">允许下载与公开投稿参考</a-checkbox
-        ><a-checkbox v-model="editingAsset.archived">归档</a-checkbox
-        ><a-button type="primary" @click="saveAsset">保存</a-button></template
-      ></a-modal
-    >
-    <a-modal
-      v-model:visible="resolveOpen"
-      class="admin-theme creative-theme creative-dialog ai-dialog"
-      title="核查结果不明的任务"
-      :footer="false"
-      ><p>先在供应商侧核查实际执行与计费情况，再释放或结算预留额度。此操作不会重新请求生图。</p>
-      <a-checkbox v-model="consumed">已确认产生供应商费用，结算预留额度</a-checkbox
-      ><label class="creative-field"
-        >核查依据与说明（必填）<a-textarea v-model="resolveNote" /></label
-      ><a-button type="primary" @click="resolve">{{
-        consumed ? '确认结算' : '确认未消耗，释放预留'
-      }}</a-button></a-modal
-    >
+          >核查依据与说明（必填）<a-textarea v-model="resolveNote" /></label
+        ><a-button type="primary" @click="resolve">{{
+          consumed ? '确认结算' : '确认未消耗，释放预留'
+        }}</a-button></a-modal
+      >
     </div>
   </AdminPanel>
 </template>
 <style scoped>
-.admin-ai-body { padding: 24px; }
+.admin-ai-body {
+  padding: 24px;
+}
+.resource-advanced {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--creative-line);
+}
+.resource-advanced summary {
+  color: var(--creative-muted);
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+.grant-fields {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(140px, 1fr) minmax(180px, 1.5fr) auto;
+  align-items: start;
+  gap: 16px;
+}
+.grant-fields .creative-field {
+  margin: 12px 0 0;
+}
+.grant-fields > .arco-btn {
+  margin-top: 36px;
+}
+.grant-fields :deep(.arco-input-number) {
+  width: 100%;
+}
+@media (max-width: 1100px) {
+  .grant-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .grant-fields > .arco-btn {
+    align-self: end;
+    margin: 0 0 0 auto;
+  }
+}
 .admin-ai-tabs {
   display: flex;
   gap: 8px;
@@ -643,7 +901,16 @@ onBeforeUnmount(() => {
   margin-top: 20px;
 }
 @media (max-width: 650px) {
-  .admin-ai-body { padding: 16px; }
+  .grant-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .grant-fields > .arco-btn {
+    width: 100%;
+    margin-top: 8px;
+  }
+  .admin-ai-body {
+    padding: 16px;
+  }
   .admin-ai-row {
     flex-direction: column;
   }

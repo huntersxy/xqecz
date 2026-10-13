@@ -334,3 +334,61 @@ func TestAIHTTPPrivacyFiltersAndPagination(t *testing.T) {
 		t.Fatal(w.Code, w.Header())
 	}
 }
+
+func TestAIHTTPAssetPublicationValidation(t *testing.T) {
+	deps, handler := aiFixture(t)
+	ctx := context.Background()
+	for _, tc := range []struct {
+		name, license, message string
+		owner, task            uint64
+	}{
+		{"missing license", "", "公开素材前请填写来源与授权说明", 1, 0},
+		{"blank license", " \n\t", "公开素材前请填写来源与授权说明", 1, 0},
+		{"another owner", "授权用于二创", "只能将自己上传的设定图设为公开素材", 2, 0},
+		{"generated result", "授权用于二创", "生成结果不能设为公开素材，请在 AI 工作台发布到站内", 1, 42},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			asset, err := deps.AI.Upload(ctx, tc.owner, bytes.NewReader(fixturePNG()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := deps.DB.Model(&asset).Update("task_id", tc.task).Error; err != nil {
+				t.Fatal(err)
+			}
+			w := aiRequest(t, handler, "PATCH", fmt.Sprintf("/api/admin/ai/assets/%d", asset.ID), "fixture-admin", map[string]any{"public": true, "license": tc.license})
+			var response struct {
+				Code    int    `json:"code"`
+				Message string `json:"message"`
+			}
+			if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+				t.Fatal(err)
+			}
+			if w.Code != 200 || response.Code != 400 || response.Message != tc.message {
+				t.Fatalf("unexpected response: %d %s", w.Code, w.Body.String())
+			}
+			if err := deps.DB.First(&asset, asset.ID).Error; err != nil {
+				t.Fatal(err)
+			}
+			if asset.Public {
+				t.Fatal("invalid publication disclosed asset")
+			}
+			if w := aiRequest(t, handler, "GET", fmt.Sprintf("/api/creative/assets/%d", asset.ID), "", nil); w.Code != 404 {
+				t.Fatal("private asset became anonymously readable", w.Code)
+			}
+		})
+	}
+	asset, err := deps.AI.Upload(ctx, 1, bytes.NewReader(fixturePNG()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	jsonData(t, aiRequest(t, handler, "PATCH", fmt.Sprintf("/api/admin/ai/assets/%d", asset.ID), "fixture-admin", map[string]any{"title": "公开设定图", "public": true, "license": "原创素材，授权用于二创", "download_allowed": true}))
+	if err := deps.DB.First(&asset, asset.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if !asset.Public || asset.License != "原创素材，授权用于二创" {
+		t.Fatal("valid metadata was not persisted", asset)
+	}
+	if w := aiRequest(t, handler, "GET", fmt.Sprintf("/api/creative/assets/%d", asset.ID), "", nil); w.Code != 200 {
+		t.Fatal("published asset unavailable", w.Code)
+	}
+}

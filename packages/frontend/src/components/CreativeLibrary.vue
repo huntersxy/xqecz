@@ -3,6 +3,7 @@ import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { creativeApi } from '@/api/creative'
 import type { CreativeResource } from '@/types/schemas'
 import CreativeImage from './CreativeImage.vue'
+import { resolveCreativeResource } from '@/utils/creativeResources'
 const emit = defineEmits<{
   apply: [
     value: {
@@ -24,17 +25,18 @@ const resources = ref<CreativeResource[]>([]),
   applyParameters = ref(false)
 const controller = new AbortController()
 const includeReferences = ref(false)
-const recommendedAssets = computed(() => [
-  ...new Set([
-    ...(selected.value?.payload.asset_ids ?? []),
-    ...(resources.value.find(
-      (r) => r.id === selected.value?.payload.preset_id && r.kind === 'preset',
-    )?.payload.asset_ids ?? []),
-  ]),
-])
+const resolved = computed(() =>
+  selected.value
+    ? resolveCreativeResource(selected.value, resources.value)
+    : { assets: [], characters: [], text: '' },
+)
+const recommendedAssets = computed(() => resolved.value.assets)
 const list = computed(() =>
   resources.value.filter(
-    (r) => r.kind === kind.value && `${r.title} ${r.summary}`.includes(search.value),
+    (r) =>
+      (kind.value === 'character'
+        ? ['character', 'preset'].includes(r.kind)
+        : r.kind === kind.value) && `${r.title} ${r.summary}`.includes(search.value),
   ),
 )
 function select(row: CreativeResource) {
@@ -83,17 +85,14 @@ async function apply(action: 'append' | 'replace' | 'insert') {
     if (typeof text !== 'string' || error.value || selected.value?.id !== id) return
   }
   emit('apply', {
-    text: selected.value.kind === 'template' ? preview.value : selected.value.payload.appearance,
+    text: selected.value.kind === 'template' ? preview.value : resolved.value.text,
     assets:
       selected.value.kind === 'template'
         ? includeReferences.value
           ? recommendedAssets.value
           : []
-        : selected.value.payload.asset_ids,
-    characters:
-      selected.value.kind === 'character'
-        ? [selected.value.id]
-        : selected.value.payload.character_ids,
+        : resolved.value.assets,
+    characters: resolved.value.characters,
     parameters: applyParameters.value ? selected.value.payload.parameters : {},
     action,
   })
@@ -111,7 +110,7 @@ onBeforeUnmount(() => controller.abort())
   <div class="creative-library">
     <div>
       <a-radio-group v-model="kind" type="button"
-        ><a-radio value="character">角色</a-radio><a-radio value="preset">参考组合</a-radio
+        ><a-radio value="character">角色资源</a-radio
         ><a-radio value="template">提示词</a-radio></a-radio-group
       ><a-input v-model="search" placeholder="查找创作资源" class="library-search" /><button
         v-for="row in list"
@@ -129,7 +128,7 @@ onBeforeUnmount(() => controller.abort())
       <h3>{{ selected.title }}</h3>
       <p>{{ selected.payload.description || selected.summary }}</p>
       <div class="library-images">
-        <CreativeImage v-for="id in selected.payload.asset_ids" :key="id" :id="id" public-asset />
+        <CreativeImage v-for="id in recommendedAssets" :key="id" :id="id" public-asset />
       </div>
       <label
         v-for="variable in selected.payload.variables"
@@ -161,7 +160,9 @@ onBeforeUnmount(() => controller.abort())
         ><a-button v-if="preview" @click="copyPreview()">复制</a-button>
       </div>
     </div>
-    <div v-else class="creative-empty">选择角色、参考组合或提示词模板</div>
+    <div v-else class="creative-empty">
+      选择角色资源即可一起导入外观描述和参考图，也可以使用提示词模板。
+    </div>
   </div>
 </template>
 <style scoped>
@@ -195,11 +196,25 @@ onBeforeUnmount(() => controller.abort())
   background: var(--creative-soft);
   border-color: var(--creative-accent);
 }
-.library-row:hover { background: var(--creative-soft); }
-.creative-library > div { min-width: 0; }
-.creative-library p { color: var(--creative-muted); line-height: 1.8; }
-.creative-library h3 { color: var(--creative-ink); font-size: 20px; margin-bottom: 12px; }
-.creative-library .arco-checkbox { display: flex; margin-top: 12px; }
+.library-row:hover {
+  background: var(--creative-soft);
+}
+.creative-library > div {
+  min-width: 0;
+}
+.creative-library p {
+  color: var(--creative-muted);
+  line-height: 1.8;
+}
+.creative-library h3 {
+  color: var(--creative-ink);
+  font-size: 20px;
+  margin-bottom: 12px;
+}
+.creative-library .arco-checkbox {
+  display: flex;
+  margin-top: 12px;
+}
 .library-images {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	core "github.com/huntersxy/xqecz/server/internal/aigen"
+	"github.com/huntersxy/xqecz/server/internal/web"
 )
 
 type providerRequest struct {
@@ -102,13 +103,32 @@ func (h *Handler) resolve(c *gin.Context) {
 }
 func (h *Handler) grant(c *gin.Context) {
 	var req struct {
-		UserID uint64 `json:"user_id"`
-		Amount int64  `json:"amount"`
-		Key    string `json:"idempotency_key"`
-		Note   string `json:"note"`
+		UserID   uint64   `json:"user_id"`
+		UserIDs  []uint64 `json:"user_ids"`
+		AllUsers bool     `json:"all_users"`
+		Amount   int64    `json:"amount"`
+		Key      string   `json:"idempotency_key"`
+		Note     string   `json:"note"`
 	}
 	if bind(c, &req) != nil {
 		fail(c, core.ErrInvalid)
+		return
+	}
+	if req.AllUsers || len(req.UserIDs) > 0 {
+		if req.UserID != 0 {
+			web.SoftFail(c, 400, "请选择用户或全体用户，不要混用发放方式")
+			return
+		}
+		count, err := h.s.GrantBatch(c.Request.Context(), uid(c), req.UserIDs, req.AllUsers, req.Amount, req.Key, req.Note)
+		if err != nil {
+			if err == core.ErrInvalid {
+				web.SoftFail(c, 400, "选择的用户已不存在或发放额度无效，请刷新用户列表后重试")
+				return
+			}
+			fail(c, err)
+			return
+		}
+		ok(c, gin.H{"count": count})
 		return
 	}
 	if err := h.s.Grant(c.Request.Context(), uid(c), req.UserID, req.Amount, req.Key, req.Note); err != nil {
@@ -120,6 +140,23 @@ func (h *Handler) grant(c *gin.Context) {
 func (h *Handler) adminLedger(c *gin.Context) {
 	user, _ := strconv.ParseUint(c.Query("user_id"), 10, 64)
 	h.listLedger(c, user)
+}
+func (h *Handler) grantUsers(c *gin.Context) {
+	var rows []struct {
+		ID       uint64 `json:"id"`
+		Username string `json:"username"`
+	}
+	if err := h.db(c).Table("users").Select("id", "username").Order("id asc").Limit(10000).Find(&rows).Error; err != nil {
+		fail(c, err)
+		return
+	}
+	if rows == nil {
+		rows = make([]struct {
+			ID       uint64 `json:"id"`
+			Username string `json:"username"`
+		}, 0)
+	}
+	ok(c, rows)
 }
 func (h *Handler) adminAssets(c *gin.Context) {
 	rows := []core.Asset{}
@@ -139,8 +176,25 @@ func (h *Handler) assetMetadata(c *gin.Context) {
 		DownloadAllowed bool   `json:"download_allowed"`
 		Archived        bool   `json:"archived"`
 	}
-	if bind(c, &req) != nil || len([]rune(req.Title)) > 150 || len([]rune(req.Description)) > 3000 || len([]rune(req.License)) > 300 || len([]rune(req.Purpose)) > 80 || (req.Public && strings.TrimSpace(req.License) == "") {
-		fail(c, core.ErrInvalid)
+	// Metadata errors belong to the asset editor, not the generation/session
+	// validation boundary. Keep the site's HTTP 200 + business-code contract.
+	message := ""
+	switch {
+	case bind(c, &req) != nil:
+		message = "设定图信息格式无效，请刷新后重试"
+	case len([]rune(req.Title)) > 150:
+		message = "设定图标题不能超过150字"
+	case len([]rune(req.Description)) > 3000:
+		message = "设定图描述不能超过3000字"
+	case len([]rune(req.License)) > 300:
+		message = "来源与授权说明不能超过300字"
+	case len([]rune(req.Purpose)) > 80:
+		message = "设定图用途不能超过80字"
+	case req.Public && strings.TrimSpace(req.License) == "":
+		message = "公开素材前请填写来源与授权说明"
+	}
+	if message != "" {
+		web.SoftFail(c, 400, message)
 		return
 	}
 	var asset core.Asset
@@ -148,8 +202,12 @@ func (h *Handler) assetMetadata(c *gin.Context) {
 		fail(c, err)
 		return
 	}
-	if req.Public && (asset.UserID != uid(c) || asset.TaskID != 0) {
-		fail(c, core.ErrInvalid)
+	if req.Public && asset.TaskID != 0 {
+		web.SoftFail(c, 400, "生成结果不能设为公开素材，请在 AI 工作台发布到站内")
+		return
+	}
+	if req.Public && asset.UserID != uid(c) {
+		web.SoftFail(c, 400, "只能将自己上传的设定图设为公开素材")
 		return
 	}
 	result := h.db(c).Model(&core.Asset{}).Where("id = ?", pathID(c)).Updates(map[string]any{"title": req.Title, "description": req.Description, "license": req.License, "purpose": req.Purpose, "public": req.Public, "download_allowed": req.DownloadAllowed, "archived": req.Archived})
@@ -157,10 +215,8 @@ func (h *Handler) assetMetadata(c *gin.Context) {
 		fail(c, result.Error)
 		return
 	}
-	if result.RowsAffected == 0 {
-		fail(c, core.ErrInvalid)
-		return
-	}
+	// MySQL may report zero affected rows for unchanged metadata; the asset
+	// existence was checked above, so this remains a successful idempotent save.
 	ok(c, nil)
 }
 func (h *Handler) testSite(c *gin.Context) { h.queueTest(c, true) }

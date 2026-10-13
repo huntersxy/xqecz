@@ -34,6 +34,9 @@ func TestOpenAIAdapterWireAndEditing(t *testing.T) {
 					if len(r.MultipartForm.File["image[]"]) != 1 || r.FormValue("model") != "gpt-image-2.5-sunburst-1K" {
 						t.Fatal(r.MultipartForm)
 					}
+					if !strings.Contains(r.FormValue("prompt"), "@图片1 对应按顺序上传的第1张参考图") {
+						t.Fatal("missing ordered image labels")
+					}
 				} else {
 					var body map[string]any
 					if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -48,6 +51,9 @@ func TestOpenAIAdapterWireAndEditing(t *testing.T) {
 					if transport == "json" && body["images"] == nil {
 						t.Fatal(body)
 					}
+					if transport == "json" && !strings.Contains(body["prompt"].(string), "@图片1 对应按顺序上传的第1张参考图") {
+						t.Fatal("missing ordered image labels")
+					}
 				}
 				_ = json.NewEncoder(w).Encode(map[string]any{"data": []any{map[string]string{"b64_json": base64.StdEncoding.EncodeToString(testPNG())}}})
 			}))
@@ -56,6 +62,7 @@ func TestOpenAIAdapterWireAndEditing(t *testing.T) {
 			input := Input{Prompt: "circle", Size: "1024x1024", Count: 1}
 			files := []string{}
 			if transport != "none" {
+				input.Prompt = "使用 @图片1"
 				path := filepath.Join(t.TempDir(), "reference.png")
 				_ = os.WriteFile(path, testPNG(), 0o600)
 				files = append(files, path)

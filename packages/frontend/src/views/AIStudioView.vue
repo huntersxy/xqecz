@@ -2,7 +2,7 @@
 function newKey() {
   return crypto.randomUUID()
 }
-import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useAIStudio } from '@/composables/useAIStudio'
 import { aiApi } from '@/api/creative'
@@ -11,6 +11,7 @@ import { useConfirm } from '@/composables/useToast'
 import CreativeImage from '@/components/CreativeImage.vue'
 import CreativeLibrary from '@/components/CreativeLibrary.vue'
 import '@/assets/creative-pages.css'
+import { referenceMentionAt, remapReferenceMentions } from '@/utils/creativeMentions'
 const studio = useAIStudio(),
   router = useRouter(),
   route = useRoute(),
@@ -47,13 +48,95 @@ const libraryOpen = ref(false),
   publishOpen = ref(false),
   leftOpen = ref(true),
   rightOpen = ref(true),
-  mobileSection = ref('canvas'),
+  mobileSection = ref('parameters'),
   zoom = ref(1),
   search = ref(''),
   status = ref('')
 const promptArea = ref<HTMLTextAreaElement>(),
   fileInput = ref<HTMLInputElement>()
 const previewReference = ref(0)
+const awaitingTask = ref(0)
+const mention = ref<ReturnType<typeof referenceMentionAt>>(null),
+  mentionIndex = ref(0)
+const mentionChoices = computed(() =>
+  references.value
+    .map((reference, index) => ({ ...reference, index, label: `@图片${index + 1}` }))
+    .filter(
+      (item) => !mention.value?.query || String(item.index + 1).startsWith(mention.value.query),
+    ),
+)
+watch(sessionId, () => {
+  mention.value = null
+  awaitingTask.value = 0
+})
+watch([tasks, awaitingTask], () => {
+  const row = tasks.value.find((row) => row.task.id === awaitingTask.value)
+  if (row?.assets[0]) selectResult(row.assets[0])
+  else if (row && ['failed', 'cancelled', 'unknown'].includes(row.task.status)) {
+    awaitingTask.value = 0
+    mobileSection.value = 'history'
+  }
+})
+function onPromptInput() {
+  mention.value = references.value.length
+    ? referenceMentionAt(prompt.value, promptArea.value?.selectionStart ?? prompt.value.length)
+    : null
+  mentionIndex.value = 0
+}
+async function insertReferenceMention(index: number) {
+  const cursor = promptArea.value?.selectionStart ?? prompt.value.length
+  const range = mention.value ?? { start: cursor, end: cursor }
+  const token = `@图片${index + 1} `
+  const text = prompt.value.slice(0, range.start) + token + prompt.value.slice(range.end)
+  if (text.length > 8000) return
+  prompt.value = text
+  mention.value = null
+  await nextTick()
+  promptArea.value?.focus()
+  promptArea.value?.setSelectionRange(range.start + token.length, range.start + token.length)
+}
+function onPromptKeydown(event: KeyboardEvent) {
+  if (!mention.value || !mentionChoices.value.length || event.isComposing) return
+  if (event.key === 'Escape') {
+    mention.value = null
+    event.preventDefault()
+  }
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault()
+    mentionIndex.value =
+      (mentionIndex.value + (event.key === 'ArrowDown' ? 1 : -1) + mentionChoices.value.length) %
+      mentionChoices.value.length
+  }
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    void insertReferenceMention(mentionChoices.value[mentionIndex.value]!.index)
+  }
+}
+function moveReference(index: number, direction: number) {
+  const before = references.value.map((r) => r.asset_id)
+  studio.moveReference(index, direction)
+  prompt.value = remapReferenceMentions(
+    prompt.value,
+    before,
+    references.value.map((r) => r.asset_id),
+  )
+  mention.value = null
+}
+async function removeReference(index: number) {
+  const before = references.value.map((r) => r.asset_id)
+  if (
+    prompt.value.includes(`@图片${index + 1}`) &&
+    !(await confirm(`移除 @图片${index + 1}？提示词中的对应引用也会移除。`))
+  )
+    return
+  studio.removeReference(index)
+  prompt.value = remapReferenceMentions(
+    prompt.value,
+    before,
+    references.value.map((r) => r.asset_id),
+  )
+  mention.value = null
+}
 const generationMode = computed(() =>
   studio.parentAssetId.value ? 'edit' : references.value.length ? 'reference' : 'text',
 )
@@ -73,6 +156,11 @@ async function changeGenerationMode(event: Event) {
         !(await confirm('切换到文生图将清空当前参考图，历史图片仍保留。确认？'))
       )
         return
+      prompt.value = remapReferenceMentions(
+        prompt.value,
+        references.value.map((r) => r.asset_id),
+        [],
+      )
       references.value = []
       studio.parentAssetId.value = 0
     } else if (value === 'reference') {
@@ -144,7 +232,11 @@ async function generate() {
       ))
     )
       return
-    await studio.generate()
+    const task = await studio.generate()
+    if (task) {
+      awaitingTask.value = task.id
+      mobileSection.value = 'canvas'
+    }
   })
 }
 async function uploadFiles(files: FileList | null) {
@@ -246,6 +338,7 @@ async function download() {
   })
 }
 function selectResult(asset: AIAsset) {
+  awaitingTask.value = 0
   selectedAsset.value = asset
   zoom.value = 1
   mobileSection.value = 'canvas'
@@ -270,9 +363,17 @@ watch(ready, (value) => {
     .split(',')
     .map(Number)
     .filter((n) => n > 0)
-  if (ids.length)
-    void studio.run(async () => {
-      for (const id of ids) studio.addReference(id)
+  const characters = String(route.query.characters ?? '')
+    .split(',')
+    .map(Number)
+    .filter((n) => n > 0)
+  if (ids.length || characters.length)
+    void applyResource({
+      text: String(route.query.prompt ?? ''),
+      assets: ids,
+      characters,
+      parameters: {},
+      action: 'append',
     })
 })
 </script>
@@ -303,21 +404,30 @@ watch(ready, (value) => {
     <div v-if="error" class="creative-error" role="alert">{{ error }}</div>
     <div class="studio-mobile-tabs">
       <a-radio-group v-model="mobileSection" type="button"
-        ><a-radio value="parameters">参数</a-radio><a-radio value="canvas">画布</a-radio
-        ><a-radio value="history">历史</a-radio></a-radio-group
+        ><a-radio value="parameters">创作</a-radio><a-radio value="canvas">结果</a-radio
+        ><a-radio value="history">记录</a-radio></a-radio-group
       >
     </div>
     <div class="studio-toolbar creative-actions">
       <div class="studio-session">
-        <a-input v-model="name" :input-attrs="{ 'aria-label': '创作会话名称' }" :disabled="!!pending" />
+        <a-input
+          v-model="name"
+          :input-attrs="{ 'aria-label': '创作会话名称' }"
+          :disabled="!!pending"
+        />
         <span class="creative-note" role="status">{{ saveState }}</span>
       </div>
-      <a-button size="small" @click="leftOpen = !leftOpen"
-        >{{ leftOpen ? '收起' : '展开' }}参数</a-button
-      ><span class="creative-note">可用 {{ account.available }} · 预留 {{ account.reserved }}</span
-      ><a-button size="small" @click="rightOpen = !rightOpen"
-        >{{ rightOpen ? '收起' : '展开' }}历史</a-button
-      >
+      <a-button size="small" @click="leftOpen = !leftOpen">{{
+        leftOpen ? '隐藏创作区' : '显示创作区'
+      }}</a-button
+      ><span class="creative-note">{{
+        studio.isQuotaExempt.value
+          ? '管理员 · 生成不消耗站点额度'
+          : `可用 ${account.available} · 预留 ${account.reserved}`
+      }}</span
+      ><a-button size="small" @click="rightOpen = !rightOpen">{{
+        rightOpen ? '隐藏任务记录' : '显示任务记录'
+      }}</a-button>
     </div>
     <div
       class="studio-grid"
@@ -328,35 +438,8 @@ watch(ready, (value) => {
         @dragover.prevent
         @drop.prevent="(event) => uploadFiles(event.dataTransfer?.files ?? null)"
       >
-        <h2 class="studio-panel-title"><span aria-hidden="true">01</span> 创作参数</h2>
+        <h2 class="studio-panel-title"><span aria-hidden="true">01</span> 创作描述</h2>
         <fieldset :disabled="!!pending || busy">
-          <label class="creative-field"
-            >生成方式<select :value="generationMode" @change="changeGenerationMode">
-              <option value="text">文生图</option>
-              <option value="reference" :disabled="!provider?.max_references">参考生成</option>
-              <option value="edit" :disabled="!provider?.max_references || !selectedAsset">
-                继续编辑
-              </option>
-            </select></label
-          >
-          <label class="creative-field"
-            >额度模式<select v-model="mode">
-              <option value="site">站点额度</option>
-              <option value="byok">自备 API Key</option>
-            </select></label
-          ><label class="creative-field"
-            >供应商<select v-model="providerId">
-              <option v-for="p in availableProviders" :key="p.id" :value="p.id">
-                {{ p.name }} · {{ p.model }}
-              </option>
-            </select></label
-          >
-          <p v-if="!provider" class="creative-note">
-            {{ mode === 'byok' ? '请先添加自备密钥配置' : '管理员尚未启用生图供应商' }}
-          </p>
-          <p v-if="provider && mode === 'site' && !provider.has_key" class="creative-note">
-            站点尚未设置此供应商密钥。你仍可投稿创意或使用自备密钥。
-          </p>
           <label class="creative-field"
             >提示词<textarea
               ref="promptArea"
@@ -364,8 +447,32 @@ watch(ready, (value) => {
               rows="6"
               maxlength="8000"
               placeholder="描述你想创作的画面…"
-            /></label
-          ><a-button size="small" @click="libraryOpen = true">角色 / 组合 / 提示词模板</a-button>
+              aria-label="创作提示词"
+              @input="onPromptInput"
+              @click="onPromptInput"
+              @keydown="onPromptKeydown"
+            />
+          </label>
+          <div
+            v-if="mention && mentionChoices.length"
+            class="reference-mentions"
+            role="group"
+            aria-label="选择参考图片"
+          >
+            <button
+              v-for="(item, index) in mentionChoices"
+              :key="item.asset_id"
+              type="button"
+              :class="{ active: index === mentionIndex }"
+              @mousedown.prevent
+              @click="insertReferenceMention(item.index)"
+            >
+              <span>{{ item.label }}</span
+              ><span class="creative-note">插入提示词</span>
+            </button>
+          </div>
+          <p class="creative-note">输入 @ 可选择参考图；编号与下面图片的顺序一致。</p>
+          <a-button size="small" @click="libraryOpen = true">添加角色资源 / 提示词模板</a-button>
           <div class="reference-heading">
             <strong>参考图 {{ references.length }} / {{ provider?.max_references ?? 0 }}</strong
             ><a-button size="mini" :disabled="!provider?.max_references" @click="fileInput?.click()"
@@ -397,36 +504,85 @@ watch(ready, (value) => {
               @click="previewReference = reference.asset_id"
             >
               <CreativeImage :id="reference.asset_id" /></button
-            ><a-input v-model="reference.note" placeholder="参考备注" size="mini" />
+            ><strong class="reference-label">@图片{{ index + 1 }}</strong>
             <div>
-              <button :disabled="index === 0" @click="studio.moveReference(index, -1)">↑</button
+              <button
+                :disabled="index === 0"
+                :aria-label="`上移图片${index + 1}`"
+                @click="moveReference(index, -1)"
+              >
+                ↑</button
               ><button
                 :disabled="index === references.length - 1"
-                @click="studio.moveReference(index, 1)"
+                :aria-label="`下移图片${index + 1}`"
+                @click="moveReference(index, 1)"
               >
                 ↓</button
-              ><button @click="studio.removeReference(index)">移除</button>
+              ><button
+                :aria-label="`插入 @图片${index + 1} 到提示词`"
+                @click="insertReferenceMention(index)"
+              >
+                引用到提示词</button
+              ><button @click="removeReference(index)">移除</button>
             </div>
           </div>
-          <div class="studio-output-fields"><label class="creative-field"
-            >画面尺寸<select v-model="size">
-              <option v-for="s in provider?.sizes" :key="s">{{ s }}</option>
-            </select></label
-          ><label v-if="provider?.qualities.length" class="creative-field"
-            >画质<select v-model="quality">
-              <option value="">供应商默认</option>
-              <option v-for="q in provider.qualities" :key="q">{{ q }}</option>
-            </select></label
-          ><label class="creative-field"
-            >输出数量<input
-              v-model.number="count"
-              type="number"
-              min="1"
-              :max="provider?.max_count ?? 1"
-          /></label></div>
+          <details class="studio-settings">
+            <summary>生成设置 <span class="creative-note">模型、方式、尺寸与画质</span></summary>
+            <label class="creative-field"
+              >生成方式<select :value="generationMode" @change="changeGenerationMode">
+                <option value="text">文生图</option>
+                <option value="reference" :disabled="!provider?.max_references">参考生成</option>
+                <option value="edit" :disabled="!provider?.max_references || !selectedAsset">
+                  继续编辑
+                </option>
+              </select></label
+            >
+            <label class="creative-field"
+              >额度模式<select v-model="mode">
+                <option value="site">站点额度</option>
+                <option value="byok">自备 API Key</option>
+              </select></label
+            ><label class="creative-field"
+              >供应商<select v-model="providerId">
+                <option v-for="p in availableProviders" :key="p.id" :value="p.id">
+                  {{ p.name }} · {{ p.model }}
+                </option>
+              </select></label
+            >
+            <div class="studio-output-fields">
+              <label class="creative-field"
+                >画面尺寸<select v-model="size">
+                  <option v-for="s in provider?.sizes" :key="s">{{ s }}</option>
+                </select></label
+              ><label v-if="provider?.qualities.length" class="creative-field"
+                >画质<select v-model="quality">
+                  <option value="">供应商默认</option>
+                  <option v-for="q in provider.qualities" :key="q">{{ q }}</option>
+                </select></label
+              ><label class="creative-field"
+                >输出数量<input
+                  v-model.number="count"
+                  type="number"
+                  min="1"
+                  :max="provider?.max_count ?? 1"
+              /></label>
+            </div>
+          </details>
+          <p v-if="!provider" class="creative-note">
+            {{ mode === 'byok' ? '请先添加自备密钥配置' : '管理员尚未启用生图供应商' }}
+          </p>
+          <p v-if="provider && mode === 'site' && !provider.has_key" class="creative-note">
+            站点尚未设置此供应商密钥。你仍可投稿创意或使用自备密钥。
+          </p>
         </fieldset>
         <p class="creative-note">
-          {{ mode === 'byok' ? '不消耗站点额度；供应商可能收费' : `预计消耗 ${cost} 额度` }}
+          {{
+            mode === 'byok'
+              ? '不消耗站点额度；供应商可能收费'
+              : studio.isQuotaExempt.value
+                ? '管理员生成不消耗站点额度'
+                : `预计消耗 ${cost} 额度`
+          }}
         </p>
         <a-button
           type="primary"
@@ -447,7 +603,12 @@ watch(ready, (value) => {
         </div>
       </aside>
       <section class="studio-canvas">
-        <div class="canvas-heading"><span>作品画布</span><span class="creative-note">{{ selectedAsset ? '预览与编辑' : '你的下一幅作品，从这里开始' }}</span></div>
+        <div class="canvas-heading">
+          <span>作品画布</span
+          ><span class="creative-note">{{
+            selectedAsset ? '预览与编辑' : '你的下一幅作品，从这里开始'
+          }}</span>
+        </div>
         <p v-if="activeTask" role="status" class="creative-note">
           任务 #{{ activeTask.task.id }} · {{ labels[activeTask.task.status]
           }}{{
@@ -495,51 +656,62 @@ watch(ready, (value) => {
         </div>
       </section>
       <aside class="studio-history creative-box">
-        <h2 class="studio-panel-title"><span aria-hidden="true">02</span> 任务与历史</h2>
-        <label class="creative-field"
-          >历史范围<select v-model="historyScope">
-            <option value="session">本会话</option>
-            <option value="all">全部 / 赞助任务</option>
-          </select></label
-        ><a-input v-model="search" placeholder="搜索历史提示词" /><label class="creative-field"
-          >状态<select v-model="status">
-            <option value="">全部</option>
-            <option v-for="(label, key) in labels" :key="key" :value="key">{{ label }}</option>
-          </select></label
-        >
-        <div v-for="row in shownTasks" :key="row.task.id" class="studio-task">
-          <div>
-            <strong>#{{ row.task.id }}</strong
-            ><a-tag size="small">{{ labels[row.task.status] }}</a-tag>
-          </div>
-          <p>{{ row.task.prompt }}</p>
-          <small>{{ row.task.model }} · {{ row.task.size }}</small>
-          <p v-if="row.task.parent_task_id" class="creative-note">
-            继续自任务 #{{ row.task.parent_task_id }} · 图片 #{{ row.task.parent_asset_id }}
-          </p>
-          <p v-if="row.task.error" class="task-error">{{ row.task.error }}</p>
-          <div class="creative-actions">
-            <a-button v-if="row.assets[0]" size="mini" @click="selectResult(row.assets[0]!)"
-              >查看结果</a-button
-            ><a-button
-              v-if="row.task.status === 'queued'"
-              size="mini"
-              @click="
-                studio.run(async () => {
-                  await aiApi.cancel(row.task.id)
-                  await studio.refresh()
-                })
-              "
-              >取消排队</a-button
-            ><RouterLink v-if="row.task.idea_id" :to="`/ideas/${row.task.idea_id}`"
-              >赞助创意</RouterLink
-            >
+        <h2 class="studio-panel-title"><span aria-hidden="true">02</span> 任务记录</h2>
+        <div class="history-filters">
+          <label class="creative-field"
+            >查看哪些任务<select v-model="historyScope">
+              <option value="session">当前创作会话</option>
+              <option value="all">全部生成与赞助任务</option>
+            </select></label
+          ><a-input v-model="search" placeholder="搜索历史提示词" /><label class="creative-field"
+            >状态<select v-model="status">
+              <option value="">全部</option>
+              <option v-for="(label, key) in labels" :key="key" :value="key">{{ label }}</option>
+            </select></label
+          >
+        </div>
+        <p class="creative-note">
+          当前创作会话只显示本次草稿的生成任务；全部任务包含其他会话及你赞助的创意。
+        </p>
+        <div class="studio-history-items">
+          <div v-for="row in shownTasks" :key="row.task.id" class="studio-task">
+            <div>
+              <strong>#{{ row.task.id }}</strong
+              ><a-tag size="small">{{ labels[row.task.status] }}</a-tag>
+            </div>
+            <p>{{ row.task.prompt }}</p>
+            <small>{{ row.task.model }} · {{ row.task.size }}</small>
+            <p v-if="row.task.parent_task_id" class="creative-note">
+              继续自任务 #{{ row.task.parent_task_id }} · 图片 #{{ row.task.parent_asset_id }}
+            </p>
+            <p v-if="row.task.error" class="task-error">{{ row.task.error }}</p>
+            <div class="creative-actions">
+              <a-button v-if="row.assets[0]" size="mini" @click="selectResult(row.assets[0]!)"
+                >查看结果</a-button
+              ><a-button
+                v-if="row.task.status === 'queued'"
+                size="mini"
+                @click="
+                  studio.run(async () => {
+                    await aiApi.cancel(row.task.id)
+                    await studio.refresh()
+                  })
+                "
+                >取消排队</a-button
+              ><RouterLink v-if="row.task.idea_id" :to="`/ideas/${row.task.idea_id}`"
+                >赞助创意</RouterLink
+              >
+            </div>
           </div>
         </div>
         <a-button v-if="studio.moreTasks.value" long @click="studio.run(studio.loadMoreTasks)"
           >加载更早的任务</a-button
         >
-        <div v-if="!shownTasks.length" class="studio-history-empty"><span aria-hidden="true">✧</span><p>还没有生成任务</p><small>每一次尝试，都会留在这里。</small></div>
+        <div v-if="!shownTasks.length" class="studio-history-empty">
+          <span aria-hidden="true">✧</span>
+          <p>还没有生成任务</p>
+          <small>每一次尝试，都会留在这里。</small>
+        </div>
       </aside>
     </div>
     <a-modal
@@ -680,9 +852,14 @@ watch(ready, (value) => {
 <style scoped>
 .ai-studio {
   max-width: 1600px;
+  margin-top: 24px;
 }
 .studio-top {
   margin-bottom: 20px;
+  padding-block: 18px;
+}
+.studio-top h1 {
+  font-size: 26px;
 }
 .studio-top > div:first-child {
   min-width: 0;
@@ -691,39 +868,35 @@ watch(ready, (value) => {
   width: 180px;
 }
 .studio-grid {
-  --studio-left-width: 300px;
-  --studio-right-width: 260px;
+  --studio-left-width: 420px;
   display: grid;
-  grid-template-columns: var(--studio-left-width) minmax(0, 1fr) var(--studio-right-width);
-  grid-template-areas: 'parameters canvas history';
-  gap: 18px;
-  min-height: 640px;
+  grid-template-columns: var(--studio-left-width) minmax(0, 1fr);
+  grid-template-areas: 'parameters canvas' 'history history';
+  gap: 24px;
+  align-items: start;
 }
 .studio-grid.hide-left {
-  grid-template-columns: 0 minmax(0, 1fr) var(--studio-right-width);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'canvas' 'history';
 }
 .studio-grid.hide-right {
-  grid-template-columns: var(--studio-left-width) minmax(0, 1fr) 0;
+  grid-template-areas: 'parameters canvas';
 }
 .studio-grid.hide-left.hide-right {
-  grid-template-columns: 0 minmax(0, 1fr) 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'canvas';
 }
 .hide-left .studio-parameters,
 .hide-right .studio-history {
-  visibility: hidden;
-  overflow: hidden;
-  padding: 0;
-  border: 0;
+  display: none;
 }
 .studio-parameters {
   grid-area: parameters;
-  max-height: clamp(640px, calc(100dvh - 320px), 900px);
-  overflow: auto;
+  min-width: 0;
 }
 .studio-history {
   grid-area: history;
-  max-height: clamp(640px, calc(100dvh - 320px), 900px);
-  overflow: auto;
+  min-width: 0;
 }
 .studio-canvas {
   grid-area: canvas;
@@ -735,24 +908,164 @@ watch(ready, (value) => {
   display: grid;
   place-items: center;
   flex: 1;
-  min-height: 440px;
+  min-height: 540px;
   overflow: auto;
   border: 1px solid var(--creative-line);
   border-radius: 22px;
   background: var(--creative-grain), var(--creative-canvas);
   background-size: 8px 8px;
 }
-.canvas-surface .creative-empty { background: none; border: 0; padding: 40px 24px; }
-.canvas-surface .creative-empty p { font-size: 13px; }
-.canvas-heading { display: flex; justify-content: space-between; gap: 12px; padding: 4px 4px 16px; color: var(--creative-muted); font-size: 13px; }
-.studio-panel-title { display: flex; align-items: center; gap: 10px; padding-bottom: 16px; border-bottom: 1px solid var(--creative-line); }
-.studio-panel-title span { color: var(--creative-accent); font-size: 11px; font-weight: 400; letter-spacing: .1em; }
-.studio-output-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
-.studio-history-empty { text-align: center; padding: 42px 0; color: var(--creative-muted); }
-.studio-history-empty > span { font-size: 32px; color: var(--creative-accent); }
-.studio-history-empty small { font-size: 11px; }
-.studio-session { display: flex; align-items: center; gap: 12px; margin-right: auto; }
-.studio-session .arco-input-wrapper { width: 190px; }
+.canvas-surface .creative-empty {
+  background: none;
+  border: 0;
+  padding: 40px 24px;
+}
+.canvas-surface .creative-empty p {
+  font-size: 13px;
+}
+.canvas-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 4px 16px;
+  color: var(--creative-muted);
+  font-size: 13px;
+}
+.studio-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--creative-line);
+}
+.studio-panel-title span {
+  color: var(--creative-accent);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+}
+.studio-settings {
+  margin: 20px 0 14px;
+  padding: 14px;
+  border: 1px solid var(--creative-line);
+  border-radius: 14px;
+  background: var(--creative-canvas);
+}
+.studio-settings summary {
+  cursor: pointer;
+  color: var(--creative-ink);
+  font-size: 13px;
+  list-style: none;
+  position: relative;
+  padding-right: 30px;
+}
+.studio-settings summary::-webkit-details-marker {
+  display: none;
+}
+.studio-settings summary::after {
+  content: '⌄';
+  position: absolute;
+  right: 0;
+  top: 2px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--creative-line);
+  border-radius: 50%;
+  color: var(--creative-accent);
+  background: var(--creative-paper);
+}
+.studio-settings[open] summary::after {
+  transform: rotate(180deg);
+}
+.studio-settings summary span {
+  display: block;
+  margin: 6px 0 0;
+}
+.reference-label {
+  color: var(--creative-accent);
+  font-size: 13px;
+  align-self: center;
+}
+.reference-mentions {
+  display: grid;
+  margin: -6px 0 12px;
+  padding: 6px;
+  border: 1px solid var(--creative-line);
+  border-radius: 12px;
+  background: var(--creative-paper);
+  max-height: 180px;
+  overflow: auto;
+}
+.reference-mentions button {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--creative-ink);
+  cursor: pointer;
+}
+.reference-mentions button.active,
+.reference-mentions button:hover {
+  background: var(--creative-soft);
+  color: var(--creative-accent);
+}
+.history-filters {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.history-filters .creative-field {
+  flex: 1;
+  min-width: 160px;
+  margin: 0;
+}
+.history-filters > .arco-input-wrapper {
+  flex: 1;
+  min-width: 180px;
+  margin-top: 24px;
+}
+.studio-history-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 18px;
+}
+.studio-history-items .studio-task {
+  border: 1px solid var(--creative-line);
+  border-radius: 12px;
+  padding: 16px;
+}
+.studio-output-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 12px;
+}
+.studio-history-empty {
+  text-align: center;
+  padding: 42px 0;
+  color: var(--creative-muted);
+}
+.studio-history-empty > span {
+  font-size: 32px;
+  color: var(--creative-accent);
+}
+.studio-history-empty small {
+  font-size: 11px;
+}
+.studio-session {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-right: auto;
+}
+.studio-session .arco-input-wrapper {
+  width: 190px;
+}
 .canvas-image {
   width: 100%;
   height: 500px;
@@ -811,6 +1124,10 @@ watch(ready, (value) => {
 .studio-reference > .reference-preview {
   grid-row: span 2;
   height: 72px;
+  overflow: hidden;
+  border: 1px solid var(--creative-line);
+  border-radius: 12px;
+  background: var(--creative-canvas);
 }
 .reference-preview {
   padding: 0;
@@ -824,6 +1141,28 @@ watch(ready, (value) => {
   color: var(--creative-accent);
   cursor: pointer;
   font-size: 11px;
+}
+.studio-reference > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.studio-reference > div button {
+  min-width: 28px;
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid var(--creative-line);
+  border-radius: 8px;
+  background: var(--creative-paper);
+  font-size: 12px;
+}
+.studio-reference > div button:hover:not(:disabled) {
+  background: var(--creative-soft);
+}
+.studio-reference > div button:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 .reference-heading {
   display: flex;
@@ -878,8 +1217,7 @@ watch(ready, (value) => {
 }
 @media (max-width: 1100px) {
   .studio-grid {
-    --studio-left-width: 260px;
-    --studio-right-width: 220px;
+    --studio-left-width: 360px;
   }
   .studio-top {
     align-items: flex-start;
@@ -898,9 +1236,18 @@ watch(ready, (value) => {
   .studio-toolbar {
     display: flex;
   }
-  .studio-toolbar > .arco-btn, .studio-toolbar > .creative-note { display: none; }
-  .studio-session { width: 100%; flex-wrap: wrap; }
-  .studio-session .arco-input-wrapper { flex: 1; min-width: 140px; }
+  .studio-toolbar > .arco-btn,
+  .studio-toolbar > .creative-note {
+    display: none;
+  }
+  .studio-session {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .studio-session .arco-input-wrapper {
+    flex: 1;
+    min-width: 140px;
+  }
   .studio-grid,
   .studio-grid.hide-left,
   .studio-grid.hide-right,

@@ -184,7 +184,9 @@ func (s *Service) prepare(ctx context.Context, uid uint64, input Input, options 
 		if asset.Public && asset.UserID != uid && !asset.DownloadAllowed {
 			return taskSnapshot{}, 0, ErrInvalid
 		}
-		if asset.Digest != "" {
+		// Explicit @image positions refer to every displayed attachment. Collapsing
+		// identical bytes here would change those positions before provider dispatch.
+		if asset.Digest != "" && !strings.Contains(input.Prompt, "@图片") {
 			if digests[asset.Digest] {
 				if ref.AssetID == input.ParentAssetID {
 					for index, existing := range refs {
@@ -253,7 +255,23 @@ func lockAccount(tx *gorm.DB, uid uint64) (Account, error) {
 }
 func (s *Service) Quote(ctx context.Context, uid uint64, input Input) (int64, error) {
 	_, cost, err := s.prepare(ctx, uid, input, prepareOptions{})
-	return cost, err
+	if err != nil {
+		return 0, err
+	}
+	return chargedCost(s.db.WithContext(ctx), uid, cost)
+}
+
+// Quota exemption is determined from the persisted role, never a client flag.
+// Provider prices still describe public ideas; only the paying user's charge changes.
+func chargedCost(db *gorm.DB, uid uint64, cost int64) (int64, error) {
+	var user store.User
+	if err := db.Select("id", "is_admin").First(&user, uid).Error; err != nil {
+		return 0, err
+	}
+	if user.IsAdmin != 0 {
+		return 0, nil
+	}
+	return cost, nil
 }
 
 func (s *Service) Submit(ctx context.Context, uid uint64, input Input) (Task, error) {
@@ -268,9 +286,6 @@ func (s *Service) Submit(ctx context.Context, uid uint64, input Input) (Task, er
 	if err != nil {
 		return Task{}, err
 	}
-	if input.ExpectedCost != cost {
-		return Task{}, ErrConflict
-	}
 	var result Task
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		account, err := lockAccount(tx, uid)
@@ -284,6 +299,13 @@ func (s *Service) Submit(ctx context.Context, uid uint64, input Input) (Task, er
 		if tx.Where("id = ? AND user_id = ?", input.SessionID, uid).First(&session).Error != nil {
 			return ErrInvalid
 		}
+		charge, err := chargedCost(tx, uid, cost)
+		if err != nil {
+			return err
+		}
+		if input.ExpectedCost != charge {
+			return ErrConflict
+		}
 		result, err = s.insertTask(tx, uid, account, snapshot, cost, 0)
 		return err
 	})
@@ -294,6 +316,11 @@ func (s *Service) Submit(ctx context.Context, uid uint64, input Input) (Task, er
 }
 
 func (s *Service) insertTask(tx *gorm.DB, uid uint64, account Account, snap taskSnapshot, cost int64, ideaID uint64) (Task, error) {
+	var err error
+	cost, err = chargedCost(tx, uid, cost)
+	if err != nil {
+		return Task{}, err
+	}
 	var recent int64
 	if err := tx.Model(&Task{}).Where("user_id = ? AND created_at >= ?", uid, time.Now().Add(-time.Hour)).Count(&recent).Error; err != nil {
 		return Task{}, err

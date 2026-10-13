@@ -21,9 +21,16 @@
   padding: 30px 0;
   border-bottom: 1px solid var(--creative-line);
 }
-.creative-page-head > div { min-width: 0; }
-.creative-page-head > div:first-child { flex: 1; }
-.creative-page-head p { margin: 12px 0 0; max-width: 640px; }
+.creative-page-head > div {
+  min-width: 0;
+}
+.creative-page-head > div:first-child {
+  flex: 1;
+}
+.creative-page-head p {
+  margin: 12px 0 0;
+  max-width: 640px;
+}
 .creative-page-head::before {
   content: '';
   position: absolute;
@@ -35,7 +42,10 @@
   background: var(--creative-accent);
   pointer-events: none;
 }
-.creative-page-head .creative-actions { justify-content: flex-end; max-width: 520px; }
+.creative-page-head .creative-actions {
+  justify-content: flex-end;
+  max-width: 520px;
+}
 .creative-page-head .creative-actions > a,
 .studio-task .creative-actions > a {
   color: var(--creative-accent);
@@ -48,7 +58,9 @@
   border-radius: 999px;
   background: var(--creative-paper);
 }
-.creative-page-head .creative-actions > a:hover { color: var(--creative-accent-hover); }
+.creative-page-head .creative-actions > a:hover {
+  color: var(--creative-accent-hover);
+}
 .creative-page h1 {
   font-size: 30px;
   letter-spacing: 0.03em;
@@ -83,28 +95,79 @@
   min-width: 0;
 }
 /* 页面与传送到 body 的弹层共用控件外观，状态色仍由 Arco 的 status 决定。 */
-:is(.creative-page, .ai-dialog) .arco-btn { border-radius: 999px; }
-:is(.creative-page, .ai-dialog) .arco-btn-secondary.arco-btn-status-normal:not(.arco-btn-disabled) {
+:is(.creative-page, .ai-dialog, .admin-ai-body) .arco-btn {
+  border-radius: 999px;
+}
+:is(.creative-page, .ai-dialog, .admin-ai-body) .arco-btn-size-small {
+  height: 32px;
+  padding-inline: 14px;
+}
+:is(.creative-page, .ai-dialog, .admin-ai-body) .arco-btn-size-mini {
+  height: 28px;
+  padding-inline: 10px;
+}
+:is(.creative-page, .ai-dialog, .admin-ai-body)
+  .arco-btn-secondary.arco-btn-status-normal:not(.arco-btn-disabled) {
   color: var(--creative-ink);
   border: 1px solid var(--creative-line);
   background: var(--creative-paper);
 }
-:is(.creative-page, .ai-dialog) .arco-btn-secondary.arco-btn-status-normal:not(.arco-btn-disabled):hover {
+:is(.creative-page, .ai-dialog, .admin-ai-body)
+  .arco-btn-secondary.arco-btn-status-normal:not(.arco-btn-disabled):hover {
   color: var(--creative-accent);
   border-color: var(--creative-accent);
   background: var(--creative-soft);
 }
-:is(.creative-page, .ai-dialog) :is(.arco-input-wrapper, .arco-select-view-single, .arco-textarea-wrapper) {
+:is(.creative-page, .ai-dialog, .admin-ai-body)
+  :is(
+    .arco-input-wrapper,
+    .arco-select-view-single,
+    .arco-select-view-multiple,
+    .arco-textarea-wrapper
+  ) {
   border-radius: 10px;
   background: var(--creative-canvas);
   border-color: var(--creative-line);
 }
-:is(.creative-page, .ai-dialog) :is(.arco-input, .arco-select-view-value, .arco-textarea) { color: var(--creative-ink); }
-:is(.creative-page, .ai-dialog) .arco-radio-group-button { background: var(--creative-canvas); border-radius: 999px; padding: 4px; }
-:is(.creative-page, .ai-dialog) .arco-radio-button { border-radius: 999px; }
-:is(.creative-page, .ai-dialog) .arco-radio-button::before { display: none; }
-:is(.creative-page, .ai-dialog) .arco-radio-button-content { border-radius: 999px; color: var(--creative-muted); }
-:is(.creative-page, .ai-dialog) .arco-radio-checked .arco-radio-button-content {
+.admin-theme
+  .admin-ai-body
+  :is(
+    .arco-input-wrapper,
+    .arco-select-view-single,
+    .arco-select-view-multiple,
+    .arco-textarea-wrapper
+  ) {
+  background: var(--creative-canvas);
+  border: 1px solid var(--creative-line);
+  border-radius: 10px;
+}
+:is(.creative-page, .ai-dialog, .admin-ai-body)
+  :is(.arco-select-view-single, .arco-select-view-multiple) {
+  min-height: 38px;
+}
+:is(.creative-page, .ai-dialog, .admin-ai-body)
+  :is(.arco-input, .arco-select-view-value, .arco-textarea) {
+  color: var(--creative-ink);
+}
+:is(.creative-page, .ai-dialog, .admin-ai-body) .arco-radio-group-button {
+  background: var(--creative-canvas);
+  border-radius: 999px;
+  padding: 4px;
+  border: 1px solid var(--creative-line);
+}
+:is(.creative-page, .ai-dialog, .admin-ai-body) .arco-radio-button {
+  border-radius: 999px;
+}
+:is(.creative-page, .ai-dialog, .admin-ai-body) .arco-radio-button::before {
+  display: none;
+}
+:is(.creative-page, .ai-dialog, .admin-ai-body) .arco-radio-button-content {
+  border-radius: 999px;
+  color: var(--creative-muted);
+  min-height: 30px;
+  padding-inline: 16px;
+}
+:is(.creative-page, .ai-dialog, .admin-ai-body) .arco-radio-checked .arco-radio-button-content {
   color: var(--creative-accent);
   background: var(--creative-paper);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--creative-ink) 8%, transparent);
@@ -112,14 +175,43 @@
 .creative-card {
   display: flex;
   flex-direction: column;
-  transition: border-color .2s, box-shadow .2s, transform .2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    transform 0.2s;
 }
-.creative-card:hover { border-color: color-mix(in srgb, var(--creative-accent) 40%, var(--creative-line)); box-shadow: var(--creative-shadow); transform: translateY(-3px); }
-.creative-card h2 { font-size: 19px; line-height: 1.5; overflow-wrap: anywhere; }
-.creative-card > p { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 16px; }
-.creative-card .creative-note { margin-top: auto; }
-.creative-card-placeholder { display: grid; place-content: center; gap: 8px; text-align: center; color: var(--creative-muted); font-size: 12px; }
-.creative-card-placeholder span { font-size: 48px; color: var(--creative-accent); }
+.creative-card:hover {
+  border-color: color-mix(in srgb, var(--creative-accent) 40%, var(--creative-line));
+  box-shadow: var(--creative-shadow);
+  transform: translateY(-3px);
+}
+.creative-card h2 {
+  font-size: 19px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.creative-card > p {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.creative-card .creative-note {
+  margin-top: auto;
+}
+.creative-card-placeholder {
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  text-align: center;
+  color: var(--creative-muted);
+  font-size: 12px;
+}
+.creative-card-placeholder span {
+  font-size: 48px;
+  color: var(--creative-accent);
+}
 .creative-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -141,9 +233,11 @@
   color: var(--creative-muted);
   font-size: 12px;
 }
-.creative-field textarea,
-.creative-field select,
-.creative-field input {
+/* Arco owns the inner input's border/padding. Native fields are direct children
+   only; styling every descendant caused a second border inside Arco controls. */
+.creative-field > textarea,
+.creative-field > select,
+.creative-field > input {
   width: 100%;
   min-width: 0;
   padding: 10px 12px;
@@ -152,17 +246,41 @@
   background: var(--creative-canvas);
   color: var(--creative-ink);
   font: inherit;
+  font-size: 14px;
+  line-height: 20px;
 }
-.creative-field textarea {
+.creative-field > textarea {
   resize: vertical;
   font-size: 14px;
   line-height: 1.65;
 }
-.creative-field select:focus,
-.creative-field input:focus,
-.creative-field textarea:focus {
-  outline: 2px solid var(--creative-accent);
-  outline-offset: 2px;
+.creative-field > select {
+  appearance: none;
+  min-height: 40px;
+  padding-right: 36px;
+  cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--creative-muted) 50%),
+    linear-gradient(135deg, var(--creative-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 50%,
+    calc(100% - 13px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+.creative-field > :is(select, input, textarea):hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--creative-accent) 40%, var(--creative-line));
+}
+.creative-field > select:focus,
+.creative-field > input:focus,
+.creative-field > textarea:focus {
+  outline: none;
+  border-color: var(--creative-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--creative-accent) 12%, transparent);
+}
+.creative-field > :is(select, input, textarea):disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 .creative-image-tile {
   height: 220px;
@@ -195,7 +313,10 @@
     align-items: stretch;
     padding: 24px 0;
   }
-  .creative-page-head .creative-actions { justify-content: flex-start; max-width: none; }
+  .creative-page-head .creative-actions {
+    justify-content: flex-start;
+    max-width: none;
+  }
   .creative-page h1 {
     font-size: 25px;
   }

@@ -5,6 +5,7 @@ import { creativeApi, aiApi } from '@/api/creative'
 import type { CreativeResource, AIAsset } from '@/types/schemas'
 import CreativeImage from '@/components/CreativeImage.vue'
 import '@/assets/creative-pages.css'
+import { resolveCreativeResource } from '@/utils/creativeResources'
 const route = useRoute(),
   rows = ref<CreativeResource[]>([]),
   assets = ref<AIAsset[]>([]),
@@ -21,8 +22,13 @@ document.head.append(descriptionMeta)
 const filtered = computed(() =>
   rows.value.filter((r) => `${r.title} ${r.summary}`.includes(search.value)),
 )
+const resolved = computed(() =>
+  detail.value
+    ? resolveCreativeResource(detail.value, rows.value)
+    : { assets: [], characters: [], text: '' },
+)
 const allImages = computed(() =>
-  (detail.value?.payload.asset_ids ?? [])
+  resolved.value.assets
     .map((id) => assets.value.find((a) => a.id === id))
     .filter((a): a is AIAsset => !!a),
 )
@@ -41,15 +47,18 @@ watch(
     purpose.value = ''
     preview.value = null
     try {
-      const nextRows = await creativeApi.resources('character', undefined, signal)
+      const nextRows = await creativeApi.resources(undefined, undefined, signal)
       if (signal.aborted) return
-      rows.value = nextRows
+      rows.value = nextRows.filter((row) => row.kind !== 'template')
       if (id) {
         const nextDetail = /^\d+$/.test(String(id))
           ? await creativeApi.resource(Number(id), signal)
-          : await creativeApi.character(String(id), signal)
-        if (nextDetail.kind !== 'character') throw new Error('角色不存在')
-        const nextAssets = await aiApi.publicAssets(signal, nextDetail.payload.asset_ids)
+          : rows.value.find((row) => row.slug === String(id))
+        if (!nextDetail || nextDetail.kind === 'template') throw new Error('角色资源不存在')
+        const nextAssets = await aiApi.publicAssets(
+          signal,
+          resolveCreativeResource(nextDetail, rows.value).assets,
+        )
         if (signal.aborted) return
         detail.value = nextDetail
         assets.value = nextAssets
@@ -103,7 +112,15 @@ onBeforeUnmount(() => {
         <p>{{ detail.payload.description }}</p>
         <h2 v-if="detail.payload.appearance">外观特征</h2>
         <p class="character-text">{{ detail.payload.appearance }}</p>
-        <RouterLink :to="{ path: '/studio', query: { assets: detail.payload.asset_ids.join(',') } }"
+        <RouterLink
+          :to="{
+            path: '/studio',
+            query: {
+              assets: resolved.assets.join(','),
+              characters: resolved.characters.join(','),
+              prompt: resolved.text,
+            },
+          }"
           ><a-button type="primary">带角色设定图进入工作台</a-button></RouterLink
         >
       </section>
@@ -144,7 +161,10 @@ onBeforeUnmount(() => {
             /><span v-else class="character-mark" aria-hidden="true">✧</span>
           </div>
           <h2>{{ row.title }}</h2>
-          <p>{{ row.summary }}</p><span class="character-card-footer">查看角色设定 <span aria-hidden="true">↗</span></span></RouterLink
+          <p>{{ row.summary }}</p>
+          <span class="character-card-footer"
+            >查看角色设定 <span aria-hidden="true">↗</span></span
+          ></RouterLink
         >
       </div>
       <div v-if="!filtered.length && !error" class="creative-empty">
@@ -174,7 +194,15 @@ onBeforeUnmount(() => {
 .character-card h2 {
   margin: 20px 0 8px;
 }
-.character-card-footer { display: flex; justify-content: space-between; margin-top: auto; padding-top: 16px; border-top: 1px solid var(--creative-line); color: var(--creative-accent); font-size: 12px; }
+.character-card-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--creative-line);
+  color: var(--creative-accent);
+  font-size: 12px;
+}
 .character-story {
   margin-bottom: 24px;
 }

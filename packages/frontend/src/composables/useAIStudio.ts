@@ -5,6 +5,7 @@ import { useUserStore } from '@/stores/user'
 
 export function useAIStudio() {
   const user = useUserStore()
+  const isQuotaExempt = computed(() => !!user.user?.is_admin)
   const providers = ref<AIProvider[]>([]),
     sessions = ref<AISession[]>([]),
     tasks = ref<AITaskView[]>([]),
@@ -43,7 +44,7 @@ export function useAIStudio() {
   const provider = computed(() => availableProviders.value.find((p) => p.id === providerId.value))
   const session = computed(() => sessions.value.find((s) => s.id === sessionId.value))
   const cost = computed(() =>
-    mode.value === 'byok'
+    mode.value === 'byok' || user.user?.is_admin
       ? 0
       : (provider.value?.quality_costs[quality.value] ?? provider.value?.cost ?? 0) * count.value,
   )
@@ -369,6 +370,7 @@ export function useAIStudio() {
     document.removeEventListener('visibilitychange', visibility)
   })
   return {
+    isQuotaExempt,
     providers,
     sessions,
     tasks,
