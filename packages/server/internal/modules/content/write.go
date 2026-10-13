@@ -15,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/huntersxy/xqecz/server/internal/media"
 	"github.com/huntersxy/xqecz/server/internal/store"
+	"github.com/huntersxy/xqecz/server/internal/vision"
 	"github.com/huntersxy/xqecz/server/internal/web"
 	"gorm.io/gorm"
 )
@@ -41,6 +42,7 @@ type createInput struct {
 	GuestNickname string
 	GuestEmail    string
 	AbsPath       string
+	AutoMetadata  bool
 }
 
 // upload 登录用户上传（Session 或具备 upload 权限的 API 密钥）。
@@ -53,6 +55,11 @@ func (h *Handler) upload(c *gin.Context) {
 	}
 
 	title := strings.TrimSpace(form.value("title"))
+	auto, title, tags, err := h.uploadMetadata(form, title)
+	if err != nil {
+		softFail(c, 400, err.Error())
+		return
+	}
 	content := form.value("content")
 	if !validTitle(title) {
 		softFail(c, 400, "标题长度需在 1 到 200 个字符之间")
@@ -71,7 +78,7 @@ func (h *Handler) upload(c *gin.Context) {
 
 	item, err := h.createContent(c.Request.Context(), createInput{
 		Title: title, Content: content, FilePath: relPath, FileSize: size,
-		Tags: form.parseTagsField(), UserID: identity.UID, AuditStatus: audit, AbsPath: absPath,
+		Tags: tags, UserID: identity.UID, AuditStatus: audit, AbsPath: absPath, AutoMetadata: auto,
 	})
 	if err != nil {
 		web.Fail(c, 500, "服务异常")
@@ -90,6 +97,11 @@ func (h *Handler) quickUpload(c *gin.Context) {
 	}
 
 	title := strings.TrimSpace(form.value("title"))
+	auto, title, tags, err := h.uploadMetadata(form, title)
+	if err != nil {
+		softFail(c, 400, err.Error())
+		return
+	}
 	content := form.value("content")
 	if !validTitle(title) {
 		softFail(c, 400, "标题长度需在 1 到 200 个字符之间")
@@ -125,7 +137,7 @@ func (h *Handler) quickUpload(c *gin.Context) {
 
 	in := createInput{
 		Title: title, Content: content, FilePath: relPath, FileSize: size,
-		Tags: form.parseTagsField(), AuditStatus: "pending", AbsPath: absPath,
+		Tags: tags, AuditStatus: "pending", AbsPath: absPath, AutoMetadata: auto,
 	}
 	if user != nil {
 		in.UserID = user.ID
@@ -204,7 +216,19 @@ func (h *Handler) update(c *gin.Context) {
 	}
 
 	if len(updates) > 0 {
-		if err := h.deps.DB.WithContext(ctx).Model(&store.Content{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+		if err := h.deps.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if err := tx.Model(&store.Content{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+				return err
+			}
+			// Any explicit title/tag/file edit revokes the job, even if the editor restores the old placeholder later.
+			_, titleEdited := updates["title"]
+			_, tagsEdited := updates["tags"]
+			_, fileEdited := updates["file_path"]
+			if h.deps.Vision != nil && (titleEdited || tagsEdited || fileEdited) {
+				return tx.Model(&vision.Job{}).Where("content_id = ? AND status IN ?", id, []string{"pending", "running", "failed"}).Updates(map[string]any{"status": "cancelled", "lease": "", "error": "用户已编辑作品信息"}).Error
+			}
+			return nil
+		}); err != nil {
 			web.Fail(c, 500, "服务异常")
 			return
 		}
@@ -282,7 +306,15 @@ func (h *Handler) purgeContent(ctx context.Context, row store.Content) error {
 		if err := tx.Where("content_id = ?", row.ID).Delete(&store.ContentFavorite{}).Error; err != nil {
 			return err
 		}
-		return tx.Delete(&store.Content{}, row.ID).Error
+		if err := tx.Delete(&store.Content{}, row.ID).Error; err != nil {
+			return err
+		}
+		if h.deps.Vision != nil {
+			if err := tx.Where("content_id = ?", row.ID).Delete(&vision.Job{}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 
@@ -473,7 +505,16 @@ func (h *Handler) createContent(ctx context.Context, in createInput) (Item, erro
 	}
 
 	db := h.deps.DB.WithContext(ctx)
-	if err := db.Create(&row).Error; err != nil {
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&row).Error; err != nil {
+			return err
+		}
+		if in.AutoMetadata {
+			job := vision.NewJob(row)
+			return tx.Create(&job).Error
+		}
+		return nil
+	}); err != nil {
 		slog.Error("内容入库失败", "err", err, "title", in.Title, "audit", in.AuditStatus)
 		return Item{}, err
 	}

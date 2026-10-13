@@ -4,6 +4,7 @@ package app
 import (
 	"github.com/huntersxy/xqecz/server/internal/cache"
 	"github.com/huntersxy/xqecz/server/internal/config"
+	"github.com/huntersxy/xqecz/server/internal/vision"
 	"gorm.io/gorm"
 )
 
@@ -32,4 +33,6 @@ type Deps struct {
 	// Mirror 为媒体镜像链（自建 OpenList + R2 双目标）；nil 表示未接入，
 	// 所有镜像相关行为退化为空操作。
 	Mirror MediaMirror
+	// Vision is optional. Its durable outbox is written in the upload transaction.
+	Vision *vision.Service
 }

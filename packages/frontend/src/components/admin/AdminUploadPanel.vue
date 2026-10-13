@@ -5,6 +5,9 @@ import { CC_LICENSE_TEXT, VIDEO_TERMS_TEXT } from '@/utils/constants'
 import { Tag } from '@arco-design/web-vue'
 import { IconUpload, IconClose } from '@arco-design/web-vue/es/icon'
 import { useFilePicker } from '@/composables/useFilePicker'
+import { useAutoMetadata } from '@/composables/useAutoMetadata'
+import AutoMetadataOption from '@/components/AutoMetadataOption.vue'
+import { toast } from '@/composables/useToast'
 import TagCloud from './TagCloud.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
 
@@ -18,6 +21,7 @@ const form = ref({
   file: undefined as File | undefined,
 })
 const fileKind = ref<'' | 'image' | 'video'>('')
+const { autoMetadata, isAiGenerated, metadataOptions, canGenerate, metadataTitle, metadataTags } = useAutoMetadata(() => form.value.file)
 const agreeUpload = ref(false)
 const { filePreview, fileInput, dragOver, onFileChange, onDrop, clearPreview } = useFilePicker((f) => {
   form.value.file = f
@@ -45,13 +49,15 @@ function clearForm() {
   filePreview.value = ''
   fileKind.value = ''
   agreeUpload.value = false
+  autoMetadata.value = false
+  isAiGenerated.value = false
 }
 
 // 视频阈值保持原 15MB
 const VIDEO_SIZE_LIMIT = 15 * 1024 * 1024
 
 function validate(): string | null {
-  if (!form.value.title.trim()) return '请填写标题'
+  if (!autoMetadata.value && !form.value.title.trim()) return '请填写标题'
   if (!form.value.content.trim() && !form.value.file) return '请填写描述正文或上传媒体文件'
   if (fileKind.value === 'video' && form.value.file && form.value.file.size > VIDEO_SIZE_LIMIT && !agreeUpload.value) {
     return '视频超过 15MB，请勾选同意视频上传条款'
@@ -60,18 +66,20 @@ function validate(): string | null {
 }
 
 async function handleSubmit() {
+  if (admin.uploading) return
   if (!userStore.user) return
   const err = validate()
   if (err) {
-    // admin store 内部有 toast，这里通过 console.warn 提示（避免重复 toast）
-    console.warn('[admin upload]', err)
+    toast.warning(err)
     return
   }
   // 类型由后端根据 file 推断；admin.uploadContent 已不再需要 type 字段
   const ok = await admin.uploadContent({
-    title: form.value.title.trim(),
+    title: metadataTitle(form.value.title.trim()),
+    auto_metadata: autoMetadata.value,
+    is_ai_generated: isAiGenerated.value,
     content: form.value.content.trim() || undefined,
-    tags: form.value.tags,
+    tags: metadataTags(form.value.tags),
     file: form.value.file,
     userId: userStore.user.id,
   })
@@ -83,8 +91,10 @@ async function handleSubmit() {
   <AdminPanel title="上传内容" desc="发布图片、视频或文字内容，正文支持 Markdown 排版。">
     <div class="upload-wrap">
       <a-form layout="vertical" :model="form">
+        <a-form-item><AutoMetadataOption v-model="autoMetadata" :options="metadataOptions" :can-generate="canGenerate" :disabled="admin.uploading" /></a-form-item>
+        <a-form-item><a-checkbox v-model="isAiGenerated" :disabled="admin.uploading">这是 AI 生成的作品（添加 AIGC 标签）</a-checkbox></a-form-item>
         <a-form-item label="标题" required>
-          <a-input v-model="form.title" placeholder="输入标题" :maxlength="200" />
+          <a-input :model-value="metadataTitle(form.title)" @update:model-value="form.title = $event" placeholder="输入标题" :maxlength="200" :disabled="admin.uploading || autoMetadata" />
         </a-form-item>
 
         <a-form-item label="描述正文（可选，与媒体二选一或都填）">
@@ -129,6 +139,8 @@ async function handleSubmit() {
         <div v-else class="upload-legal upload-legal-block" v-html="CC_LICENSE_TEXT"></div>
 
         <a-form-item label="标签">
+          <a-input-tag v-if="autoMetadata" :model-value="metadataTags(form.tags)" disabled />
+          <template v-else>
           <div v-if="form.tags.length" class="mb-2 flex flex-wrap gap-1">
             <Tag
               v-for="tag in form.tags"
@@ -145,7 +157,9 @@ async function handleSubmit() {
             allow-custom
             @toggle="toggleTag"
             @add="handleAddCustomTag"
+            :disabled="admin.uploading"
           />
+          </template>
         </a-form-item>
 
         <a-form-item v-if="admin.uploading">

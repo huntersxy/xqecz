@@ -6,6 +6,8 @@ import { contentApi } from '@/api'
 import { formatFileSize } from '@/utils'
 import { useUserStore } from '@/stores/user'
 import { useFilePicker } from '@/composables/useFilePicker'
+import { useAutoMetadata } from '@/composables/useAutoMetadata'
+import AutoMetadataOption from './AutoMetadataOption.vue'
 import { IconUpload, IconClose, IconArrowRight, IconCheckCircle } from '@arco-design/web-vue/es/icon'
 
 interface Props {
@@ -37,8 +39,12 @@ const form = ref({
   email: '',
   title: '',
   content: '',
+  tags: [] as string[],
 })
 const file = ref<File | undefined>(undefined)
+const { autoMetadata, isAiGenerated, metadataOptions, canGenerate, metadataTitle, metadataTags, refreshMetadataOptions } = useAutoMetadata(() => file.value)
+// Home stays alive while an administrator edits settings elsewhere; refresh capabilities on every reopen.
+watch(() => props.open, open => { if (open) refreshMetadataOptions() })
 const uploading = ref(false)
 const progress = ref(0)
 const { filePreview, fileInput, dragOver, onFileChange, onDrop, clearPreview } = useFilePicker((f) => {
@@ -59,7 +65,7 @@ function validate(): string | null {
     if (!form.value.nickname.trim()) return '请填写昵称'
     if (!EMAIL_RE.test(form.value.email.trim())) return '请填写正确的邮箱地址'
   }
-  if (!form.value.title.trim()) return '请填写标题'
+  if (!autoMetadata.value && !form.value.title.trim()) return '请填写标题'
   if (!form.value.content.trim() && !file.value) return '请填写描述或上传文件'
   return null
 }
@@ -74,7 +80,10 @@ async function handleSubmit() {
   try {
     const res = await contentApi.quickUpload(
       {
-        title: form.value.title.trim(),
+        title: metadataTitle(form.value.title.trim()),
+        tags: metadataTags(form.value.tags),
+        auto_metadata: autoMetadata.value,
+        is_ai_generated: isAiGenerated.value,
         nickname: isLoggedIn.value ? userStore.user?.username || '' : form.value.nickname.trim(),
         email: isLoggedIn.value ? userStore.user?.email || '' : form.value.email.trim(),
         content: form.value.content.trim() || undefined,
@@ -87,7 +96,7 @@ async function handleSubmit() {
         GUEST_STORAGE_KEY,
         JSON.stringify({ nickname: form.value.nickname.trim(), email: form.value.email.trim() }),
       )
-      toast.success(res.data.audit_status === 'approved' ? '上传成功' : '上传成功，审核通过后将进入推荐')
+      toast.success(autoMetadata.value ? '上传成功，标题与标签将在后台生成' : res.data.audit_status === 'approved' ? '上传成功' : '上传成功，审核通过后将进入推荐')
       emit('uploaded')
       visible.value = false
       router.push('/')
@@ -114,6 +123,9 @@ watch(() => props.open, (val) => {
     loadGuestInfo()
     form.value.title = ''
     form.value.content = ''
+    form.value.tags = []
+    autoMetadata.value = false
+    isAiGenerated.value = false
     file.value = undefined
     clearPreview()
   }
@@ -188,7 +200,10 @@ watch(() => props.open, (val) => {
             <label class="qus-field"><span>联系邮箱 <span class="qus-required">*</span></span><a-input v-model="form.email" aria-label="联系邮箱" placeholder="用于后续认领作品" :maxlength="254" :disabled="uploading" /></label>
           </div>
           <p v-else class="qus-identity"><span class="qus-identity-dot"></span> 以 {{ userStore.user?.username }} 的身份发布</p>
-          <label class="qus-field"><span>作品标题 <span class="qus-required">*</span></span><a-input v-model="form.title" aria-label="作品标题" placeholder="给这份灵感起个名字" :maxlength="200" :disabled="uploading" /></label>
+          <AutoMetadataOption v-model="autoMetadata" :options="metadataOptions" :can-generate="canGenerate" :disabled="uploading" />
+          <a-checkbox v-model="isAiGenerated" :disabled="uploading">这是 AI 生成的作品（添加 AIGC 标签）</a-checkbox>
+          <label class="qus-field"><span>作品标题 <span class="qus-required">*</span></span><a-input :model-value="metadataTitle(form.title)" @update:model-value="form.title = $event" aria-label="作品标题" placeholder="给这份灵感起个名字" :maxlength="200" :disabled="uploading || autoMetadata" /></label>
+          <label class="qus-field"><span>标签 <span class="qus-optional">可选</span></span><a-input-tag :model-value="autoMetadata ? metadataTags(form.tags) : form.tags" @update:model-value="form.tags = $event.filter((tag): tag is string => typeof tag === 'string')" aria-label="作品标签" placeholder="输入标签后按回车" :disabled="uploading || autoMetadata" /></label>
           <label class="qus-field"><span class="qus-field-heading"><span>写一点关于它的故事</span><span class="qus-optional">可选</span></span><a-textarea v-model="form.content" aria-label="作品描述" placeholder="创作的起点、想说的话，或只是此刻的心情…" :auto-size="{ minRows: 5, maxRows: 8 }" :disabled="uploading" /></label>
           <p class="qus-form-note">描述和媒体至少填写一项，作品审核后将进入推荐。</p>
         </section>

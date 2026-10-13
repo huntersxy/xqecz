@@ -31,6 +31,7 @@ import type {
   CreateApiKeyData,
   UpdateApiKeyData,
   DashboardStats,
+  MetadataOptions, VisionSettings, VisionJob, VisionResult, VisionReference,
 } from '@/types'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -218,6 +219,7 @@ function xhrUpload(
 }
 
 export const contentApi = {
+  metadataOptions: (signal?: AbortSignal) => request<MetadataOptions>('/content/metadata-options', { signal }),
   getTags: () => request<string[]>('/content/tags'),
 
   recommend: (count: number, page?: number) => {
@@ -235,6 +237,8 @@ export const contentApi = {
       title: data.title,
       content: data.content,
       tags: data.tags,
+      auto_metadata: data.auto_metadata,
+      is_ai_generated: data.is_ai_generated,
       file: data.file ? await renameFileToMd5(data.file) : data.file,
     })
     return xhrUpload('/content/upload', formData, onProgress, signal)
@@ -252,6 +256,8 @@ export const contentApi = {
       email: data.email,
       content: data.content,
       tags: data.tags,
+      auto_metadata: data.auto_metadata,
+      is_ai_generated: data.is_ai_generated,
       file: data.file ? await renameFileToMd5(data.file) : data.file,
     })
     return xhrUpload('/content/quick-upload', formData, onProgress, signal)
@@ -368,6 +374,13 @@ export const pollApi = {
 }
 
 export const adminApi = {
+  visionSettings: (signal?: AbortSignal) => request<VisionSettings>('/admin/vision/settings', { signal }),
+  saveVisionSettings: (data: VisionSettings & { api_key?: string; clear_api_key?: boolean }, signal?: AbortSignal) =>
+    request<VisionSettings>('/admin/vision/settings', { method: 'PUT', body: data, signal }),
+  testVision: (signal?: AbortSignal) => request<VisionResult>('/admin/vision/test', { method: 'POST', signal, timeout: 190000 }),
+  visionJobs: (signal?: AbortSignal) => request<VisionJob[]>('/admin/vision/jobs', { signal }),
+  visionReferences: (signal?: AbortSignal) => request<VisionReference[]>('/admin/vision/references', { signal }),
+  retryVision: (id: number, signal?: AbortSignal) => request(`/admin/vision/jobs/${id}/retry`, { method: 'POST', signal }),
   audit: (id: number, data: AuditRequest) =>
     request<Content>(`/admin/audit/${id}`, {
       method: 'POST',

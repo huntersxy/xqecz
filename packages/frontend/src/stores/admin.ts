@@ -255,7 +255,7 @@ export const useAdminStore = defineStore('admin', () => {
 
   // 内容统一模型：内容 = 标题 + 正文 + 可选媒体文件，不再有类型分类。
   async function uploadContent(data: {
-    title: string; content?: string; tags: string[]; file?: File; userId: number
+    title: string; content?: string; tags: string[]; file?: File; userId: number; auto_metadata?: boolean; is_ai_generated?: boolean
   }): Promise<boolean> {
     uploading.value = true
     uploadProgress.value = 0
@@ -266,8 +266,11 @@ export const useAdminStore = defineStore('admin', () => {
         tags: data.tags,
         user_id: data.userId,
         file: data.file,
+        auto_metadata: data.auto_metadata,
+        is_ai_generated: data.is_ai_generated,
       }, (p) => { uploadProgress.value = p })
-      toast.success(res.data.audit_status === 'approved' ? '上传成功' : '上传成功，审核通过后将进入推荐')
+      if (res.code !== 200) { toast.error(res.message || '上传失败'); return false }
+      toast.success(data.auto_metadata ? '上传成功，标题与标签将在后台生成' : res.data.audit_status === 'approved' ? '上传成功' : '上传成功，审核通过后将进入推荐')
       return true
     } catch (e: unknown) { toast.error(`上传失败: ${(e as Error).message}`); return false }
     finally { uploading.value = false; uploadProgress.value = 0 }

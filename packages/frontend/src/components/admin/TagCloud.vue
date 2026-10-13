@@ -4,6 +4,7 @@ interface Props {
   selectedTags: string[]
   maxTags?: number
   allowCustom?: boolean
+  disabled?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -22,6 +23,7 @@ const showCustomInput = ref(false)
 const inputRef = ref<HTMLInputElement | null>(null)
 
 function handleAddCustom() {
+  if (props.disabled) return
   const trimmed = customTagInput.value.trim()
   if (!trimmed) return
   const allTags = new Set([...props.tags, ...props.selectedTags])
@@ -38,6 +40,7 @@ function handleAddCustom() {
 }
 
 function toggleCustomInput() {
+  if (props.disabled) return
   showCustomInput.value = !showCustomInput.value
   if (showCustomInput.value) {
     nextTick(() => inputRef.value?.focus())
@@ -123,7 +126,8 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
           { 'is-selected': selectedTags.includes(tag) },
         ]"
         :style="{ ...getTagColorStyle(tag, index, selectedTags.includes(tag)), animationDelay: getAnimationDelay(index) }"
-        @click="emit('toggle', tag)"
+        :aria-disabled="disabled || undefined"
+        @click="!disabled && emit('toggle', tag)"
       >
         <span v-if="selectedTags.includes(tag)" class="flex items-center text-current animate-[check-pop_0.2s_cubic-bezier(0.34,1.56,0.64,1)]">
           <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
@@ -144,6 +148,7 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
           class="custom-tag-input"
           placeholder="输入标签..."
           maxlength="20"
+          :disabled="disabled"
           @keydown.enter.prevent="handleAddCustom"
           @keydown.escape="showCustomInput = false"
           @blur="customTagInput.trim() ? handleAddCustom() : (showCustomInput = false)"
@@ -153,6 +158,7 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
         v-else
         type="button"
         class="add-tag-btn"
+        :disabled="disabled"
         @click="toggleCustomInput"
       >
         <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">

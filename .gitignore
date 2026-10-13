@@ -21,6 +21,7 @@ packages/server/xqecz-server.exe
 data/uploads/
 data/thumbs/
 data/images/
+data/vision-references/
 
 # ── OS / IDE / 日志 ──
 .DS_Store
@@ -44,3 +45,4 @@ _tmp_*
 # docs 中现有本地草稿继续忽略；项目维护说明须随代码版本管理。
 /docs/*
 !/docs/frontend-media.md
+!/docs/vision-metadata.md

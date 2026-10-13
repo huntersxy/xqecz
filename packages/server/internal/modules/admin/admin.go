@@ -49,6 +49,12 @@ func Register(api *gin.RouterGroup, deps app.Deps, contentHandler *content.Handl
 	g.POST("/content/regenerate-all-thumbnails", h.regenerateAll)
 	g.GET("/content/regenerate-all-thumbnails/status", h.regenerateAllStatus)
 	g.POST("/content/refresh-recommend", h.refreshRecommend)
+	g.GET("/vision/settings", h.visionSettings)
+	g.PUT("/vision/settings", h.saveVisionSettings)
+	g.POST("/vision/test", h.testVision)
+	g.GET("/vision/jobs", h.visionJobs)
+	g.GET("/vision/references", h.visionReferences)
+	g.POST("/vision/jobs/:id/retry", h.retryVision)
 }
 
 type auditReq struct {

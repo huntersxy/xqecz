@@ -1,5 +1,7 @@
 import { ContentSchema, RecommendContentSchema } from './schemas'
 import type { User, Content, RecommendContent, Comment, Poll, Claim } from './schemas'
+import type { z } from 'zod'
+import type { MetadataOptionsSchema, VisionSettingsSchema, VisionJobSchema, VisionResultSchema, VisionReferenceSchema } from './schemas'
 
 export { ContentSchema, RecommendContentSchema }
 export type { User, Content, RecommendContent, Comment, Poll, Claim }
@@ -42,6 +44,8 @@ export interface UploadContentData {
   tags?: string[]
   user_id: number
   file?: File
+  auto_metadata?: boolean
+  is_ai_generated?: boolean
 }
 
 // 游客快速上传：title 必填；text（content）与 file 至少一个（前端校验，后端兜底）。
@@ -52,7 +56,15 @@ export interface QuickUploadData {
   content?: string
   tags?: string[]
   file?: File
+  auto_metadata?: boolean
+  is_ai_generated?: boolean
 }
+
+export type MetadataOptions = z.infer<typeof MetadataOptionsSchema>
+export type VisionSettings = z.infer<typeof VisionSettingsSchema>
+export type VisionJob = z.infer<typeof VisionJobSchema>
+export type VisionResult = z.infer<typeof VisionResultSchema>
+export type VisionReference = z.infer<typeof VisionReferenceSchema>
 
 export interface CommentReport {
   id: number

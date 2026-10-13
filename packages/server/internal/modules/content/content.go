@@ -58,6 +58,7 @@ func Register(api *gin.RouterGroup, deps app.Deps, opts ...Options) *Handler {
 	g.GET("/search", h.search)
 	g.GET("/recommend", h.recommend)
 	g.GET("/tags", h.tags)
+	g.GET("/metadata-options", h.metadataOptions)
 	g.GET("/my", web.RequireAuth(deps), h.my)
 
 	// 写路径：Session 或具备对应权限的 API 密钥。

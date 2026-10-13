@@ -2,6 +2,8 @@
 import { useRouter } from 'vue-router'
 import { toast } from '@/composables/useToast'
 import { useFilePicker } from '@/composables/useFilePicker'
+import { useAutoMetadata } from '@/composables/useAutoMetadata'
+import AutoMetadataOption from '@/components/AutoMetadataOption.vue'
 import { contentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { CC_LICENSE_TEXT } from '@/utils/constants'
@@ -23,6 +25,7 @@ const form = ref({
   tags: [] as string[],
 })
 const file = ref<File | undefined>(undefined)
+const { autoMetadata, isAiGenerated, metadataOptions, canGenerate, metadataTitle, metadataTags } = useAutoMetadata(() => file.value)
 const fileKind = ref<'' | 'image' | 'video'>('')
 const availableTags = ref<string[]>([])
 const uploading = ref(false)
@@ -55,7 +58,7 @@ function validate(): string | null {
     if (!form.value.nickname.trim()) return '请填写昵称'
     if (!EMAIL_RE.test(form.value.email.trim())) return '请填写正确的邮箱地址'
   }
-  if (!form.value.title.trim()) return '请填写标题'
+  if (!autoMetadata.value && !form.value.title.trim()) return '请填写标题'
   if (!form.value.content.trim() && !file.value) return '请填写描述正文或上传媒体文件'
   return null
 }
@@ -72,11 +75,13 @@ async function handleSubmit() {
   try {
     const res = await contentApi.quickUpload(
       {
-        title: form.value.title.trim(),
+        title: metadataTitle(form.value.title.trim()),
+        auto_metadata: autoMetadata.value,
+        is_ai_generated: isAiGenerated.value,
         nickname: isLoggedIn.value ? userStore.user?.username || '' : form.value.nickname.trim(),
         email: isLoggedIn.value ? userStore.user?.email || '' : form.value.email.trim(),
         content: form.value.content.trim() || undefined,
-        tags: form.value.tags,
+        tags: metadataTags(form.value.tags),
         file: file.value,
       },
       (p) => { progress.value = p },
@@ -86,7 +91,7 @@ async function handleSubmit() {
         GUEST_STORAGE_KEY,
         JSON.stringify({ nickname: form.value.nickname.trim(), email: form.value.email.trim() }),
       )
-      toast.success(res.data.audit_status === 'approved' ? '上传成功' : '上传成功，审核通过后将进入推荐')
+      toast.success(autoMetadata.value ? '上传成功，标题与标签将在后台生成' : res.data.audit_status === 'approved' ? '上传成功' : '上传成功，审核通过后将进入推荐')
       router.push('/')
     } else {
       toast.error(res.message || '上传失败')
@@ -144,10 +149,12 @@ onMounted(async () => {
             <div class="qu-section-heading"><span class="qu-step">02</span><h2 id="qu-story-title">作品的故事</h2></div>
             <div v-if="!isLoggedIn" class="qu-guest-grid"><a-form-item label="昵称" required><a-input v-model="form.nickname" placeholder="怎么称呼你？" :maxlength="50" :disabled="uploading" /></a-form-item><a-form-item label="邮箱" required><a-input v-model="form.email" placeholder="仅用于标识身份，不会公开" :maxlength="254" :disabled="uploading" /></a-form-item></div>
             <p v-else class="qu-identity"><span aria-hidden="true">✦</span> 以 {{ userStore.user?.username }} 的身份发布</p>
-            <a-form-item label="作品标题" required><a-input v-model="form.title" placeholder="给这份灵感起个名字" :maxlength="200" :disabled="uploading" /></a-form-item>
+            <a-form-item><AutoMetadataOption v-model="autoMetadata" :options="metadataOptions" :can-generate="canGenerate" :disabled="uploading" /></a-form-item>
+            <a-form-item><a-checkbox v-model="isAiGenerated" :disabled="uploading">这是 AI 生成的作品（添加 AIGC 标签）</a-checkbox></a-form-item>
+            <a-form-item label="作品标题" required><a-input :model-value="metadataTitle(form.title)" @update:model-value="form.title = $event" placeholder="给这份灵感起个名字" :maxlength="200" :disabled="uploading || autoMetadata" /></a-form-item>
             <a-form-item label="描述正文（可选）"><MarkdownEditor v-model="form.content" placeholder="描述、提示词、灵感… 支持 Markdown 排版" :height="260" :disabled="uploading" /></a-form-item>
             <p class="qu-form-note">描述和媒体至少填写一项，作品审核后将进入推荐。</p>
-            <a-form-item label="标签（可选）"><div class="qu-tags"><TagCloud :tags="availableTags" :selected-tags="form.tags" :max-tags="16" allow-custom @toggle="toggleTag" @add="handleAddCustomTag" /></div></a-form-item>
+            <a-form-item label="标签（可选）"><a-input-tag v-if="autoMetadata" :model-value="metadataTags(form.tags)" disabled /><div v-else class="qu-tags"><TagCloud :tags="availableTags" :selected-tags="form.tags" :max-tags="16" allow-custom :disabled="uploading" @toggle="toggleTag" @add="handleAddCustomTag" /></div></a-form-item>
           </section>
         </div>
         <footer class="qu-footer">

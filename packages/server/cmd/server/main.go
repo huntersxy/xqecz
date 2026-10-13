@@ -22,6 +22,7 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/project"
 	"github.com/huntersxy/xqecz/server/internal/recommend"
 	"github.com/huntersxy/xqecz/server/internal/store"
+	"github.com/huntersxy/xqecz/server/internal/vision"
 	"github.com/huntersxy/xqecz/server/internal/web"
 	"github.com/joho/godotenv"
 )
@@ -59,6 +60,14 @@ func main() {
 	// 推荐位：启动即刷新一次，之后每 10 分钟刷新（与旧实现节奏一致）。
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	metadata := vision.New(db, deps.Redis, cfg.UploadDir, filepath.Join(root, "data", "vision-references"))
+	if err := metadata.Init(ctx); err != nil {
+		slog.Warn("视觉生成初始化失败，普通上传仍可用", "err", err)
+	} else {
+		deps.Vision = metadata
+		metadata.Start(ctx)
+		defer metadata.Close()
+	}
 
 	recommend.NewRefresher(deps).Start(ctx)
 
