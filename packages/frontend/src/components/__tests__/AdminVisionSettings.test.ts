@@ -8,7 +8,7 @@ vi.mock('@/composables/useToast', () => ({ toast: { success: mocks.success } }))
 
 const config = { enabled: false, base_url: 'https://api.siliconflow.cn/v1', model: 'Qwen/Qwen3.5-4B', prompt: '请按可见主体生成标题和短词标签', max_tags: 8, timeout_seconds: 90, disable_thinking: true, token_parameter: 'max_tokens' as const, use_references: true, has_api_key: true }
 const mounted: ReturnType<typeof mount>[] = []
-function create() { const w = mount(AdminVisionSettings); mounted.push(w); return w }
+function create() { const w = mount(AdminVisionSettings, { global: { stubs: { AdminReferenceLibrary: true } } }); mounted.push(w); return w }
 beforeEach(() => {
   vi.clearAllMocks()
   vi.stubGlobal('matchMedia', vi.fn((media: string) => ({ matches: false, media, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() })))

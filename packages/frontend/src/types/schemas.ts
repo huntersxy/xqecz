@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 export const MetadataOptionsSchema = z.object({ available: z.boolean(), ready: z.boolean(), placeholder_title: z.string().min(1), placeholder_tag: z.string().min(1) })
 export const VisionSettingsSchema = z.object({
+  reference_mode: z.enum(['images', 'text']).optional(), reference_prompt: z.string().optional(),
   enabled: z.boolean(), base_url: z.string().url(), model: z.string().min(1), prompt: z.string().min(1),
   max_tags: z.number().int().min(1).max(12), timeout_seconds: z.number().int().min(10).max(180),
   disable_thinking: z.boolean(), token_parameter: z.enum(['max_tokens', 'max_completion_tokens']), use_references: z.boolean(), has_api_key: z.boolean(),
@@ -11,7 +12,7 @@ export const VisionJobSchema = z.object({
   attempts: z.number().int().min(0), error: z.string(), created_at: z.string().datetime({ offset: true }), updated_at: z.string().datetime({ offset: true }),
 })
 export const VisionResultSchema = z.object({ title: z.string().min(2), tags: z.array(z.string().min(2)).min(1).max(12) })
-export const VisionReferenceSchema = z.object({ name: z.string().min(1), bytes: z.number().int().positive() })
+export const VisionReferenceSchema = z.object({ name: z.string().min(1), bytes: z.number().int().positive(), version: z.string().optional(), description: z.string().optional(), needs_description: z.boolean().optional() })
 
 // ── 通用宽松 transform(沿用旧实现 normalize 的 `Number()||0` / `typeof==='string'? : ''` 兜底语义)──
 // 用 z.unknown + transform 而不是 z.coerce,避免 NaN 不触发 default 的边界问题;

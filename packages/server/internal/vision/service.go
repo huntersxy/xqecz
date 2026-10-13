@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/huntersxy/xqecz/server/internal/cache"
@@ -52,6 +53,7 @@ type Service struct {
 	redis        *cache.Client
 	uploadDir    string
 	referenceDir string
+	referenceMu  sync.RWMutex
 	stop         context.CancelFunc
 	done         chan struct{}
 }
@@ -90,6 +92,12 @@ func (s *Service) config(ctx context.Context) (Config, error) {
 		return Config{}, err
 	}
 	payload.Config.APIKey = payload.Key
+	if payload.Config.ReferenceMode == "" {
+		payload.Config.ReferenceMode = "images"
+	}
+	if payload.Config.ReferencePrompt == "" {
+		payload.Config.ReferencePrompt = DefaultReferencePrompt
+	}
 	return payload.Config, nil
 }
 
@@ -106,6 +114,12 @@ func (s *Service) SaveSettings(ctx context.Context, req SettingsUpdate) (Setting
 		return Settings{}, err
 	}
 	c := req.Config
+	if c.ReferenceMode == "" {
+		c.ReferenceMode = old.ReferenceMode
+	}
+	if c.ReferencePrompt == "" {
+		c.ReferencePrompt = old.ReferencePrompt
+	}
 	c.APIKey = old.APIKey
 	if req.Key != nil && strings.TrimSpace(*req.Key) != "" {
 		c.APIKey = strings.TrimSpace(*req.Key)

@@ -49,7 +49,8 @@ const api = ofetch.create({
   },
   retryStatusCodes: [408, 429, 500, 502, 503, 504],
   timeout: 10000,
-  onRequestError({ error }) {
+  onRequestError({ error, options }) {
+    if (options.signal?.aborted) return
     console.error('[API] 请求失败:', error)
   },
   async onResponseError({ response }) {
@@ -120,6 +121,8 @@ async function request<T>(
   try {
     return (await api(url, options)) as unknown as Promise<ApiResponse<T>>
  } catch (err) {
+    // Leaving an admin panel cancels its owned requests; this is not a user-visible failure.
+    if (options.signal?.aborted) throw err
     // 把后端文案包进 Error，供调用方 catch 后直接展示
     const e = err as {
       response?: { _data?: unknown; status?: number }
@@ -380,6 +383,15 @@ export const adminApi = {
   testVision: (signal?: AbortSignal) => request<VisionResult>('/admin/vision/test', { method: 'POST', signal, timeout: 190000 }),
   visionJobs: (signal?: AbortSignal) => request<VisionJob[]>('/admin/vision/jobs', { signal }),
   visionReferences: (signal?: AbortSignal) => request<VisionReference[]>('/admin/vision/references', { signal }),
+  uploadVisionReference: (name: string, file: File, replace: boolean, signal?: AbortSignal) => {
+    const body = new FormData(); body.append('name', name); body.append('file', file)
+    return request<VisionReference>(replace ? `/admin/vision/references/${encodeURIComponent(name)}/image` : '/admin/vision/references', { method: replace ? 'PUT' : 'POST', body, signal, retry: 0, timeout: 60000 })
+  },
+  visionReferenceImage: (name: string, signal?: AbortSignal) => api<Blob, 'blob'>(`/admin/vision/references/${encodeURIComponent(name)}/image`, { responseType: 'blob', signal, retry: 0 }),
+  renameVisionReference: (name: string, newName: string, signal?: AbortSignal) => request<VisionReference>(`/admin/vision/references/${encodeURIComponent(name)}`, { method: 'PATCH', body: { name: newName }, signal, retry: 0 }),
+  deleteVisionReference: (name: string, signal?: AbortSignal) => request(`/admin/vision/references/${encodeURIComponent(name)}`, { method: 'DELETE', signal, retry: 0 }),
+  saveVisionReferenceDescription: (ref: VisionReference, description: string, signal?: AbortSignal) => request<VisionReference>(`/admin/vision/references/${encodeURIComponent(ref.name)}/description`, { method: 'PUT', body: { description, version: ref.version }, signal, retry: 0 }),
+  describeVisionReference: (ref: VisionReference, signal?: AbortSignal) => request<VisionReference>(`/admin/vision/references/${encodeURIComponent(ref.name)}/describe`, { method: 'POST', body: { version: ref.version }, signal, retry: 0, timeout: 190000 }),
   retryVision: (id: number, signal?: AbortSignal) => request(`/admin/vision/jobs/${id}/retry`, { method: 'POST', signal }),
   audit: (id: number, data: AuditRequest) =>
     request<Content>(`/admin/audit/${id}`, {

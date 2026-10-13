@@ -54,6 +54,13 @@ func Register(api *gin.RouterGroup, deps app.Deps, contentHandler *content.Handl
 	g.POST("/vision/test", h.testVision)
 	g.GET("/vision/jobs", h.visionJobs)
 	g.GET("/vision/references", h.visionReferences)
+	g.POST("/vision/references", h.uploadVisionReference)
+	g.PUT("/vision/references/:name/image", h.uploadVisionReference)
+	g.GET("/vision/references/:name/image", h.visionReferenceImage)
+	g.PATCH("/vision/references/:name", h.renameVisionReference)
+	g.DELETE("/vision/references/:name", h.deleteVisionReference)
+	g.PUT("/vision/references/:name/description", h.saveVisionReferenceDescription)
+	g.POST("/vision/references/:name/describe", h.describeVisionReference)
 	g.POST("/vision/jobs/:id/retry", h.retryVision)
 }
 

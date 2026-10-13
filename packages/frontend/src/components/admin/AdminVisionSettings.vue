@@ -4,6 +4,7 @@ import { adminApi } from '@/api'
 import { toast } from '@/composables/useToast'
 import type { VisionSettings, VisionJob, VisionResult, VisionReference, ApiResponse } from '@/types'
 import AdminPanel from './AdminPanel.vue'
+import AdminReferenceLibrary from './AdminReferenceLibrary.vue'
 
 const settings = ref<VisionSettings>()
 const apiKey = ref('')
@@ -93,12 +94,16 @@ onBeforeUnmount(() => controller.abort())
             <a-form-item label="兼容设置"><a-checkbox v-model="settings.disable_thinking" :disabled="busy">发送 enable_thinking=false（硅基流动）</a-checkbox></a-form-item>
           </div>
           <a-checkbox v-model="settings.use_references" :disabled="busy">使用角色设定图辨认角色</a-checkbox>
-          <p class="vision-note">参照库：{{ references.length ? references.map(ref => ref.name).join('、') : '尚未导入' }}。只有明确匹配才生成角色名；无法确认时使用主体标签。参照图会随请求一起发送给配置的视觉服务。</p>
+          <p class="vision-note">参照库：{{ references.length ? references.map(ref => ref.name).join('、') : '尚未导入' }}。只有明确匹配才生成角色名；无法确认时使用主体标签。</p>
+          <a-checkbox :model-value="settings.reference_mode === 'text'" :disabled="busy" @update:model-value="settings.reference_mode = $event ? 'text' : 'images'">参照库无图模式（使用预转述的文字特征）</a-checkbox>
+          <p class="vision-note">待识别作品仍发送图片。无图模式只发送角色文字描述；每张参照图需先完成转述或手动填写描述。普通模式会发送参照图片。</p>
+          <a-form-item label="参照图转述提示词"><a-textarea v-model="settings.reference_prompt" :disabled="busy" :auto-size="{ minRows: 3, maxRows: 8 }" /></a-form-item>
           <div class="vision-toolbar"><a-button type="primary" :loading="busy" :disabled="busy" @click="handleSave">保存配置</a-button><a-button :disabled="busy" @click="test">保存并测试视觉接口</a-button></div>
           <p class="vision-note">测试使用内置色块图片，验证视觉请求及标题、标签解析；角色识别效果需用实际作品验证。其他兼容服务不支持思考参数时可取消上方选项。</p>
           <a-alert v-if="result" type="success" :title="result.title"><template #default>{{ result.tags.join(' · ') }}</template></a-alert>
         </a-form>
       </a-spin>
+      <AdminReferenceLibrary :references="references" :has-key="!!settings?.has_api_key" @update="references = $event" />
       <div class="vision-toolbar"><h3>最近 30 条任务</h3><a-button :disabled="busy" @click="load">刷新</a-button></div>
       <p v-if="!jobs.length" class="vision-note">暂无自动生成任务</p>
       <ul v-else class="vision-jobs">

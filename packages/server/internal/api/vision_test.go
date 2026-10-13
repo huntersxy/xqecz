@@ -267,6 +267,16 @@ func TestVisionBrowserFixture(t *testing.T) {
 	}
 	deps, handler := visionFixture(t)
 	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Messages []struct {
+				Content json.RawMessage `json:"content"`
+			} `json:"messages"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if len(body.Messages) > 0 && bytes.Contains(body.Messages[0].Content, []byte("description")) {
+			_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"content": `{"description":"黑色短发，蓝色瞳孔，额前有一缕挑染；使用发型、瞳色与配饰共同判读，服饰可随作品变化。"}`}}}})
+			return
+		}
 		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"{\"title\":\"小泉在校园的午后\",\"tags\":[\"小泉\",\"校园\",\"蓝色外套\"],\"characters\":[{\"name\":\"小泉\",\"confidence\":0.95}]}"}}]}`))
 	}))
 	defer model.Close()

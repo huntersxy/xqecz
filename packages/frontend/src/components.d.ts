@@ -27,6 +27,7 @@ declare module 'vue' {
     AdminNav: typeof import('./components/admin/AdminNav.vue')['default']
     AdminPanel: typeof import('./components/admin/AdminPanel.vue')['default']
     AdminPollPanel: typeof import('./components/admin/AdminPollPanel.vue')['default']
+    AdminReferenceLibrary: typeof import('./components/admin/AdminReferenceLibrary.vue')['default']
     AdminReportTable: typeof import('./components/admin/AdminReportTable.vue')['default']
     AdminStatus: typeof import('./components/admin/AdminStatus.vue')['default']
     AdminUploadPanel: typeof import('./components/admin/AdminUploadPanel.vue')['default']
