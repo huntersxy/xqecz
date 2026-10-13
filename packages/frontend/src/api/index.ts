@@ -67,8 +67,8 @@ const api = ofetch.create({
             import('@/router').then((m) => {
               const router = m.default
               const cur = router.currentRoute.value
-              // 只在受保护页面（/admin）才跳转登录页，公开页面不跳转
-              if (cur.path.startsWith('/admin') && cur.path !== '/login') {
+              // Only protected routes redirect after session expiry; public browsing stays available.
+              if (cur.meta.requiresAuth && cur.path !== '/login') {
                 router.push({ path: '/login', query: { redirect: cur.fullPath } })
               }
             }).catch(() => {}),
@@ -114,7 +114,7 @@ function apiError(msg: string, status?: number): Error {
   return e
 }
 
-async function request<T>(
+export async function request<T>(
   url: string,
   options: Parameters<typeof api>[1] = {},
 ): Promise<ApiResponse<T>> {
@@ -144,6 +144,8 @@ async function request<T>(
     throw apiError(msg, status)
   }
 }
+
+export const fetchApiBlob = (path: string, signal?: AbortSignal) => api<Blob, 'blob'>(path, { responseType: 'blob', signal, retry: 0, timeout: 30000 })
 
 export const authApi = {
   register: (username: string, email: string, password: string) =>

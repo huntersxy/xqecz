@@ -46,3 +46,4 @@ _tmp_*
 /docs/*
 !/docs/frontend-media.md
 !/docs/vision-metadata.md
+!/docs/ai-creation.md

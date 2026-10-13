@@ -483,6 +483,7 @@ onActivated(() => {
       </div>
     </section>
 
+    <IdeasSection v-if="!homeStore.searchKeyword && searchFilter.selectedTags.value.length === 0" />
     <RecommendSection
       v-if="!swapSections && recommendLoader.recommendContents.value.length > 0"
       :loader="recommendLoader"

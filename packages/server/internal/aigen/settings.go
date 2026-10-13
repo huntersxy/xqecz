@@ -1,0 +1,247 @@
+package aigen
+
+import (
+	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+)
+
+func loadCipher(dir string) (cipher.AEAD, error) {
+	path := filepath.Join(dir, ".encryption-key")
+	key, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		key = make([]byte, 32)
+		if _, err = rand.Read(key); err != nil {
+			return nil, err
+		}
+		f, createErr := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+		if errors.Is(createErr, os.ErrExist) {
+			key, err = os.ReadFile(path)
+		} else if createErr != nil {
+			return nil, createErr
+		} else {
+			_, err = f.Write(key)
+			closeErr := f.Close()
+			if err == nil {
+				err = closeErr
+			}
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	if len(key) != 32 {
+		return nil, errors.New("AI encryption key is invalid; preserve the original key when restoring a backup")
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	return cipher.NewGCM(block)
+}
+
+func (s *Service) encrypt(raw string) (string, error) {
+	if s.cipher == nil {
+		return "", ErrUnavailable
+	}
+	nonce := make([]byte, s.cipher.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(s.cipher.Seal(nonce, nonce, []byte(raw), []byte("xqecz-ai-v1"))), nil
+}
+func (s *Service) decrypt(encoded string) (string, error) {
+	if s.cipher == nil {
+		return "", ErrUnavailable
+	}
+	raw, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil || len(raw) < s.cipher.NonceSize() {
+		return "", ErrInvalid
+	}
+	plain, err := s.cipher.Open(nil, raw[:s.cipher.NonceSize()], raw[s.cipher.NonceSize():], []byte("xqecz-ai-v1"))
+	return string(plain), err
+}
+
+func stringList(raw string) []string {
+	var out []string
+	_ = json.Unmarshal([]byte(raw), &out)
+	return out
+}
+func contains(items []string, value string) bool {
+	for _, item := range items {
+		if item == value {
+			return true
+		}
+	}
+	return false
+}
+func encode(v any) string { raw, _ := json.Marshal(v); return string(raw) }
+
+func validateProvider(p ProviderConfig) error {
+	if validateURL(p.Endpoint) != nil || !strings.HasSuffix(p.Endpoint, "/v1/images/generations") || len(p.Name) == 0 || len([]rune(p.Name)) > 100 || len(p.Model) == 0 || len(p.Model) > 160 {
+		return ErrInvalid
+	}
+	sizes := stringList(p.Sizes)
+	if len(sizes) == 0 || len(sizes) > 12 || p.MaxCount < 1 || p.MaxCount > 2 || p.MaxReferences < 0 || p.MaxReferences > 8 || p.TimeoutSeconds < 10 || p.TimeoutSeconds > 300 || p.Concurrency < 1 || p.Concurrency > 2 || p.Cost < 1 || p.Cost > 10000 {
+		return ErrInvalid
+	}
+	for _, size := range sizes {
+		if len(size) == 0 || len(size) > 32 {
+			return ErrInvalid
+		}
+	}
+	if len(stringList(p.Qualities)) > 8 {
+		return ErrInvalid
+	}
+	if p.EditTransport != "none" && p.EditTransport != "multipart" && p.EditTransport != "json" {
+		return ErrInvalid
+	}
+	if p.EditTransport == "none" && p.MaxReferences != 0 {
+		return ErrInvalid
+	}
+	var costs map[string]int64
+	if p.QualityCosts != "" && json.Unmarshal([]byte(p.QualityCosts), &costs) != nil {
+		return ErrInvalid
+	}
+	for quality, cost := range costs {
+		if !contains(stringList(p.Qualities), quality) || cost < 1 || cost > 10000 {
+			return ErrInvalid
+		}
+	}
+	return nil
+}
+
+// BYOK can select only an administrator-approved provider. Users never get a
+// URL input, and a queued task captures the configuration and encrypted key.
+func (s *Service) SaveProvider(ctx context.Context, uid uint64, row ProviderConfig, key string) (ProviderConfig, error) {
+	key = strings.TrimSpace(key)
+	if len(key) > 500 || strings.ContainsAny(key, "\r\n") {
+		return row, ErrInvalid
+	}
+	var old ProviderConfig
+	if row.ID != 0 {
+		if err := s.db.WithContext(ctx).Where("id = ? AND user_id = ?", row.ID, uid).First(&old).Error; err != nil {
+			return row, err
+		}
+		if uid == 0 && row.Revision != old.Revision {
+			return row, ErrConflict
+		}
+	}
+	row.UserID = uid
+	if uid != 0 {
+		var allowed ProviderConfig
+		if err := s.db.WithContext(ctx).Where("id = ? AND user_id = 0 AND enabled = ?", row.AllowedProviderID, true).First(&allowed).Error; err != nil {
+			return row, ErrInvalid
+		}
+		name, id, def := row.Name, row.ID, row.Default
+		row = allowed
+		row.ID, row.UserID, row.Name, row.Default, row.AllowedProviderID = id, uid, name, def, allowed.ID
+		row.CipherKey = old.CipherKey
+	}
+	if err := validateProvider(row); err != nil {
+		return row, err
+	}
+	if key != "" {
+		encrypted, err := s.encrypt(key)
+		if err != nil {
+			return row, err
+		}
+		row.CipherKey = encrypted
+	} else {
+		row.CipherKey = old.CipherKey
+	}
+	if uid != 0 && row.Enabled && row.CipherKey == "" {
+		return row, errors.New("请设置 API Key 后启用")
+	}
+	row.Revision = old.Revision + 1
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if old.ID != 0 {
+			var current ProviderConfig
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&current, old.ID).Error; err != nil {
+				return err
+			}
+			if current.Revision != old.Revision {
+				return ErrConflict
+			}
+		}
+		if row.Default {
+			if err := tx.Model(&ProviderConfig{}).Where("user_id = ?", uid).Update("default", false).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Save(&row).Error
+	})
+	return row, err
+}
+
+func (s *Service) providerFor(ctx context.Context, uid uint64, input Input) (ProviderConfig, error) {
+	owner := uint64(0)
+	if input.Mode == "byok" {
+		owner = uid
+	} else if input.Mode != "site" {
+		return ProviderConfig{}, ErrInvalid
+	}
+	var p ProviderConfig
+	query := s.db.WithContext(ctx).Where("user_id = ? AND enabled = ?", owner, true)
+	if owner == 0 {
+		query = query.Where("cipher_key <> ?", "")
+	}
+	if input.ProviderID != 0 {
+		query = query.Where("id = ?", input.ProviderID)
+	} else {
+		query = query.Order("`default` desc, id asc")
+	}
+	if err := query.First(&p).Error; err != nil {
+		return p, ErrUnavailable
+	}
+	if owner != 0 {
+		var allowed ProviderConfig
+		if err := s.db.WithContext(ctx).Where("id = ? AND user_id = 0 AND enabled = ?", p.AllowedProviderID, true).First(&allowed).Error; err != nil {
+			return p, ErrUnavailable
+		}
+		p = mergeBYOK(p, allowed)
+	}
+	return p, nil
+}
+
+func mergeBYOK(own, allowed ProviderConfig) ProviderConfig {
+	result := allowed
+	result.ID, result.UserID, result.Name, result.CipherKey, result.Default, result.AllowedProviderID = own.ID, own.UserID, own.Name, own.CipherKey, own.Default, allowed.ID
+	result.Enabled = own.Enabled && allowed.Enabled
+	return result
+}
+
+// Capabilities always come from the current approved provider, while the
+// private name/key remain owned by the user. Never display stale BYOK copies.
+func (s *Service) VisibleProviders(ctx context.Context, uid uint64) ([]ProviderConfig, error) {
+	rows := []ProviderConfig{}
+	err := s.db.WithContext(ctx).Where("user_id = 0 OR (user_id = ? AND cipher_key <> ?)", uid, "").Order("`default` desc,id asc").Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	allowed := map[uint64]ProviderConfig{}
+	for _, row := range rows {
+		if row.UserID == 0 {
+			allowed[row.ID] = row
+		}
+	}
+	out := []ProviderConfig{}
+	for _, row := range rows {
+		if row.UserID == 0 {
+			out = append(out, row)
+		} else if parent, ok := allowed[row.AllowedProviderID]; ok {
+			out = append(out, mergeBYOK(row, parent))
+		}
+	}
+	return out, nil
+}

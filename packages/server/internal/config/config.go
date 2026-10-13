@@ -21,6 +21,11 @@ type Config struct {
 	ImagesDir   string
 	// BinDir 是压缩/清理后原图的垃圾桶目录，保留而非直接删除，便于人工回溯。
 	BinDir string
+	// Optional first-start seed. Durable provider settings are managed in the database.
+	AIImageBaseURL string
+	AIImageAPIKey  string
+	AIImageModel   string
+	AIImageDir     string
 
 	// R2 对象存储镜像：原图与压缩图各存一份，缩略图仍只留在本地。
 	// 四项凭据任一为空即整体停用（与 TinyPNG 同样的「缺配置即休眠」策略），
@@ -75,6 +80,10 @@ func Load() Config {
 	c.ThumbDir = env("THUMB_DIR", filepath.Join(dataDir, "thumbs"))
 	c.ImagesDir = env("IMAGES_DIR", filepath.Join(dataDir, "images"))
 	c.BinDir = env("BIN_DIR", filepath.Join(dataDir, "bin"))
+	c.AIImageDir = env("AI_IMAGE_DIR", filepath.Join(dataDir, "ai-private"))
+	c.AIImageBaseURL = strings.TrimSpace(os.Getenv("AI_IMAGE_BASE_URL"))
+	c.AIImageAPIKey = strings.TrimSpace(os.Getenv("AI_IMAGE_API_KEY"))
+	c.AIImageModel = strings.TrimSpace(os.Getenv("AI_IMAGE_MODEL"))
 
 	// R2 镜像：凭据不全即停用（本地开发常未开通）。
 	c.R2 = loadR2()

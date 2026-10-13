@@ -1,5 +1,190 @@
 import { z } from 'zod'
 
+const aiTime = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+export const AIProviderSchema = z.object({
+  id: z.number(),
+  revision: z.number(),
+  owner: z.number(),
+  name: z.string(),
+  endpoint: z.string(),
+  model: z.string(),
+  allowed_provider_id: z.number(),
+  enabled: z.boolean(),
+  default: z.boolean(),
+  has_key: z.boolean(),
+  sizes: z.array(z.string()),
+  qualities: z
+    .array(z.string())
+    .nullable()
+    .transform((v) => v ?? []),
+  max_count: z.number(),
+  max_references: z.number(),
+  edit_transport: z.enum(['none', 'multipart', 'json']),
+  timeout_seconds: z.number(),
+  concurrency: z.number(),
+  cost: z.number(),
+  quality_costs: z
+    .record(z.string(), z.number())
+    .nullable()
+    .transform((v) => v ?? {}),
+})
+export const AIConfigSchema = z.object({ providers: z.array(AIProviderSchema) })
+export const AIAccountSchema = z.object({
+  user_id: z.number(),
+  available: z.number().int().nonnegative(),
+  reserved: z.number().int().nonnegative(),
+})
+export const AISessionSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string(),
+  draft: z.string(),
+  version: z.number(),
+  created_at: aiTime,
+  updated_at: aiTime,
+})
+export const AIAssetSchema = z.object({
+  id: z.number().int().positive(),
+  task_id: z.number(),
+  user_id: z.number(),
+  mime: z.string(),
+  bytes: z.number(),
+  width: z.number(),
+  height: z.number(),
+  title: z.string(),
+  description: z.string(),
+  license: z.string(),
+  purpose: z.string(),
+  public: z.boolean(),
+  download_allowed: z.boolean(),
+  archived: z.boolean(),
+  content_id: z.number().nullable(),
+  created_at: aiTime,
+})
+export const AITaskSchema = z.object({
+  id: z.number().int().positive(),
+  user_id: z.number(),
+  session_id: z.number(),
+  prompt: z.string(),
+  size: z.string(),
+  quality: z.string(),
+  count: z.number().int().positive(),
+  model: z.string(),
+  mode: z.string(),
+  provider_id: z.number(),
+  parent_task_id: z.number(),
+  parent_asset_id: z.number(),
+  idea_id: z.number(),
+  status: z.enum(['queued', 'running', 'succeeded', 'failed', 'cancelled', 'unknown']),
+  cost: z.number().int(),
+  error: z.string(),
+  created_at: aiTime,
+  updated_at: aiTime,
+})
+export const AITaskViewSchema = z.object({
+  task: AITaskSchema,
+  assets: z.array(AIAssetSchema),
+  references: z.array(AIAssetSchema).optional(),
+})
+export const AILedgerSchema = z.object({
+  id: z.number(),
+  user_id: z.number(),
+  actor_id: z.number(),
+  task_id: z.number(),
+  kind: z.string(),
+  amount: z.number(),
+  note: z.string(),
+  created_at: aiTime,
+})
+export const CreativeVariableSchema = z.object({
+  name: z.string(),
+  label: z.string(),
+  type: z.enum(['text', 'select']),
+  default: z.string(),
+  required: z.boolean(),
+  options: z
+    .array(z.string())
+    .nullable()
+    .transform((v) => v ?? []),
+  help: z.string(),
+})
+export const CreativeResourceSchema = z.object({
+  id: z.number(),
+  kind: z.enum(['character', 'preset', 'template']),
+  slug: z.string(),
+  title: z.string(),
+  summary: z.string(),
+  status: z.enum(['draft', 'published', 'archived']),
+  sort_order: z.number(),
+  version: z.number(),
+  payload: z.object({
+    description: z.string().default(''),
+    appearance: z.string().default(''),
+    body: z.string().default(''),
+    asset_ids: z
+      .array(z.number())
+      .nullable()
+      .optional()
+      .transform((v) => v ?? []),
+    character_ids: z
+      .array(z.number())
+      .nullable()
+      .optional()
+      .transform((v) => v ?? []),
+    tags: z
+      .array(z.string())
+      .nullable()
+      .optional()
+      .transform((v) => v ?? []),
+    variables: z
+      .array(CreativeVariableSchema)
+      .nullable()
+      .optional()
+      .transform((v) => v ?? []),
+    preset_id: z.number().default(0),
+    parameters: z
+      .record(z.string(), z.unknown())
+      .nullable()
+      .optional()
+      .transform((v) => v ?? {}),
+  }),
+  created_at: aiTime,
+  updated_at: aiTime,
+})
+export const AIIdeaSchema = z.object({
+  id: z.number(),
+  user_id: z.number(),
+  title: z.string(),
+  description: z.string(),
+  snapshot: z.string(),
+  character_ids: z.string(),
+  model: z.string(),
+  status: z.string(),
+  sponsor_id: z.number(),
+  task_id: z.number(),
+  estimated_cost: z.number(),
+  created_at: aiTime,
+  updated_at: aiTime,
+})
+export const AIIdeaViewSchema = z.object({
+  idea: AIIdeaSchema,
+  author: z.object({ id: z.number(), username: z.string() }),
+  sponsor: z.object({ id: z.number(), username: z.string() }).nullable(),
+  references: z.array(AIAssetSchema),
+  results: z.array(AIAssetSchema),
+  current_cost: z.number(),
+  sponsorable: z.boolean(),
+})
+export type AIConfig = z.infer<typeof AIConfigSchema>
+export type AIAccount = z.infer<typeof AIAccountSchema>
+export type AISession = z.infer<typeof AISessionSchema>
+export type AIAsset = z.infer<typeof AIAssetSchema>
+export type AITask = z.infer<typeof AITaskSchema>
+export type AIProvider = z.infer<typeof AIProviderSchema>
+export type AITaskView = z.infer<typeof AITaskViewSchema>
+export type CreativeResource = z.infer<typeof CreativeResourceSchema>
+export type CreativeVariable = z.infer<typeof CreativeVariableSchema>
+export type AIIdeaView = z.infer<typeof AIIdeaViewSchema>
+
 export const MetadataOptionsSchema = z.object({ available: z.boolean(), ready: z.boolean(), placeholder_title: z.string().min(1), placeholder_tag: z.string().min(1) })
 export const VisionSettingsSchema = z.object({
   reference_mode: z.enum(['images', 'text']).optional(), reference_prompt: z.string().optional(),

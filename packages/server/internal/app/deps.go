@@ -2,6 +2,7 @@
 package app
 
 import (
+	"github.com/huntersxy/xqecz/server/internal/aigen"
 	"github.com/huntersxy/xqecz/server/internal/cache"
 	"github.com/huntersxy/xqecz/server/internal/config"
 	"github.com/huntersxy/xqecz/server/internal/vision"
@@ -35,4 +36,5 @@ type Deps struct {
 	Mirror MediaMirror
 	// Vision is optional. Its durable outbox is written in the upload transaction.
 	Vision *vision.Service
+	AI     *aigen.Service
 }

@@ -5,10 +5,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/huntersxy/xqecz/server/internal/app"
 	"github.com/huntersxy/xqecz/server/internal/modules/admin"
+	aigenhttp "github.com/huntersxy/xqecz/server/internal/modules/aigen"
 	"github.com/huntersxy/xqecz/server/internal/modules/apikey"
 	"github.com/huntersxy/xqecz/server/internal/modules/auth"
 	"github.com/huntersxy/xqecz/server/internal/modules/comment"
 	"github.com/huntersxy/xqecz/server/internal/modules/content"
+	creativehttp "github.com/huntersxy/xqecz/server/internal/modules/creative"
 	"github.com/huntersxy/xqecz/server/internal/modules/poll"
 	"github.com/huntersxy/xqecz/server/internal/web"
 )
@@ -27,6 +29,8 @@ func New(deps app.Deps, opts ...content.Options) *gin.Engine {
 			poll.Register(api, deps)
 			apikey.Register(api, deps)
 			admin.Register(api, deps, contentHandler)
+			aigenhttp.Register(api, deps, contentHandler)
+			creativehttp.Register(api, deps)
 		})
 }
 

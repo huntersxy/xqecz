@@ -19,6 +19,16 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/QuickUploadView.vue'),
   },
   {
+    path: '/studio',
+    name: 'ai-studio',
+    component: () => import('../views/AIStudioView.vue'),
+    meta: { requiresAuth: true },
+  },
+  { path: '/characters', name: 'characters', component: () => import('../views/CreativeCatalogView.vue') },
+  { path: '/characters/:id', name: 'character-detail', component: () => import('../views/CreativeCatalogView.vue') },
+  { path: '/ideas', name: 'ideas', component: () => import('../views/IdeasView.vue') },
+  { path: '/ideas/:id', name: 'idea-detail', component: () => import('../views/IdeasView.vue') },
+  {
     path: '/login',
     name: 'login',
     component: () => import('../views/LoginView.vue'),

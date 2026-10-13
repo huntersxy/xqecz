@@ -9,12 +9,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/huntersxy/xqecz/server/internal/aigen"
 	"github.com/huntersxy/xqecz/server/internal/api"
 	"github.com/huntersxy/xqecz/server/internal/app"
 	"github.com/huntersxy/xqecz/server/internal/cache"
 	"github.com/huntersxy/xqecz/server/internal/cli"
 	"github.com/huntersxy/xqecz/server/internal/compress"
 	"github.com/huntersxy/xqecz/server/internal/config"
+	"github.com/huntersxy/xqecz/server/internal/creative"
 	"github.com/huntersxy/xqecz/server/internal/logx"
 	"github.com/huntersxy/xqecz/server/internal/media"
 	"github.com/huntersxy/xqecz/server/internal/mirror"
@@ -60,13 +62,25 @@ func main() {
 	// 推荐位：启动即刷新一次，之后每 10 分钟刷新（与旧实现节奏一致）。
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	images := aigen.New(db, cfg)
+	if err := creative.Init(ctx, db); err != nil {
+		slog.Error("creative tables init failed", "err", err)
+		os.Exit(1)
+	}
+	if err := images.Init(ctx); err != nil {
+		slog.Error("AI image tables init failed", "err", err)
+		os.Exit(1)
+	}
+	images.Start(ctx)
+	deps.AI = images
+	defer func() { stop(); images.Close() }()
 	metadata := vision.New(db, deps.Redis, cfg.UploadDir, filepath.Join(root, "data", "vision-references"))
 	if err := metadata.Init(ctx); err != nil {
 		slog.Warn("视觉生成初始化失败，普通上传仍可用", "err", err)
 	} else {
 		deps.Vision = metadata
 		metadata.Start(ctx)
-		defer metadata.Close()
+		defer func() { stop(); metadata.Close() }()
 	}
 
 	recommend.NewRefresher(deps).Start(ctx)

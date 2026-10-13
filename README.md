@@ -4,12 +4,14 @@
 
 前端是 Vue 3 单页应用，后端是**单一 Go 进程**（HTTP + MySQL + Redis + 进程内媒体处理）。前端依赖由 pnpm workspace 管理，后端由 go module 管理，两端任务由 moon 统一编排。
 
+新增 AI 工作台、角色与提示词资源、站点额度/BYOK、私人生成历史和社区赞助。配置、私有目录备份、任务恢复与验收说明见 [AI 创作与社区赞助](docs/ai-creation.md)。
+
 ## 架构
 
 ```
 前端 (Vue 3)  ──HTTP /api──▶  Go 单体进程（packages/server）
                                 ├─ gin 路由 + 中间件（会话 / API 密钥 / 管理员 / CORS）
-                                ├─ GORM ──────────▶ MySQL（10 张表）
+                                ├─ GORM ──────────▶ MySQL（用户、内容及创作资源/任务/账本）
                                 ├─ go-redis ──────▶ Redis（会话 / 读穿缓存 / 浏览量 / 推荐 ZSet）
                                 ├─ 进程内媒体处理：缩略图（ffmpeg，缺失时降级纯 Go）
                                 └─ 后台压缩：TinyPNG 定时挑最大图压缩，原图入 data/bin

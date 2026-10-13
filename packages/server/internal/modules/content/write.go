@@ -43,6 +43,8 @@ type createInput struct {
 	GuestEmail    string
 	AbsPath       string
 	AutoMetadata  bool
+	// Link runs in the same transaction as creation for imported AI assets.
+	Link func(*gorm.DB, uint64) error
 }
 
 // upload 登录用户上传（Session 或具备 upload 权限的 API 密钥）。
@@ -508,6 +510,11 @@ func (h *Handler) createContent(ctx context.Context, in createInput) (Item, erro
 	if err := db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&row).Error; err != nil {
 			return err
+		}
+		if in.Link != nil {
+			if err := in.Link(tx, row.ID); err != nil {
+				return err
+			}
 		}
 		if in.AutoMetadata {
 			job := vision.NewJob(row)

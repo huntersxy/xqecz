@@ -9,6 +9,7 @@ import {
 import AdminDashboard from '@/components/admin/AdminDashboard.vue'
 import AdminApiDocs from '@/components/admin/AdminApiDocs.vue'
 import AdminVisionSettings from '@/components/admin/AdminVisionSettings.vue'
+import AdminAI from '@/components/admin/AdminAI.vue'
 
 const userStore = useUserStore()
 const admin = useAdminStore()
@@ -42,6 +43,7 @@ const navGroups = computed<AdminNavGroup[]>(() => {
         { key: 'claims', title: '认领管理', icon: IconLink, badge: admin.pendingCounts.claims || undefined },
         { key: 'reports', title: '举报管理', icon: IconExclamationCircle, badge: admin.pendingCounts.reports || undefined },
         { key: 'vision', title: '视觉模型', icon: IconEye },
+        { key: 'ai', title: 'AI 创作管理', icon: IconEye },
       ],
     })
   }
@@ -133,6 +135,7 @@ onMounted(() => {
             <AdminClaimTable v-else-if="admin.activeTab === 'claims' && userStore.user?.is_admin" />
             <AdminReportTable v-else-if="admin.activeTab === 'reports' && userStore.user?.is_admin" />
             <AdminVisionSettings v-else-if="admin.activeTab === 'vision' && userStore.user?.is_admin" />
+            <AdminAI v-else-if="admin.activeTab === 'ai' && userStore.user?.is_admin" />
             <AdminApiKeys v-else-if="admin.activeTab === 'api-keys'" />
             <AdminApiDocs v-else-if="admin.activeTab === 'api-docs'" />
             <a-result

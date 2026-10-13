@@ -81,6 +81,9 @@ const navItems = computed<NavItem[]>(() => {
   const items: NavItem[] = [
     { key: '/', icon: IconHome, label: '首页' },
     { key: '/quick-upload', icon: IconUpload, label: '快速上传' },
+    { key: '/studio', icon: IconUpload, label: 'AI 创作' },
+    { key: '/characters', icon: IconHome, label: '角色设定' },
+    { key: '/ideas', icon: IconHome, label: '创意广场' },
   ]
   if (userStore.isLoggedIn) {
     items.push({ key: '/admin', icon: IconSettings, label: '后台管理' })
@@ -116,11 +119,11 @@ function handleLogout() {
   isMobileMenuOpen.value = false
 }
 
-// 响应式断点：≤768px 视为移动端（与 Arco 断点 sm=768 对齐）。
-// 移动端不渲染横向 Menu，改为汉堡按钮打开 Drawer，从根本上避免横向菜单溢出「…」抖动。
+// The expanded creative navigation needs the drawer before six links and the
+// account area start colliding. Page layouts keep their own mobile breakpoints.
 const isMobile = ref(false)
 function updateBreakpoint() {
-  isMobile.value = window.matchMedia('(max-width: 768px)').matches
+  isMobile.value = window.matchMedia('(max-width: 1180px)').matches
 }
 
 onMounted(() => {

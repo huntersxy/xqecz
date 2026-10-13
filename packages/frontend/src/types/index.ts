@@ -1,10 +1,11 @@
 import { ContentSchema, RecommendContentSchema } from './schemas'
-import type { User, Content, RecommendContent, Comment, Poll, Claim } from './schemas'
+import type { User, Content, RecommendContent, Comment, Poll, Claim, AIConfig, AIAccount, AISession, AITask, AIAsset } from './schemas'
 import type { z } from 'zod'
 import type { MetadataOptionsSchema, VisionSettingsSchema, VisionJobSchema, VisionResultSchema, VisionReferenceSchema } from './schemas'
 
 export { ContentSchema, RecommendContentSchema }
 export type { User, Content, RecommendContent, Comment, Poll, Claim }
+export type { AIConfig, AIAccount, AISession, AITask, AIAsset }
 
 export interface ApiResponse<T = unknown> {
   code: number
