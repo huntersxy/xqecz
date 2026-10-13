@@ -687,7 +687,7 @@ watch(ready, (value) => {
 .studio-top > div:first-child {
   min-width: 0;
 }
-.studio-top .arco-select-view-single {
+.studio-top :deep(.arco-select-view-single) {
   width: 180px;
 }
 .studio-grid {
@@ -932,7 +932,7 @@ watch(ready, (value) => {
   .studio-top .creative-actions {
     gap: 8px;
   }
-  .studio-top .arco-select-view-single {
+  .studio-top :deep(.arco-select-view-single) {
     max-width: 160px;
   }
   .ai-studio {

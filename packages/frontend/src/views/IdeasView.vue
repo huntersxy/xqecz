@@ -282,7 +282,7 @@ onBeforeUnmount(() => {
 .idea-filters .arco-input-wrapper {
   max-width: 320px;
 }
-.idea-filters .arco-select-view-single {
+.idea-filters :deep(.arco-select-view-single) {
   width: 180px;
 }
 .idea-cost {
@@ -294,6 +294,6 @@ onBeforeUnmount(() => {
 }
 @media (max-width: 540px) {
   .idea-filters .arco-input-wrapper { max-width: none; width: 100%; }
-  .idea-filters .arco-select-view-single { flex: 1; min-width: 120px; width: auto; }
+  .idea-filters :deep(.arco-select-view-single) { flex: 1; min-width: 120px; width: auto; }
 }
 </style>

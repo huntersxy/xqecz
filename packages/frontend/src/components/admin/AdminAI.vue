@@ -636,7 +636,7 @@ onBeforeUnmount(() => {
 .creative-actions > .arco-input-wrapper {
   max-width: 280px;
 }
-.creative-actions > .arco-select-view-single {
+.creative-actions :deep(.arco-select-view-single) {
   max-width: 180px;
 }
 .creative-grid {
