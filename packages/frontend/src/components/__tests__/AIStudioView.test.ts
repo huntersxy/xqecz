@@ -120,6 +120,19 @@ beforeEach(() => {
 afterEach(() => wrappers.splice(0).forEach((w) => w.unmount()))
 
 describe('studio gallery and composer', () => {
+  it('can collapse the phone composer and reopens it when reusing a task prompt', async () => {
+    api.tasks.mockResolvedValue([task(1)])
+    const w = await render()
+    await w.get('[aria-label="收起创作输入区"]').trigger('click')
+    expect(w.get('.studio-composer').classes()).toContain('is-collapsed')
+    await button(w, '复用提示词').trigger('click')
+    await flushPromises()
+    expect(w.get('.studio-composer').classes()).not.toContain('is-collapsed')
+    expect(document.activeElement).toBe(w.get('textarea').element)
+    await button(w, '生成设置').trigger('click')
+    expect(button(w, '生成设置').attributes('aria-expanded')).toBe('true')
+    expect(w.get('.composer-controls').classes()).toContain('is-mobile-open')
+  })
   it('shows every result with its task and isolates the current session until all history is selected', async () => {
     api.tasks.mockResolvedValue([task(1), task(2, 2)])
     const w = await render()

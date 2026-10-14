@@ -327,9 +327,9 @@
   }
 }
 
-/* Studio keeps the gallery and composer in one viewport. The composer is in
-   normal flow, so its real height reserves space even with references/settings
-   open or a mobile keyboard; no fixed overlay or guessed bottom padding. */
+/* Desktop keeps gallery and composer in one viewport and in normal flow.
+   The phone dock reserves its measured height in the
+   page and follows the visible viewport when the on-screen keyboard opens. */
 .ai-studio {
   max-width: 1440px;
   margin-block: 24px 40px;
@@ -667,6 +667,9 @@
   min-height: 0;
   overflow: auto;
   scrollbar-color: var(--creative-line) transparent;
+}
+.composer-mobile-bar {
+  display: none;
 }
 .composer-error {
   margin-bottom: 12px;
@@ -1014,6 +1017,26 @@
 }
 @media (max-width: 800px) {
   .ai-studio {
+    padding-bottom: calc(var(--studio-dock-height, 280px) + 24px);
+  }
+  .studio-workspace {
+    height: auto;
+    min-height: 0;
+    display: block;
+  }
+  .studio-gallery-scroll {
+    overflow: visible;
+    flex: none;
+    min-height: max(
+      320px,
+      calc(var(--studio-visible-height, 100dvh) - var(--studio-dock-height, 280px) - 24px)
+    );
+  }
+  .studio-gallery-empty,
+  .studio-gallery-loading {
+    min-height: inherit;
+  }
+  .ai-studio {
     margin-top: 16px;
   }
   .studio-identity .creative-note {
@@ -1044,8 +1067,70 @@
     width: auto;
   }
   .studio-composer {
-    padding: 16px;
-    max-height: 60dvh;
+    position: fixed;
+    z-index: 90;
+    inset-inline: max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-right));
+    bottom: var(--studio-dock-bottom, 0px);
+    width: auto;
+    padding: 8px 16px max(12px, env(safe-area-inset-bottom));
+    max-height: min(60dvh, calc(var(--studio-visible-height, 100dvh) - 16px));
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -6px 28px color-mix(in srgb, var(--creative-ink) 12%, transparent);
+  }
+  .composer-mobile-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+    min-height: 44px;
+  }
+  .composer-model-summary {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--creative-muted);
+    font-size: 12px;
+  }
+  .composer-mobile-bar button {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--creative-ink);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .composer-mobile-bar button:hover,
+  .composer-mobile-bar button[aria-expanded='true'] {
+    color: var(--creative-accent);
+  }
+  .studio-composer.is-collapsed fieldset {
+    display: none;
+  }
+  .composer-controls:not(.is-mobile-open) {
+    display: none;
+  }
+  .composer-prompt textarea {
+    height: 72px;
+    min-height: 72px;
+    font-size: 16px;
+    resize: none;
+  }
+  .studio-composer.is-expanded .composer-prompt textarea {
+    height: min(224px, 34dvh);
+  }
+  .composer-attachments {
+    margin-block: 4px 8px;
+  }
+  .composer-footer {
+    margin-top: 8px;
   }
   .attachment-hint,
   .composer-shortcut {
@@ -1111,18 +1196,10 @@
     flex: 1;
     width: auto;
   }
-  .studio-workspace {
-    height: calc(100dvh - 260px);
-    min-height: 420px;
-    gap: 16px;
-  }
-  .studio-gallery {
-    min-height: 200px;
-  }
-  /* With reference images the gallery may have only ~100px left: keep its
-     empty-state heading and action visible without an extra scroll gesture. */
+  /* The page scrolls behind the dock; keep the empty-state action near its top. */
   .studio-gallery-empty {
-    padding: 8px;
+    padding: 24px 8px;
+    justify-content: flex-start;
   }
   .studio-gallery-empty > .arco-icon,
   .studio-gallery-empty > p,
@@ -1164,7 +1241,7 @@
     gap: 4px;
   }
   .studio-composer {
-    padding: 12px 12px max(12px, env(safe-area-inset-bottom));
+    padding: 4px 12px max(12px, env(safe-area-inset-bottom));
   }
   .composer-controls {
     gap: 6px;

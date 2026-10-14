@@ -5,6 +5,7 @@ function newKey() {
 import { computed, ref, watch, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useAIStudio } from '@/composables/useAIStudio'
+import { useStudioDock } from '@/composables/useStudioDock'
 import { aiApi } from '@/api/creative'
 import type { AIAsset, AITaskView } from '@/types/schemas'
 import {
@@ -59,6 +60,8 @@ const libraryOpen = ref(false),
   publishOpen = ref(false),
   resultOpen = ref(false),
   promptExpanded = ref(false),
+  mobileSettingsOpen = ref(false),
+  composerCollapsed = ref(false),
   uploading = ref(false),
   confirming = ref(false),
   dragging = ref(false),
@@ -67,6 +70,12 @@ const libraryOpen = ref(false),
   status = ref('')
 const promptArea = ref<HTMLTextAreaElement>(),
   fileInput = ref<HTMLInputElement>()
+const composerElement = ref<HTMLElement>()
+const dockStyle = useStudioDock(composerElement)
+function toggleMobileSettings() {
+  mobileSettingsOpen.value = !mobileSettingsOpen.value
+  composerCollapsed.value = false
+}
 const previewReference = ref(0)
 const awaitingTask = ref(0)
 const composerLocked = computed(
@@ -333,6 +342,7 @@ function dropImages(event: DragEvent) {
   void uploadFiles(event.dataTransfer?.files ?? null)
 }
 async function focusPrompt() {
+  composerCollapsed.value = false
   await nextTick()
   promptArea.value?.focus()
 }
@@ -489,7 +499,7 @@ watch(ready, (value) => {
 })
 </script>
 <template>
-  <div class="creative-page creative-theme ai-studio">
+  <div class="creative-page creative-theme ai-studio" :style="dockStyle">
     <header class="studio-head">
       <div class="studio-identity">
         <h1>创作工作台</h1>
@@ -662,13 +672,40 @@ watch(ready, (value) => {
         </div>
       </section>
       <section
+        ref="composerElement"
         class="studio-composer"
-        :class="{ 'is-dragging': dragging, 'is-expanded': promptExpanded }"
+        :class="{
+          'is-dragging': dragging,
+          'is-expanded': promptExpanded,
+          'is-collapsed': composerCollapsed,
+        }"
         aria-label="创作输入区"
         @dragover.prevent="dragging = !composerLocked && !!provider?.max_references"
         @dragleave.self="dragging = false"
         @drop.prevent="dropImages"
       >
+        <div class="composer-mobile-bar">
+          <span class="composer-model-summary"
+            >{{ provider?.name || '创作输入' }} · {{ size }}</span
+          >
+          <button
+            type="button"
+            aria-controls="studio-generation-controls"
+            :aria-expanded="mobileSettingsOpen && !composerCollapsed"
+            @click="toggleMobileSettings"
+          >
+            <IconSettings />生成设置
+          </button>
+          <button
+            type="button"
+            aria-controls="studio-composer-fields"
+            :aria-expanded="!composerCollapsed"
+            :aria-label="composerCollapsed ? '展开创作输入区' : '收起创作输入区'"
+            @click="composerCollapsed = !composerCollapsed"
+          >
+            {{ composerCollapsed ? '展开' : '收起' }}
+          </button>
+        </div>
         <div v-if="error" class="creative-error composer-error" role="alert">{{ error }}</div>
         <div v-if="activeTask" class="composer-task-note" role="status">
           <IconLoading v-if="activeTask.task.status !== 'unknown'" class="task-loading" />任务 #{{
@@ -679,7 +716,7 @@ watch(ready, (value) => {
             activeTask.task.status === 'unknown' ? '，预留额度待管理员核查' : '，离开页面仍会继续'
           }}
         </div>
-        <fieldset :disabled="composerLocked">
+        <fieldset id="studio-composer-fields" :disabled="composerLocked">
           <StudioReferences
             :references="references"
             :disabled="composerLocked"
@@ -774,7 +811,11 @@ watch(ready, (value) => {
             hidden
             @change="(event) => uploadFiles((event.target as HTMLInputElement).files)"
           />
-          <div class="composer-controls">
+          <div
+            id="studio-generation-controls"
+            class="composer-controls"
+            :class="{ 'is-mobile-open': mobileSettingsOpen }"
+          >
             <label class="composer-control composer-model"
               ><span>模型</span
               ><select v-model="providerId" aria-label="供应商与模型">
