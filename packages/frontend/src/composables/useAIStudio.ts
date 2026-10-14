@@ -290,10 +290,18 @@ export function useAIStudio() {
   }
   function moveReference(index: number, direction: number) {
     const next = index + direction
-    if (next < 0 || next >= references.value.length) return
-    const ref = references.value[index]!
-    references.value[index] = references.value[next]!
-    references.value[next] = ref
+    if (
+      index < 0 ||
+      index >= references.value.length ||
+      next < 0 ||
+      next >= references.value.length ||
+      next === index
+    )
+      return
+    // Move into the target slot instead of swapping: intermediate images keep
+    // their relative order when a drag crosses more than one reference.
+    const reference = references.value.splice(index, 1)[0]!
+    references.value.splice(next, 0, reference)
   }
   function continueFrom(asset: AIAsset) {
     addReference(asset.id)

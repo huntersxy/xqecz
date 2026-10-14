@@ -177,7 +177,7 @@ describe('studio gallery and composer', () => {
       ),
     ])
     const w = await render()
-    await w.get('[aria-label="下移图片1"]').trigger('click')
+    await w.get('[aria-label="拖动图片1排序"]').trigger('keydown', { key: 'ArrowRight' })
     expect((w.get('textarea').element as HTMLTextAreaElement).value).toBe('@图片2 与 @图片1')
     await w.get('[aria-label="移除图片1"]').trigger('click')
     await flushPromises()

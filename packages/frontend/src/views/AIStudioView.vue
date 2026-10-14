@@ -10,9 +10,6 @@ import type { AIAsset, AITaskView } from '@/types/schemas'
 import {
   IconImage,
   IconPlus,
-  IconArrowUp,
-  IconArrowDown,
-  IconClose,
   IconSettings,
   IconRefresh,
   IconSend,
@@ -23,6 +20,7 @@ import {
 import { useConfirm } from '@/composables/useToast'
 import CreativeImage from '@/components/CreativeImage.vue'
 import CreativeLibrary from '@/components/CreativeLibrary.vue'
+import StudioReferences from '@/components/StudioReferences.vue'
 import '@/assets/creative-pages.css'
 import { referenceMentionAt, remapReferenceMentions } from '@/utils/creativeMentions'
 const studio = useAIStudio(),
@@ -682,55 +680,14 @@ watch(ready, (value) => {
           }}
         </div>
         <fieldset :disabled="composerLocked">
-          <div v-if="references.length" class="composer-references" aria-label="已选参考图">
-            <div
-              v-for="(reference, index) in references"
-              :key="reference.asset_id"
-              class="composer-reference"
-            >
-              <button
-                class="reference-preview"
-                type="button"
-                :aria-label="`预览参考图 ${index + 1}`"
-                @click="previewReference = reference.asset_id"
-              >
-                <CreativeImage :id="reference.asset_id" />
-              </button>
-              <button
-                type="button"
-                class="reference-label"
-                :aria-label="`插入 @图片${index + 1} 到提示词`"
-                @click="insertReferenceMention(index)"
-              >
-                @图片{{ index + 1 }}
-              </button>
-              <div class="reference-tools">
-                <button
-                  type="button"
-                  :disabled="index === 0"
-                  :aria-label="`上移图片${index + 1}`"
-                  @click="moveReference(index, -1)"
-                >
-                  <IconArrowUp />
-                </button>
-                <button
-                  type="button"
-                  :disabled="index === references.length - 1"
-                  :aria-label="`下移图片${index + 1}`"
-                  @click="moveReference(index, 1)"
-                >
-                  <IconArrowDown />
-                </button>
-                <button
-                  type="button"
-                  :aria-label="`移除图片${index + 1}`"
-                  @click="removeReference(index)"
-                >
-                  <IconClose />
-                </button>
-              </div>
-            </div>
-          </div>
+          <StudioReferences
+            :references="references"
+            :disabled="composerLocked"
+            @preview="(id) => (previewReference = id)"
+            @mention="insertReferenceMention"
+            @remove="removeReference"
+            @reorder="(from, to) => moveReference(from, to - from)"
+          />
           <div v-if="studio.parentAssetId.value" class="composer-context">
             <span
               >继续编辑 @图片{{

@@ -849,6 +849,19 @@
   gap: 4px 8px;
   flex: none;
   align-items: center;
+  position: relative;
+  border-radius: 10px;
+}
+.composer-reference.is-sorting {
+  z-index: 2;
+  opacity: 0.7;
+  background: var(--creative-paper);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--creative-ink) 12%, transparent);
+}
+.composer-reference.is-sort-target {
+  outline: 2px dashed var(--creative-accent);
+  outline-offset: 3px;
+  background: var(--creative-soft);
 }
 .composer-reference .reference-preview {
   grid-row: span 2;
@@ -860,6 +873,11 @@
   overflow: hidden;
   cursor: pointer;
   background: var(--creative-canvas);
+  touch-action: pan-y;
+  user-select: none;
+}
+.reference-preview img {
+  -webkit-user-drag: none;
 }
 .composer-reference .creative-image {
   min-height: 0;
@@ -891,6 +909,14 @@
   background: var(--creative-canvas);
   color: var(--creative-muted);
   cursor: pointer;
+}
+.reference-tools .reference-sort-handle {
+  cursor: grab;
+  touch-action: none;
+}
+.reference-sort-handle:active,
+.is-sorting .reference-preview {
+  cursor: grabbing;
 }
 .reference-tools button:hover:not(:disabled) {
   color: var(--creative-accent);

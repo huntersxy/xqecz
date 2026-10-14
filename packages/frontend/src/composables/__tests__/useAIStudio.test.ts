@@ -75,6 +75,17 @@ afterEach(() => {
   vi.useRealTimers()
 })
 describe('AI studio persistence', () => {
+  it('inserts a reference at a distant slot while preserving intermediate order and edit ancestry', async () => {
+    const { wrapper, studio } = await setup()
+    studio.references.value = [7, 8, 9].map((asset_id) => ({ asset_id, note: '' }))
+    studio.parentAssetId.value = 7
+    studio.moveReference(0, 2)
+    expect(studio.references.value.map((r) => r.asset_id)).toEqual([8, 9, 7])
+    expect(studio.parentAssetId.value).toBe(7)
+    studio.moveReference(2, -2)
+    expect(studio.references.value.map((r) => r.asset_id)).toEqual([7, 8, 9])
+    wrapper.unmount()
+  })
   it('aborts an upload on unmount and discards its late result', async () => {
     let finish!: (value: { id: number }) => void
     mock.upload.mockImplementationOnce(
