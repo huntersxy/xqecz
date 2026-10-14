@@ -16,7 +16,9 @@ const mock = vi.hoisted(() => ({
   upload: vi.fn(),
 }))
 vi.mock('@/api/creative', () => ({ aiApi: mock }))
-vi.mock('@/stores/user', () => ({ useUserStore: () => ({ user: { id: 1, is_admin: mock.isAdmin }, isLoggedIn: true }) }))
+vi.mock('@/stores/user', () => ({
+  useUserStore: () => ({ user: { id: 1, is_admin: mock.isAdmin }, isLoggedIn: true }),
+}))
 const time = '2026-10-13T00:00:00.000Z'
 function session(version = 1, draft = '{}') {
   return { id: 1, name: 'test', draft, version, created_at: time, updated_at: time }
@@ -73,6 +75,41 @@ afterEach(() => {
   vi.useRealTimers()
 })
 describe('AI studio persistence', () => {
+  it('aborts an upload on unmount and discards its late result', async () => {
+    let finish!: (value: { id: number }) => void
+    mock.upload.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    const { wrapper, studio } = await setup()
+    const upload = studio.upload(new File(['png'], 'ref.png', { type: 'image/png' }))
+    const signal = mock.upload.mock.calls[0]?.[1] as AbortSignal
+    wrapper.unmount()
+    expect(signal.aborted).toBe(true)
+    finish({ id: 9 })
+    await upload
+    expect(studio.references.value).toEqual([])
+    expect(studio.assets.value).toEqual([])
+  })
+  it('keeps a late upload in the library without attaching it to a different session', async () => {
+    let finish!: (value: { id: number }) => void
+    mock.upload.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    const { wrapper, studio } = await setup()
+    const upload = studio.upload(new File(['png'], 'ref.png', { type: 'image/png' }))
+    await studio.newSession()
+    finish({ id: 9 })
+    await upload
+    expect(studio.references.value).toEqual([])
+    expect(studio.assets.value.map((a) => a.id)).toEqual([9])
+    wrapper.unmount()
+  })
   it('lets administrators submit with zero available quota and a zero expected charge', async () => {
     mock.isAdmin = true
     mock.account.mockResolvedValue({ user_id: 1, available: 0, reserved: 0 })
@@ -81,7 +118,10 @@ describe('AI studio persistence', () => {
     studio.prompt.value = 'A pink circle'
     expect(studio.cost.value).toBe(0)
     await studio.generate()
-    expect(mock.submit).toHaveBeenCalledWith(expect.objectContaining({ expected_cost: 0 }), expect.any(AbortSignal))
+    expect(mock.submit).toHaveBeenCalledWith(
+      expect.objectContaining({ expected_cost: 0 }),
+      expect.any(AbortSignal),
+    )
     wrapper.unmount()
   })
   it('restores an empty session with the default provider and a supported size', async () => {

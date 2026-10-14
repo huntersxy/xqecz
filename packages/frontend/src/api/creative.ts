@@ -83,10 +83,10 @@ export const aiApi = {
     checked('/ai/assets', z.array(AIAssetSchema), { signal, query: { before_id: beforeId } }),
   publicAssets: (signal?: AbortSignal, ids?: number[]) =>
     checked('/creative/assets', z.array(AIAssetSchema), { signal, query: { ids: ids?.join(',') } }),
-  upload: (file: File) => {
+  upload: (file: File, signal?: AbortSignal) => {
     const body = new FormData()
     body.append('file', file)
-    return checked('/ai/assets', AIAssetSchema, { method: 'POST', body, timeout: 60000 })
+    return checked('/ai/assets', AIAssetSchema, { method: 'POST', body, timeout: 60000, signal })
   },
   archive: (id: number) => checked(`/ai/assets/${id}`, nil, { method: 'DELETE' }),
   blob: (id: number, signal?: AbortSignal, preview = false) =>

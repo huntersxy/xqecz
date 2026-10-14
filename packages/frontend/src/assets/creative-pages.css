@@ -326,3 +326,826 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Studio keeps the gallery and composer in one viewport. The composer is in
+   normal flow, so its real height reserves space even with references/settings
+   open or a mobile keyboard; no fixed overlay or guessed bottom padding. */
+.ai-studio {
+  max-width: 1440px;
+  margin-block: 24px 40px;
+}
+.studio-head,
+.studio-head-actions,
+.studio-identity,
+.studio-session-line,
+.studio-gallery-toolbar,
+.studio-gallery-filters,
+.composer-attachments,
+.composer-controls,
+.composer-footer,
+.result-preview-meta,
+.result-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.studio-head {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.studio-identity {
+  gap: 16px;
+}
+.ai-studio .studio-head h1 {
+  font-size: 22px;
+  letter-spacing: 0;
+  margin: 0;
+}
+.studio-head-actions {
+  flex-wrap: wrap;
+}
+.studio-head-actions .arco-select-view {
+  width: 180px;
+}
+.studio-head-actions .arco-btn {
+  gap: 6px;
+}
+.studio-session-line {
+  margin-block: 16px 24px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+.studio-session-line > .arco-input-wrapper {
+  width: 170px;
+  background: transparent;
+}
+.studio-balance {
+  margin-left: auto;
+}
+.studio-session-line nav {
+  display: flex;
+  gap: 16px;
+}
+.studio-session-line a,
+.task-actions a {
+  color: var(--creative-accent);
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+.studio-session-line a:hover,
+.task-actions a:hover {
+  text-decoration: underline;
+}
+.studio-workspace {
+  height: calc(100dvh - 218px);
+  min-height: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.studio-gallery {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 160px;
+}
+.studio-gallery-toolbar {
+  gap: 16px;
+  padding-bottom: 16px;
+  flex-wrap: wrap;
+}
+.ai-studio .studio-gallery-toolbar h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.studio-gallery-filters {
+  margin-left: auto;
+}
+.studio-gallery-filters .arco-input-wrapper {
+  width: 230px;
+}
+.ai-studio select {
+  color: var(--creative-ink);
+  background: var(--creative-paper);
+  border: 1px solid var(--creative-line);
+  border-radius: 8px;
+  min-height: 36px;
+  padding: 6px 24px 6px 10px;
+  max-width: 100%;
+  font: inherit;
+  cursor: pointer;
+}
+.ai-studio select:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.studio-gallery-toolbar select {
+  font-size: 12px;
+}
+.studio-gallery-scroll {
+  min-height: 0;
+  overflow: auto;
+  flex: 1;
+  padding: 2px 4px 12px 2px;
+  scrollbar-color: var(--creative-line) transparent;
+}
+.studio-gallery-empty,
+.studio-gallery-loading {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 32px 16px;
+  text-align: center;
+}
+.studio-gallery-empty > .arco-icon {
+  width: 40px;
+  height: 40px;
+  color: var(--creative-muted);
+  margin-bottom: 20px;
+}
+.ai-studio .studio-gallery-empty h2 {
+  font-size: 20px;
+  font-weight: 500;
+  margin: 0 0 8px;
+}
+.studio-gallery-empty p {
+  font-size: 13px;
+  max-width: 48ch;
+  margin: 0 0 12px;
+}
+.studio-gallery-empty > .arco-btn {
+  margin-top: 24px;
+  gap: 6px;
+}
+.studio-gallery-loading {
+  color: var(--creative-muted);
+  gap: 12px;
+}
+.studio-gallery-loading > .arco-icon,
+.task-loading {
+  animation: studio-loading 1s linear infinite;
+}
+@keyframes studio-loading {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.studio-task-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.studio-task-card {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.85fr) minmax(0, 1fr);
+  min-height: 180px;
+  border: 1px solid var(--creative-line);
+  background: var(--creative-paper);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.studio-task-card.is-selected {
+  border-color: var(--creative-accent);
+}
+.task-images {
+  min-width: 0;
+  display: grid;
+  background: var(--creative-canvas);
+}
+.task-images.has-multiple {
+  grid-template-rows: repeat(2, minmax(80px, 1fr));
+}
+.task-images button {
+  position: relative;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  background: transparent;
+  min-height: 180px;
+  width: 100%;
+}
+.task-images.has-multiple button {
+  min-height: 90px;
+}
+.task-images .creative-image {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  min-height: 0;
+}
+.task-images .creative-image img {
+  object-fit: cover;
+}
+.task-image-open {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  background: var(--creative-paper);
+  color: var(--creative-ink);
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  opacity: 0;
+  transition: opacity 0.18s;
+}
+.task-images button:is(:hover, :focus-visible) .task-image-open {
+  opacity: 1;
+}
+.task-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 8px;
+  padding: 16px;
+}
+.task-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--creative-muted);
+  font-variant-numeric: tabular-nums;
+}
+.task-status {
+  color: var(--creative-muted);
+}
+.task-status[data-status='running'],
+.task-status[data-status='queued'] {
+  color: var(--creative-accent);
+}
+.task-status[data-status='failed'],
+.task-status[data-status='unknown'] {
+  color: var(--color-danger);
+}
+.ai-studio .task-prompt {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  color: var(--creative-ink);
+  margin: 0;
+}
+.task-parameters {
+  font-size: 11px;
+  color: var(--creative-muted);
+  overflow-wrap: anywhere;
+}
+.task-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+  font-size: 12px;
+}
+.task-actions .arco-btn {
+  gap: 4px;
+}
+.ai-studio .task-error {
+  font-size: 12px;
+  color: var(--color-danger);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.task-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--creative-canvas);
+  color: var(--creative-muted);
+  font-size: 12px;
+}
+.task-placeholder .arco-icon {
+  width: 28px;
+  height: 28px;
+}
+.task-placeholder[data-status='running'] {
+  color: var(--creative-accent);
+  background: var(--creative-soft);
+}
+.studio-load-more {
+  display: flex;
+  margin: 20px auto 0;
+}
+.studio-composer {
+  width: min(100%, 1040px);
+  margin-inline: auto;
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 56dvh;
+  overflow: hidden;
+  padding: 20px 24px 16px;
+  background: var(--creative-paper);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px color-mix(in srgb, var(--creative-ink) 10%, transparent);
+  scrollbar-color: var(--creative-line) transparent;
+}
+.studio-composer.is-dragging {
+  outline: 2px dashed var(--creative-accent);
+  outline-offset: -6px;
+  background: var(--creative-soft);
+}
+.studio-composer fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-color: var(--creative-line) transparent;
+}
+.composer-error {
+  margin-bottom: 12px;
+  max-height: 12dvh;
+  overflow: auto;
+  flex: none;
+}
+.composer-task-note {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--creative-accent);
+  font-size: 12px;
+  margin-bottom: 12px;
+  flex: none;
+}
+.composer-prompt {
+  position: relative;
+}
+.composer-context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--creative-accent);
+  font-size: 12px;
+}
+.composer-prompt textarea {
+  display: block;
+  width: 100%;
+  min-height: 84px;
+  max-height: 34dvh;
+  resize: vertical;
+  padding: 8px 40px 8px 0;
+  border: 0;
+  background: transparent;
+  color: var(--creative-ink);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.75;
+  caret-color: var(--creative-accent);
+}
+.composer-prompt textarea::placeholder {
+  color: var(--creative-muted);
+}
+.composer-prompt textarea:focus {
+  outline: none;
+}
+.composer-prompt:focus-within {
+  box-shadow: 0 1px 0 var(--creative-accent);
+}
+.prompt-expand {
+  position: absolute;
+  right: 0;
+  top: 8px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--creative-muted);
+  cursor: pointer;
+}
+.prompt-expand:hover {
+  color: var(--creative-accent);
+  background: var(--creative-soft);
+}
+.composer-attachments {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block: 8px 16px;
+}
+.composer-attachments .arco-btn {
+  gap: 6px;
+}
+.attachment-hint {
+  margin-left: auto;
+  font-size: 11px;
+}
+.composer-controls {
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--creative-line);
+  flex-wrap: wrap;
+}
+.composer-control {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  background: var(--creative-canvas);
+  border-radius: 8px;
+  padding: 0 4px 0 10px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--creative-muted);
+}
+.ai-studio .composer-control select {
+  border: 0;
+  background: transparent;
+  padding-left: 0;
+  min-width: 0;
+}
+.composer-model {
+  max-width: 360px;
+}
+.composer-model select {
+  max-width: 300px;
+  text-overflow: ellipsis;
+}
+.composer-settings {
+  font-size: 12px;
+}
+.composer-settings summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--creative-muted);
+  list-style: none;
+}
+.composer-settings summary::-webkit-details-marker {
+  display: none;
+}
+.composer-settings summary:hover,
+.composer-settings[open] summary {
+  color: var(--creative-accent);
+  background: var(--creative-soft);
+}
+.composer-settings[open] {
+  flex-basis: 100%;
+}
+.composer-settings-fields {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 12px;
+}
+.composer-settings-fields .creative-field {
+  flex: 1;
+  min-width: 180px;
+  margin: 0;
+}
+.composer-footer {
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+  flex: none;
+}
+.composer-feedback {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.composer-feedback .creative-note {
+  font-size: 11px;
+}
+.composer-submit.arco-btn {
+  flex: none;
+  gap: 8px;
+  min-width: 144px;
+  height: 42px;
+  border-radius: 10px;
+}
+.composer-references {
+  display: flex;
+  gap: 12px;
+  overflow: auto;
+  padding-bottom: 12px;
+  scrollbar-color: var(--creative-line) transparent;
+}
+.composer-reference {
+  display: grid;
+  grid-template-columns: 76px auto;
+  grid-template-rows: auto auto;
+  gap: 4px 8px;
+  flex: none;
+  align-items: center;
+}
+.composer-reference .reference-preview {
+  grid-row: span 2;
+  width: 76px;
+  height: 76px;
+  border: 1px solid var(--creative-line);
+  border-radius: 10px;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--creative-canvas);
+}
+.composer-reference .creative-image {
+  min-height: 0;
+}
+.composer-reference .creative-image img {
+  object-fit: cover;
+}
+.reference-label {
+  padding: 4px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--creative-accent);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.reference-tools {
+  display: flex;
+  gap: 4px;
+}
+.reference-tools button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--creative-canvas);
+  color: var(--creative-muted);
+  cursor: pointer;
+}
+.reference-tools button:hover:not(:disabled) {
+  color: var(--creative-accent);
+  background: var(--creative-soft);
+}
+.reference-tools button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.reference-mentions {
+  margin-bottom: 8px;
+  padding: 4px;
+  max-height: 140px;
+  overflow: auto;
+  background: var(--creative-canvas);
+  border-radius: 8px;
+}
+.reference-mentions button {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--creative-ink);
+  background: transparent;
+  cursor: pointer;
+}
+.reference-mentions button.active,
+.reference-mentions button:hover {
+  color: var(--creative-accent);
+  background: var(--creative-soft);
+}
+.ai-studio button:focus-visible,
+.ai-studio summary:focus-visible,
+.ai-studio select:focus-visible,
+.studio-gallery-scroll:focus-visible {
+  outline: 2px solid var(--creative-accent);
+  outline-offset: 2px;
+}
+.ai-studio ::selection {
+  color: var(--creative-ink);
+  background: var(--creative-soft);
+}
+.reference-large {
+  height: 60dvh;
+}
+.result-preview-meta {
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.result-zoom {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.result-preview-scroll {
+  height: 50dvh;
+  overflow: auto;
+  background: var(--creative-canvas);
+  border-radius: 12px;
+  scrollbar-color: var(--creative-line) transparent;
+}
+.result-preview-image {
+  padding: 16px;
+}
+.result-actions {
+  flex-wrap: wrap;
+  margin-top: 16px;
+  gap: 8px;
+}
+.library-asset {
+  border: 1px solid var(--creative-line);
+  border-radius: 10px;
+  background: var(--creative-paper);
+  color: var(--creative-ink);
+  min-width: 0;
+  height: 180px;
+  padding: 10px;
+  cursor: pointer;
+}
+.library-asset .creative-image {
+  height: 130px;
+}
+.studio-result-dialog .arco-modal-body {
+  max-height: 80dvh;
+}
+@media (max-width: 1200px) {
+  .studio-task-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 800px) {
+  .ai-studio {
+    margin-top: 16px;
+  }
+  .studio-identity .creative-note {
+    display: none;
+  }
+  .studio-session-line {
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .studio-session-line nav {
+    margin-left: auto;
+  }
+  .studio-balance {
+    width: 100%;
+    order: 2;
+    margin: 0;
+  }
+  .studio-gallery-toolbar {
+    gap: 8px;
+  }
+  .studio-gallery-filters {
+    width: 100%;
+    margin-left: 0;
+  }
+  .studio-gallery-filters .arco-input-wrapper {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+  }
+  .studio-composer {
+    padding: 16px;
+    max-height: 60dvh;
+  }
+  .attachment-hint,
+  .composer-shortcut {
+    display: none;
+  }
+  .composer-control {
+    min-height: 40px;
+  }
+  .composer-model {
+    max-width: 100%;
+    flex: 1;
+    min-width: 200px;
+  }
+  .composer-model select {
+    max-width: 100%;
+    width: 100%;
+  }
+  .reference-tools button {
+    width: 44px;
+    height: 44px;
+  }
+  .reference-label {
+    min-height: 28px;
+  }
+  .composer-reference {
+    grid-template-columns: 76px auto;
+  }
+  .composer-submit.arco-btn {
+    min-height: 44px;
+    min-width: 120px;
+  }
+  .composer-attachments .arco-btn-size-small {
+    min-height: 40px;
+  }
+  .prompt-expand {
+    width: 40px;
+    height: 40px;
+  }
+}
+@media (max-width: 540px) {
+  .studio-head {
+    gap: 12px;
+  }
+  .studio-head-actions {
+    width: 100%;
+    gap: 8px;
+  }
+  .studio-head-actions .arco-select-view {
+    flex: 1;
+    min-width: 100px;
+    width: auto;
+  }
+  .studio-head-actions .arco-btn {
+    padding-inline: 12px;
+  }
+  .studio-head-actions .arco-btn > span > span {
+    display: none;
+  }
+  .studio-session-line nav {
+    display: none;
+  }
+  .studio-session-line > .arco-input-wrapper {
+    flex: 1;
+    width: auto;
+  }
+  .studio-workspace {
+    height: calc(100dvh - 260px);
+    min-height: 420px;
+    gap: 16px;
+  }
+  .studio-gallery {
+    min-height: 200px;
+  }
+  .studio-task-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .studio-task-card {
+    grid-template-columns: minmax(110px, 0.7fr) minmax(0, 1fr);
+  }
+  .task-body {
+    padding: 12px;
+  }
+  .ai-studio .studio-gallery-toolbar h2 {
+    font-size: 14px;
+  }
+  .studio-gallery-toolbar > select {
+    margin-left: auto;
+    max-width: 180px;
+  }
+  .composer-prompt textarea {
+    font-size: 16px;
+    min-height: 76px;
+  }
+  .composer-attachments .arco-btn-size-small {
+    font-size: 12px;
+    padding-inline: 9px;
+    gap: 4px;
+  }
+  .studio-composer {
+    padding: 12px 12px max(12px, env(safe-area-inset-bottom));
+  }
+  .composer-controls {
+    gap: 6px;
+  }
+  .composer-control {
+    padding-left: 8px;
+    font-size: 11px;
+  }
+  .composer-controls .composer-model {
+    flex-basis: 100%;
+  }
+  .composer-control select {
+    padding-right: 18px;
+  }
+  .composer-feedback .creative-note {
+    font-size: 11px;
+  }
+  .composer-footer {
+    gap: 8px;
+  }
+  .composer-settings-fields .creative-field {
+    min-width: 100%;
+  }
+  .result-zoom {
+    width: 100%;
+    margin-left: 0;
+  }
+}

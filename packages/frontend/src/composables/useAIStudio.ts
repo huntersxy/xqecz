@@ -271,9 +271,12 @@ export function useAIStudio() {
     }
   }
   async function upload(file: File) {
-    const row = await aiApi.upload(file)
+    const originSession = sessionId.value
+    const row = await aiApi.upload(file, controller.signal)
+    if (stopped) return
     if (!assets.value.some((a) => a.id === row.id)) assets.value.unshift(row)
-    addReference(row.id)
+    // Uploaded assets stay in the library; only their originating draft receives the reference.
+    if (sessionId.value === originSession) addReference(row.id)
   }
   function addReference(id: number) {
     if (references.value.some((r) => r.asset_id === id)) return
