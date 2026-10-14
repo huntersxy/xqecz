@@ -1093,6 +1093,24 @@
   .studio-gallery {
     min-height: 200px;
   }
+  /* With reference images the gallery may have only ~100px left: keep its
+     empty-state heading and action visible without an extra scroll gesture. */
+  .studio-gallery-empty {
+    padding: 8px;
+  }
+  .studio-gallery-empty > .arco-icon,
+  .studio-gallery-empty > p,
+  .studio-gallery-empty > .creative-note {
+    display: none;
+  }
+  .ai-studio .studio-gallery-empty h2 {
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .studio-gallery-empty > .arco-btn {
+    margin-top: 8px;
+    flex-shrink: 0;
+  }
   .studio-task-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 12px;
