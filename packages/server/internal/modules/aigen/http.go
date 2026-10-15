@@ -96,7 +96,7 @@ func bind(c *gin.Context, dst any) error {
 }
 func fail(c *gin.Context, err error) {
 	switch {
-	case errors.Is(err, core.ErrInvalid), errors.Is(err, core.ErrBusy), errors.Is(err, core.ErrQuota), errors.Is(err, core.ErrUnavailable), errors.Is(err, core.ErrConflict):
+	case errors.Is(err, core.ErrInvalid), errors.Is(err, core.ErrBusy), errors.Is(err, core.ErrQuota), errors.Is(err, core.ErrUnavailable), errors.Is(err, core.ErrConflict), errors.Is(err, core.ErrResolveNote):
 		web.SoftFail(c, 400, err.Error())
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		web.Fail(c, 404, "记录不存在")

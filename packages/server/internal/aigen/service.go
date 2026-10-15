@@ -26,6 +26,7 @@ var ErrQuota = errors.New("生成额度不足")
 var ErrBusy = errors.New("任务数量已达上限或状态已改变")
 var ErrUnavailable = errors.New("供应商未配置、已停用或密钥不可用")
 var ErrConflict = errors.New("数据已更新，请刷新后重试")
+var ErrResolveNote = errors.New("核查依据与说明须填写 3–300 个字")
 
 type Service struct {
 	db         *gorm.DB
@@ -616,8 +617,11 @@ func (s *Service) Cancel(ctx context.Context, uid, id uint64) error {
 	return s.complete(task, "queued", "cancelled", "用户取消排队任务", nil, false, uid)
 }
 func (s *Service) Resolve(ctx context.Context, actor, id uint64, consumed bool, note string) error {
-	if len([]rune(strings.TrimSpace(note))) < 3 || len([]rune(note)) > 300 {
-		return ErrInvalid
+	// Validate the audit note separately from generation inputs: settlement does
+	// not revalidate sessions or reference images, and must retain its evidence.
+	note = strings.TrimSpace(note)
+	if len([]rune(note)) < 3 || len([]rune(note)) > 300 {
+		return ErrResolveNote
 	}
 	var task Task
 	if err := s.db.WithContext(ctx).First(&task, id).Error; err != nil {

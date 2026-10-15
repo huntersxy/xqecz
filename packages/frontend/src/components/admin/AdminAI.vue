@@ -42,6 +42,8 @@ const assetError = ref(''),
   assetSaving = ref(false)
 const assetLicenseChoice = ref('')
 const previewAsset = ref<{ id: number; title: string } | null>(null)
+const resolveError = ref(''),
+  resolveBusy = ref(false)
 watch(assetLicenseChoice, (value) => {
   if (editingAsset.value && value && value !== 'other') editingAsset.value.license = value
 })
@@ -212,6 +214,7 @@ function startResolve(id: number) {
   resolveId.value = id
   consumed.value = false
   resolveNote.value = ''
+  resolveError.value = ''
   resolveOpen.value = true
 }
 async function saved() {
@@ -320,11 +323,24 @@ async function archiveSelected() {
   })
 }
 async function resolve() {
-  await run(async () => {
-    await aiApi.resolve(resolveId.value, consumed.value, resolveNote.value)
+  if (resolveBusy.value) return
+  const note = resolveNote.value.trim()
+  resolveError.value = ''
+  if (Array.from(note).length < 3 || Array.from(note).length > 300) {
+    resolveError.value = '核查依据与说明须填写 3–300 个字'
+    return
+  }
+  resolveBusy.value = true
+  try {
+    await aiApi.resolve(resolveId.value, consumed.value, note)
+    if (stopped) return
     resolveOpen.value = false
-    await load()
-  })
+    await run(load)
+  } catch (e) {
+    if (!stopped) resolveError.value = (e as Error).message
+  } finally {
+    resolveBusy.value = false
+  }
 }
 onMounted(() => void run(load))
 onBeforeUnmount(() => {
@@ -836,11 +852,25 @@ onBeforeUnmount(() => {
         class="admin-theme creative-theme creative-dialog ai-dialog"
         title="核查结果不明的任务"
         :footer="false"
+        :mask-closable="!resolveBusy"
+        :esc-to-close="!resolveBusy"
+        :closable="!resolveBusy"
         ><p>先在供应商侧核查实际执行与计费情况，再释放或结算预留额度。此操作不会重新请求生图。</p>
-        <a-checkbox v-model="consumed">已确认产生供应商费用，结算预留额度</a-checkbox
+        <a-checkbox v-model="consumed" :disabled="resolveBusy"
+          >已确认产生供应商费用，结算预留额度</a-checkbox
         ><label class="creative-field"
-          >核查依据与说明（必填）<a-textarea v-model="resolveNote" /></label
-        ><a-button type="primary" @click="resolve">{{
+          >核查依据与说明（必填，3–300 个字）<a-textarea
+            v-model="resolveNote"
+            :textarea-attrs="{ 'aria-label': '核查依据与说明', 'aria-invalid': !!resolveError }"
+            :disabled="resolveBusy"
+            :auto-size="{ minRows: 3, maxRows: 8 }"
+            placeholder="请填写供应商侧核查到的执行与计费情况"
+          /><span class="creative-note"
+            >{{ Array.from(resolveNote.trim()).length }} / 300 字</span
+          ></label
+        >
+        <p v-if="resolveError" role="alert" class="creative-error">{{ resolveError }}</p>
+        <a-button type="primary" :loading="resolveBusy" @click="resolve">{{
           consumed ? '确认结算' : '确认未消耗，释放预留'
         }}</a-button></a-modal
       >

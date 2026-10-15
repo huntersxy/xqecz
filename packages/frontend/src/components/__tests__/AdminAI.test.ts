@@ -12,6 +12,7 @@ const api = vi.hoisted(() => ({
   metadata: vi.fn(),
   grantBatch: vi.fn(),
   grantUsers: vi.fn(),
+  resolve: vi.fn(),
 }))
 vi.mock('@/api/creative', () => ({
   aiApi: api,
@@ -68,6 +69,7 @@ beforeEach(() => {
     api[key].mockResolvedValue([])
   api.adminAssets.mockResolvedValue([{ ...asset }])
   api.metadata.mockResolvedValue(null)
+  api.resolve.mockResolvedValue(null)
   api.grantBatch.mockResolvedValue({ count: 2 })
   api.grantUsers.mockResolvedValue([
     { id: 1, username: '管理员' },
@@ -77,6 +79,76 @@ beforeEach(() => {
 afterEach(() => wrappers.splice(0).forEach((w) => w.unmount()))
 
 describe('AdminAI form feedback', () => {
+  async function openResolution() {
+    api.adminTasks.mockResolvedValue([
+      {
+        task: {
+          id: 12,
+          user_id: 1,
+          prompt: '测试核查',
+          status: 'unknown',
+          model: 'model',
+          count: 1,
+          cost: 2,
+          created_at: '2026-10-15T00:00:00.000Z',
+        },
+        assets: [],
+        references: [],
+      },
+    ])
+    const w = render()
+    await flushPromises()
+    await button(w, '生图任务').trigger('click')
+    await flushPromises()
+    await button(w, '核查结算').trigger('click')
+    return w
+  }
+  it.each(['', '  ', '确认', '核'.repeat(301)])(
+    'validates resolution notes inside the dialog without changing settlement for invalid note %s',
+    async (note) => {
+      const w = await openResolution()
+      await w.get('textarea[aria-label="核查依据与说明"]').setValue(note)
+      await button(w, '确认未消耗，释放预留').trigger('click')
+      expect(api.resolve).not.toHaveBeenCalled()
+      expect(w.get('.test-modal [role="alert"]').text()).toBe('核查依据与说明须填写 3–300 个字')
+      expect(w.find('.test-modal').exists()).toBe(true)
+    },
+  )
+  it('keeps server errors and the note in the resolution dialog, and resets feedback on reopen', async () => {
+    api.resolve.mockRejectedValue(new Error('额度预留记录不一致'))
+    const w = await openResolution()
+    await w.get('textarea[aria-label="核查依据与说明"]').setValue('供应商已确认未执行')
+    await button(w, '确认未消耗，释放预留').trigger('click')
+    await flushPromises()
+    expect(w.get('.test-modal [role="alert"]').text()).toBe('额度预留记录不一致')
+    expect((w.get('textarea').element as HTMLTextAreaElement).value).toBe('供应商已确认未执行')
+    await button(w, '核查结算').trigger('click')
+    expect(w.find('.test-modal [role="alert"]').exists()).toBe(false)
+  })
+  it.each([false, true])(
+    'submits a trimmed note once and closes after settlement succeeds (consumed=%s)',
+    async (consumed) => {
+      let finish!: () => void
+      api.resolve.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finish = resolve
+          }),
+      )
+      const w = await openResolution()
+      await w.get('textarea[aria-label="核查依据与说明"]').setValue('  供应商已核实计费情况  ')
+      if (consumed) await w.get('.test-modal input[type="checkbox"]').setValue(true)
+      const submit = button(w, consumed ? '确认结算' : '确认未消耗，释放预留')
+      await submit.trigger('click')
+      await submit.trigger('click')
+      expect(api.resolve).toHaveBeenCalledTimes(1)
+      expect(api.resolve).toHaveBeenCalledWith(12, consumed, '供应商已核实计费情况')
+      expect(w.find('.test-modal').exists()).toBe(true)
+      finish()
+      await flushPromises()
+      expect(w.find('.test-modal').exists()).toBe(false)
+    },
+  )
   it('shows task owners, prompt disclosure, always-visible references and full image previews', async () => {
     api.adminTasks.mockResolvedValue([
       {
