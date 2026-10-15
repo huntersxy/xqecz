@@ -89,9 +89,15 @@
 }
 .battle-beam {
   fill: none;
-  opacity: 0.7;
+  opacity: 0.78;
   stroke-linecap: round;
 }
+.battle-swell {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: battle-swell 1.6s ease-in-out infinite alternate paused;
+}
+.battle-swell-blue { animation-delay: -0.8s; }
 .battle-stream {
   fill: none;
   stroke-width: 2;
@@ -99,17 +105,48 @@
   opacity: 0.75;
   animation: battle-flow 1.2s linear infinite paused;
 }
-.battle-impact {
-  fill: var(--creative-paper);
-  stroke: var(--creative-line);
-  stroke-width: 1;
-  animation: battle-pressure 1.8s ease-in-out infinite alternate paused;
+.battle-tracer {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2;
+  stroke-dasharray: 1.5 8;
+  stroke-linecap: round;
+  opacity: 0.95;
+  animation: battle-flow 0.72s linear infinite paused;
 }
-.battle-spark {
+.battle-tracer-blue { animation-direction: reverse; animation-duration: 0.9s; }
+.battle-impact {
+  fill: #fff;
+  stroke: #fff;
+  stroke-width: 2;
+}
+.battle-ripple {
   fill: none;
   stroke: var(--creative-ink);
-  stroke-width: 2;
-  animation: battle-pressure 1.8s ease-in-out infinite alternate-reverse paused;
+  stroke-width: 1.5;
+  opacity: 0.46;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: battle-ripple 1.8s ease-out infinite paused;
+}
+.battle-contact,
+.battle-contact-flash {
+  fill: none;
+  stroke: #fff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.battle-contact {
+  stroke-width: 3.5;
+  filter: drop-shadow(0 0 2px rgba(64, 54, 60, 0.8));
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: battle-pressure 0.62s ease-in-out infinite alternate paused;
+}
+.battle-contact-flash {
+  stroke-width: 1;
+  opacity: 0.75;
+  animation: battle-flash 1.8s ease-in-out infinite paused;
 }
 .battle-core {
   fill: var(--creative-paper);
@@ -126,7 +163,7 @@
 .battle-pk {
   fill: var(--creative-ink);
 }
-.poll-battle.is-running :is(.battle-stream, .battle-impact, .battle-spark, .battle-orbit) {
+.poll-battle.is-running :is(.battle-swell, .battle-stream, .battle-tracer, .battle-ripple, .battle-contact, .battle-contact-flash, .battle-orbit) {
   animation-play-state: running;
 }
 .poll-battle-status {
@@ -266,14 +303,27 @@
   to { stroke-dashoffset: -164; }
 }
 @keyframes battle-pressure {
-  from { transform: translateX(-3px) scaleY(0.94); }
-  to { transform: translateX(3px) scaleY(1.06); }
+  from { transform: translateX(-1.5px) scaleY(0.82); }
+  to { transform: translateX(1.5px) scaleY(1.18); }
+}
+@keyframes battle-swell {
+  from { opacity: 0.15; }
+  to { opacity: 0.32; }
+}
+@keyframes battle-ripple {
+  from { opacity: 0.55; transform: scale(0.78); }
+  to { opacity: 0; transform: scale(1.18); }
+}
+@keyframes battle-flash {
+  0%, 55%, 100% { opacity: 0.45; }
+  58% { opacity: 1; }
+  62% { opacity: 0.3; }
 }
 @keyframes battle-orbit {
   to { transform: rotate(360deg); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .poll-battle :is(.battle-stream, .battle-impact, .battle-spark, .battle-orbit) {
+  .poll-battle :is(.battle-swell, .battle-stream, .battle-tracer, .battle-ripple, .battle-contact, .battle-contact-flash, .battle-orbit) {
     animation: none;
   }
   .poll-battle .battle-option-meter i { transition: none; }

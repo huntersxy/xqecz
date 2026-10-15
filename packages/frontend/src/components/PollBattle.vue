@@ -120,40 +120,44 @@ onBeforeUnmount(() => {
       >
         <template v-if="duel">
           <path
-            :d="`M 0 30 Q ${collision * 0.65} 40 ${collision} 80 Q ${collision * 0.65} 120 0 130 Z`"
+            class="battle-swell battle-swell-red"
+            :d="`M 0 38 C ${collision * 0.2} 22 ${collision * 0.46} 49 ${collision * 0.72} 67 Q ${collision * 0.92} 79 ${collision} 80 Q ${collision * 0.78} 88 ${collision * 0.58} 99 C ${collision * 0.34} 125 ${collision * 0.15} 111 0 122 Z`"
             :fill="color(0)"
             opacity="0.14"
           />
           <path
-            :d="`M 600 30 Q ${600 - (600 - collision) * 0.65} 40 ${collision} 80 Q ${600 - (600 - collision) * 0.65} 120 600 130 Z`"
+            class="battle-swell battle-swell-blue"
+            :d="`M 600 38 C ${600 - (600 - collision) * 0.2} 22 ${600 - (600 - collision) * 0.46} 49 ${600 - (600 - collision) * 0.72} 67 Q ${collision + (600 - collision) * 0.08} 79 ${collision} 80 Q ${collision + (600 - collision) * 0.22} 88 ${collision + (600 - collision) * 0.42} 99 C ${600 - (600 - collision) * 0.34} 125 ${600 - (600 - collision) * 0.15} 111 600 122 Z`"
             :fill="color(1)"
             opacity="0.14"
           />
           <path
             class="battle-beam"
-            :d="`M 0 80 C ${collision * 0.25} 58 ${collision * 0.55} 102 ${collision} 80`"
+            :d="`M 0 80 C ${collision * 0.11} 8 ${collision * 0.23} 8 ${collision * 0.34} 80 C ${collision * 0.45} 152 ${collision * 0.57} 152 ${collision * 0.68} 80 C ${collision * 0.79} 8 ${collision * 0.9} 8 ${collision} 80`"
             :stroke="color(0)"
-            stroke-width="30"
+            :stroke-width="25 + percentage(0) * 0.2"
           />
           <path
             class="battle-beam"
-            :d="`M 600 80 C ${600 - (600 - collision) * 0.25} 102 ${600 - (600 - collision) * 0.55} 58 ${collision} 80`"
+            :d="`M 600 80 C ${600 - (600 - collision) * 0.11} 152 ${600 - (600 - collision) * 0.23} 152 ${600 - (600 - collision) * 0.34} 80 C ${600 - (600 - collision) * 0.45} 8 ${600 - (600 - collision) * 0.57} 8 ${600 - (600 - collision) * 0.68} 80 C ${600 - (600 - collision) * 0.79} 152 ${600 - (600 - collision) * 0.9} 152 ${collision} 80`"
             :stroke="color(1)"
-            stroke-width="30"
+            :stroke-width="25 + percentage(1) * 0.2"
           />
           <path
-            class="battle-stream"
-            :d="`M 0 80 C ${collision * 0.25} 58 ${collision * 0.55} 102 ${collision} 80`"
-            stroke="white"
+            class="battle-tracer battle-tracer-red"
+            :d="`M ${collision - 118} 80 C ${collision - 101} 52 ${collision - 80} 55 ${collision - 58} 80`"
           />
           <path
-            class="battle-stream"
-            :d="`M 600 80 C ${600 - (600 - collision) * 0.25} 102 ${600 - (600 - collision) * 0.55} 58 ${collision} 80`"
-            stroke="white"
+            class="battle-tracer battle-tracer-blue"
+            :d="`M ${collision + 118} 80 C ${collision + 101} 108 ${collision + 80} 105 ${collision + 58} 80`"
           />
+          <g :transform="`translate(${collision} 80)`" class="battle-pressure-front">
+            <ellipse class="battle-ripple" rx="17" ry="32" />
+            <path class="battle-contact" d="M-5 -48 L4 -30 L-7 -16 L7 0 L-6 15 L5 29 L-3 48 M-7 -16 L-20 -27 M7 0 L20 -12 M-6 15 L-19 28 M5 29 L18 40" />
+            <path class="battle-contact-flash" d="M0 -28 L0 28" />
+          </g>
           <g :transform="`translate(${collision} 80)`">
-            <ellipse class="battle-impact" rx="9" ry="38" />
-            <path class="battle-spark" d="M-12 -50 L7 -25 L-4 -10 L13 10 L-6 28 L12 50" />
+            <ellipse class="battle-impact" rx="5" ry="22" />
           </g>
         </template>
         <template v-else>
