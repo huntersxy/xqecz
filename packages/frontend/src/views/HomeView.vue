@@ -16,6 +16,7 @@ import { useListCache, diffLists } from '@/composables/useListCache'
 import { ContentSchema } from '@/types/schemas'
 import WaterfallCard from '@/components/WaterfallCard.vue'
 import RecommendSection from '@/components/RecommendSection.vue'
+import PollsSection from '@/components/PollsSection.vue'
 import QuickUploadSheet from '@/components/QuickUploadSheet.vue'
 import SketchPlanet from '@/components/SketchPlanet.vue'
 import UniverseSketch from '@/components/UniverseSketch.vue'
@@ -450,6 +451,8 @@ onActivated(() => {
       <UniverseSketch class="wf-hero-mark" :artworks="planetArtworks" @select="router.push(`/content/${$event}`)" />
     </section>
 
+    <PollsSection v-if="!swapSections" class="wf-polls" />
+
     <section v-if="!swapSections" class="wf-discovery" aria-label="发现内容">
       <div class="wf-discovery-heading">
         <div>
@@ -562,7 +565,7 @@ onActivated(() => {
   color: var(--home-ink);
   padding: 0 28px;
 }
-.wf-hero, .wf-discovery, .wf-masonry-wrap, .wf-ideas { max-width: 1440px; margin-inline: auto; }
+.wf-hero, .wf-discovery, .wf-masonry-wrap, .wf-ideas, .wf-polls { max-width: 1440px; margin-inline: auto; }
 .wf-hero {
   display: flex; align-items: center; justify-content: space-between; gap: 30px;
   position: relative; isolation: isolate; padding: 40px 0 36px; border-bottom: 1px solid var(--home-line);

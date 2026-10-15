@@ -24,6 +24,7 @@
 | AI 工作室、角色设定库、创意广场的页面与控件外观 | `packages/frontend/src/assets/creative-pages.css`；配色复用 `main.css` 的 `--creative-*`，弹层显式带 `creative-theme creative-dialog`，画布/侧栏布局由对应页面负责 |
 | 角色/模板/旧组合关系、图片引用编号与授权预设 | `packages/frontend/src/utils/creativeResources.ts` / `packages/frontend/src/utils/creativeMentions.ts` / `packages/frontend/src/utils/creativeLicenses.ts`；资源统一展开后同时导入角色与参考图，重排图片须保持提示词引用目标。`StudioReferences.vue` 只负责鼠标/触摸拖曳、键盘排序与手势清理，实际顺序归 `useAIStudio.ts`，页面重映射提示词引用 |
 | 首页灵感接力与创意广场的提示词摘要 | `packages/frontend/src/utils/creativeIdeas.ts`；首页栏目宽度由 `HomeView.vue` 与其它首页区块统一约束，不能在子组件扩成全屏 |
+| 公开投票入口、参与与统计 | `PollsSection.vue` / `PollPreview.vue` / `views/PollsView.vue`；列表请求归 `usePollList.ts`，前台仅参与和查看统计，发起/管理保留在后台；投票/改票使用后端返回的票数与本人选择，不在前端累加 |
 | 素材与 API 媒体地址、媒体目录归属、生产同路径回退 | `packages/frontend/src/utils/index.ts`；设计说明见 `docs/frontend-media.md` |
 | 详情大图来源优先级与探测缓存 | `packages/frontend/src/utils/imageSource.ts`，调用方 `ContentMedia.vue` / `MediaImage.vue` |
 | 星图全作品预加载、去重、显影进度与取消 | `packages/frontend/src/utils/universeImages.ts`；不在场景中另写限量图片队列 |

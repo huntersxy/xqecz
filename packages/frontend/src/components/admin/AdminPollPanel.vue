@@ -20,6 +20,7 @@ onMounted(() => admin.loadPolls())
 <template>
   <AdminPanel title="投票管理" :desc="`共 ${admin.polls.length} 条投票`">
     <template #actions>
+      <RouterLink to="/polls" class="poll-public-link">前台投票广场</RouterLink>
       <a-button type="primary" size="small" @click="admin.showCreatePollModal = true">
         <IconPlus /> 创建投票
       </a-button>
@@ -36,7 +37,7 @@ onMounted(() => admin.loadPolls())
         <div v-for="p in admin.polls" :key="p.id" class="poll-item">
           <div class="poll-main">
             <div class="poll-head">
-              <span class="poll-title">{{ p.title }}</span>
+              <RouterLink :to="`/polls/${p.id}`" class="poll-title">{{ p.title }}</RouterLink>
               <span class="poll-meta">{{ p.vote_count }} 票 · {{ new Date(p.created_at).toLocaleString() }}</span>
             </div>
             <div v-if="p.description" class="poll-desc">{{ p.description }}</div>
@@ -112,6 +113,15 @@ onMounted(() => admin.loadPolls())
   font-size: 14px;
   font-weight: 600;
   color: $admin-text;
+  text-decoration: none;
+  &:hover { color: var(--creative-accent); }
+}
+
+.poll-public-link {
+  color: var(--creative-accent);
+  font-size: 13px;
+  text-decoration: none;
+  padding: 8px 0;
 }
 
 .poll-meta {

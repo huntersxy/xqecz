@@ -326,7 +326,7 @@ export const CommentSchema: z.ZodType<{
 export type Comment = z.infer<typeof CommentSchema>
 
 // ── Poll ──
-const PollSchema = z.object({
+export const PollSchema = z.object({
   id: num,
   title: str,
   description: str,
@@ -338,6 +338,23 @@ const PollSchema = z.object({
   updated_at: str.optional(),
 })
 export type Poll = z.infer<typeof PollSchema>
+
+export const PollDetailSchema = z.object({
+  poll: PollSchema,
+  vote_counts: z.record(z.string(), z.number().int().nonnegative()),
+  total_votes: z.number().int().nonnegative(),
+  my_vote: z.number().int().nonnegative().nullable(),
+})
+export type PollDetail = z.infer<typeof PollDetailSchema>
+
+export const PollListResponseSchema = z.object({
+  list: z.array(PollSchema),
+  total: z.number().int().nonnegative(),
+  page: z.number().int().positive(),
+  page_size: z.number().int().positive(),
+  total_page: z.number().int().nonnegative(),
+})
+export type PollListResponse = z.infer<typeof PollListResponseSchema>
 
 // ── Claim ──
 const ClaimSchema = z.object({

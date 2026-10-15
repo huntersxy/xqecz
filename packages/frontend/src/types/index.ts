@@ -5,6 +5,7 @@ import type { MetadataOptionsSchema, VisionSettingsSchema, VisionJobSchema, Visi
 
 export { ContentSchema, RecommendContentSchema }
 export type { User, Content, RecommendContent, Comment, Poll, Claim }
+export type { PollDetail, PollListResponse } from './schemas'
 export type { AIConfig, AIAccount, AISession, AITask, AIAsset }
 
 export interface ApiResponse<T = unknown> {
@@ -99,13 +100,6 @@ export interface RecommendResponse {
   count: number
 }
 
-export interface PollDetail {
-  poll: Poll
-  vote_counts: Record<string, number>
-  total_votes: number
-  my_vote: number | null
-}
-
 export interface CreatePollData {
   title: string
   description?: string
@@ -143,14 +137,6 @@ export interface UpdateApiKeyData {
 
 export interface CommentListResponse {
   list: Comment[]
-  total: number
-  page: number
-  page_size: number
-  total_page: number
-}
-
-export interface PollListResponse {
-  list: Poll[]
   total: number
   page: number
   page_size: number

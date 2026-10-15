@@ -84,6 +84,8 @@ declare module 'vue' {
     IdeasSection: typeof import('./components/IdeasSection.vue')['default']
     MarkdownEditor: typeof import('./components/MarkdownEditor.vue')['default']
     MediaImage: typeof import('./components/MediaImage.vue')['default']
+    PollPreview: typeof import('./components/PollPreview.vue')['default']
+    PollsSection: typeof import('./components/PollsSection.vue')['default']
     QuickUploadSheet: typeof import('./components/QuickUploadSheet.vue')['default']
     RecommendSection: typeof import('./components/RecommendSection.vue')['default']
     ReportModal: typeof import('./components/ReportModal.vue')['default']

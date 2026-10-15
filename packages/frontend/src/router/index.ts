@@ -28,6 +28,8 @@ const routes: RouteRecordRaw[] = [
   { path: '/characters/:id', name: 'character-detail', component: () => import('../views/CreativeCatalogView.vue') },
   { path: '/ideas', name: 'ideas', component: () => import('../views/IdeasView.vue') },
   { path: '/ideas/:id', name: 'idea-detail', component: () => import('../views/IdeasView.vue') },
+  { path: '/polls', name: 'polls', component: () => import('../views/PollsView.vue') },
+  { path: '/polls/:id', name: 'poll-detail', component: () => import('../views/PollsView.vue') },
   {
     path: '/login',
     name: 'login',

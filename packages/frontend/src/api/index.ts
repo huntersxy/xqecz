@@ -371,9 +371,18 @@ export const pollApi = {
       body: data,
     }),
 
-  list: () => request<PollListResponse>('/poll/list'),
+  list: (params?: { page?: number; page_size?: number }, signal?: AbortSignal) =>
+    request<PollListResponse>('/poll/list', { query: params, signal }),
 
-  detail: (id: number) => request<PollDetail>(`/poll/${id}`),
+  detail: (id: number, signal?: AbortSignal) => request<PollDetail>(`/poll/${id}`, { signal }),
+
+  vote: (id: number, optionIndex: number, signal?: AbortSignal) =>
+    request<PollDetail>(`/poll/${id}/vote`, {
+      method: 'POST',
+      body: { option_index: optionIndex },
+      signal,
+      retry: 0,
+    }),
 
   delete: (id: number) => request(`/poll/${id}`, { method: 'DELETE' }),
 }

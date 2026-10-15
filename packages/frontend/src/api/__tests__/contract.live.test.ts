@@ -4,7 +4,7 @@
 // 因此 CI（无后端）会自动跳过，不会拖慢或污染流水线。
 import { describe, expect, it } from 'vitest'
 import { ContentSchema, RecommendContentSchema } from '@/types'
-import { CommentSchema } from '@/types/schemas'
+import { CommentSchema, PollDetailSchema, PollListResponseSchema } from '@/types/schemas'
 
 const BASE = process.env.XQECZ_LIVE_API || ''
 const live = BASE ? describe : describe.skip
@@ -101,10 +101,10 @@ live('运行中的后端与前端契约一致', () => {
     expect(count.data.count).toBeGreaterThanOrEqual(0)
 
     const polls = await api<PageData>('/poll/list')
-    for (const p of polls.data.list as Record<string, unknown>[]) {
-      expect(typeof p['id']).toBe('number')
-      expect(typeof p['title']).toBe('string')
-      expect(Array.isArray(p['options'])).toBe(true)
+    const parsedPolls = PollListResponseSchema.parse(polls.data)
+    for (const p of parsedPolls.list) {
+      const detail = await api<unknown>(`/poll/${p.id}`)
+      expect(PollDetailSchema.parse(detail.data).poll.id).toBe(p.id)
     }
   })
 })
