@@ -4,6 +4,7 @@ import { createPinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import IdeasView from '@/views/IdeasView.vue'
 import CreativeCatalogView from '@/views/CreativeCatalogView.vue'
+import IdeasSection from '@/components/IdeasSection.vue'
 
 const api = vi.hoisted(() => ({ ideas: vi.fn(), resources: vi.fn() }))
 vi.mock('@/api/creative', () => ({
@@ -11,7 +12,10 @@ vi.mock('@/api/creative', () => ({
   creativeApi: { resources: api.resources },
 }))
 const wrappers: ReturnType<typeof mount>[] = []
-async function render(view: typeof IdeasView | typeof CreativeCatalogView, path: string) {
+async function render(
+  view: typeof IdeasView | typeof CreativeCatalogView | typeof IdeasSection,
+  path: string,
+) {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [{ path, component: view }],
@@ -33,6 +37,61 @@ beforeEach(() => {
 afterEach(() => wrappers.splice(0).forEach((wrapper) => wrapper.unmount()))
 
 describe('creative discovery pages', () => {
+  it('shows a bounded prompt and small original references on the homepage, including realized ideas', async () => {
+    const prompt = '窗边的角色，午后暖光。'.repeat(30)
+    api.ideas.mockResolvedValue([
+      {
+        idea: {
+          id: 7,
+          title: '窗边的午后',
+          snapshot: JSON.stringify({ prompt }),
+          status: 'realized',
+        },
+        author: { username: '创作者' },
+        references: [1, 2, 3, 4].map((id) => ({ id })),
+        results: [{ id: 99 }],
+        current_cost: 3,
+        sponsorable: false,
+      },
+    ])
+    const wrapper = await render(IdeasSection, '/')
+    const card = wrapper.get('.home-idea-preview')
+    expect(card.attributes('href')).toBe('/ideas/7')
+    expect(card.get('.home-idea-prompt').text()).toBe(
+      Array.from(prompt).slice(0, 120).join('') + '…',
+    )
+    expect(card.text()).toContain('已实现')
+    expect(card.text()).not.toContain('3 额度')
+    const images = card.findAllComponents({ name: 'CreativeImage' })
+    expect(images.map((image) => image.props('id'))).toEqual([1, 2, 3])
+    expect(images.every((image) => image.props('ideaId') === 7)).toBe(true)
+    expect(card.get('.home-idea-more').text()).toBe('+1')
+  })
+  it('uses the description for a text-only homepage proposal and hides the section when empty', async () => {
+    api.ideas.mockResolvedValue([
+      {
+        idea: {
+          id: 8,
+          title: '文字创意',
+          snapshot: 'null',
+          description: '窗边的一束光',
+          status: 'waiting',
+        },
+        author: { username: '作者' },
+        references: [],
+        results: [],
+        current_cost: 2,
+        sponsorable: true,
+      },
+    ])
+    const wrapper = await render(IdeasSection, '/')
+    expect(wrapper.get('.home-idea-prompt').text()).toBe('窗边的一束光')
+    expect(wrapper.get('.home-idea-preview').text()).toContain('2 额度')
+    expect(wrapper.find('.home-idea-references').exists()).toBe(false)
+    api.ideas.mockResolvedValue([])
+    const empty = await render(IdeasSection, '/')
+    expect(empty.find('.home-ideas').exists()).toBe(false)
+  })
   it('gives a text-only idea a visible preview while preserving its detail destination and cost', async () => {
     api.ideas.mockResolvedValue([
       {

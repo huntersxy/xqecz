@@ -7,6 +7,7 @@ import type { AIIdeaView, CreativeResource } from '@/types/schemas'
 import { useUserStore } from '@/stores/user'
 import { useConfirm } from '@/composables/useToast'
 import CreativeImage from '@/components/CreativeImage.vue'
+import { ideaPromptPreview } from '@/utils/creativeIdeas'
 import '@/assets/creative-pages.css'
 const route = useRoute(),
   router = useRouter(),
@@ -37,25 +38,6 @@ const input = computed<Partial<GenerationInput>>(() => {
     return {}
   }
 })
-// Old ideas can have an absent or malformed snapshot. Keep them readable using
-// their description; results must never replace the proposed prompt/references.
-function promptPreview(row: AIIdeaView) {
-  let prompt = ''
-  try {
-    const snapshot: unknown = JSON.parse(row.idea.snapshot)
-    if (
-      snapshot &&
-      typeof snapshot === 'object' &&
-      'prompt' in snapshot &&
-      typeof snapshot.prompt === 'string'
-    )
-      prompt = snapshot.prompt.trim()
-  } catch {
-    // Historical snapshots fall back to the public description below.
-  }
-  const text = Array.from(prompt || row.idea.description || '投稿者暂未提供提示词说明')
-  return text.length > 240 ? `${text.slice(0, 240).join('')}…` : text.join('')
-}
 async function load() {
   if (timer) clearTimeout(timer)
   timer = undefined
@@ -240,7 +222,7 @@ onBeforeUnmount(() => {
               <h2>{{ row.idea.title }}</h2>
               <a-tag>{{ labels[row.idea.status] }}</a-tag>
             </div>
-            <p class="idea-card-prompt">{{ promptPreview(row) }}</p>
+            <p class="idea-card-prompt">{{ ideaPromptPreview(row.idea) }}</p>
             <span class="idea-card-read">查看完整提示词与参考图</span>
             <div class="creative-note">{{ row.author.username }} · {{ row.idea.model }}</div>
             <p v-if="row.sponsorable" class="idea-cost">

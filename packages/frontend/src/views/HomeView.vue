@@ -483,7 +483,7 @@ onActivated(() => {
       </div>
     </section>
 
-    <IdeasSection v-if="!homeStore.searchKeyword && searchFilter.selectedTags.value.length === 0" />
+    <IdeasSection v-if="!swapSections" class="wf-ideas" />
     <RecommendSection
       v-if="!swapSections && recommendLoader.recommendContents.value.length > 0"
       :loader="recommendLoader"
@@ -562,7 +562,7 @@ onActivated(() => {
   color: var(--home-ink);
   padding: 0 28px;
 }
-.wf-hero, .wf-discovery, .wf-masonry-wrap { max-width: 1440px; margin: 0 auto; }
+.wf-hero, .wf-discovery, .wf-masonry-wrap, .wf-ideas { max-width: 1440px; margin-inline: auto; }
 .wf-hero {
   display: flex; align-items: center; justify-content: space-between; gap: 30px;
   position: relative; isolation: isolate; padding: 40px 0 36px; border-bottom: 1px solid var(--home-line);
