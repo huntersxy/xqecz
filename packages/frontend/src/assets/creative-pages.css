@@ -8,8 +8,8 @@
 /* Poll discovery and participation share the public creative palette on both entry points. */
 .home-polls {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr);
-  gap: 24px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
   align-items: start;
   padding-block: 24px;
   border-bottom: 1px solid var(--creative-line);
@@ -17,8 +17,9 @@
 }
 .home-polls > header {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
 }
 .home-polls h2 {
@@ -36,6 +37,258 @@
   color: var(--creative-accent);
   font-size: 13px;
   text-decoration: none;
+}
+.poll-battle {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px;
+  border: 1px solid var(--creative-line);
+  border-radius: 14px;
+  background: var(--creative-paper);
+  color: var(--creative-ink);
+}
+.poll-battle-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+.poll-battle h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.poll-battle-mode {
+  flex-shrink: 0;
+  color: var(--creative-muted);
+  font-size: 12px;
+}
+.poll-battle-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.poll-battle-arena {
+  margin: 6px 0;
+  overflow: hidden;
+}
+.poll-battle-arena svg {
+  display: block;
+  width: 100%;
+  height: 44px;
+  overflow: visible;
+}
+.poll-battle-arena text {
+  font-family: inherit;
+  font-size: 22px;
+  font-weight: 600;
+}
+.battle-beam {
+  fill: none;
+  opacity: 0.7;
+  stroke-linecap: round;
+}
+.battle-stream {
+  fill: none;
+  stroke-width: 2;
+  stroke-dasharray: 24 140;
+  opacity: 0.75;
+  animation: battle-flow 1.2s linear infinite paused;
+}
+.battle-impact {
+  fill: var(--creative-paper);
+  stroke: var(--creative-line);
+  stroke-width: 1;
+  animation: battle-pressure 1.8s ease-in-out infinite alternate paused;
+}
+.battle-spark {
+  fill: none;
+  stroke: var(--creative-ink);
+  stroke-width: 2;
+  animation: battle-pressure 1.8s ease-in-out infinite alternate-reverse paused;
+}
+.battle-core {
+  fill: var(--creative-paper);
+  stroke: var(--creative-line);
+}
+.battle-orbit {
+  fill: none;
+  stroke: var(--creative-muted);
+  stroke-width: 1;
+  stroke-dasharray: 9 11;
+  transform-origin: 300px 80px;
+  animation: battle-orbit 14s linear infinite paused;
+}
+.battle-pk {
+  fill: var(--creative-ink);
+}
+.poll-battle.is-running :is(.battle-stream, .battle-impact, .battle-spark, .battle-orbit) {
+  animation-play-state: running;
+}
+.poll-battle-status {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--creative-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.battle-motion-toggle {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--creative-line);
+  border-radius: 50%;
+  background: var(--creative-paper);
+  color: var(--creative-muted);
+  cursor: pointer;
+}
+.battle-motion-toggle:hover {
+  color: var(--creative-accent);
+  border-color: currentColor;
+}
+.battle-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.battle-legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.battle-option {
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 8px 12px;
+  border: 1px solid var(--creative-line);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 150ms ease-out, background 150ms ease-out;
+}
+.battle-option:hover,
+.battle-option.is-selected {
+  border-color: var(--faction-color);
+  background: color-mix(in srgb, var(--faction-color) 6%, var(--creative-paper));
+}
+.battle-option input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--faction-color);
+}
+.battle-option-copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.battle-option-copy small {
+  color: var(--creative-ink);
+  font-size: 11px;
+}
+.battle-option-stat {
+  display: grid;
+  gap: 1px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.battle-option-stat b {
+  font-size: 13px;
+  font-weight: 600;
+}
+.battle-option-stat small {
+  color: var(--creative-muted);
+  font-size: 11px;
+}
+.battle-option-meter {
+  position: absolute;
+  inset: auto 10px 5px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--creative-line);
+}
+.battle-option-meter i {
+  display: block;
+  height: 100%;
+  background: var(--faction-color);
+  transform-origin: left;
+  transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.battle-options:disabled .battle-option {
+  opacity: 0.6;
+  cursor: wait;
+}
+.poll-battle-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+.poll-battle-summary { min-width: 0; }
+.poll-battle-footer .poll-submit {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 7px 16px;
+}
+.poll-battle-total {
+  font-size: 12px;
+  color: var(--creative-muted);
+  font-variant-numeric: tabular-nums;
+}
+.battle-option:focus-within,
+.battle-motion-toggle:focus-visible {
+  outline: 2px solid var(--creative-accent);
+  outline-offset: 3px;
+}
+@keyframes battle-flow {
+  to { stroke-dashoffset: -164; }
+}
+@keyframes battle-pressure {
+  from { transform: translateX(-3px) scaleY(0.94); }
+  to { transform: translateX(3px) scaleY(1.06); }
+}
+@keyframes battle-orbit {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .poll-battle :is(.battle-stream, .battle-impact, .battle-spark, .battle-orbit) {
+    animation: none;
+  }
+  .poll-battle .battle-option-meter i { transition: none; }
+  .battle-motion-toggle { display: none; }
+}
+@media (max-width: 640px) {
+  .poll-battle { padding: 12px; }
+  .poll-battle-heading { gap: 10px; }
+  .poll-battle h3 { font-size: 14px; }
+  .poll-battle-heading { align-items: flex-start; }
+  .poll-battle-tools { gap: 4px; }
+  .poll-battle-mode { font-size: 11px; }
+  .battle-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .battle-option { grid-template-columns: 16px minmax(0, 1fr); }
+  .battle-option-stat { grid-column: 2; grid-template-columns: 1fr 1fr; align-items: center; text-align: left; }
 }
 .poll-preview-grid {
   display: grid;

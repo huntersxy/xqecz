@@ -4,6 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import PollsView from '@/views/PollsView.vue'
 import PollsSection from '@/components/PollsSection.vue'
+import PollBattle from '@/components/PollBattle.vue'
 import type { Poll, PollDetail } from '@/types/schemas'
 
 const api = vi.hoisted(() => ({ list: vi.fn(), detail: vi.fn(), vote: vi.fn() }))
@@ -58,22 +59,64 @@ beforeEach(() => {
 afterEach(() => {
   wrappers.splice(0).forEach((wrapper) => wrapper.unmount())
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('public poll discovery', () => {
-  it('puts the question, options, counts and direct participation link on the homepage', async () => {
-    const { wrapper } = await render(PollsSection, '/')
+  it('offers an inline ballot with every option and live counts on the homepage', async () => {
+    const { wrapper, router } = await render(PollsSection, '/')
     expect(api.list).toHaveBeenCalledWith({ page: 1, page_size: 2 }, expect.any(AbortSignal))
     expect(wrapper.get('h2').text()).toBe('大家来投一票')
-    const preview = wrapper.get('.poll-preview')
-    expect(preview.attributes('href')).toBe('/polls/1')
-    expect(preview.text()).toContain('下一次想看什么场景 1')
-    expect(preview.text()).toContain('9 票')
-    expect(preview.findAll('.poll-preview-options > span').map((row) => row.text())).toEqual(
-      poll().options.slice(0, 3),
+    const battle = wrapper.get('.poll-battle')
+    expect(battle.text()).toContain('下一次想看什么场景 1')
+    expect(battle.text()).toContain('9 票')
+    expect(battle.findAll('input[type="radio"]')).toHaveLength(4)
+    expect(battle.find('a').exists()).toBe(false)
+    await battle.findAll('input')[0].setValue()
+    api.vote.mockResolvedValueOnce(
+      ok({ ...detail(0), total_votes: 10, vote_counts: { '0': 4, '1': 6 } }),
     )
-    expect(preview.text()).toContain('另有 1 项')
+    await battle.get('form').trigger('submit')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/')
+    expect(battle.get('.poll-battle-total').text()).toContain('10 票')
+    expect(battle.findAll('.battle-option-stat')[0].text()).toContain('40%')
+    expect(battle.get('.poll-submit').text()).toBe('已助力')
     expect(wrapper.get('header a').attributes('href')).toBe('/polls')
+  })
+
+  it.each([2, 3, 6])(
+    'renders all %i factions and restores a previous vote for inline changes',
+    async (count) => {
+      const choices = Array.from({ length: count }, (_, i) => `选项 ${i + 1}`)
+      const ballot = { ...detail(0), poll: { ...poll(), options: choices } }
+      api.detail.mockResolvedValueOnce(ok(ballot))
+      api.vote.mockResolvedValueOnce(ok({ ...ballot, my_vote: 1, vote_counts: { '0': 2, '1': 7 } }))
+      const { wrapper } = await render(PollsSection, '/')
+      expect(wrapper.get('.poll-battle-mode').text()).toBe(
+        count === 2 ? '红蓝 PK' : count === 3 ? '三方对抗' : '多方争霸',
+      )
+      expect(wrapper.findAll('.battle-option')).toHaveLength(count)
+      expect((wrapper.findAll('input')[0].element as HTMLInputElement).checked).toBe(true)
+      await wrapper.findAll('input')[1].setValue()
+      expect(wrapper.get('.poll-submit').text()).toBe('确认改票')
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+      expect(wrapper.get('.poll-battle-total').text()).toContain('9 票')
+      expect(wrapper.findAll('.battle-option-stat')[1].text()).toContain('78%')
+    },
+  )
+
+  it('handles zero votes and inline detail failures with a local retry', async () => {
+    api.detail.mockRejectedValueOnce(new Error('战况加载失败'))
+    const { wrapper } = await render(PollsSection, '/')
+    expect(wrapper.get('[role="alert"]').text()).toContain('战况加载失败')
+    api.detail.mockResolvedValueOnce(ok({ ...detail(), total_votes: 0, vote_counts: {} }))
+    await wrapper.get('[role="alert"] button').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('第一票由你决定')
+    expect(wrapper.text()).not.toContain('NaN')
+    expect(wrapper.findAll('.battle-option-stat b').every((row) => row.text() === '0%')).toBe(true)
   })
 
   it('keeps the entry visible when no polls exist and offers retry after failure', async () => {
@@ -86,7 +129,7 @@ describe('public poll discovery', () => {
     expect(failed.wrapper.get('[role="alert"]').text()).toContain('暂时无法连接')
     await failed.wrapper.get('button').trigger('click')
     await flushPromises()
-    expect(failed.wrapper.find('.poll-preview').exists()).toBe(true)
+    expect(failed.wrapper.find('.poll-battle').exists()).toBe(true)
   })
 
   it('paginates the public list without exposing poll creation', async () => {
@@ -130,12 +173,102 @@ describe('public poll discovery', () => {
     await nextTick()
     expect(signal.aborted).toBe(true)
     api.list.mockResolvedValueOnce(list([{ ...poll(2), vote_count: 12 }]))
+    api.detail.mockImplementation((id: number) =>
+      Promise.resolve(ok({ ...detail(null, id), total_votes: 12 })),
+    )
     visible.value = true
     await flushPromises()
     pending.resolve(list([poll(99)]))
     await flushPromises()
     expect(wrapper.text()).toContain('12 票')
-    expect(wrapper.get('.poll-preview').attributes('href')).toBe('/polls/2')
+    expect(wrapper.get('.poll-battle h3').text()).toContain('场景 2')
+  })
+})
+
+describe('inline battle lifecycle', () => {
+  it('runs only while visible and active, supports pausing, and releases the observer', async () => {
+    let observeVisibility!: IntersectionObserverCallback
+    const disconnect = vi.fn()
+    const observe = vi.fn()
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(callback: IntersectionObserverCallback) {
+          observeVisibility = callback
+        }
+        observe = observe
+        disconnect = disconnect
+      },
+    )
+    const { wrapper } = await render(PollsSection, '/')
+    expect(observe).toHaveBeenCalledOnce()
+    expect(wrapper.get('.poll-battle').classes()).not.toContain('is-running')
+    observeVisibility(
+      [{ isIntersecting: true }] as IntersectionObserverEntry[],
+      {} as IntersectionObserver,
+    )
+    await nextTick()
+    expect(wrapper.get('.poll-battle').classes()).toContain('is-running')
+    const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true)
+    document.dispatchEvent(new Event('visibilitychange'))
+    await nextTick()
+    expect(wrapper.get('.poll-battle').classes()).not.toContain('is-running')
+    hidden.mockReturnValue(false)
+    document.dispatchEvent(new Event('visibilitychange'))
+    await nextTick()
+    expect(wrapper.get('.poll-battle').classes()).toContain('is-running')
+    await wrapper.get('.battle-motion-toggle').trigger('click')
+    expect(wrapper.get('.battle-motion-toggle').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.get('.poll-battle').classes()).not.toContain('is-running')
+    await wrapper.get('.battle-motion-toggle').trigger('click')
+    observeVisibility(
+      [{ isIntersecting: false }] as IntersectionObserverEntry[],
+      {} as IntersectionObserver,
+    )
+    await nextTick()
+    expect(wrapper.get('.poll-battle').classes()).not.toContain('is-running')
+    wrapper.unmount()
+    expect(disconnect).toHaveBeenCalledOnce()
+    vi.unstubAllGlobals()
+  })
+
+  it('keeps failed inline votes retryable and cancels late updates on departure', async () => {
+    api.vote.mockRejectedValueOnce(new Error('投票连接失败'))
+    const { wrapper } = await render(PollsSection, '/')
+    await wrapper.findAll('input')[0].setValue()
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.get('[role="alert"]').text()).toBe('投票连接失败')
+    expect(wrapper.get('.poll-submit').attributes('disabled')).toBeUndefined()
+    const pending = deferred<ReturnType<typeof ok<PollDetail>>>()
+    api.vote.mockReturnValueOnce(pending.promise)
+    await wrapper.get('form').trigger('submit')
+    const signal = api.vote.mock.calls.at(-1)![2] as AbortSignal
+    wrapper.unmount()
+    expect(signal.aborted).toBe(true)
+    pending.resolve(ok(detail(0)))
+    await flushPromises()
+  })
+
+  it('refreshes the personal vote after leaving and returning through KeepAlive', async () => {
+    const visible = ref(true)
+    const host = defineComponent({
+      components: { PollBattle },
+      setup: () => ({ visible, poll: poll() }),
+      template: '<KeepAlive><PollBattle v-if="visible" :poll="poll" /></KeepAlive>',
+    })
+    const wrapper = mount(host)
+    wrappers.push(wrapper)
+    await flushPromises()
+    visible.value = false
+    await nextTick()
+    const signal = api.detail.mock.calls[0][1] as AbortSignal
+    expect(signal.aborted).toBe(true)
+    api.detail.mockResolvedValueOnce(ok(detail(1)))
+    visible.value = true
+    await flushPromises()
+    expect(api.detail).toHaveBeenCalledTimes(2)
+    expect((wrapper.findAll('input')[1].element as HTMLInputElement).checked).toBe(true)
   })
 })
 

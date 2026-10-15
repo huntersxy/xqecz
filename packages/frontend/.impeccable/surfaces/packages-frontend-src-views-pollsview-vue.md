@@ -11,7 +11,7 @@ THESIS: Restore discoverability of the existing poll system and complete its pub
 
 OWN-WORLD: Inherit the site's warm white and pink creative tokens, reading typography, subtle borders, and existing navigation. No new identity or design-system change.
 
-STORY: A homepage visitor sees current questions and options, opens a ballot, selects one option, and reads authoritative totals and percentages. Returning visitors recover their selection and can change it.
+STORY: A homepage visitor sees current questions and votes inline, then reads authoritative totals and percentages without navigation. Two choices use a compact red/blue energy clash; three or more use converging faction streams. Keep the arena shallow and the choices horizontal on desktop so discovery does not crowd out the feed. Returning visitors recover their selection and can change it.
 
 FIRST VIEWPORT: Put a compact poll strip immediately below the homepage hero, constrained to the same 1440px column as other sections. Add a permanent desktop and mobile navigation entry. The public list leads with questions; detail leads with the ballot and its clear submit action.
 

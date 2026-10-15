@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { IconArrowLeft, IconCheck } from '@arco-design/web-vue/es/icon'
-import { pollApi } from '@/api'
+import { usePollBallot } from '@/composables/usePollBallot'
 import { usePollList } from '@/composables/usePollList'
-import { PollDetailSchema, type PollDetail } from '@/types/schemas'
 import PollPreview from '@/components/PollPreview.vue'
 import '@/assets/creative-pages.css'
 
@@ -24,100 +23,31 @@ const page = computed(() => {
   const value = Number(route.query.page)
   return Number.isSafeInteger(value) && value > 0 ? value : 1
 })
-const detail = shallowRef<PollDetail | null>(null)
-const loading = ref(false)
-const error = ref('')
-const voteError = ref('')
-const selected = ref<number | null>(null)
-const submitting = ref(false)
-const resultsVisible = ref(false)
-let controller: AbortController | undefined
-
-async function loadDetail() {
-  controller?.abort()
-  const owner = new AbortController()
-  controller = owner
-  detail.value = null
-  error.value = ''
-  voteError.value = ''
-  selected.value = null
-  submitting.value = false
-  resultsVisible.value = false
-  const id = Number(route.params.id)
-  if (!Number.isSafeInteger(id) || id <= 0) {
-    loading.value = false
-    error.value = '投票不存在'
-    return
-  }
-  loading.value = true
-  try {
-    const response = await pollApi.detail(id, owner.signal)
-    if (owner.signal.aborted) return
-    if (response.code !== 200) throw new Error(response.message || '投票加载失败，请重试')
-    detail.value = PollDetailSchema.parse(response.data)
-    selected.value = detail.value.my_vote
-    resultsVisible.value = detail.value.my_vote !== null
-  } catch (cause) {
-    if (!owner.signal.aborted) error.value = readableError(cause, '投票暂时无法读取，请重试')
-  } finally {
-    if (controller === owner) loading.value = false
-  }
-}
-
-function readableError(cause: unknown, fallback: string) {
-  return cause instanceof Error && cause.name !== 'ZodError' ? cause.message : fallback
-}
-const canVote = computed(
-  () =>
-    detail.value &&
-    selected.value !== null &&
-    selected.value !== detail.value.my_vote &&
-    !submitting.value,
-)
-
-async function vote() {
-  if (!canVote.value || !detail.value || selected.value === null || !controller) return
-  const owner = controller
-  const id = detail.value.poll.id
-  const option = selected.value
-  submitting.value = true
-  voteError.value = ''
-  try {
-    // The server returns the authoritative totals and voter selection for both first votes and changes.
-    const response = await pollApi.vote(id, option, owner.signal)
-    if (owner.signal.aborted) return
-    if (response.code !== 200) throw new Error(response.message || '投票未成功，请重试')
-    detail.value = PollDetailSchema.parse(response.data)
-    selected.value = detail.value.my_vote
-    resultsVisible.value = true
-  } catch (cause) {
-    if (!owner.signal.aborted)
-      voteError.value = readableError(cause, '投票结果暂时无法读取，请刷新确认')
-  } finally {
-    if (!owner.signal.aborted) submitting.value = false
-  }
-}
-
-function percentage(index: number) {
-  if (!detail.value?.total_votes) return 0
-  return Math.round(
-    ((detail.value.vote_counts[String(index)] ?? 0) / detail.value.total_votes) * 100,
-  )
-}
+const ballotId = computed(() => (isDetail.value ? Number(route.params.id) || -1 : 0))
+const {
+  detail,
+  loading,
+  error,
+  voteError,
+  selected,
+  submitting,
+  resultsVisible,
+  canVote,
+  vote,
+  percentage,
+  loadDetail,
+} = usePollBallot(ballotId)
 
 watch(
   () => [route.params.id, route.query.page],
   () => {
-    controller?.abort()
     if (isDetail.value) {
       stopList()
-      void loadDetail()
     } else void loadList(page.value)
     window.scrollTo({ top: 0 })
   },
   { immediate: true },
 )
-onBeforeUnmount(() => controller?.abort())
 
 function goPage(value: number) {
   void router.push({ path: '/polls', query: value > 1 ? { page: value } : {} })

@@ -3,7 +3,7 @@ import { onActivated, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { IconArrowRight } from '@arco-design/web-vue/es/icon'
 import { usePollList } from '@/composables/usePollList'
-import PollPreview from '@/components/PollPreview.vue'
+import PollBattle from '@/components/PollBattle.vue'
 import '@/assets/creative-pages.css'
 
 const { rows, loading, error, load } = usePollList(2)
@@ -22,7 +22,7 @@ onActivated(() => load())
       ><button type="button" @click="load()">重新加载</button>
     </div>
     <div v-else-if="rows.length" class="poll-preview-grid">
-      <PollPreview v-for="poll in rows" :key="poll.id" :poll="poll" />
+      <PollBattle v-for="poll in rows" :key="poll.id" :poll="poll" />
     </div>
     <p v-else class="poll-section-state" role="status">
       {{ loading ? '正在加载投票…' : '暂时没有投票，稍后来看看。' }}
