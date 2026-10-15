@@ -140,7 +140,7 @@ func validateProvider(p ProviderConfig) error {
 func (s *Service) SaveProvider(ctx context.Context, uid uint64, row ProviderConfig, key string) (ProviderConfig, error) {
 	key = strings.TrimSpace(key)
 	if len(key) > 500 || strings.ContainsAny(key, "\r\n") {
-		return row, ErrInvalid
+		return row, invalidInput("API Key 无效：长度不能超过 500 个字符且不能包含换行")
 	}
 	var old ProviderConfig
 	if row.ID != 0 {
@@ -155,7 +155,7 @@ func (s *Service) SaveProvider(ctx context.Context, uid uint64, row ProviderConf
 	if uid != 0 {
 		var allowed ProviderConfig
 		if err := s.db.WithContext(ctx).Where("id = ? AND user_id = 0 AND enabled = ?", row.AllowedProviderID, true).First(&allowed).Error; err != nil {
-			return row, ErrInvalid
+			return row, invalidInput("所选站点供应商不存在、已停用或未获管理员批准")
 		}
 		name, id, def := row.Name, row.ID, row.Default
 		row = allowed
@@ -175,7 +175,7 @@ func (s *Service) SaveProvider(ctx context.Context, uid uint64, row ProviderConf
 		row.CipherKey = old.CipherKey
 	}
 	if uid != 0 && row.Enabled && row.CipherKey == "" {
-		return row, errors.New("请设置 API Key 后启用")
+		return row, invalidInput("启用供应商前请设置 API Key")
 	}
 	row.Revision = old.Revision + 1
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

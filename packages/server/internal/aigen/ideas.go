@@ -57,7 +57,7 @@ func (s *Service) CreateIdea(ctx context.Context, uid uint64, request IdeaInput)
 	}
 	for _, ref := range snap.References {
 		if ref.Public && !ref.DownloadAllowed {
-			return Idea{}, errors.New("此素材未授权公开投稿参考图")
+			return Idea{}, invalidInput("此素材未授权公开投稿参考图")
 		}
 	}
 	snap.Input.ExpectedCost = cost
@@ -80,7 +80,7 @@ func (s *Service) IdeaQuote(ctx context.Context, idea Idea) (int64, error) {
 	}
 	snap, cost, err := s.prepare(ctx, idea.UserID, input, prepareOptions{historical: true})
 	if err == nil && snap.Provider.Model != idea.Model {
-		return 0, errors.New("供应商模型已变更，请重新投稿")
+		return 0, invalidInput("供应商模型已变更，请重新投稿")
 	}
 	return cost, err
 }

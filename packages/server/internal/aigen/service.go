@@ -21,7 +21,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-var ErrInvalid = errors.New("参数、会话或参考图片无效")
+var ErrInvalid = errors.New("请求参数无效，请检查会话、提示词、尺寸、数量和参考图")
 var ErrQuota = errors.New("生成额度不足")
 var ErrBusy = errors.New("任务数量已达上限或状态已改变")
 var ErrUnavailable = errors.New("供应商未配置、已停用或密钥不可用")

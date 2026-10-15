@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -95,13 +96,18 @@ func bind(c *gin.Context, dst any) error {
 	return c.ShouldBindJSON(dst)
 }
 func fail(c *gin.Context, err error) {
+	if err == nil {
+		web.Fail(c, 500, "AI 服务暂时不可用，请稍后重试")
+		return
+	}
 	switch {
 	case errors.Is(err, core.ErrInvalid), errors.Is(err, core.ErrBusy), errors.Is(err, core.ErrQuota), errors.Is(err, core.ErrUnavailable), errors.Is(err, core.ErrConflict), errors.Is(err, core.ErrResolveNote):
 		web.SoftFail(c, 400, err.Error())
 	case errors.Is(err, gorm.ErrRecordNotFound):
-		web.Fail(c, 404, "记录不存在")
+		web.Fail(c, 404, "请求的 AI 记录不存在或已被删除")
 	default:
-		web.Fail(c, 500, "操作失败，请重试")
+		slog.Error("AI request failed", "method", c.Request.Method, "path", c.Request.URL.Path, "error", err)
+		web.Fail(c, 500, "AI 服务暂时不可用，请稍后重试")
 	}
 }
 
