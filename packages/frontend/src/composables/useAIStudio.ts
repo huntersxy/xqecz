@@ -329,6 +329,13 @@ export function useAIStudio() {
     if (!p.sizes.includes(size.value)) size.value = p.sizes[0] ?? ''
     if (quality.value && !p.qualities.includes(quality.value)) quality.value = ''
     count.value = Math.max(1, Math.min(count.value, p.max_count))
+    const maxReferences = p.edit_transport === 'none' ? 0 : p.max_references
+    if (references.value.length > maxReferences) {
+      references.value = references.value.slice(0, maxReferences)
+      if (parentAssetId.value && !references.value.some((ref) => ref.asset_id === parentAssetId.value)) {
+        parentAssetId.value = 0
+      }
+    }
   })
   const visibility = () => {
     if (!document.hidden) void run(refresh)

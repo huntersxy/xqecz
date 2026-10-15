@@ -28,6 +28,10 @@ var ErrUnavailable = errors.New("供应商未配置、已停用或密钥不可�
 var ErrConflict = errors.New("数据已更新，请刷新后重试")
 var ErrResolveNote = errors.New("核查依据与说明须填写 3–300 个字")
 
+func invalidInput(message string) error {
+	return fmt.Errorf("%w: %s", ErrInvalid, message)
+}
+
 type Service struct {
 	db         *gorm.DB
 	cfg        config.Config
@@ -212,7 +216,7 @@ func (s *Service) prepare(ctx context.Context, uid uint64, input Input, options 
 		}
 		totalBytes += asset.Bytes
 		if totalBytes > 32<<20 {
-			return taskSnapshot{}, 0, errors.New("参考图总大小不能超过 32MB")
+			return taskSnapshot{}, 0, invalidInput("参考图总大小不能超过 32MB")
 		}
 		refs = append(refs, asset)
 		files = append(files, asset.FileName)
@@ -220,7 +224,7 @@ func (s *Service) prepare(ctx context.Context, uid uint64, input Input, options 
 	}
 	input.References = clean
 	if len(refs) > p.MaxReferences || (len(refs) > 0 && p.EditTransport == "none") {
-		return taskSnapshot{}, 0, errors.New("参考图数量超出供应商已配置能力")
+		return taskSnapshot{}, 0, invalidInput("参考图数量超出供应商已配置能力")
 	}
 	if input.ParentAssetID != 0 {
 		found := false
