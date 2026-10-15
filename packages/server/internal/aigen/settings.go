@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -87,35 +88,48 @@ func contains(items []string, value string) bool {
 }
 func encode(v any) string { raw, _ := json.Marshal(v); return string(raw) }
 
+func invalidProvider(message string) error {
+	return fmt.Errorf("%w: %s", ErrInvalid, message)
+}
+
 func validateProvider(p ProviderConfig) error {
-	if validateURL(p.Endpoint) != nil || !strings.HasSuffix(p.Endpoint, "/v1/images/generations") || len(p.Name) == 0 || len([]rune(p.Name)) > 100 || len(p.Model) == 0 || len(p.Model) > 160 {
-		return ErrInvalid
+	if err := validateURL(p.Endpoint); err != nil {
+		return invalidProvider(err.Error())
+	}
+	if !strings.HasSuffix(p.Endpoint, "/v1/images/generations") {
+		return invalidProvider("生成接口地址必须以 /v1/images/generations 结尾")
+	}
+	if len(p.Name) == 0 || len([]rune(p.Name)) > 100 {
+		return invalidProvider("供应商名称无效")
+	}
+	if len(p.Model) == 0 || len(p.Model) > 160 {
+		return invalidProvider("模型 ID 无效")
 	}
 	sizes := stringList(p.Sizes)
 	if len(sizes) == 0 || len(sizes) > 12 || p.MaxCount < 1 || p.MaxCount > 2 || p.MaxReferences < 0 || p.MaxReferences > 8 || p.TimeoutSeconds < 10 || p.TimeoutSeconds > 300 || p.Concurrency < 1 || p.Concurrency > 2 || p.Cost < 1 || p.Cost > 10000 {
-		return ErrInvalid
+		return invalidProvider("供应商参数范围无效")
 	}
 	for _, size := range sizes {
 		if len(size) == 0 || len(size) > 32 {
-			return ErrInvalid
+			return invalidProvider("允许尺寸无效")
 		}
 	}
 	if len(stringList(p.Qualities)) > 8 {
-		return ErrInvalid
+		return invalidProvider("允许画质过多")
 	}
 	if p.EditTransport != "none" && p.EditTransport != "multipart" && p.EditTransport != "json" {
-		return ErrInvalid
+		return invalidProvider("参考图传输方式无效")
 	}
 	if p.EditTransport == "none" && p.MaxReferences != 0 {
-		return ErrInvalid
+		return invalidProvider("关闭参考图传输时，最多参考图必须为 0")
 	}
 	var costs map[string]int64
 	if p.QualityCosts != "" && json.Unmarshal([]byte(p.QualityCosts), &costs) != nil {
-		return ErrInvalid
+		return invalidProvider("画质额度覆盖必须是 JSON 对象")
 	}
 	for quality, cost := range costs {
 		if !contains(stringList(p.Qualities), quality) || cost < 1 || cost > 10000 {
-			return ErrInvalid
+			return invalidProvider("画质额度覆盖包含未允许的画质或无效额度")
 		}
 	}
 	return nil

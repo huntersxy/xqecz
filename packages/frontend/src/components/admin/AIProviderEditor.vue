@@ -89,7 +89,9 @@ async function save() {
       /></a-form-item>
     </div>
     <a-form-item label="生成接口地址"
-      ><a-input v-model="form.endpoint" aria-label="生成接口地址" /></a-form-item
+      ><a-input v-model="form.endpoint" aria-label="生成接口地址" />
+      <template #extra>仅支持公开 HTTPS 443 地址，并且必须以 /v1/images/generations 结尾。</template>
+    </a-form-item
     ><a-form-item label="API Key（留空保留已保存密钥）"
       ><a-input-password
         v-model="form.api_key"
