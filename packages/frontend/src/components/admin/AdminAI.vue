@@ -41,6 +41,7 @@ const providerOpen = ref(false),
 const assetError = ref(''),
   assetSaving = ref(false)
 const assetLicenseChoice = ref('')
+const previewAsset = ref<{ id: number; title: string } | null>(null)
 watch(assetLicenseChoice, (value) => {
   if (editingAsset.value && value && value !== 'other') editingAsset.value.license = value
 })
@@ -494,29 +495,83 @@ onBeforeUnmount(() => {
               : '状态表示图片生成进度；失败与结果待核查的任务会显示具体原因。'
           }}
         </p>
-        <div v-for="row in shownTasks" :key="row.task.id" class="admin-ai-row">
-          <div>
-            <strong>#{{ row.task.id }} · {{ taskLabels[row.task.status] }}</strong>
-            <p>{{ row.task.prompt }}</p>
-            <small
-              >用户 {{ row.task.user_id }} · {{ row.task.model }} · {{ row.task.cost }} 额度 · 创意
-              {{ row.task.idea_id || '—' }}</small
-            >
-            <p v-if="row.task.error">{{ row.task.error }}</p>
-            <div class="admin-result-images">
-              <CreativeImage v-for="asset in row.assets" :key="asset.id" :id="asset.id" />
+        <article v-for="row in shownTasks" :key="row.task.id" class="admin-task-record">
+          <header class="admin-task-header">
+            <div class="admin-task-identity">
+              <strong>#{{ row.task.id }}</strong>
+              <a-tag>{{ taskLabels[row.task.status] }}</a-tag>
+              <span>{{
+                row.user?.username ||
+                grantUsers.find((user) => user.id === row.task.user_id)?.username ||
+                '已注销用户'
+              }}</span>
             </div>
-            <details v-if="row.references?.length">
-              <summary>原始参考图</summary>
-              <div class="admin-result-images">
-                <CreativeImage v-for="asset in row.references" :key="asset.id" :id="asset.id" />
+            <time :datetime="row.task.created_at">{{
+              new Date(row.task.created_at).toLocaleString()
+            }}</time>
+          </header>
+          <div class="admin-task-layout">
+            <div class="admin-task-main">
+              <div class="admin-task-meta">
+                <span>{{ row.task.model }}</span
+                ><span>{{ row.task.size }} · {{ row.task.count }} 张</span>
+                <span>{{ row.task.cost }} 额度</span>
+                <RouterLink v-if="row.task.idea_id" :to="`/ideas/${row.task.idea_id}`"
+                  >创意 #{{ row.task.idea_id }}</RouterLink
+                >
               </div>
-            </details>
+              <details class="admin-task-prompt">
+                <summary>
+                  <span class="admin-task-prompt-excerpt">{{ row.task.prompt }}</span
+                  ><span class="admin-prompt-expand">展开提示词</span
+                  ><span class="admin-prompt-collapse">收起提示词</span>
+                </summary>
+                <pre>{{ row.task.prompt }}</pre>
+              </details>
+              <p v-if="row.task.error" class="creative-error" role="alert">{{ row.task.error }}</p>
+              <div v-if="row.assets.length" class="admin-task-results" aria-label="生成结果">
+                <button
+                  v-for="(asset, index) in row.assets"
+                  :key="asset.id"
+                  type="button"
+                  class="admin-image-preview"
+                  :aria-label="`查看生成结果 ${index + 1}`"
+                  @click="previewAsset = { id: asset.id, title: `生成结果 ${index + 1}` }"
+                >
+                  <CreativeImage :id="asset.id" />
+                  <span>结果 {{ index + 1 }} · 查看大图</span>
+                </button>
+              </div>
+              <p v-else class="admin-task-no-results">
+                {{ row.task.status === 'succeeded' ? '暂无可展示的结果图片' : '尚无生成结果' }}
+              </p>
+              <a-button v-if="row.task.status === 'unknown'" @click="startResolve(row.task.id)"
+                >核查结算</a-button
+              >
+            </div>
+            <aside
+              v-if="row.references?.length"
+              class="admin-task-references"
+              aria-label="原始参考图"
+            >
+              <h3>
+                原始参考图 <span>{{ row.references.length }}</span>
+              </h3>
+              <div class="admin-task-reference-list">
+                <button
+                  v-for="(asset, index) in row.references"
+                  :key="asset.id"
+                  type="button"
+                  class="admin-image-preview"
+                  :aria-label="`查看原始参考图 ${index + 1}`"
+                  @click="previewAsset = { id: asset.id, title: `原始参考图 ${index + 1}` }"
+                >
+                  <CreativeImage :id="asset.id" /><span>参考图 {{ index + 1 }}</span>
+                </button>
+              </div>
+            </aside>
           </div>
-          <a-button v-if="row.task.status === 'unknown'" @click="startResolve(row.task.id)"
-            >核查结算</a-button
-          >
-        </div>
+        </article>
         <a-button v-if="moreRows" @click="run(() => queryRows(true))"
           >加载更早的任务</a-button
         ></template
@@ -679,6 +734,16 @@ onBeforeUnmount(() => {
         </div></template
       >
       <a-modal
+        :visible="!!previewAsset"
+        class="admin-theme creative-theme creative-dialog ai-dialog"
+        :title="previewAsset?.title"
+        :width="900"
+        :footer="false"
+        @cancel="previewAsset = null"
+        ><div v-if="previewAsset" class="admin-asset-preview">
+          <CreativeImage :id="previewAsset.id" full /></div
+      ></a-modal>
+      <a-modal
         v-model:visible="providerOpen"
         class="admin-theme creative-theme creative-dialog ai-dialog"
         title="供应商配置"
@@ -785,6 +850,15 @@ onBeforeUnmount(() => {
 <style scoped>
 .admin-ai-body {
   padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.admin-ai-body > .creative-note {
+  margin: -8px 0 0;
+}
+.admin-ai-body > .arco-btn {
+  align-self: flex-start;
 }
 .resource-advanced {
   margin-top: 24px;
@@ -824,7 +898,7 @@ onBeforeUnmount(() => {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 22px;
+  margin-bottom: 0;
   padding-bottom: 18px;
   border-bottom: 1px solid var(--creative-line);
 }
@@ -847,7 +921,7 @@ onBeforeUnmount(() => {
   gap: 20px;
   align-items: flex-start;
   padding: 22px;
-  margin-top: 14px;
+  margin-top: 0;
   border: 1px solid var(--creative-line);
   border-radius: 16px;
   background: var(--creative-paper);
@@ -857,6 +931,7 @@ onBeforeUnmount(() => {
   flex: 1;
 }
 .admin-ai-row p {
+  margin: 8px 0;
   line-height: 1.6;
   color: var(--creative-muted);
   overflow-wrap: anywhere;
@@ -886,6 +961,8 @@ onBeforeUnmount(() => {
 .admin-result-images {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
 }
 .admin-result-images > * {
   width: 100px;
@@ -894,8 +971,9 @@ onBeforeUnmount(() => {
 .creative-actions > .arco-input-wrapper {
   max-width: 280px;
 }
-.creative-actions :deep(.arco-select-view-single) {
-  max-width: 180px;
+.creative-actions :deep(.arco-select-view) {
+  width: 180px;
+  max-width: 100%;
 }
 .creative-grid {
   margin-top: 20px;

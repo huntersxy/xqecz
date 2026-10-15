@@ -17,6 +17,7 @@ import (
 	core "github.com/huntersxy/xqecz/server/internal/aigen"
 	"github.com/huntersxy/xqecz/server/internal/app"
 	"github.com/huntersxy/xqecz/server/internal/modules/content"
+	"github.com/huntersxy/xqecz/server/internal/store"
 	"github.com/huntersxy/xqecz/server/internal/web"
 	"gorm.io/gorm"
 )
@@ -256,8 +257,22 @@ func (h *Handler) saveSession(c *gin.Context) {
 }
 func (h *Handler) taskViews(c *gin.Context, rows []core.Task) ([]any, error) {
 	ids := []uint64{}
+	userIDs := []uint64{}
 	for _, r := range rows {
 		ids = append(ids, r.ID)
+		userIDs = append(userIDs, r.UserID)
+	}
+	// Fetch display names once for the whole page, including historical owners
+	// outside the grant selector's limit; never serialize account details.
+	users := []store.User{}
+	if len(userIDs) > 0 {
+		if err := h.db(c).Select("id,username").Where("id IN ?", userIDs).Find(&users).Error; err != nil {
+			return nil, err
+		}
+	}
+	names := map[uint64]string{}
+	for _, user := range users {
+		names[user.ID] = user.Username
 	}
 	assets := []core.Asset{}
 	if len(ids) > 0 {
@@ -283,7 +298,11 @@ func (h *Handler) taskViews(c *gin.Context, rows []core.Task) ([]any, error) {
 		if snapshot.References == nil {
 			snapshot.References = []core.Asset{}
 		}
-		out = append(out, gin.H{"task": row, "assets": own, "references": snapshot.References})
+		name := names[row.UserID]
+		if name == "" {
+			name = "已注销用户"
+		}
+		out = append(out, gin.H{"task": row, "user": gin.H{"id": row.UserID, "username": name}, "assets": own, "references": snapshot.References})
 	}
 	return out, nil
 }

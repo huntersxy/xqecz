@@ -21,6 +21,7 @@ describe.skipIf(!isolated)('isolated AI API contract', () => {
       ['/ai/sessions', z.array(AISessionSchema)],
       ['/ai/assets', z.array(AIAssetSchema)],
       ['/ai/tasks', z.array(AITaskViewSchema)],
+      ['/admin/ai/tasks', z.array(AITaskViewSchema)],
       ['/admin/ai/providers', z.array(AIProviderSchema)],
       ['/admin/ai/ledger', z.array(AILedgerSchema)],
       ['/ideas', z.array(AIIdeaViewSchema)],

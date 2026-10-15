@@ -37,6 +37,25 @@ const input = computed<Partial<GenerationInput>>(() => {
     return {}
   }
 })
+// Old ideas can have an absent or malformed snapshot. Keep them readable using
+// their description; results must never replace the proposed prompt/references.
+function promptPreview(row: AIIdeaView) {
+  let prompt = ''
+  try {
+    const snapshot: unknown = JSON.parse(row.idea.snapshot)
+    if (
+      snapshot &&
+      typeof snapshot === 'object' &&
+      'prompt' in snapshot &&
+      typeof snapshot.prompt === 'string'
+    )
+      prompt = snapshot.prompt.trim()
+  } catch {
+    // Historical snapshots fall back to the public description below.
+  }
+  const text = Array.from(prompt || row.idea.description || '投稿者暂未提供提示词说明')
+  return text.length > 240 ? `${text.slice(0, 240).join('')}…` : text.join('')
+}
 async function load() {
   if (timer) clearTimeout(timer)
   timer = undefined
@@ -209,26 +228,39 @@ onBeforeUnmount(() => {
           }}</a-option></a-select
         ><a-button @click="load">搜索</a-button>
       </div>
-      <div class="creative-grid">
+      <div class="creative-grid idea-list">
         <RouterLink
           v-for="row in rows"
           :key="row.idea.id"
           :to="`/ideas/${row.idea.id}`"
           class="creative-box creative-card idea-card"
-          ><div v-if="row.results[0] || row.references[0]" class="creative-image-tile">
-            <CreativeImage :id="(row.results[0] || row.references[0])!.id" :idea-id="row.idea.id" />
-          </div>
-          <div v-else class="creative-image-tile creative-card-placeholder">
-            <span aria-hidden="true">✧</span>一段灵感，等待被点亮
-          </div>
-          <a-tag>{{ labels[row.idea.status] }}</a-tag>
-          <h2>{{ row.idea.title }}</h2>
-          <p>{{ row.idea.description }}</p>
-          <div class="creative-note">{{ row.author.username }} · {{ row.idea.model }}</div>
-          <p v-if="row.sponsorable" class="idea-cost">
-            {{ row.current_cost }} 额度 · 等待你的支持
-          </p></RouterLink
         >
+          <div class="idea-card-main">
+            <div class="idea-card-heading">
+              <h2>{{ row.idea.title }}</h2>
+              <a-tag>{{ labels[row.idea.status] }}</a-tag>
+            </div>
+            <p class="idea-card-prompt">{{ promptPreview(row) }}</p>
+            <span class="idea-card-read">查看完整提示词与参考图</span>
+            <div class="creative-note">{{ row.author.username }} · {{ row.idea.model }}</div>
+            <p v-if="row.sponsorable" class="idea-cost">
+              {{ row.current_cost }} 额度 · 等待你的支持
+            </p>
+          </div>
+          <div v-if="row.references.length" class="idea-card-references" aria-label="参考图预览">
+            <div
+              v-for="(asset, index) in row.references.slice(0, 3)"
+              :key="asset.id"
+              class="idea-card-reference"
+            >
+              <CreativeImage :id="asset.id" :idea-id="row.idea.id" />
+              <span v-if="index === 2 && row.references.length > 3" class="idea-reference-more"
+                >+{{ row.references.length - 3 }}</span
+              >
+            </div>
+          </div>
+          <div v-else class="idea-card-no-references">纯文字<br />创意</div>
+        </RouterLink>
       </div>
       <p v-if="!rows.length && !error" class="creative-empty">
         还没有创意投稿，从你的工作台开始吧。
@@ -262,20 +294,6 @@ onBeforeUnmount(() => {
 }
 .idea-reference .creative-image {
   height: 220px;
-}
-.idea-card {
-  text-decoration: none;
-  color: var(--creative-ink);
-}
-.idea-card h2 {
-  margin: 18px 0 8px;
-}
-.idea-card .arco-tag {
-  margin-top: 16px;
-  align-self: flex-start;
-  border-radius: 999px;
-  color: var(--creative-accent);
-  background: var(--creative-soft);
 }
 .idea-filters {
   margin-bottom: 24px;

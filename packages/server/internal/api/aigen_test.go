@@ -282,9 +282,16 @@ func TestAIHTTPPrivacyFiltersAndPagination(t *testing.T) {
 	}
 	var taskViews []struct {
 		References []aigen.Asset `json:"references"`
+		User       struct {
+			ID       uint64 `json:"id"`
+			Username string `json:"username"`
+		} `json:"user"`
 	}
 	if json.Unmarshal(rawTasks, &taskViews) != nil || len(taskViews) != 1 || len(taskViews[0].References) != 1 || taskViews[0].References[0].ID != private.ID {
 		t.Fatal("task reference metadata unavailable", string(rawTasks))
+	}
+	if taskViews[0].User.ID != 2 || taskViews[0].User.Username != "测试作者" || bytes.Contains(rawTasks, []byte("fixture@example.com")) {
+		t.Fatal("task owner display name missing or private account data disclosed", string(rawTasks))
 	}
 	if err = deps.AI.Cancel(ctx, 2, task.ID); err != nil {
 		t.Fatal(err)

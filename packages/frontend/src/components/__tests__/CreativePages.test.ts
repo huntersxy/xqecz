@@ -6,13 +6,21 @@ import IdeasView from '@/views/IdeasView.vue'
 import CreativeCatalogView from '@/views/CreativeCatalogView.vue'
 
 const api = vi.hoisted(() => ({ ideas: vi.fn(), resources: vi.fn() }))
-vi.mock('@/api/creative', () => ({ aiApi: { ideas: api.ideas }, creativeApi: { resources: api.resources } }))
+vi.mock('@/api/creative', () => ({
+  aiApi: { ideas: api.ideas },
+  creativeApi: { resources: api.resources },
+}))
 const wrappers: ReturnType<typeof mount>[] = []
 async function render(view: typeof IdeasView | typeof CreativeCatalogView, path: string) {
-  const router = createRouter({ history: createMemoryHistory(), routes: [{ path, component: view }] })
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path, component: view }],
+  })
   await router.push(path)
   await router.isReady()
-  const wrapper = mount(view, { global: { plugins: [router, createPinia()], stubs: { CreativeImage: true } } })
+  const wrapper = mount(view, {
+    global: { plugins: [router, createPinia()], stubs: { CreativeImage: true } },
+  })
   wrappers.push(wrapper)
   await flushPromises()
   return wrapper
@@ -26,16 +34,86 @@ afterEach(() => wrappers.splice(0).forEach((wrapper) => wrapper.unmount()))
 
 describe('creative discovery pages', () => {
   it('gives a text-only idea a visible preview while preserving its detail destination and cost', async () => {
-    api.ideas.mockResolvedValue([{ idea: { id: 7, title: '午后的小泉', description: '窗边的一束光', status: 'waiting', model: 'image-model' }, author: { username: '创作者' }, references: [], results: [], sponsorable: true, current_cost: 3 }])
+    api.ideas.mockResolvedValue([
+      {
+        idea: {
+          id: 7,
+          title: '午后的小泉',
+          description: '窗边的一束光',
+          status: 'waiting',
+          model: 'image-model',
+        },
+        author: { username: '创作者' },
+        references: [],
+        results: [],
+        sponsorable: true,
+        current_cost: 3,
+      },
+    ])
     const wrapper = await render(IdeasView, '/ideas')
     const card = wrapper.get('a.idea-card')
     expect(card.attributes('href')).toBe('/ideas/7')
-    expect(card.text()).toContain('一段灵感，等待被点亮')
+    expect(card.get('.idea-card-prompt').text()).toBe('窗边的一束光')
+    expect(card.text()).toContain('纯文字')
     expect(card.text()).toContain('3 额度')
     expect(card.text()).toContain('午后的小泉')
   })
+  it('leads with a bounded snapshot prompt and previews original references instead of results', async () => {
+    const prompt = '窗边的小泉，午后暖光。'.repeat(50)
+    api.ideas.mockResolvedValue([
+      {
+        idea: {
+          id: 8,
+          title: '午后',
+          description: '简短投稿说明',
+          snapshot: JSON.stringify({ prompt }),
+          status: 'realized',
+          model: 'image-model',
+        },
+        author: { username: '创作者' },
+        references: [1, 2, 3, 4].map((id) => ({ id })),
+        results: [{ id: 99 }],
+        sponsorable: false,
+      },
+    ])
+    const wrapper = await render(IdeasView, '/ideas')
+    const card = wrapper.get('.idea-card')
+    expect(card.get('.idea-card-prompt').text()).toBe(
+      Array.from(prompt).slice(0, 240).join('') + '…',
+    )
+    expect(
+      card.findAllComponents({ name: 'CreativeImage' }).map((image) => image.props('id')),
+    ).toEqual([1, 2, 3])
+    expect(card.get('.idea-reference-more').text()).toBe('+1')
+    expect(card.get('.idea-card-read').text()).toContain('完整提示词')
+  })
+  it.each(['broken json', 'null', '{"prompt":42}'])(
+    'keeps older ideas readable for snapshot %s',
+    async (snapshot) => {
+      api.ideas.mockResolvedValue([
+        {
+          idea: {
+            id: 9,
+            title: '旧创意',
+            description: '保留的说明',
+            snapshot,
+            status: 'waiting',
+            model: 'model',
+          },
+          author: { username: '作者' },
+          references: [],
+          results: [],
+          sponsorable: false,
+        },
+      ])
+      const wrapper = await render(IdeasView, '/ideas')
+      expect(wrapper.get('.idea-card-prompt').text()).toBe('保留的说明')
+    },
+  )
   it('makes the character card destination explicit and keeps search filtering working', async () => {
-    api.resources.mockResolvedValue([{ id: 2, slug: 'koizumi', title: '小泉', summary: '角色简介', payload: { asset_ids: [] } }])
+    api.resources.mockResolvedValue([
+      { id: 2, slug: 'koizumi', title: '小泉', summary: '角色简介', payload: { asset_ids: [] } },
+    ])
     const wrapper = await render(CreativeCatalogView, '/characters')
     expect(wrapper.get('a.character-card').attributes('href')).toBe('/characters/koizumi')
     expect(wrapper.get('a.character-card').text()).toContain('查看角色设定')

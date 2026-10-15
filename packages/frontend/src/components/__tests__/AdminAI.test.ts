@@ -77,6 +77,40 @@ beforeEach(() => {
 afterEach(() => wrappers.splice(0).forEach((w) => w.unmount()))
 
 describe('AdminAI form feedback', () => {
+  it('shows task owners, prompt disclosure, always-visible references and full image previews', async () => {
+    api.adminTasks.mockResolvedValue([
+      {
+        task: {
+          id: 11,
+          user_id: 25,
+          prompt: '完整提示词'.repeat(80),
+          status: 'succeeded',
+          model: 'image-model',
+          size: '1024x1024',
+          count: 1,
+          cost: 2,
+          created_at: '2026-10-15T00:00:00.000Z',
+        },
+        user: { id: 25, username: '生成作者' },
+        assets: [{ id: 31 }],
+        references: [{ id: 32 }, { id: 33 }],
+      },
+    ])
+    const w = render()
+    await flushPromises()
+    await button(w, '生图任务').trigger('click')
+    await flushPromises()
+    const record = w.get('.admin-task-record')
+    expect(record.get('.admin-task-identity').text()).toContain('生成作者')
+    expect(record.get('.admin-task-prompt summary').text()).toContain('完整提示词')
+    expect(record.get('.admin-task-prompt pre').text()).toBe('完整提示词'.repeat(80))
+    expect(record.get('.admin-task-references').find('details').exists()).toBe(false)
+    expect(record.get('.admin-task-references').findAll('button')).toHaveLength(2)
+    await record.get('button[aria-label="查看原始参考图 1"]').trigger('click')
+    const image = w.get('.admin-asset-preview').getComponent({ name: 'CreativeImage' })
+    expect(image.props('id')).toBe(32)
+    expect(image.props('full')).toBe(true)
+  })
   it('requires a license before publishing and keeps the editable metadata payload narrow', async () => {
     const w = render()
     await edit(w)

@@ -82,6 +82,7 @@ export const AITaskSchema = z.object({
 })
 export const AITaskViewSchema = z.object({
   task: AITaskSchema,
+  user: z.object({ id: z.number(), username: z.string() }).optional(),
   assets: z.array(AIAssetSchema),
   references: z.array(AIAssetSchema).optional(),
 })

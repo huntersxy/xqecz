@@ -187,18 +187,7 @@ function addVariable() {
         @change="uploadImages"
       />
     </section>
-    <a-form-item label="角色参考图（选填，可选择已有公开图片）"
-      ><a-select v-model="form.payload.asset_ids" aria-label="关联设定图" multiple allow-search
-        ><a-option
-          v-for="asset in availableAssets.filter(
-            (a) => a.public && a.download_allowed && !a.archived,
-          )"
-          :key="asset.id"
-          :value="asset.id"
-          >#{{ asset.id }} {{ asset.title || '未命名设定图' }}</a-option
-        ></a-select
-      ></a-form-item
-    ><a-form-item v-if="kind !== 'character'" label="关联角色资源（选填，自动带入参考图）"
+    <a-form-item v-if="kind !== 'character'" label="关联角色资源（选填，自动带入参考图）"
       ><a-select v-model="form.payload.character_ids" multiple
         ><a-option
           v-for="resource in resources.filter((r) => r.kind === 'character')"
@@ -208,10 +197,23 @@ function addVariable() {
         ></a-select
       ></a-form-item
     >
-    <div class="creative-grid resource-previews">
-      <div v-for="id in form.payload.asset_ids" :key="id" class="creative-image-tile">
-        <CreativeImage :id="id" />
-      </div>
+    <div v-if="form.payload.asset_ids.length" class="resource-previews">
+      <figure v-for="(id, index) in form.payload.asset_ids" :key="id">
+        <div class="creative-image-tile"><CreativeImage :id="id" /></div>
+        <figcaption>
+          <span>参考图 {{ index + 1 }}</span
+          ><a-button
+            size="small"
+            status="danger"
+            :disabled="busy || uploading"
+            :aria-label="`移除参考图 ${index + 1}`"
+            @click="
+              form.payload.asset_ids = form.payload.asset_ids.filter((assetId) => assetId !== id)
+            "
+            >移除</a-button
+          >
+        </figcaption>
+      </figure>
     </div>
     <template v-if="kind === 'template'"
       ><a-form-item label="提示词正文，变量写为 {变量名}"
@@ -275,6 +277,28 @@ function addVariable() {
   border: 1px solid var(--creative-line);
   border-radius: 14px;
   background: var(--creative-canvas);
+}
+.resource-previews {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.resource-previews figure {
+  margin: 0;
+  min-width: 0;
+}
+.resource-previews .creative-image-tile {
+  aspect-ratio: 1;
+}
+.resource-previews figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--creative-muted);
+  font-size: 12px;
 }
 .resource-advanced {
   margin: 20px 0;
