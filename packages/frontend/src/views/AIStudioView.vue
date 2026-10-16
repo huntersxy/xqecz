@@ -17,6 +17,7 @@ import {
   IconExpand,
   IconFile,
   IconLoading,
+  IconDelete,
 } from '@arco-design/web-vue/es/icon'
 import { useConfirm } from '@/composables/useToast'
 import CreativeImage from '@/components/CreativeImage.vue'
@@ -253,6 +254,9 @@ const shownTasks = computed(() =>
       (!status.value || t.task.status === status.value),
   ),
 )
+const failedTaskRows = computed(() =>
+  shownTasks.value.filter((row) => ['failed', 'cancelled'].includes(row.task.status)),
+)
 const historyScope = ref(route.query.history === 'all' ? 'all' : 'session')
 function clearFilters() {
   search.value = ''
@@ -375,6 +379,22 @@ async function archiveTask(row: AITaskView) {
     return
   await studio.run(async () => {
     await aiApi.archiveTask(row.task.id)
+    await studio.refresh()
+  })
+}
+async function archiveFailedTasks() {
+  const rows = failedTaskRows.value
+  if (!rows.length) return
+  if (
+    !(await confirm(
+      `删除当前列表中的 ${rows.length} 条失败记录？已生成的素材仍会保留。`,
+    ))
+  )
+    return
+  await studio.run(async () => {
+    // The API deliberately accepts only failed/cancelled tasks. Keep requests
+    // serial so a single conflict leaves the remaining records diagnosable.
+    for (const row of rows) await aiApi.archiveTask(row.task.id)
     await studio.refresh()
   })
 }
@@ -560,7 +580,17 @@ watch(ready, (value) => {
     <div class="studio-workspace">
       <section class="studio-gallery" aria-label="作品与任务记录">
         <div class="studio-gallery-toolbar">
-          <h2>作品与记录</h2>
+          <div class="studio-gallery-heading">
+            <h2>作品与记录</h2>
+            <a-button
+              v-if="failedTaskRows.length"
+              size="small"
+              status="danger"
+              aria-label="清除失败任务"
+              @click="archiveFailedTasks"
+              ><IconDelete />清除失败 {{ failedTaskRows.length }}</a-button
+            >
+          </div>
           <select v-model="historyScope" aria-label="查看哪些任务">
             <option value="session">当前会话</option>
             <option value="all">全部生成与赞助</option>
@@ -650,7 +680,9 @@ watch(ready, (value) => {
                 <span v-if="row.task.parent_task_id" class="creative-note"
                   >继续自 #{{ row.task.parent_task_id }}</span
                 >
-                <p v-if="row.task.error" class="task-error">{{ row.task.error }}</p>
+                <p v-if="row.task.error" class="task-error" :title="row.task.error">
+                  {{ row.task.error }}
+                </p>
                 <p v-if="row.task.status === 'unknown'" class="task-error">
                   结果待核查，预留额度待管理员确认。
                 </p>

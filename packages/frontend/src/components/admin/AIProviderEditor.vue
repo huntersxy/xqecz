@@ -2,6 +2,7 @@
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import type { AIProvider } from '@/types/schemas'
 import { aiApi } from '@/api/creative'
+import { formatImageRatio, parseImageSize } from '@/utils/imageSize'
 const COMMON_PROVIDER_SIZES = [
   '1024x1024',
   '1024x576',
@@ -68,6 +69,12 @@ const sizes = computed({
       .map((s) => s.trim())
       .filter(Boolean)),
 })
+const sizePreview = computed(() =>
+  form.value.sizes.map((value) => ({
+    value,
+    parsed: parseImageSize(value),
+  })),
+)
 const qualities = computed({
   get: () => form.value.qualities.join(', '),
   set: (v) =>
@@ -78,6 +85,9 @@ const qualities = computed({
 })
 function fillCommonSizes() {
   form.value.sizes = [...COMMON_PROVIDER_SIZES]
+}
+function removeSize(value: string) {
+  form.value.sizes = form.value.sizes.filter((item) => item !== value)
 }
 watch(
   () => form.value.edit_transport,
@@ -152,7 +162,14 @@ async function save() {
           >按供应商文档保留实际支持的值；<a-button type="text" size="mini" @click="fillCommonSizes"
             >填入常用预设</a-button
           ></template
-        ></a-form-item
+        >
+          <div v-if="sizePreview.length" class="provider-size-preview" aria-label="尺寸比例预览">
+            <span v-for="item in sizePreview" :key="item.value" class="provider-size-chip">
+              <span>{{ item.parsed ? `${formatImageRatio(item.parsed)} · ${item.value.replace('x', '×')}` : item.value }}</span>
+              <button type="button" :aria-label="`移除尺寸 ${item.value}`" @click="removeSize(item.value)">×</button>
+            </span>
+          </div>
+        </a-form-item
       ><a-form-item label="允许画质（无此参数则留空）"><a-input v-model="qualities" /></a-form-item
       ><a-form-item label="最多输出张数"
         ><a-input-number v-model="form.max_count" :min="1" :max="2" /></a-form-item
@@ -197,6 +214,46 @@ async function save() {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0 16px;
+}
+.provider-size-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.provider-size-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 4px 6px 4px 9px;
+  border: 1px solid var(--creative-line);
+  border-radius: 999px;
+  color: var(--creative-ink);
+  background: var(--creative-canvas);
+  font-size: 11px;
+  line-height: 1.3;
+}
+.provider-size-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.provider-size-chip button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--creative-muted);
+  background: transparent;
+  cursor: pointer;
+}
+.provider-size-chip button:hover {
+  color: var(--color-danger);
+  background: var(--creative-soft);
 }
 @media (max-width: 560px) {
   .provider-fields {

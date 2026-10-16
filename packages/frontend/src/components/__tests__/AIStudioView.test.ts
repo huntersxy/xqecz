@@ -170,6 +170,25 @@ describe('studio gallery and composer', () => {
     expect(api.archiveTask).toHaveBeenCalledWith(3)
     expect(w.findAll('.studio-task-card')).toHaveLength(0)
   })
+  it('clears visible failed and cancelled records together', async () => {
+    const failed = task(4)
+    failed.task.status = 'failed'
+    failed.task.error = '供应商拒绝请求'
+    failed.assets = []
+    const cancelled = task(5)
+    cancelled.task.status = 'cancelled'
+    cancelled.assets = []
+    const succeeded = task(6)
+    api.tasks.mockResolvedValueOnce([failed, cancelled, succeeded]).mockResolvedValueOnce([succeeded])
+    const w = await render()
+    const clear = w.get('[aria-label="清除失败任务"]')
+    expect(clear.text()).toContain('2')
+    await clear.trigger('click')
+    await flushPromises()
+    expect(api.archiveTask).toHaveBeenNthCalledWith(1, 4)
+    expect(api.archiveTask).toHaveBeenNthCalledWith(2, 5)
+    expect(w.findAll('.studio-task-card')).toHaveLength(1)
+  })
   it('keeps plain text paste native and uploads a pasted image through the same reference path', async () => {
     const w = await render()
     expect(paste(w, []).defaultPrevented).toBe(false)
