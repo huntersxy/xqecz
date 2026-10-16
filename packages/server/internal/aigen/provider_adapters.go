@@ -55,6 +55,8 @@ func (p ProviderRouter) Generate(ctx context.Context, cfg ProviderConfig, key st
 		return OpenAIChatProvider{Client: p.Client}.Generate(ctx, cfg, key, input, files)
 	case "gemini":
 		return GeminiProvider{Client: p.Client}.Generate(ctx, cfg, key, input, files)
+	case "codex_responses":
+		return CodexResponsesProvider{Client: p.Client}.Generate(ctx, cfg, key, input, files)
 	default:
 		return OpenAIProvider{Client: p.Client}.Generate(ctx, cfg, key, input, files)
 	}
@@ -178,7 +180,7 @@ func collectImageValues(value any, imageContext bool, out *[]string) {
 				if s, ok := item.(string); ok && (isImage || strings.HasPrefix(s, "data:image")) {
 					*out = append(*out, s)
 				}
-			case "data":
+			case "data", "result":
 				if s, ok := item.(string); ok && isImage && s != "" {
 					*out = append(*out, s)
 				} else {
@@ -364,4 +366,64 @@ func geminiImageSize(width, height int) string {
 		return "2K"
 	}
 	return "1K"
+}
+
+type CodexResponsesProvider struct{ Client *http.Client }
+
+func (p CodexResponsesProvider) Generate(ctx context.Context, cfg ProviderConfig, key string, input Input, files []string) ([]Image, error) {
+	if err := validateReferenceFiles(files); err != nil {
+		return nil, err
+	}
+	if input.Count != 1 {
+		return nil, KnownFailure{"Codex Responses 当前每次只能返回 1 张图片"}
+	}
+	var requestInput any = adapterPrompt(input)
+	if len(files) > 0 {
+		parts := []any{map[string]any{"type": "input_text", "text": adapterPrompt(input)}}
+		for _, path := range files {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return nil, KnownFailure{"参考图不可读取"}
+			}
+			parts = append(parts, map[string]any{"type": "input_image", "image_url": "data:" + http.DetectContentType(data) + ";base64," + base64.StdEncoding.EncodeToString(data)})
+		}
+		requestInput = []any{map[string]any{"role": "user", "content": parts}}
+	}
+	outputFormat := "png"
+	if value, ok := adapterOptions(cfg)["output_format"].(string); ok && (value == "png" || value == "jpeg" || value == "webp") {
+		outputFormat = value
+	}
+	payload := map[string]any{
+		"model": cfg.Model,
+		"input": requestInput,
+		"tools": []any{map[string]any{"type": "image_generation", "output_format": outputFormat}},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, KnownFailure{"生成参数无法编码"}
+	}
+	client, closeClient := adapterClient(p.Client, cfg.TimeoutSeconds)
+	defer closeClient()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cfg.Endpoint, strings.NewReader(string(body)))
+	if err != nil {
+		return nil, KnownFailure{"生成地址无效"}
+	}
+	req.Header.Set("Authorization", "Bearer "+key)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, errors.New("供应商请求结果不明")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 && resp.StatusCode != 408 && resp.StatusCode != 429 {
+			return nil, KnownFailure{fmt.Sprintf("供应商拒绝请求（HTTP %d）", resp.StatusCode)}
+		}
+		return nil, fmt.Errorf("供应商结果不明（HTTP %d）", resp.StatusCode)
+	}
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, (56<<20)+1))
+	if err != nil || len(raw) > 56<<20 {
+		return nil, errors.New("供应商响应过大或不完整")
+	}
+	return decodeAdapterResponse(ctx, raw, 1)
 }

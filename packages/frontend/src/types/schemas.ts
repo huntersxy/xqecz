@@ -6,7 +6,7 @@ export const AIProviderSchema = z.object({
   revision: z.number(),
   owner: z.number(),
   name: z.string(),
-  adapter: z.enum(['openai', 'openai_chat', 'gemini', 'volcengine_ark', 'gitee_ai', 'siliconflow_adapter', 'agnes_ai', 'grok']),
+  adapter: z.enum(['openai', 'openai_chat', 'gemini', 'codex_responses', 'volcengine_ark', 'gitee_ai', 'siliconflow_adapter', 'agnes_ai', 'grok']),
   endpoint: z.string(),
   model: z.string(),
   allowed_provider_id: z.number(),

@@ -69,6 +69,18 @@ watch(
     if (value === 'none') form.value.max_references = 0
   },
 )
+watch(
+  () => form.value.adapter,
+  (value) => {
+    if (value === 'gemini' || value === 'codex_responses') form.value.max_count = 1
+    if (
+      (value === 'openai_chat' || value === 'gemini' || value === 'codex_responses') &&
+      form.value.edit_transport === 'multipart'
+    ) {
+      form.value.edit_transport = 'json'
+    }
+  },
+)
 async function save() {
   if (busy.value) return
   busy.value = true
@@ -94,6 +106,7 @@ async function save() {
           <a-option value="openai">OpenAI Images / 兼容 Images</a-option>
           <a-option value="openai_chat">OpenAI Chat Completions</a-option>
           <a-option value="gemini">Google Gemini 原生</a-option>
+          <a-option value="codex_responses">Codex Responses</a-option>
           <a-option value="volcengine_ark">火山方舟 Images</a-option>
           <a-option value="gitee_ai">Gitee AI Images</a-option>
           <a-option value="siliconflow_adapter">SiliconFlow Images</a-option>
@@ -106,7 +119,7 @@ async function save() {
     </div>
     <a-form-item label="生成接口地址"
       ><a-input v-model="form.endpoint" aria-label="生成接口地址" />
-      <template #extra>仅支持公开 HTTPS 443 地址；Images 以 /images/generations 结尾，Chat 以 /chat/completions 结尾，Gemini 以 :generateContent 结尾。</template>
+      <template #extra>仅支持公开 HTTPS 443 地址；Images 以 /images/generations 结尾，Chat 以 /chat/completions 结尾，Gemini 以 :generateContent 结尾，Codex 以 /responses 结尾。</template>
     </a-form-item
     ><a-form-item label="API Key（留空保留已保存密钥）"
       ><a-input-password

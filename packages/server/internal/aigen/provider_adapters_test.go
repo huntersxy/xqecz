@@ -53,6 +53,28 @@ func TestGeminiAdapterWire(t *testing.T) {
 	}
 }
 
+func TestCodexResponsesAdapterWire(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer codex-key" {
+			t.Fatal("missing codex auth")
+		}
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body["model"] != "gpt-image-1" || body["input"] != "draw a pink circle" {
+			t.Fatalf("unexpected body: %#v", body)
+		}
+		url := base64.StdEncoding.EncodeToString(testPNG())
+		_ = json.NewEncoder(w).Encode(map[string]any{"output": []any{map[string]any{"type": "image_generation_call", "result": url}}})
+	}))
+	defer server.Close()
+	images, err := (CodexResponsesProvider{Client: server.Client()}).Generate(context.Background(), ProviderConfig{Adapter: "codex_responses", Endpoint: server.URL + "/v1/responses", Model: "gpt-image-1", TimeoutSeconds: 10}, "codex-key", Input{Prompt: "draw a pink circle", Count: 1}, nil)
+	if err != nil || len(images) != 1 || len(images[0].Bytes) == 0 {
+		t.Fatalf("images=%d err=%v", len(images), err)
+	}
+}
+
 func mustJSON(v any) []byte {
 	b, _ := json.Marshal(v)
 	return b

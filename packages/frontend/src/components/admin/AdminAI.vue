@@ -122,6 +122,7 @@ const adapterLabels: Record<AIProvider['adapter'], string> = {
   openai: 'Images',
   openai_chat: 'Chat',
   gemini: 'Gemini',
+  codex_responses: 'Codex Responses',
   volcengine_ark: '火山方舟',
   gitee_ai: 'Gitee AI',
   siliconflow_adapter: 'SiliconFlow',
@@ -391,6 +392,29 @@ onBeforeUnmount(() => {
           </div>
           <div class="creative-actions">
             <a-button @click="editProvider(p)">编辑</a-button
+            ><a-button
+              :status="p.enabled ? 'warning' : 'success'"
+              @click="
+                run(async () => {
+                  const action = p.enabled ? '关闭' : '启用'
+                  if (await confirm(`${action}供应商“${p.name}”？`)) {
+                    await aiApi.setProviderEnabled(p.id, !p.enabled)
+                    await load()
+                  }
+                })
+              "
+              >{{ p.enabled ? '关闭' : '启用' }}</a-button
+            ><a-button
+              status="danger"
+              @click="
+                run(async () => {
+                  if (await confirm(`删除供应商“${p.name}”？删除后不可恢复。`)) {
+                    await aiApi.deleteProvider(p.id)
+                    await load()
+                  }
+                })
+              "
+              >删除</a-button
             ><a-button
               :disabled="!p.enabled"
               @click="

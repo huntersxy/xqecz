@@ -68,6 +68,27 @@ func (h *Handler) saveProvider(c *gin.Context) {
 	}
 	ok(c, providerView(row))
 }
+func (h *Handler) setProviderEnabled(c *gin.Context) {
+	var req struct {
+		Enabled *bool `json:"enabled"`
+	}
+	if bind(c, &req) != nil || req.Enabled == nil {
+		fail(c, core.ErrInvalid)
+		return
+	}
+	if err := h.s.SetSiteProviderEnabled(c.Request.Context(), pathID(c), *req.Enabled); err != nil {
+		fail(c, err)
+		return
+	}
+	ok(c, nil)
+}
+func (h *Handler) deleteProvider(c *gin.Context) {
+	if err := h.s.DeleteSiteProvider(c.Request.Context(), pathID(c)); err != nil {
+		fail(c, err)
+		return
+	}
+	ok(c, nil)
+}
 func (h *Handler) byok(c *gin.Context) {
 	var req providerRequest
 	if bind(c, &req) != nil {

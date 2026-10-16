@@ -127,6 +127,9 @@ export const aiApi = {
   providers: () => checked('/admin/ai/providers', z.array(AIProviderSchema)),
   saveProvider: (data: Omit<AIProvider, 'owner' | 'has_key'> & { api_key?: string }) =>
     checked('/admin/ai/providers', AIProviderSchema, { method: 'POST', body: data }),
+  setProviderEnabled: (id: number, enabled: boolean) =>
+    checked(`/admin/ai/providers/${id}`, nil, { method: 'PATCH', body: { enabled } }),
+  deleteProvider: (id: number) => checked(`/admin/ai/providers/${id}`, nil, { method: 'DELETE' }),
   testProvider: (id: number, key: string) =>
     checked(`/admin/ai/providers/${id}/test`, AITaskSchema, {
       method: 'POST',

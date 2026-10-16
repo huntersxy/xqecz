@@ -123,6 +123,10 @@ func validateProvider(p ProviderConfig) error {
 		if !adapterNeeds(p.Endpoint, ":generateContent") {
 			return invalidProvider("Gemini 地址必须以 :generateContent 结尾")
 		}
+	case "codex_responses":
+		if !adapterNeeds(p.Endpoint, "/responses") {
+			return invalidProvider("Codex Responses 地址必须以 /responses 结尾")
+		}
 	default:
 		return invalidProvider("不支持的供应商适配器")
 	}
@@ -155,6 +159,9 @@ func validateProvider(p ProviderConfig) error {
 	}
 	if p.Adapter == "gemini" && p.MaxCount != 1 {
 		return invalidProvider("Gemini 适配器当前每次只能返回 1 张图片")
+	}
+	if p.Adapter == "codex_responses" && p.MaxCount != 1 {
+		return invalidProvider("Codex Responses 适配器当前每次只能返回 1 张图片")
 	}
 	if strings.TrimSpace(p.Options) != "" {
 		var options map[string]any
@@ -236,6 +243,65 @@ func (s *Service) SaveProvider(ctx context.Context, uid uint64, row ProviderConf
 		return tx.Save(&row).Error
 	})
 	return row, err
+}
+
+// SetSiteProviderEnabled changes only the site's dispatch availability. The
+// encrypted key is retained so an administrator can re-enable a provider
+// without re-entering credentials; enabling still requires a configured key.
+func (s *Service) SetSiteProviderEnabled(ctx context.Context, id uint64, enabled bool) error {
+	var row ProviderConfig
+	if err := s.db.WithContext(ctx).Where("id = ? AND user_id = 0", id).First(&row).Error; err != nil {
+		return err
+	}
+	if enabled && row.CipherKey == "" {
+		return invalidInput("启用供应商前请设置 API Key")
+	}
+	updates := map[string]any{"enabled": enabled}
+	if !enabled {
+		updates["default"] = false
+	}
+	return s.db.WithContext(ctx).Model(&ProviderConfig{}).Where("id = ? AND user_id = 0", id).Updates(updates).Error
+}
+
+// DeleteSiteProvider removes a site provider only when no queued/running task
+// still needs its dispatch row and no BYOK row points at it. Completed task
+// snapshots remain self-contained, while active work receives a clear action
+// error instead of failing later with a missing provider.
+func (s *Service) DeleteSiteProvider(ctx context.Context, id uint64) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var row ProviderConfig
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND user_id = 0", id).First(&row).Error; err != nil {
+			return err
+		}
+		var active int64
+		if err := tx.Model(&Task{}).Where("(provider_id = ? OR dispatch_provider_id = ?) AND status IN ?", id, id, []string{"queued", "running"}).Count(&active).Error; err != nil {
+			return err
+		}
+		if active > 0 {
+			return invalidInput("供应商仍有排队或运行中的任务，请先等待任务结束或取消后再删除")
+		}
+		var byok int64
+		if err := tx.Model(&ProviderConfig{}).Where("allowed_provider_id = ? AND user_id <> 0", id).Count(&byok).Error; err != nil {
+			return err
+		}
+		if byok > 0 {
+			return invalidInput("仍有用户自备密钥配置依赖此供应商，请先删除这些配置")
+		}
+		if err := tx.Delete(&row).Error; err != nil {
+			return err
+		}
+		if row.Default {
+			var next ProviderConfig
+			if err := tx.Where("user_id = 0 AND enabled = ? AND cipher_key <> ?", true, "").Order("id asc").First(&next).Error; err == nil {
+				if err := tx.Model(&ProviderConfig{}).Where("id = ?", next.ID).Update("default", true).Error; err != nil {
+					return err
+				}
+			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (s *Service) providerFor(ctx context.Context, uid uint64, input Input) (ProviderConfig, error) {

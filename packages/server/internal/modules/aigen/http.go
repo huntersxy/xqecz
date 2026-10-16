@@ -71,6 +71,8 @@ func Register(api *gin.RouterGroup, deps app.Deps, contentHandler *content.Handl
 	a.GET("/providers", h.adminProviders)
 	a.GET("/users", h.grantUsers)
 	a.POST("/providers", h.saveProvider)
+	a.PATCH("/providers/:id", h.setProviderEnabled)
+	a.DELETE("/providers/:id", h.deleteProvider)
 	a.POST("/providers/:id/test", h.testSite)
 	a.GET("/tasks", h.adminTasks)
 	a.POST("/tasks/:id/resolve", h.resolve)
