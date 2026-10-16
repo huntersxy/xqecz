@@ -94,6 +94,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     SketchPlanet: typeof import('./components/SketchPlanet.vue')['default']
     StudioReferences: typeof import('./components/StudioReferences.vue')['default']
+    StudioSizePicker: typeof import('./components/StudioSizePicker.vue')['default']
     TagCloud: typeof import('./components/admin/TagCloud.vue')['default']
     UniverseMargins: typeof import('./components/UniverseMargins.vue')['default']
     UniverseSketch: typeof import('./components/UniverseSketch.vue')['default']

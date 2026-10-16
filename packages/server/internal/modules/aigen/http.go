@@ -56,6 +56,7 @@ func Register(api *gin.RouterGroup, deps app.Deps, contentHandler *content.Handl
 	g.POST("/tasks", h.submit)
 	g.POST("/quote", h.quote)
 	g.POST("/tasks/:id/cancel", h.cancel)
+	g.DELETE("/tasks/:id", h.archiveTask)
 	g.GET("/assets", h.assets)
 	g.POST("/assets", h.upload)
 	g.GET("/assets/:id", h.image)
@@ -330,7 +331,7 @@ func (h *Handler) listTasks(c *gin.Context, admin bool) {
 		q = q.Where("id < ?", before)
 	}
 	if !admin {
-		q = q.Where("user_id = ?", uid(c))
+		q = q.Where("user_id = ? AND archived = ?", uid(c), false)
 	}
 	if c.Query("sponsored") == "1" {
 		q = q.Where("idea_id <> 0")
@@ -383,6 +384,13 @@ func (h *Handler) quote(c *gin.Context) {
 }
 func (h *Handler) cancel(c *gin.Context) {
 	if err := h.s.Cancel(c.Request.Context(), uid(c), pathID(c)); err != nil {
+		fail(c, err)
+		return
+	}
+	ok(c, nil)
+}
+func (h *Handler) archiveTask(c *gin.Context) {
+	if err := h.s.ArchiveTask(c.Request.Context(), uid(c), pathID(c)); err != nil {
 		fail(c, err)
 		return
 	}

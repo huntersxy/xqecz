@@ -22,8 +22,10 @@ import { useConfirm } from '@/composables/useToast'
 import CreativeImage from '@/components/CreativeImage.vue'
 import CreativeLibrary from '@/components/CreativeLibrary.vue'
 import StudioReferences from '@/components/StudioReferences.vue'
+import StudioSizePicker from '@/components/StudioSizePicker.vue'
 import '@/assets/creative-pages.css'
 import { referenceMentionAt, remapReferenceMentions } from '@/utils/creativeMentions'
+import { formatImageSize } from '@/utils/imageSize'
 const studio = useAIStudio(),
   router = useRouter(),
   route = useRoute(),
@@ -59,6 +61,7 @@ const libraryOpen = ref(false),
   ideaOpen = ref(false),
   publishOpen = ref(false),
   resultOpen = ref(false),
+  sizePickerOpen = ref(false),
   promptExpanded = ref(false),
   mobileSettingsOpen = ref(false),
   composerCollapsed = ref(false),
@@ -366,6 +369,15 @@ async function reusePrompt(row: AITaskView) {
   prompt.value = row.task.prompt
   await focusPrompt()
 }
+async function archiveTask(row: AITaskView) {
+  if (!['failed', 'cancelled'].includes(row.task.status)) return
+  if (!(await confirm(`删除任务 #${row.task.id}？失败记录会从工作台移除，已生成的素材仍保留。`)))
+    return
+  await studio.run(async () => {
+    await aiApi.archiveTask(row.task.id)
+    await studio.refresh()
+  })
+}
 async function applyResource(value: {
   text: string
   assets: number[]
@@ -632,7 +644,8 @@ watch(ready, (value) => {
                 </div>
                 <p class="task-prompt" :title="row.task.prompt">{{ row.task.prompt }}</p>
                 <span class="task-parameters"
-                  >{{ row.task.model }} · {{ row.task.size }} · {{ row.task.count }} 张</span
+                  >{{ row.task.model }} · {{ formatImageSize(row.task.size) }} ·
+                  {{ row.task.count }} 张</span
                 >
                 <span v-if="row.task.parent_task_id" class="creative-note"
                   >继续自 #{{ row.task.parent_task_id }}</span
@@ -655,6 +668,13 @@ watch(ready, (value) => {
                       })
                     "
                     >取消排队</a-button
+                  >
+                  <a-button
+                    v-if="['failed', 'cancelled'].includes(row.task.status)"
+                    size="small"
+                    status="danger"
+                    @click="archiveTask(row)"
+                    >删除记录</a-button
                   >
                   <RouterLink v-if="row.task.idea_id" :to="`/ideas/${row.task.idea_id}`"
                     >赞助创意</RouterLink
@@ -825,12 +845,18 @@ watch(ready, (value) => {
                 </option>
               </select></label
             >
-            <label class="composer-control"
-              ><span>尺寸</span
-              ><select v-model="size" aria-label="画面尺寸">
-                <option v-for="s in provider?.sizes" :key="s">{{ s }}</option>
-              </select></label
-            >
+            <div class="composer-control composer-size-control">
+              <span>尺寸</span
+              ><button
+                type="button"
+                class="studio-size-trigger"
+                aria-label="画面尺寸"
+                :disabled="composerLocked || !provider?.sizes.length"
+                @click="sizePickerOpen = true"
+              >
+                {{ formatImageSize(size) }}
+              </button>
+            </div>
             <label v-if="provider?.qualities.length" class="composer-control"
               ><span>画质</span
               ><select v-model="quality" aria-label="画质">
@@ -906,6 +932,12 @@ watch(ready, (value) => {
         </div>
       </section>
     </div>
+    <StudioSizePicker
+      v-model:visible="sizePickerOpen"
+      :model-value="size"
+      :sizes="provider?.sizes ?? []"
+      @select="size = $event"
+    />
     <a-modal
       v-model:visible="resultOpen"
       class="creative-theme creative-dialog ai-dialog studio-result-dialog"

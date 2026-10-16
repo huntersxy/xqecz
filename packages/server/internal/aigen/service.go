@@ -106,7 +106,7 @@ func (s *Service) Init(ctx context.Context) error {
 		return err
 	}
 	if count == 0 && s.cfg.AIImageBaseURL != "" && s.cfg.AIImageAPIKey != "" && s.cfg.AIImageModel != "" {
-		_, err = s.SaveProvider(ctx, 0, ProviderConfig{Name: "站点生图", Adapter: defaultAdapter, Endpoint: s.cfg.AIImageBaseURL, Model: s.cfg.AIImageModel, Enabled: true, Default: true, Sizes: `["1024x1024"]`, Qualities: `[]`, MaxCount: 1, EditTransport: "none", TimeoutSeconds: 180, Concurrency: 1, Cost: 1, QualityCosts: `{}`, Options: `{}`}, s.cfg.AIImageAPIKey)
+		_, err = s.SaveProvider(ctx, 0, ProviderConfig{Name: "站点生图", Adapter: defaultAdapter, Endpoint: s.cfg.AIImageBaseURL, Model: s.cfg.AIImageModel, Enabled: true, Default: true, Sizes: `["1024x1024","1024x576","576x1024","1024x640","640x1024","1024x683","683x1024","1024x768","768x1024","1536x1024","1024x1536"]`, Qualities: `[]`, MaxCount: 1, EditTransport: "none", TimeoutSeconds: 180, Concurrency: 1, Cost: 1, QualityCosts: `{}`, Options: `{}`}, s.cfg.AIImageAPIKey)
 	}
 	return err
 }
@@ -620,6 +620,34 @@ func (s *Service) Cancel(ctx context.Context, uid, id uint64) error {
 	}
 	return s.complete(task, "queued", "cancelled", "用户取消排队任务", nil, false, uid)
 }
+
+// ArchiveTask hides a terminal failure from the owner's history while keeping
+// its task, ledger, idea and generated assets available for admin audit.
+// Archiving is deliberately separate from physical deletion because the task
+// still documents a provider failure and may be linked from a sponsored idea.
+func (s *Service) ArchiveTask(ctx context.Context, uid, id uint64) error {
+	var task Task
+	if err := s.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, uid).First(&task).Error; err != nil {
+		return err
+	}
+	if task.Archived {
+		return gorm.ErrRecordNotFound
+	}
+	if task.Status != "failed" && task.Status != "cancelled" {
+		return invalidInput("只有失败或已取消的任务可以删除")
+	}
+	result := s.db.WithContext(ctx).Model(&Task{}).
+		Where("id = ? AND user_id = ? AND archived = ? AND status IN ?", id, uid, false, []string{"failed", "cancelled"}).
+		Update("archived", true)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return ErrConflict
+	}
+	return nil
+}
+
 func (s *Service) Resolve(ctx context.Context, actor, id uint64, consumed bool, note string) error {
 	// Validate the audit note separately from generation inputs: settlement does
 	// not revalidate sessions or reference images, and must retain its evidence.

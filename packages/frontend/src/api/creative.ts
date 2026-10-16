@@ -79,6 +79,7 @@ export const aiApi = {
   quote: (input: GenerationInput) =>
     checked('/ai/quote', z.object({ cost: z.number() }), { method: 'POST', body: input }),
   cancel: (id: number) => checked(`/ai/tasks/${id}/cancel`, nil, { method: 'POST' }),
+  archiveTask: (id: number) => checked(`/ai/tasks/${id}`, nil, { method: 'DELETE' }),
   assets: (signal?: AbortSignal, beforeId?: number) =>
     checked('/ai/assets', z.array(AIAssetSchema), { signal, query: { before_id: beforeId } }),
   publicAssets: (signal?: AbortSignal, ids?: number[]) =>

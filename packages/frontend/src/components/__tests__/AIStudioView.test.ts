@@ -14,6 +14,7 @@ const api = vi.hoisted(() => ({
   upload: vi.fn(),
   quote: vi.fn(),
   submit: vi.fn(),
+  archiveTask: vi.fn(),
   confirm: vi.fn(),
 }))
 vi.mock('@/api/creative', () => ({ aiApi: api }))
@@ -40,6 +41,7 @@ const task = (id: number, session_id = 1) => ({
     model: 'image-model',
     size: '1024x1024',
     count: 2,
+    error: '',
   },
   assets: [asset(id * 2), asset(id * 2 + 1)],
 })
@@ -116,6 +118,7 @@ beforeEach(() => {
   api.upload.mockResolvedValue(asset(9))
   api.quote.mockResolvedValue({ cost: 2 })
   api.submit.mockResolvedValue({ id: 99 })
+  api.archiveTask.mockResolvedValue(undefined)
 })
 afterEach(() => wrappers.splice(0).forEach((w) => w.unmount()))
 
@@ -154,6 +157,18 @@ describe('studio gallery and composer', () => {
       expect.objectContaining({ parent_asset_id: 3, references: [{ asset_id: 3, note: '' }] }),
       expect.any(AbortSignal),
     )
+  })
+  it('removes failed task records while keeping successful tasks protected', async () => {
+    const failed = task(3)
+    failed.task.status = 'failed'
+    failed.task.error = 'provider rejected the request'
+    failed.assets = []
+    api.tasks.mockResolvedValueOnce([failed]).mockResolvedValueOnce([])
+    const w = await render()
+    await button(w, '删除记录').trigger('click')
+    await flushPromises()
+    expect(api.archiveTask).toHaveBeenCalledWith(3)
+    expect(w.findAll('.studio-task-card')).toHaveLength(0)
   })
   it('keeps plain text paste native and uploads a pasted image through the same reference path', async () => {
     const w = await render()
@@ -219,7 +234,18 @@ describe('studio gallery and composer', () => {
     api.quote.mockResolvedValue({ cost: 4 })
     const w = await render()
     await w.get('textarea').setValue('两幅横向画面')
-    await w.get('select[aria-label="画面尺寸"]').setValue('1536x1024')
+    await w.get('button[aria-label="画面尺寸"]').trigger('click')
+    const sizeOption = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('.studio-size-option'),
+    ).find((option) => option.textContent?.includes('1536×1024'))
+    expect(sizeOption).toBeTruthy()
+    sizeOption!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    const confirmSize = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('.studio-size-dialog button'),
+    ).find((button) => button.textContent?.trim() === '确定')
+    expect(confirmSize).toBeTruthy()
+    confirmSize!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    await flushPromises()
     await w.get('select[aria-label="输出数量"]').setValue(2)
     await w.get('textarea').trigger('keydown', { key: 'Enter', metaKey: true })
     await w.get('textarea').trigger('keydown', { key: 'Enter', metaKey: true })

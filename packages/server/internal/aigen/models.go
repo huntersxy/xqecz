@@ -15,6 +15,7 @@ type Task struct {
 	Model              string    `gorm:"size:160" json:"model"`
 	Mode               string    `gorm:"size:16" json:"mode"`
 	Status             string    `gorm:"size:20;index" json:"status"`
+	Archived           bool      `gorm:"index" json:"-"`
 	Cost               int64     `json:"cost"`
 	Error              string    `gorm:"size:500" json:"error"`
 	Snapshot           string    `gorm:"type:longtext" json:"-"`

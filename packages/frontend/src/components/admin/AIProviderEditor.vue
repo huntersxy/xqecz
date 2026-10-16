@@ -2,6 +2,19 @@
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import type { AIProvider } from '@/types/schemas'
 import { aiApi } from '@/api/creative'
+const COMMON_PROVIDER_SIZES = [
+  '1024x1024',
+  '1024x576',
+  '576x1024',
+  '1024x640',
+  '640x1024',
+  '1024x683',
+  '683x1024',
+  '1024x768',
+  '768x1024',
+  '1536x1024',
+  '1024x1536',
+]
 const props = defineProps<{ provider: AIProvider | null }>(),
   emit = defineEmits<{ saved: [] }>()
 const blank = () => ({
@@ -16,7 +29,7 @@ const blank = () => ({
   enabled: false,
   default: false,
   has_key: false,
-  sizes: ['1024x1024'],
+  sizes: [...COMMON_PROVIDER_SIZES],
   qualities: [] as string[],
   max_count: 1,
   max_references: 0,
@@ -63,6 +76,9 @@ const qualities = computed({
       .map((s) => s.trim())
       .filter(Boolean)),
 })
+function fillCommonSizes() {
+  form.value.sizes = [...COMMON_PROVIDER_SIZES]
+}
 watch(
   () => form.value.edit_transport,
   (value) => {
@@ -119,8 +135,10 @@ async function save() {
     </div>
     <a-form-item label="生成接口地址"
       ><a-input v-model="form.endpoint" aria-label="生成接口地址" />
-      <template #extra>仅支持公开 HTTPS 443 地址；Images 以 /images/generations 结尾，Chat 以 /chat/completions 结尾，Gemini 以 :generateContent 结尾，Codex 以 /responses 结尾。</template>
-    </a-form-item
+      <template #extra
+        >仅支持公开 HTTPS 443 地址；Images 以 /images/generations 结尾，Chat 以 /chat/completions
+        结尾，Gemini 以 :generateContent 结尾，Codex 以 /responses 结尾。</template
+      > </a-form-item
     ><a-form-item label="API Key（留空保留已保存密钥）"
       ><a-input-password
         v-model="form.api_key"
@@ -128,7 +146,13 @@ async function save() {
         autocomplete="new-password"
     /></a-form-item>
     <div class="provider-fields">
-      <a-form-item label="允许尺寸（逗号分隔）"><a-input v-model="sizes" /></a-form-item
+      <a-form-item label="允许尺寸（逗号分隔）"
+        ><a-input v-model="sizes" />
+        <template #extra
+          >按供应商文档保留实际支持的值；<a-button type="text" size="mini" @click="fillCommonSizes"
+            >填入常用预设</a-button
+          ></template
+        ></a-form-item
       ><a-form-item label="允许画质（无此参数则留空）"><a-input v-model="qualities" /></a-form-item
       ><a-form-item label="最多输出张数"
         ><a-input-number v-model="form.max_count" :min="1" :max="2" /></a-form-item

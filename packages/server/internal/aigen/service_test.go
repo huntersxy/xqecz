@@ -203,6 +203,38 @@ func TestFailureUnknownRecoveryAndManualSettlement(t *testing.T) {
 		t.Fatal(a)
 	}
 }
+
+func TestArchiveTaskOnlyTerminalFailures(t *testing.T) {
+	s, fake, p, session := testService(t)
+	grant(t, s, 1, 10)
+	ctx := context.Background()
+	fake.err = KnownFailure{"provider rejected the request"}
+	task, err := s.Submit(ctx, 1, inputFor(p, session, "archive-failure-0001"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.runOne(ctx)
+	if err = s.ArchiveTask(ctx, 1, task.ID); err != nil {
+		t.Fatal(err)
+	}
+	var archived Task
+	if err = s.db.First(&archived, task.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if !archived.Archived || archived.Status != "failed" {
+		t.Fatal(archived)
+	}
+
+	fake.err = nil
+	succeeded, err := s.Submit(ctx, 1, inputFor(p, session, "archive-success-0001"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.runOne(ctx)
+	if err = s.ArchiveTask(ctx, 1, succeeded.ID); !errors.Is(err, ErrInvalid) {
+		t.Fatal(err)
+	}
+}
 func TestQuotaOwnershipAndReferenceRetention(t *testing.T) {
 	s, fake, p, session := testService(t)
 	ctx := context.Background()
