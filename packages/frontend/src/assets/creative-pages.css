@@ -1413,6 +1413,9 @@
   width: 230px;
 }
 .ai-studio select {
+  /* Native option menus are painted outside the page surface. Keep their
+     browser-controlled palette in sync with the explicit creative theme. */
+  color-scheme: light;
   color: var(--creative-ink);
   background: var(--creative-paper);
   border: 1px solid var(--creative-line);
@@ -1422,6 +1425,13 @@
   max-width: 100%;
   font: inherit;
   cursor: pointer;
+}
+body[arco-theme='dark'] .ai-studio select {
+  color-scheme: dark;
+}
+.ai-studio select option {
+  color: var(--creative-ink);
+  background: var(--creative-paper);
 }
 .ai-studio select:disabled {
   cursor: not-allowed;
