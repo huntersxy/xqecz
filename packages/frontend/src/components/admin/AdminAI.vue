@@ -118,6 +118,16 @@ const taskLabels: Record<string, string> = {
   unknown: '结果待核查',
   cancelled: '已取消',
 }
+const adapterLabels: Record<AIProvider['adapter'], string> = {
+  openai: 'Images',
+  openai_chat: 'Chat',
+  gemini: 'Gemini',
+  volcengine_ark: '火山方舟',
+  gitee_ai: 'Gitee AI',
+  siliconflow_adapter: 'SiliconFlow',
+  agnes_ai: 'Agnes AI',
+  grok: 'Grok',
+}
 const ledgerLabels: Record<string, string> = {
   grant: '额度发放',
   reserve: '生成预留',
@@ -374,7 +384,7 @@ onBeforeUnmount(() => {
           <div>
             <strong>{{ p.name }}</strong>
             <p>
-              {{ p.model }} · {{ p.enabled ? '启用' : '停用' }} ·
+              {{ adapterLabels[p.adapter] }} · {{ p.model }} · {{ p.enabled ? '启用' : '停用' }} ·
               {{ p.has_key ? '密钥已加密保存' : '未配置密钥' }}
             </p>
             <small>{{ p.endpoint }}</small>

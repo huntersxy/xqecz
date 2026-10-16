@@ -6,6 +6,7 @@ export const AIProviderSchema = z.object({
   revision: z.number(),
   owner: z.number(),
   name: z.string(),
+  adapter: z.enum(['openai', 'openai_chat', 'gemini', 'volcengine_ark', 'gitee_ai', 'siliconflow_adapter', 'agnes_ai', 'grok']),
   endpoint: z.string(),
   model: z.string(),
   allowed_provider_id: z.number(),
@@ -27,6 +28,7 @@ export const AIProviderSchema = z.object({
     .record(z.string(), z.number())
     .nullable()
     .transform((v) => v ?? {}),
+  options: z.record(z.string(), z.unknown()).nullable().transform((v) => v ?? {}),
 })
 export const AIConfigSchema = z.object({ providers: z.array(AIProviderSchema) })
 export const AIAccountSchema = z.object({

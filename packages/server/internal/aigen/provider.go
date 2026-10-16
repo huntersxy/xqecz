@@ -125,15 +125,30 @@ func (p OpenAIProvider) Generate(ctx context.Context, cfg ProviderConfig, key st
 			}
 			endpoint = strings.TrimSuffix(endpoint, "/generations") + "/edits"
 			images := []map[string]string{}
+			imageDataURLs := []string{}
 			for _, path := range files {
 				data, err := os.ReadFile(path)
 				if err != nil {
 					return nil, KnownFailure{"参考图不可读取"}
 				}
-				images = append(images, map[string]string{"image_url": "data:" + http.DetectContentType(data) + ";base64," + base64.StdEncoding.EncodeToString(data)})
+				dataURL := "data:" + http.DetectContentType(data) + ";base64," + base64.StdEncoding.EncodeToString(data)
+				images = append(images, map[string]string{"image_url": dataURL})
+				imageDataURLs = append(imageDataURLs, dataURL)
 			}
-			payload["images"] = images
+			switch normalizedAdapter(cfg.Adapter) {
+			case "grok":
+				if len(imageDataURLs) == 1 {
+					payload["image"] = imageDataURLs[0]
+				} else {
+					payload["images"] = imageDataURLs
+				}
+			case "agnes_ai":
+				payload["extra_body"] = map[string]any{"image": imageDataURLs}
+			default:
+				payload["images"] = images
+			}
 		}
+		applyImageOptions(payload, cfg)
 		encoded, err := json.Marshal(payload)
 		if err != nil {
 			return nil, KnownFailure{"生成参数无法编码"}

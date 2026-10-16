@@ -43,7 +43,7 @@ type Service struct {
 }
 
 func New(db *gorm.DB, cfg config.Config) *Service {
-	return NewWithProvider(db, cfg, OpenAIProvider{})
+	return NewWithProvider(db, cfg, ProviderRouter{})
 }
 func NewWithProvider(db *gorm.DB, cfg config.Config, provider Provider) *Service {
 	return &Service{db: db.Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)}), cfg: cfg, dir: cfg.AIImageDir, provider: provider, imageSlots: make(chan struct{}, 2)}
@@ -106,7 +106,7 @@ func (s *Service) Init(ctx context.Context) error {
 		return err
 	}
 	if count == 0 && s.cfg.AIImageBaseURL != "" && s.cfg.AIImageAPIKey != "" && s.cfg.AIImageModel != "" {
-		_, err = s.SaveProvider(ctx, 0, ProviderConfig{Name: "站点生图", Endpoint: s.cfg.AIImageBaseURL, Model: s.cfg.AIImageModel, Enabled: true, Default: true, Sizes: `["1024x1024"]`, Qualities: `[]`, MaxCount: 1, EditTransport: "none", TimeoutSeconds: 180, Concurrency: 1, Cost: 1, QualityCosts: `{}`}, s.cfg.AIImageAPIKey)
+		_, err = s.SaveProvider(ctx, 0, ProviderConfig{Name: "站点生图", Adapter: defaultAdapter, Endpoint: s.cfg.AIImageBaseURL, Model: s.cfg.AIImageModel, Enabled: true, Default: true, Sizes: `["1024x1024"]`, Qualities: `[]`, MaxCount: 1, EditTransport: "none", TimeoutSeconds: 180, Concurrency: 1, Cost: 1, QualityCosts: `{}`, Options: `{}`}, s.cfg.AIImageAPIKey)
 	}
 	return err
 }

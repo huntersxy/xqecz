@@ -14,6 +14,7 @@ type providerRequest struct {
 	Revision          uint64           `json:"revision"`
 	ID                uint64           `json:"id"`
 	Name              string           `json:"name"`
+	Adapter           string           `json:"adapter"`
 	Endpoint          string           `json:"endpoint"`
 	Model             string           `json:"model"`
 	Key               string           `json:"api_key"`
@@ -29,11 +30,18 @@ type providerRequest struct {
 	Concurrency       int              `json:"concurrency"`
 	Cost              int64            `json:"cost"`
 	QualityCosts      map[string]int64 `json:"quality_costs"`
+	Options           map[string]any   `json:"options"`
 }
 
 func encode(v any) string { raw, _ := json.Marshal(v); return string(raw) }
+func encodeOptions(v map[string]any) string {
+	if v == nil {
+		return "{}"
+	}
+	return encode(v)
+}
 func (r providerRequest) model() core.ProviderConfig {
-	return core.ProviderConfig{ID: r.ID, Revision: r.Revision, Name: r.Name, Endpoint: r.Endpoint, Model: r.Model, AllowedProviderID: r.AllowedProviderID, Enabled: r.Enabled, Default: r.Default, Sizes: encode(r.Sizes), Qualities: encode(r.Qualities), MaxCount: r.MaxCount, MaxReferences: r.MaxReferences, EditTransport: r.EditTransport, TimeoutSeconds: r.TimeoutSeconds, Concurrency: r.Concurrency, Cost: r.Cost, QualityCosts: encode(r.QualityCosts)}
+	return core.ProviderConfig{ID: r.ID, Revision: r.Revision, Name: r.Name, Adapter: r.Adapter, Endpoint: r.Endpoint, Model: r.Model, AllowedProviderID: r.AllowedProviderID, Enabled: r.Enabled, Default: r.Default, Sizes: encode(r.Sizes), Qualities: encode(r.Qualities), MaxCount: r.MaxCount, MaxReferences: r.MaxReferences, EditTransport: r.EditTransport, TimeoutSeconds: r.TimeoutSeconds, Concurrency: r.Concurrency, Cost: r.Cost, QualityCosts: encode(r.QualityCosts), Options: encodeOptions(r.Options)}
 }
 func (h *Handler) adminProviders(c *gin.Context) {
 	rows := []core.ProviderConfig{}

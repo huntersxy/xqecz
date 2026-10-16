@@ -7,7 +7,7 @@
 1. 部署新后端前备份数据库；启动时通过 GORM 自动迁移新增功能表。前端与后端应同时更新。本次开发与验收使用临时 SQLite 和 miniredis，没有启动连接生产数据库的后端。
 2. `AI_IMAGE_DIR` 默认是项目根 `data/ai-private`，必须位于 `/uploads`、`/thumbs`、`/images` 的物理目录之外。不要为它添加静态路由、镜像或公开 CDN 挂载。
 3. 首次启动生成 `AI_IMAGE_DIR/.encryption-key`。它用于 AES-256-GCM 加密站点和用户密钥，须与数据库、私有图片一起备份。丢失后不能解密已有配置与任务；服务会拒绝自动更换已有数据的加密密钥。Windows 部署应限制该目录的账户访问权限。
-4. 管理员进入「AI 创作管理 → 供应商」，填写完整生成接口 URL、模型和 API Key，然后启用。默认示例为 `https://api.slomerex.xyz/v1/images/generations`、`gpt-image-2.5-sunburst-1K`，1024×1024、1 张、不传 quality、关闭参考图。
+4. 管理员进入「AI 创作管理 → 供应商」，先选择与服务商文档一致的适配器，再填写完整接口 URL、模型和 API Key，然后启用。支持 OpenAI Images/兼容 Images（默认）、OpenAI Chat Completions 和 Gemini 原生协议；火山方舟、Gitee AI、SiliconFlow、Agnes AI、Grok 使用兼容 Images 适配器。默认示例为 `https://api.slomerex.xyz/v1/images/generations`、`gpt-image-2.5-sunburst-1K`，1024×1024、1 张、不传 quality、关闭参考图。
 5. 设置每张站点额度、可选画质额度覆盖、允许尺寸、张数、参考图数量、超时和并发。只有供应商文档或真实测试支持时才开启相应参数。用户自备密钥只能选择这里批准的供应商，不能提交任意 URL。
 6. 在「用户额度 / 账本」给用户发放额度并注明原因。站点额度是内部整数单位，不是供应商余额或货币。BYOK 不扣站点额度，但供应商仍可能收费。连通测试同样可能产生供应商费用。
 
@@ -20,7 +20,9 @@ AI_IMAGE_API_KEY=
 AI_IMAGE_MODEL=
 ```
 
-`AI_IMAGE_BASE_URL` 是完整 `/v1/images/generations` 地址，不是域名根路径。密钥不得设置为 `VITE_*` 或写入前端。空供应商配置不影响资源浏览与站点其它业务。
+`AI_IMAGE_BASE_URL` 是完整 `/v1/images/generations` 地址，不是域名根路径，首次导入按 OpenAI Images 适配器保存。Chat 适配器地址必须以 `/chat/completions` 结尾，Gemini 地址必须以 `:generateContent` 结尾；Gemini 密钥通过受保护的 `x-goog-api-key` 请求头发送，不写进 URL。密钥不得设置为 `VITE_*` 或写入前端。空供应商配置不影响资源浏览与站点其它业务。
+
+适配器选项是非密 JSON，仅按服务商文档填写。当前支持的通用选项包括 `watermark`、`optimize_prompt`、`negative_prompt`、`num_inference_steps`、`guidance_scale` 和 `output_format`；选项会随排队任务快照保存，不会覆盖认证或请求地址。
 
 ## 资源与创作流程
 
@@ -72,7 +74,7 @@ AI_IMAGE_MODEL=
 
 本机供应商域名解析为代理 Fake-IP（198.18 段），正常网络防护会拒绝该地址。一次性真实测试使用公开 DNS 返回的 IP 固定连接，并保持 TLS 主机名与证书校验；生产防护没有放宽。部署时应修复 DNS/代理路由。
 
-参考生成/继续编辑支持管理员选择 OpenAI `/images/edits` 的 multipart `image[]` 或 JSON `images` 传输；这两种适配已验证请求形状，**尚未对上述第三方供应商做真实编辑联调**。默认关闭，须确认该模型的接口与限制后启用。OpenAI 格式依据：[Images edit reference](https://developers.openai.com/api/reference/resources/images/methods/edit)。
+参考生成/继续编辑支持管理员选择 OpenAI `/images/edits` 的 multipart `image[]` 或 JSON `images` 传输；Chat 和 Gemini 适配器会按各自多模态协议发送参考图。兼容 Images 供应商的编辑字段仍需以服务商文档为准，默认关闭，须确认该模型的接口与限制后启用。OpenAI 格式依据：[Images edit reference](https://developers.openai.com/api/reference/resources/images/methods/edit)。
 
 回归覆盖额度/幂等/并发赞助、未知结果与恢复凭据、部分结果、私有图片权限、资源版本、模板字面替换与接口 schema。浏览器验收使用明确标记的确定性图片供应商及临时 SQLite/miniredis，验证真实页面、HTTP 路由与数据库写链路，不代表第三方编辑功能已验收。
 

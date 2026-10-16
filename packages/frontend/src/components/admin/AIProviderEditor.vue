@@ -10,6 +10,7 @@ const blank = () => ({
   owner: 0,
   allowed_provider_id: 0,
   name: '',
+  adapter: 'openai' as AIProvider['adapter'],
   endpoint: 'https://api.slomerex.xyz/v1/images/generations',
   model: 'gpt-image-2.5-sunburst-1K',
   enabled: false,
@@ -24,12 +25,14 @@ const blank = () => ({
   concurrency: 1,
   cost: 1,
   quality_costs: {} as Record<string, number>,
+  options: {} as Record<string, unknown>,
   api_key: '',
 })
 const form = ref(blank()),
   error = ref(''),
   busy = ref(false),
-  prices = ref('{}')
+  prices = ref('{}'),
+  optionsText = ref('{}')
 let stopped = false
 onBeforeUnmount(() => {
   stopped = true
@@ -39,6 +42,7 @@ watch(
   (row) => {
     form.value = row ? { ...JSON.parse(JSON.stringify(row)), api_key: '' } : blank()
     prices.value = JSON.stringify(form.value.quality_costs, null, 2)
+    optionsText.value = JSON.stringify(form.value.options ?? {}, null, 2)
     error.value = ''
   },
   { immediate: true },
@@ -70,6 +74,7 @@ async function save() {
   busy.value = true
   try {
     form.value.quality_costs = JSON.parse(prices.value)
+    form.value.options = JSON.parse(optionsText.value)
     await aiApi.saveProvider(form.value)
     form.value.api_key = ''
     if (!stopped) emit('saved')
@@ -84,13 +89,24 @@ async function save() {
   <a-form :model="form" layout="vertical"
     ><div class="provider-fields">
       <a-form-item label="名称"><a-input v-model="form.name" aria-label="供应商名称" /></a-form-item
+      ><a-form-item label="适配器协议"
+        ><a-select v-model="form.adapter" aria-label="供应商适配器">
+          <a-option value="openai">OpenAI Images / 兼容 Images</a-option>
+          <a-option value="openai_chat">OpenAI Chat Completions</a-option>
+          <a-option value="gemini">Google Gemini 原生</a-option>
+          <a-option value="volcengine_ark">火山方舟 Images</a-option>
+          <a-option value="gitee_ai">Gitee AI Images</a-option>
+          <a-option value="siliconflow_adapter">SiliconFlow Images</a-option>
+          <a-option value="agnes_ai">Agnes AI Images</a-option>
+          <a-option value="grok">xAI Grok Images</a-option>
+        </a-select></a-form-item
       ><a-form-item label="模型 ID"
         ><a-input v-model="form.model" aria-label="模型 ID"
       /></a-form-item>
     </div>
     <a-form-item label="生成接口地址"
       ><a-input v-model="form.endpoint" aria-label="生成接口地址" />
-      <template #extra>仅支持公开 HTTPS 443 地址，并且必须以 /v1/images/generations 结尾。</template>
+      <template #extra>仅支持公开 HTTPS 443 地址；Images 以 /images/generations 结尾，Chat 以 /chat/completions 结尾，Gemini 以 :generateContent 结尾。</template>
     </a-form-item
     ><a-form-item label="API Key（留空保留已保存密钥）"
       ><a-input-password
@@ -126,6 +142,10 @@ async function save() {
     <a-form-item label='按画质覆盖单张额度（JSON，如 { "high": 3 }）'
       ><a-textarea v-model="prices"
     /></a-form-item>
+    <a-form-item label="适配器选项（JSON，可留空）"
+      ><a-textarea v-model="optionsText" :auto-size="{ minRows: 2, maxRows: 6 }" />
+      <template #extra>仅填写供应商文档明确支持的非密配置；API Key 始终单独加密保存。</template>
+    </a-form-item>
     <p class="creative-note">
       只有经供应商文档或测试确认后才启用参考图接口、尺寸、画质与数量。站点不会自动重试可能已经收费的请求。
     </p>

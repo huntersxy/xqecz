@@ -91,26 +91,32 @@ type Asset struct {
 func (Asset) TableName() string { return "ai_assets" }
 
 type ProviderConfig struct {
-	ID                uint64    `gorm:"primaryKey" json:"id"`
-	UserID            uint64    `gorm:"index" json:"-"`
-	AllowedProviderID uint64    `json:"allowed_provider_id"`
-	Name              string    `gorm:"size:100" json:"name"`
-	Endpoint          string    `gorm:"size:500" json:"endpoint"`
-	Model             string    `gorm:"size:160" json:"model"`
-	CipherKey         string    `gorm:"type:text" json:"-"`
-	Enabled           bool      `json:"enabled"`
-	Default           bool      `json:"default"`
-	Sizes             string    `gorm:"type:text" json:"sizes"`
-	Qualities         string    `gorm:"type:text" json:"qualities"`
-	MaxCount          int       `json:"max_count"`
-	MaxReferences     int       `json:"max_references"`
-	EditTransport     string    `gorm:"size:32" json:"edit_transport"`
-	TimeoutSeconds    int       `json:"timeout_seconds"`
-	Concurrency       int       `json:"concurrency"`
-	Cost              int64     `json:"cost"`
-	QualityCosts      string    `gorm:"type:text" json:"quality_costs"`
-	UpdatedAt         time.Time `json:"updated_at"`
-	Revision          uint64    `json:"revision"`
+	ID                uint64 `gorm:"primaryKey" json:"id"`
+	UserID            uint64 `gorm:"index" json:"-"`
+	AllowedProviderID uint64 `json:"allowed_provider_id"`
+	Name              string `gorm:"size:100" json:"name"`
+	// Adapter selects the wire protocol while Endpoint remains the complete
+	// provider URL. Empty values are read as the legacy OpenAI Images adapter.
+	Adapter        string `gorm:"size:40" json:"adapter"`
+	Endpoint       string `gorm:"size:500" json:"endpoint"`
+	Model          string `gorm:"size:160" json:"model"`
+	CipherKey      string `gorm:"type:text" json:"-"`
+	Enabled        bool   `json:"enabled"`
+	Default        bool   `json:"default"`
+	Sizes          string `gorm:"type:text" json:"sizes"`
+	Qualities      string `gorm:"type:text" json:"qualities"`
+	MaxCount       int    `json:"max_count"`
+	MaxReferences  int    `json:"max_references"`
+	EditTransport  string `gorm:"size:32" json:"edit_transport"`
+	TimeoutSeconds int    `json:"timeout_seconds"`
+	Concurrency    int    `json:"concurrency"`
+	Cost           int64  `json:"cost"`
+	QualityCosts   string `gorm:"type:text" json:"quality_costs"`
+	// Options contains non-secret adapter-specific JSON. API keys stay in
+	// CipherKey so snapshots and public views never expose credentials.
+	Options   string    `gorm:"type:text" json:"options,omitempty"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Revision  uint64    `json:"revision"`
 }
 
 func (ProviderConfig) TableName() string { return "ai_provider_configs" }

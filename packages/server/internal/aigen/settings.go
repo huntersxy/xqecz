@@ -92,12 +92,39 @@ func invalidProvider(message string) error {
 	return fmt.Errorf("%w: %s", ErrInvalid, message)
 }
 
+const defaultAdapter = "openai"
+
+func normalizedAdapter(adapter string) string {
+	if strings.TrimSpace(adapter) == "" {
+		return defaultAdapter
+	}
+	return strings.TrimSpace(adapter)
+}
+
+func adapterNeeds(path, suffix string) bool {
+	return strings.HasSuffix(strings.TrimSuffix(path, "/"), suffix)
+}
+
 func validateProvider(p ProviderConfig) error {
 	if err := validateURL(p.Endpoint); err != nil {
 		return invalidProvider(err.Error())
 	}
-	if !strings.HasSuffix(p.Endpoint, "/v1/images/generations") {
-		return invalidProvider("生成接口地址必须以 /v1/images/generations 结尾")
+	p.Adapter = normalizedAdapter(p.Adapter)
+	switch p.Adapter {
+	case "openai", "volcengine_ark", "gitee_ai", "siliconflow_adapter", "agnes_ai", "grok":
+		if !adapterNeeds(p.Endpoint, "/images/generations") {
+			return invalidProvider("Images 供应商地址必须以 /images/generations 结尾")
+		}
+	case "openai_chat":
+		if !adapterNeeds(p.Endpoint, "/chat/completions") {
+			return invalidProvider("Chat 供应商地址必须以 /chat/completions 结尾")
+		}
+	case "gemini":
+		if !adapterNeeds(p.Endpoint, ":generateContent") {
+			return invalidProvider("Gemini 地址必须以 :generateContent 结尾")
+		}
+	default:
+		return invalidProvider("不支持的供应商适配器")
 	}
 	if len(p.Name) == 0 || len([]rune(p.Name)) > 100 {
 		return invalidProvider("供应商名称无效")
@@ -122,6 +149,18 @@ func validateProvider(p ProviderConfig) error {
 	}
 	if p.EditTransport == "none" && p.MaxReferences != 0 {
 		return invalidProvider("关闭参考图传输时，最多参考图必须为 0")
+	}
+	if (p.Adapter == "openai_chat" || p.Adapter == "gemini") && p.EditTransport == "multipart" {
+		return invalidProvider("该适配器只支持 JSON 多模态参考图传输")
+	}
+	if p.Adapter == "gemini" && p.MaxCount != 1 {
+		return invalidProvider("Gemini 适配器当前每次只能返回 1 张图片")
+	}
+	if strings.TrimSpace(p.Options) != "" {
+		var options map[string]any
+		if json.Unmarshal([]byte(p.Options), &options) != nil || options == nil {
+			return invalidProvider("适配器选项必须是 JSON 对象")
+		}
 	}
 	var costs map[string]int64
 	if p.QualityCosts != "" && json.Unmarshal([]byte(p.QualityCosts), &costs) != nil {
@@ -152,6 +191,7 @@ func (s *Service) SaveProvider(ctx context.Context, uid uint64, row ProviderConf
 		}
 	}
 	row.UserID = uid
+	row.Adapter = normalizedAdapter(row.Adapter)
 	if uid != 0 {
 		var allowed ProviderConfig
 		if err := s.db.WithContext(ctx).Where("id = ? AND user_id = 0 AND enabled = ?", row.AllowedProviderID, true).First(&allowed).Error; err != nil {
@@ -225,6 +265,7 @@ func (s *Service) providerFor(ctx context.Context, uid uint64, input Input) (Pro
 		}
 		p = mergeBYOK(p, allowed)
 	}
+	p.Adapter = normalizedAdapter(p.Adapter)
 	return p, nil
 }
 
