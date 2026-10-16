@@ -178,11 +178,19 @@ func providerView(row core.ProviderConfig) any {
 	if options == "" {
 		options = "{}"
 	}
+	sizes := row.Sizes
+	if strings.TrimSpace(sizes) == "" {
+		sizes = "[]"
+	}
+	qualities := row.Qualities
+	if strings.TrimSpace(qualities) == "" {
+		qualities = "[]"
+	}
 	adapter := row.Adapter
 	if adapter == "" {
 		adapter = "openai"
 	}
-	return gin.H{"id": row.ID, "revision": row.Revision, "name": row.Name, "adapter": adapter, "model": row.Model, "endpoint": row.Endpoint, "owner": row.UserID, "allowed_provider_id": row.AllowedProviderID, "enabled": row.Enabled, "default": row.Default, "has_key": row.CipherKey != "", "sizes": json.RawMessage(row.Sizes), "qualities": json.RawMessage(row.Qualities), "max_count": row.MaxCount, "max_references": row.MaxReferences, "edit_transport": row.EditTransport, "timeout_seconds": row.TimeoutSeconds, "concurrency": row.Concurrency, "cost": row.Cost, "quality_costs": json.RawMessage(row.QualityCosts), "options": json.RawMessage(options)}
+	return gin.H{"id": row.ID, "revision": row.Revision, "name": row.Name, "adapter": adapter, "model": row.Model, "endpoint": row.Endpoint, "owner": row.UserID, "allowed_provider_id": row.AllowedProviderID, "enabled": row.Enabled, "default": row.Default, "has_key": row.CipherKey != "", "sizes": json.RawMessage(sizes), "qualities": json.RawMessage(qualities), "max_count": row.MaxCount, "max_references": row.MaxReferences, "edit_transport": row.EditTransport, "timeout_seconds": row.TimeoutSeconds, "concurrency": row.Concurrency, "cost": row.Cost, "quality_costs": json.RawMessage(row.QualityCosts), "options": json.RawMessage(options)}
 }
 func (h *Handler) account(c *gin.Context) {
 	var row core.Account

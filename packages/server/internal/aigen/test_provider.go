@@ -20,7 +20,9 @@ func (s *Service) QueueTest(ctx context.Context, uid, id uint64, site bool, key 
 	if err != nil {
 		return Task{}, err
 	}
-	input.Size = stringList(provider.Sizes)[0]
+	// Provider tests must exercise the same user-controlled automatic mode as
+	// the studio; legacy provider size lists are retained only for API shape.
+	input.Size = "auto"
 	input.ProviderRevision = provider.Revision
 	snap, _, err := s.prepare(ctx, uid, input, prepareOptions{})
 	if err != nil {

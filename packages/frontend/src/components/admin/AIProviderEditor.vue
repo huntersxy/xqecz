@@ -2,20 +2,6 @@
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import type { AIProvider } from '@/types/schemas'
 import { aiApi } from '@/api/creative'
-import { formatImageRatio, parseImageSize } from '@/utils/imageSize'
-const COMMON_PROVIDER_SIZES = [
-  '1024x1024',
-  '1024x576',
-  '576x1024',
-  '1024x640',
-  '640x1024',
-  '1024x683',
-  '683x1024',
-  '1024x768',
-  '768x1024',
-  '1536x1024',
-  '1024x1536',
-]
 const props = defineProps<{ provider: AIProvider | null }>(),
   emit = defineEmits<{ saved: [] }>()
 const blank = () => ({
@@ -30,7 +16,8 @@ const blank = () => ({
   enabled: false,
   default: false,
   has_key: false,
-  sizes: [...COMMON_PROVIDER_SIZES],
+  // Kept for the existing API shape; image size choices belong to users.
+  sizes: [],
   qualities: [] as string[],
   max_count: 1,
   max_references: 0,
@@ -61,20 +48,6 @@ watch(
   },
   { immediate: true },
 )
-const sizes = computed({
-  get: () => form.value.sizes.join(', '),
-  set: (v) =>
-    (form.value.sizes = v
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)),
-})
-const sizePreview = computed(() =>
-  form.value.sizes.map((value) => ({
-    value,
-    parsed: parseImageSize(value),
-  })),
-)
 const qualities = computed({
   get: () => form.value.qualities.join(', '),
   set: (v) =>
@@ -83,12 +56,6 @@ const qualities = computed({
       .map((s) => s.trim())
       .filter(Boolean)),
 })
-function fillCommonSizes() {
-  form.value.sizes = [...COMMON_PROVIDER_SIZES]
-}
-function removeSize(value: string) {
-  form.value.sizes = form.value.sizes.filter((item) => item !== value)
-}
 watch(
   () => form.value.edit_transport,
   (value) => {
@@ -156,20 +123,10 @@ async function save() {
         autocomplete="new-password"
     /></a-form-item>
     <div class="provider-fields">
-      <a-form-item label="允许尺寸（逗号分隔）"
-        ><a-input v-model="sizes" />
-        <template #extra
-          >按供应商文档保留实际支持的值；<a-button type="text" size="mini" @click="fillCommonSizes"
-            >填入常用预设</a-button
-          ></template
-        >
-          <div v-if="sizePreview.length" class="provider-size-preview" aria-label="尺寸比例预览">
-            <span v-for="item in sizePreview" :key="item.value" class="provider-size-chip">
-              <span>{{ item.parsed ? `${formatImageRatio(item.parsed)} · ${item.value.replace('x', '×')}` : item.value }}</span>
-              <button type="button" :aria-label="`移除尺寸 ${item.value}`" @click="removeSize(item.value)">×</button>
-            </span>
-          </div>
-        </a-form-item
+      <a-form-item label="图像尺寸"
+        ><p class="provider-size-note">
+          尺寸由创作者在工作台选择：支持自动、1K / 2K / 4K 比例预设和自定义宽高。供应商配置不再限制用户的分辨率。
+        </p></a-form-item
       ><a-form-item label="允许画质（无此参数则留空）"><a-input v-model="qualities" /></a-form-item
       ><a-form-item label="最多输出张数"
         ><a-input-number v-model="form.max_count" :min="1" :max="2" /></a-form-item
@@ -201,7 +158,7 @@ async function save() {
       <template #extra>仅填写供应商文档明确支持的非密配置；API Key 始终单独加密保存。</template>
     </a-form-item>
     <p class="creative-note">
-      只有经供应商文档或测试确认后才启用参考图接口、尺寸、画质与数量。站点不会自动重试可能已经收费的请求。
+      只有经供应商文档或测试确认后才启用参考图接口、画质与数量。站点不会自动重试可能已经收费的请求。
     </p>
     <a-checkbox v-model="form.enabled">启用</a-checkbox
     ><a-checkbox v-model="form.default">默认供应商</a-checkbox>
@@ -215,45 +172,11 @@ async function save() {
   grid-template-columns: 1fr 1fr;
   gap: 0 16px;
 }
-.provider-size-preview {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
-.provider-size-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  max-width: 100%;
-  padding: 4px 6px 4px 9px;
-  border: 1px solid var(--creative-line);
-  border-radius: 999px;
-  color: var(--creative-ink);
-  background: var(--creative-canvas);
-  font-size: 11px;
-  line-height: 1.3;
-}
-.provider-size-chip span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.provider-size-chip button {
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
+.provider-size-note {
+  margin: 0;
   color: var(--creative-muted);
-  background: transparent;
-  cursor: pointer;
-}
-.provider-size-chip button:hover {
-  color: var(--color-danger);
-  background: var(--creative-soft);
+  font-size: 12px;
+  line-height: 1.6;
 }
 @media (max-width: 560px) {
   .provider-fields {

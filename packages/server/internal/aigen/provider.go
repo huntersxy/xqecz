@@ -75,7 +75,11 @@ func (p OpenAIProvider) Generate(ctx context.Context, cfg ProviderConfig, key st
 		body = reader
 		go func() {
 			write := func() error {
-				for field, value := range map[string]string{"model": cfg.Model, "prompt": input.Prompt, "size": input.Size, "n": strconv.Itoa(input.Count)} {
+				fields := map[string]string{"model": cfg.Model, "prompt": input.Prompt, "n": strconv.Itoa(input.Count)}
+				if input.Size != "" && input.Size != "auto" {
+					fields["size"] = input.Size
+				}
+				for field, value := range fields {
 					if err := form.WriteField(field, value); err != nil {
 						return err
 					}
@@ -115,7 +119,10 @@ func (p OpenAIProvider) Generate(ctx context.Context, cfg ProviderConfig, key st
 			writer.CloseWithError(write())
 		}()
 	} else {
-		payload := map[string]any{"model": cfg.Model, "prompt": input.Prompt, "size": input.Size, "n": input.Count}
+		payload := map[string]any{"model": cfg.Model, "prompt": input.Prompt, "n": input.Count}
+		if input.Size != "" && input.Size != "auto" {
+			payload["size"] = input.Size
+		}
 		if input.Quality != "" {
 			payload["quality"] = input.Quality
 		}

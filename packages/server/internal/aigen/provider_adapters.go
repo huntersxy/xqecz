@@ -239,7 +239,7 @@ func (p OpenAIChatProvider) Generate(ctx context.Context, cfg ProviderConfig, ke
 	}
 	message := map[string]any{"role": "user", "content": parts}
 	payload := map[string]any{"model": cfg.Model, "messages": []any{message}, "n": input.Count, "modalities": []string{"text", "image"}}
-	if input.Size != "" {
+	if input.Size != "" && input.Size != "auto" {
 		payload["size"] = input.Size
 	}
 	if input.Quality != "" {

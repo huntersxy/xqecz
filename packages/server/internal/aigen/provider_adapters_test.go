@@ -22,11 +22,14 @@ func TestOpenAIChatAdapterWire(t *testing.T) {
 		if body["model"] != "chat-image" || body["modalities"].([]any)[1] != "image" {
 			t.Fatalf("unexpected body: %#v", body)
 		}
+		if _, ok := body["size"]; ok {
+			t.Fatal("automatic size must be omitted from chat requests")
+		}
 		url := "data:image/png;base64," + base64.StdEncoding.EncodeToString(testPNG())
 		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]any{"content": []any{map[string]any{"type": "image_url", "image_url": map[string]string{"url": url}}}}}}})
 	}))
 	defer server.Close()
-	images, err := (OpenAIChatProvider{Client: server.Client()}).Generate(context.Background(), ProviderConfig{Adapter: "openai_chat", Endpoint: server.URL + "/v1/chat/completions", Model: "chat-image", TimeoutSeconds: 10}, "chat-key", Input{Prompt: "a pink circle", Count: 1}, nil)
+	images, err := (OpenAIChatProvider{Client: server.Client()}).Generate(context.Background(), ProviderConfig{Adapter: "openai_chat", Endpoint: server.URL + "/v1/chat/completions", Model: "chat-image", TimeoutSeconds: 10}, "chat-key", Input{Prompt: "a pink circle", Size: "auto", Count: 1}, nil)
 	if err != nil || len(images) != 1 || len(images[0].Bytes) == 0 {
 		t.Fatalf("images=%d err=%v", len(images), err)
 	}
@@ -47,7 +50,7 @@ func TestGeminiAdapterWire(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"candidates": []any{map[string]any{"content": map[string]any{"parts": []any{map[string]any{"inlineData": map[string]string{"mimeType": "image/png", "data": base64.StdEncoding.EncodeToString(testPNG())}}}}}}})
 	}))
 	defer server.Close()
-	images, err := (GeminiProvider{Client: server.Client()}).Generate(context.Background(), ProviderConfig{Adapter: "gemini", Endpoint: server.URL + "/v1beta/models/gemini-2.5-flash-image:generateContent", Model: "gemini-2.5-flash-image", TimeoutSeconds: 10}, "gemini-key", Input{Prompt: "a white canvas", Count: 1}, nil)
+	images, err := (GeminiProvider{Client: server.Client()}).Generate(context.Background(), ProviderConfig{Adapter: "gemini", Endpoint: server.URL + "/v1beta/models/gemini-2.5-flash-image:generateContent", Model: "gemini-2.5-flash-image", TimeoutSeconds: 10}, "gemini-key", Input{Prompt: "a white canvas", Size: "auto", Count: 1}, nil)
 	if err != nil || len(images) != 1 || len(images[0].Bytes) == 0 {
 		t.Fatalf("images=%d err=%v", len(images), err)
 	}
@@ -81,7 +84,7 @@ func mustJSON(v any) []byte {
 }
 
 func TestProviderAdapterValidation(t *testing.T) {
-	base := ProviderConfig{Name: "test", Model: "image", Enabled: true, Sizes: `["1024x1024"]`, Qualities: `[]`, MaxCount: 1, EditTransport: "none", TimeoutSeconds: 10, Concurrency: 1, Cost: 1, QualityCosts: `{}`, Options: `{}`}
+	base := ProviderConfig{Name: "test", Model: "image", Enabled: true, Sizes: `[]`, Qualities: `[]`, MaxCount: 1, EditTransport: "none", TimeoutSeconds: 10, Concurrency: 1, Cost: 1, QualityCosts: `{}`, Options: `{}`}
 	tests := []struct {
 		name     string
 		adapter  string

@@ -2014,7 +2014,7 @@ body[arco-theme='dark'] .ai-studio select {
 }
 .studio-size-tabs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
   padding: 4px;
   border: 1px solid var(--creative-line);
@@ -2037,64 +2037,126 @@ body[arco-theme='dark'] .ai-studio select {
   background: var(--creative-paper);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--creative-ink) 8%, transparent);
 }
-.studio-size-options {
+.studio-size-auto {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  justify-items: center;
+  min-height: 260px;
+  padding: 44px 20px 28px;
+  text-align: center;
+}
+.studio-size-auto-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 18px;
+  border-radius: 50%;
+  color: var(--creative-accent);
+  background: var(--creative-soft);
+  font-size: 32px;
+  line-height: 1;
+}
+.studio-size-auto h3 {
+  margin: 0;
+  color: var(--creative-ink);
+  font-size: 15px;
+}
+.studio-size-auto p {
+  margin: 10px 0 0;
+  color: var(--creative-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.studio-size-ratio-panel {
+  display: grid;
+  gap: 20px;
   margin-top: 16px;
 }
-.studio-size-option {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.studio-size-section-label {
+  margin-bottom: 9px;
+  color: var(--creative-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.studio-size-tiers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.studio-size-tiers button,
+.studio-size-ratios button {
   min-width: 0;
-  padding: 10px;
   border: 1px solid var(--creative-line);
   border-radius: 12px;
   color: var(--creative-ink);
   background: var(--creative-paper);
-  text-align: left;
+  font: inherit;
   cursor: pointer;
 }
-.studio-size-option:hover,
-.studio-size-option.is-selected {
+.studio-size-tiers button {
+  display: grid;
+  gap: 4px;
+  padding: 11px 8px;
+  text-align: left;
+}
+.studio-size-tiers button:hover,
+.studio-size-tiers button.is-selected,
+.studio-size-ratios button:hover,
+.studio-size-ratios button.is-selected {
   border-color: var(--creative-accent);
   background: var(--creative-soft);
 }
-.studio-size-swatch {
-  display: block;
-  flex: 0 0 auto;
-  width: 42px;
-  max-height: 42px;
-  border: 1px solid color-mix(in srgb, var(--creative-accent) 65%, var(--creative-line));
-  border-radius: 5px;
-  background: color-mix(in srgb, var(--creative-accent) 12%, transparent);
+.studio-size-tiers strong {
+  font-size: 14px;
 }
-.studio-size-swatch.is-raw {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 30px;
-  color: var(--creative-accent);
-  font-size: 10px;
-}
-.studio-size-option-copy {
-  display: grid;
-  min-width: 0;
-  gap: 3px;
-}
-.studio-size-option-copy strong,
-.studio-size-option-copy small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.studio-size-option-copy strong {
-  font-size: 13px;
-}
-.studio-size-option-copy small {
+.studio-size-tiers small {
   color: var(--creative-muted);
   font-size: 11px;
+}
+.studio-size-ratios {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.studio-size-ratios button {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 9px 5px;
+  font-size: 11px;
+}
+.studio-size-ratio-swatch {
+  display: block;
+  width: 27px;
+  max-height: 24px;
+  border: 1px solid color-mix(in srgb, var(--creative-accent) 70%, var(--creative-line));
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--creative-accent) 12%, transparent);
+}
+.studio-size-ratio-swatch.is-custom {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 24px;
+  color: var(--creative-accent);
+  font-size: 16px;
+}
+.studio-size-ratio-input {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  color: var(--creative-muted);
+  font-size: 12px;
+}
+.studio-size-ratio-input input {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--creative-line);
+  border-radius: 10px;
+  color: var(--creative-ink);
+  background: var(--creative-canvas);
+  font: inherit;
 }
 .studio-size-custom {
   margin-top: 16px;
@@ -2471,8 +2533,11 @@ body[arco-theme='dark'] .ai-studio select {
   }
 }
 @media (max-width: 540px) {
-  .studio-size-options {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .studio-size-ratios {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .studio-size-ratios button:last-child {
+    grid-column: span 3;
   }
   .studio-size-footer {
     align-items: flex-end;

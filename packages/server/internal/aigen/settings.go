@@ -136,14 +136,8 @@ func validateProvider(p ProviderConfig) error {
 	if len(p.Model) == 0 || len(p.Model) > 160 {
 		return invalidProvider("模型 ID 无效")
 	}
-	sizes := stringList(p.Sizes)
-	if len(sizes) == 0 || len(sizes) > 12 || p.MaxCount < 1 || p.MaxCount > 2 || p.MaxReferences < 0 || p.MaxReferences > 8 || p.TimeoutSeconds < 10 || p.TimeoutSeconds > 300 || p.Concurrency < 1 || p.Concurrency > 2 || p.Cost < 1 || p.Cost > 10000 {
+	if p.MaxCount < 1 || p.MaxCount > 2 || p.MaxReferences < 0 || p.MaxReferences > 8 || p.TimeoutSeconds < 10 || p.TimeoutSeconds > 300 || p.Concurrency < 1 || p.Concurrency > 2 || p.Cost < 1 || p.Cost > 10000 {
 		return invalidProvider("供应商参数范围无效")
-	}
-	for _, size := range sizes {
-		if len(size) == 0 || len(size) > 32 {
-			return invalidProvider("允许尺寸无效")
-		}
 	}
 	if len(stringList(p.Qualities)) > 8 {
 		return invalidProvider("允许画质过多")

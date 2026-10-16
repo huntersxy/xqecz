@@ -74,6 +74,49 @@ func TestOpenAIAdapterWireAndEditing(t *testing.T) {
 		})
 	}
 }
+
+func TestOpenAIAdapterAutoOmitsConcreteSize(t *testing.T) {
+	for _, transport := range []string{"none", "multipart", "json"} {
+		t.Run(transport, func(t *testing.T) {
+			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if transport == "multipart" {
+					if err := r.ParseMultipartForm(1 << 20); err != nil {
+						t.Fatal(err)
+					}
+					if _, ok := r.MultipartForm.Value["size"]; ok {
+						t.Fatal("automatic size must be omitted from multipart requests")
+					}
+				} else {
+					var body map[string]any
+					if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+						t.Fatal(err)
+					}
+					if _, ok := body["size"]; ok {
+						t.Fatal("automatic size must be omitted from JSON requests")
+					}
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{"data": []any{map[string]string{"b64_json": base64.StdEncoding.EncodeToString(testPNG())}}})
+			}))
+			defer server.Close()
+			cfg := ProviderConfig{Endpoint: server.URL + "/v1/images/generations", Model: "image-model", EditTransport: transport, TimeoutSeconds: 10}
+			input := Input{Prompt: "let the model decide", Size: "auto", Count: 1}
+			files := []string{}
+			if transport != "none" {
+				input.Prompt = "使用 @图片1"
+				path := filepath.Join(t.TempDir(), "reference.png")
+				if err := os.WriteFile(path, testPNG(), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				files = append(files, path)
+			}
+			images, err := (OpenAIProvider{Client: server.Client()}).Generate(context.Background(), cfg, "test-only-key", input, files)
+			if err != nil || len(images) != 1 {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func TestProviderFailureClassificationAndSecretRedaction(t *testing.T) {
 	for _, status := range []int{400, 401, 429, 500, 307} {
 		t.Run(http.StatusText(status), func(t *testing.T) {

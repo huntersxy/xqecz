@@ -254,11 +254,22 @@ describe('studio gallery and composer', () => {
     const w = await render()
     await w.get('textarea').setValue('两幅横向画面')
     await w.get('button[aria-label="画面尺寸"]').trigger('click')
-    const sizeOption = Array.from(
-      document.body.querySelectorAll<HTMLButtonElement>('.studio-size-option'),
-    ).find((option) => option.textContent?.includes('1536×1024'))
-    expect(sizeOption).toBeTruthy()
-    sizeOption!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    const ratioTab = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('.studio-size-tabs [role="tab"]'),
+    ).find((tab) => tab.textContent?.includes('按比例'))
+    expect(ratioTab).toBeTruthy()
+    ratioTab!.click()
+    await flushPromises()
+    const tierOption = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('.studio-size-tiers [role="option"]'),
+    ).find((option) => option.textContent?.trim().startsWith('2K'))
+    expect(tierOption).toBeTruthy()
+    tierOption!.click()
+    const ratioOption = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('.studio-size-ratios [role="option"]'),
+    ).find((option) => option.textContent?.includes('16:9'))
+    expect(ratioOption).toBeTruthy()
+    ratioOption!.click()
     const confirmSize = Array.from(
       document.body.querySelectorAll<HTMLButtonElement>('.studio-size-dialog button'),
     ).find((button) => button.textContent?.trim() === '确定')
@@ -274,7 +285,24 @@ describe('studio gallery and composer', () => {
     await flushPromises()
     expect(api.submit).toHaveBeenCalledTimes(1)
     expect(api.submit).toHaveBeenCalledWith(
-      expect.objectContaining({ size: '1536x1024', count: 2, expected_cost: 4 }),
+      expect.objectContaining({ size: '2560x1440', count: 2, expected_cost: 4 }),
+      expect.any(AbortSignal),
+    )
+  })
+  it('submits automatic sizing without adding a concrete resolution', async () => {
+    const w = await render()
+    await w.get('textarea').setValue('让模型自行决定构图尺寸')
+    await w.get('button[aria-label="画面尺寸"]').trigger('click')
+    const confirmSize = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('.studio-size-dialog button'),
+    ).find((button) => button.textContent?.trim() === '确定')
+    expect(confirmSize).toBeTruthy()
+    confirmSize!.click()
+    await flushPromises()
+    await button(w, '开始生成').trigger('click')
+    await flushPromises()
+    expect(api.submit).toHaveBeenCalledWith(
+      expect.objectContaining({ size: 'auto' }),
       expect.any(AbortSignal),
     )
   })

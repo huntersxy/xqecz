@@ -26,7 +26,7 @@ import StudioReferences from '@/components/StudioReferences.vue'
 import StudioSizePicker from '@/components/StudioSizePicker.vue'
 import '@/assets/creative-pages.css'
 import { referenceMentionAt, remapReferenceMentions } from '@/utils/creativeMentions'
-import { formatImageSize } from '@/utils/imageSize'
+import { formatImageSize, normalizeImageSize, parseImageSize, AUTO_IMAGE_SIZE } from '@/utils/imageSize'
 const studio = useAIStudio(),
   router = useRouter(),
   route = useRoute(),
@@ -429,11 +429,11 @@ async function applyResource(value: {
             ? prompt.value.slice(0, start) + value.text + prompt.value.slice(end)
             : [prompt.value, value.text].filter(Boolean).join('\n')
     for (const id of value.assets) studio.addReference(id)
-    if (
-      typeof value.parameters.size === 'string' &&
-      provider.value?.sizes.includes(value.parameters.size)
-    )
-      size.value = value.parameters.size
+    if (typeof value.parameters.size === 'string') {
+      const rawSize = value.parameters.size.trim()
+      if (rawSize.toLowerCase() === AUTO_IMAGE_SIZE) size.value = AUTO_IMAGE_SIZE
+      else if (parseImageSize(rawSize)) size.value = normalizeImageSize(rawSize)
+    }
     if (
       typeof value.parameters.quality === 'string' &&
       provider.value?.qualities.includes(value.parameters.quality)
@@ -883,7 +883,7 @@ watch(ready, (value) => {
                 type="button"
                 class="studio-size-trigger"
                 aria-label="画面尺寸"
-                :disabled="composerLocked || !provider?.sizes.length"
+                :disabled="composerLocked"
                 @click="sizePickerOpen = true"
               >
                 {{ formatImageSize(size) }}
@@ -967,7 +967,6 @@ watch(ready, (value) => {
     <StudioSizePicker
       v-model:visible="sizePickerOpen"
       :model-value="size"
-      :sizes="provider?.sizes ?? []"
       @select="size = $event"
     />
     <a-modal

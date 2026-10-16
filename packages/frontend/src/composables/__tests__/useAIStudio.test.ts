@@ -135,10 +135,10 @@ describe('AI studio persistence', () => {
     )
     wrapper.unmount()
   })
-  it('restores an empty session with the default provider and a supported size', async () => {
+  it('restores an empty session with the default provider and automatic sizing', async () => {
     const { wrapper, studio } = await setup()
     expect(studio.providerId.value).toBe(1)
-    expect(studio.size.value).toBe('1024x1024')
+    expect(studio.size.value).toBe('auto')
     expect(studio.ready.value).toBe(true)
     wrapper.unmount()
   })

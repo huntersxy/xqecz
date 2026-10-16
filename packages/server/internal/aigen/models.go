@@ -104,6 +104,8 @@ type ProviderConfig struct {
 	CipherKey      string `gorm:"type:text" json:"-"`
 	Enabled        bool   `json:"enabled"`
 	Default        bool   `json:"default"`
+	// Sizes remains in the schema for old clients and snapshots. Generation
+	// accepts the user's validated size (or auto) independently of this field.
 	Sizes          string `gorm:"type:text" json:"sizes"`
 	Qualities      string `gorm:"type:text" json:"qualities"`
 	MaxCount       int    `json:"max_count"`

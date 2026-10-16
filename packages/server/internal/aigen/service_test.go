@@ -148,6 +148,33 @@ func TestReservationIdempotencyAndImmutableSuccess(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestUserImageSizeIsNotBoundByProviderList(t *testing.T) {
+	s, _, p, session := testService(t)
+	grant(t, s, 1, 10)
+	ctx := context.Background()
+
+	custom := inputFor(p, session, "custom-size-key-0001")
+	custom.Size = "3840x2160"
+	customTask, err := s.Submit(ctx, 1, custom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if customTask.Size != "3840x2160" {
+		t.Fatalf("custom size was changed: %q", customTask.Size)
+	}
+
+	automatic := inputFor(p, session, "auto-size-key-00001")
+	automatic.Size = "AUTO"
+	autoTask, err := s.Submit(ctx, 1, automatic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if autoTask.Size != "auto" {
+		t.Fatalf("automatic size was not canonicalized: %q", autoTask.Size)
+	}
+}
+
 func TestFailureUnknownRecoveryAndManualSettlement(t *testing.T) {
 	for _, tc := range []struct {
 		name                string

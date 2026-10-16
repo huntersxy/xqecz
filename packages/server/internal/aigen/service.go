@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +28,30 @@ var ErrBusy = errors.New("任务数量已达上限或状态已改变")
 var ErrUnavailable = errors.New("供应商未配置、已停用或密钥不可用")
 var ErrConflict = errors.New("数据已更新，请刷新后重试")
 var ErrResolveNote = errors.New("核查依据与说明须填写 3–300 个字")
+
+// validUserImageSize keeps the user-controlled size field bounded without
+// making it depend on a provider's legacy sizes list. The frontend normalizes
+// custom values to the same safe range; the server still rejects malformed or
+// unexpectedly large requests received from older clients or direct callers.
+func validUserImageSize(value string) bool {
+	value = strings.ToLower(strings.TrimSpace(strings.ReplaceAll(value, "×", "x")))
+	if value == "auto" {
+		return true
+	}
+	parts := strings.Split(value, "x")
+	if len(parts) != 2 {
+		return false
+	}
+	width, errWidth := strconv.Atoi(strings.TrimSpace(parts[0]))
+	height, errHeight := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if errWidth != nil || errHeight != nil || width <= 0 || height <= 0 || width > 3840 || height > 3840 {
+		return false
+	}
+	if width > height*3 || height > width*3 {
+		return false
+	}
+	return width*height >= 655_360 && width*height <= 8_294_400
+}
 
 func invalidInput(message string) error {
 	return fmt.Errorf("%w: %s", ErrInvalid, message)
@@ -106,7 +131,7 @@ func (s *Service) Init(ctx context.Context) error {
 		return err
 	}
 	if count == 0 && s.cfg.AIImageBaseURL != "" && s.cfg.AIImageAPIKey != "" && s.cfg.AIImageModel != "" {
-		_, err = s.SaveProvider(ctx, 0, ProviderConfig{Name: "站点生图", Adapter: defaultAdapter, Endpoint: s.cfg.AIImageBaseURL, Model: s.cfg.AIImageModel, Enabled: true, Default: true, Sizes: `["1024x1024","1024x576","576x1024","1024x640","640x1024","1024x683","683x1024","1024x768","768x1024","1536x1024","1024x1536"]`, Qualities: `[]`, MaxCount: 1, EditTransport: "none", TimeoutSeconds: 180, Concurrency: 1, Cost: 1, QualityCosts: `{}`, Options: `{}`}, s.cfg.AIImageAPIKey)
+		_, err = s.SaveProvider(ctx, 0, ProviderConfig{Name: "站点生图", Adapter: defaultAdapter, Endpoint: s.cfg.AIImageBaseURL, Model: s.cfg.AIImageModel, Enabled: true, Default: true, Sizes: `[]`, Qualities: `[]`, MaxCount: 1, EditTransport: "none", TimeoutSeconds: 180, Concurrency: 1, Cost: 1, QualityCosts: `{}`, Options: `{}`}, s.cfg.AIImageAPIKey)
 	}
 	return err
 }
@@ -143,6 +168,12 @@ type prepareOptions struct {
 
 func (s *Service) prepare(ctx context.Context, uid uint64, input Input, options prepareOptions) (taskSnapshot, int64, error) {
 	input.Prompt = strings.TrimSpace(input.Prompt)
+	input.Size = strings.TrimSpace(input.Size)
+	if strings.EqualFold(input.Size, "auto") {
+		input.Size = "auto"
+	} else if input.Size == "" {
+		input.Size = "auto"
+	}
 	if uid == 0 || len([]rune(input.Prompt)) < 1 || len([]rune(input.Prompt)) > 8000 {
 		return taskSnapshot{}, 0, ErrInvalid
 	}
@@ -163,7 +194,7 @@ func (s *Service) prepare(ctx context.Context, uid uint64, input Input, options 
 		return taskSnapshot{}, 0, ErrConflict
 	}
 	input.ProviderID = p.ID
-	if !contains(stringList(p.Sizes), input.Size) || input.Count < 1 || input.Count > p.MaxCount || (input.Quality != "" && !contains(stringList(p.Qualities), input.Quality)) {
+	if !validUserImageSize(input.Size) || input.Count < 1 || input.Count > p.MaxCount || (input.Quality != "" && !contains(stringList(p.Qualities), input.Quality)) {
 		return taskSnapshot{}, 0, ErrInvalid
 	}
 	refs, files, seen := []Asset{}, []string{}, map[uint64]bool{}

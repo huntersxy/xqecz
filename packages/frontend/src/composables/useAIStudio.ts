@@ -2,6 +2,7 @@ import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { aiApi, type GenerationInput } from '@/api/creative'
 import type { AIAccount, AIProvider, AISession, AIAsset, AITaskView } from '@/types/schemas'
 import { useUserStore } from '@/stores/user'
+import { AUTO_IMAGE_SIZE } from '@/utils/imageSize'
 
 export function useAIStudio() {
   const user = useUserStore()
@@ -16,7 +17,7 @@ export function useAIStudio() {
     prompt = ref(''),
     mode = ref<'site' | 'byok'>('site'),
     providerId = ref(0),
-    size = ref(''),
+    size = ref(AUTO_IMAGE_SIZE),
     quality = ref(''),
     count = ref(1),
     references = ref<{ asset_id: number; note: string }[]>([]),
@@ -131,7 +132,7 @@ export function useAIStudio() {
     prompt.value = draft.prompt ?? ''
     mode.value = draft.mode === 'byok' ? 'byok' : 'site'
     providerId.value = draft.provider_id ?? 0
-    size.value = draft.size ?? ''
+    size.value = draft.size?.trim() || AUTO_IMAGE_SIZE
     quality.value = draft.quality ?? ''
     count.value = draft.count ?? 1
     references.value = draft.references ?? []
@@ -142,7 +143,6 @@ export function useAIStudio() {
     const chosen =
       availableProviders.value.find((p) => p.id === providerId.value) ?? availableProviders.value[0]
     providerId.value = chosen?.id ?? 0
-    if (chosen && !chosen.sizes.includes(size.value)) size.value = chosen.sizes[0] ?? ''
     selectedAsset.value =
       tasks.value.filter((t) => t.task.session_id === row.id).flatMap((t) => t.assets)[0] ?? null
     localStorage.setItem(`xqecz:ai-session:${user.user?.id}`, String(row.id))
@@ -326,7 +326,6 @@ export function useAIStudio() {
   })
   watch(provider, (p) => {
     if (!p) return
-    if (!p.sizes.includes(size.value)) size.value = p.sizes[0] ?? ''
     if (quality.value && !p.qualities.includes(quality.value)) quality.value = ''
     count.value = Math.max(1, Math.min(count.value, p.max_count))
     const maxReferences = p.edit_transport === 'none' ? 0 : p.max_references
