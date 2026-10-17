@@ -315,13 +315,18 @@ func (h *Handler) taskViews(c *gin.Context, rows []core.Task) ([]any, error) {
 			return nil, err
 		}
 	}
+	assetsByTask := make(map[uint64][]core.Asset, len(ids))
+	for _, asset := range assets {
+		if asset.Archived {
+			continue
+		}
+		assetsByTask[asset.TaskID] = append(assetsByTask[asset.TaskID], asset)
+	}
 	out := []any{}
 	for _, row := range rows {
-		own := []core.Asset{}
-		for _, a := range assets {
-			if a.TaskID == row.ID && !a.Archived {
-				own = append(own, a)
-			}
+		own := assetsByTask[row.ID]
+		if own == nil {
+			own = []core.Asset{}
 		}
 		// Decode only reference metadata; never return the encrypted provider snapshot.
 		var snapshot struct {

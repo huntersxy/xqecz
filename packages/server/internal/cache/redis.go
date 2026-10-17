@@ -3,7 +3,9 @@ package cache
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/huntersxy/xqecz/server/internal/config"
@@ -17,11 +19,51 @@ const (
 	DefaultCacheTTL = 5 * time.Minute
 )
 
+// incrWithTTLScript keeps the hot counter path to one Redis round trip. The
+// previous INCR + EXPIRE pair allowed every request to issue a second command;
+// the key is only given a TTL when it is first created, preserving the old
+// expiry semantics without paying that extra network hop.
+var incrWithTTLScript = redis.NewScript(`
+local n = redis.call('INCR', KEYS[1])
+if n == 1 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+end
+return n
+`)
+
+// getSessionScript combines session lookup, sliding-expiry check and renewal.
+// Session validation runs on every authenticated request, so avoiding the
+// separate GET → TTL → EXPIRE sequence materially reduces Redis round trips.
+var getSessionScript = redis.NewScript(`
+local value = redis.call('GET', KEYS[1])
+if not value then
+  return nil
+end
+local ttl = redis.call('PTTL', KEYS[1])
+if ttl >= 0 and ttl < tonumber(ARGV[1]) then
+  redis.call('PEXPIRE', KEYS[1], ARGV[2])
+end
+return value
+`)
+
 // Client 包装 go-redis：统一给业务 key 加前缀（对齐旧 ioredis 的 keyPrefix 语义），
 // 并在 Redis 不可用时对读路径降级（缓存故障不影响业务）。
 type Client struct {
 	rdb    *redis.Client
 	prefix string
+
+	// jsonFlights coalesces concurrent misses for the same logical key. The
+	// Redis read still happens per request, but only the first request executes
+	// the database loader while a hot entry is expiring. Flights are scoped to a
+	// client so tests and processes with different prefixes cannot share data.
+	flightMu    sync.Mutex
+	jsonFlights map[string]*jsonFlight
+}
+
+type jsonFlight struct {
+	done  chan struct{}
+	value any
+	err   error
 }
 
 func Open(cfg config.Config) *Client {
@@ -88,16 +130,67 @@ func (c *Client) GetJSON(ctx context.Context, key string, out any) (bool, error)
 // GetOrSetJSON 读穿缓存：命中直接返回，未命中执行 loader 并写回。
 // Redis 不可用时退化为直查，与旧实现一致。
 func GetOrSetJSON[T any](ctx context.Context, c *Client, key string, ttl time.Duration, loader func() (T, error)) (T, error) {
+	var zero T
+	if c == nil {
+		return loader()
+	}
 	var cached T
 	if hit, err := c.GetJSON(ctx, key, &cached); err == nil && hit {
 		return cached, nil
 	}
+
+	flight, leader := c.beginJSONFlight(key)
+	if !leader {
+		select {
+		case <-flight.done:
+			if flight.err != nil {
+				return zero, flight.err
+			}
+			value, ok := flight.value.(T)
+			if !ok {
+				return zero, fmt.Errorf("cache: in-flight value type mismatch for %q", key)
+			}
+			return value, nil
+		case <-ctx.Done():
+			return zero, ctx.Err()
+		}
+	}
+
+	// Only the leader runs the loader. Always publish its result and remove the
+	// flight, including loader errors, so a transient database failure is not
+	// retained as a permanently failed cache entry.
+	defer c.finishJSONFlight(key, flight)
 	data, err := loader()
 	if err != nil {
+		flight.err = err
 		return data, err
 	}
 	_ = c.SetJSON(ctx, key, data, ttl)
+	flight.value = data
 	return data, nil
+}
+
+func (c *Client) beginJSONFlight(key string) (*jsonFlight, bool) {
+	c.flightMu.Lock()
+	defer c.flightMu.Unlock()
+	if c.jsonFlights == nil {
+		c.jsonFlights = make(map[string]*jsonFlight)
+	}
+	if flight, ok := c.jsonFlights[key]; ok {
+		return flight, false
+	}
+	flight := &jsonFlight{done: make(chan struct{})}
+	c.jsonFlights[key] = flight
+	return flight, true
+}
+
+func (c *Client) finishJSONFlight(key string, flight *jsonFlight) {
+	c.flightMu.Lock()
+	if current, ok := c.jsonFlights[key]; ok && current == flight {
+		delete(c.jsonFlights, key)
+	}
+	close(flight.done)
+	c.flightMu.Unlock()
 }
 
 // ---- session ----
@@ -109,16 +202,23 @@ func (c *Client) SetSession(ctx context.Context, sessionID string, userID uint64
 // GetSession 读取会话，并在剩余 TTL 不足一半时滑动续期。
 func (c *Client) GetSession(ctx context.Context, sessionID string) (uint64, bool) {
 	key := c.Key("session:" + sessionID)
-	val, err := c.rdb.Get(ctx, key).Result()
-	if err != nil {
+	result, err := getSessionScript.Run(ctx, c.rdb, []string{key},
+		SessionRenew.Milliseconds(), SessionTTL.Milliseconds()).Result()
+	if err != nil || result == nil {
+		return 0, false
+	}
+	var val string
+	switch value := result.(type) {
+	case string:
+		val = value
+	case []byte:
+		val = string(value)
+	default:
 		return 0, false
 	}
 	uid, err := strconv.ParseUint(val, 10, 64)
 	if err != nil || uid == 0 {
 		return 0, false
-	}
-	if ttl, err := c.rdb.TTL(ctx, key).Result(); err == nil && ttl >= 0 && ttl < SessionRenew {
-		c.rdb.Expire(ctx, key, SessionTTL)
 	}
 	return uid, true
 }
@@ -132,12 +232,9 @@ func (c *Client) DelSession(ctx context.Context, sessionID string) error {
 // IncrementView 记录当天浏览量，首次创建时设置 32 天过期。
 func (c *Client) IncrementView(ctx context.Context, contentID uint64) int64 {
 	key := "views:date:" + time.Now().Format("2006-01-02") + ":" + strconv.FormatUint(contentID, 10)
-	n, err := c.rdb.Incr(ctx, c.Key(key)).Result()
+	n, err := incrWithTTLScript.Run(ctx, c.rdb, []string{c.Key(key)}, viewKeyTTL.Milliseconds()).Int64()
 	if err != nil {
 		return 0
-	}
-	if n == 1 {
-		c.rdb.Expire(ctx, c.Key(key), viewKeyTTL)
 	}
 	return n
 }
@@ -237,12 +334,9 @@ func (c *Client) ClearAllContentCaches(ctx context.Context) {
 
 // IncrWithTTL 自增计数并在首次创建时设置过期时间。
 func (c *Client) IncrWithTTL(ctx context.Context, key string, ttl time.Duration) int64 {
-	n, err := c.rdb.Incr(ctx, c.Key(key)).Result()
+	n, err := incrWithTTLScript.Run(ctx, c.rdb, []string{c.Key(key)}, ttl.Milliseconds()).Int64()
 	if err != nil {
 		return 0
-	}
-	if n == 1 {
-		c.rdb.Expire(ctx, c.Key(key), ttl)
 	}
 	return n
 }

@@ -238,6 +238,8 @@ packages/server (单一 Go 二进制)
 - 批量缩略图：Redis 锁 + 30 秒心跳续期，进度写 `task:regen-all-thumbs:status`（7 天 TTL），接口立即返回、后台逐条处理。
 - 认领通过后会把内容作者变更给认领人，并失效内容缓存。
 - 运行日志通过 `GET /api/admin/logs` 提供最近 500 条进程内环形缓冲记录，支持 `limit`、`level` 和 `after` 游标；不写数据库，进程重启后清空，接口仍要求管理员会话。
+- Redis 热路径将会话读取/滑动续期、浏览量和限频计数合并为单次 Lua 调用；读穿缓存对同一 key 做进程内请求合并，避免 TTL 同时失效时并发击穿数据库。
+- 认领列表、评论作者和 AI 任务资产都先批量建立关联映射，再组装响应，避免页面条数放大查询或遍历成本；管理列表单页限制为 200 条。
 - 迁移中修正的缺陷：用户列表与认领列表的分页总数与列表内容原先可能不一致（过滤条件只作用于计数查询），
   现统一用同一份条件会话执行 Count 与 Find。
 
@@ -281,7 +283,8 @@ packages/server (单一 Go 二进制)
   `api_keys` 鉴权由全表扫变为 `ref const,const` 命中 1 行；内容列表由 `ALL` 变为 `range` + `Using index`（覆盖索引）；
   评论顶层列表与举报列表均走 `ref`。`contents.tags` 的 JSON_CONTAINS 无法用 B-Tree 索引，数据量大时需另做标签表。
   后续移除 `deleted_at` 会连带移除以该列为前导的 `contents` / `polls` 索引；部署过
-  `scripts/migrations/2026-10-18-add-post-soft-delete-hot-path-indexes.sql` 后，列表和推荐查询改用不依赖软删除列的索引；该脚本同时补齐点赞、收藏和投票去重的组合索引。
+  `scripts/migrations/2026-10-18-add-post-soft-delete-hot-path-indexes.sql` 后，列表和推荐查询改用不依赖软删除列的索引；该脚本同时补齐点赞、收藏和投票去重的组合索引。评论列表索引由
+  `scripts/migrations/2026-10-18-add-comment-list-index.sql` 补回。
 - **验收脚本** `scripts/acceptance.mjs`（`pnpm accept`）：覆盖公开读路径、登录态、上传与互动、投票去重、
   API 密钥鉴权与权限拒绝、管理端审核与统计、软删除可见性，共 44 项断言；结束后清理全部测试数据与上传文件。
   实测 44/44 通过、残留为 0。

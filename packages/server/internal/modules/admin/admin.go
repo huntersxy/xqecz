@@ -184,6 +184,11 @@ func (h *Handler) users(c *gin.Context) {
 	if pageSize < 1 {
 		pageSize = 20
 	}
+	if pageSize > 200 {
+		// 管理列表支持分页，但不允许单次请求把整张用户表装入内存。
+		// 200 也覆盖内容编辑器的批量作者选择请求。
+		pageSize = 200
+	}
 	keyword := strings.TrimSpace(c.Query("keyword"))
 
 	db := h.deps.DB.WithContext(ctx).Model(&store.User{})
@@ -370,6 +375,10 @@ func (h *Handler) claims(c *gin.Context) {
 	if pageSize < 1 {
 		pageSize = 20
 	}
+	if pageSize > 200 {
+		// 与用户列表保持一致，限制单页装饰与序列化成本。
+		pageSize = 200
+	}
 
 	db := h.deps.DB.WithContext(ctx).Model(&store.Claim{})
 	if status := strings.TrimSpace(c.Query("status")); status != "" {
@@ -389,6 +398,28 @@ func (h *Handler) claims(c *gin.Context) {
 	}
 
 	contents, users := h.loadClaimRefs(ctx, rows)
+	// 认领页已经一次性取出了内容行；批量装饰可把每条内容原本各自的
+	// 作者与点赞查询合并为一组查询，避免页面大小放大数据库往返次数。
+	contentRows := make([]store.Content, 0, len(contents))
+	contentSeen := make(map[uint64]struct{}, len(contents))
+	for _, r := range rows {
+		if row, ok := contents[r.ContentID]; ok {
+			if _, seen := contentSeen[row.ID]; seen {
+				continue
+			}
+			contentSeen[row.ID] = struct{}{}
+			contentRows = append(contentRows, row)
+		}
+	}
+	decoratedContents, err := h.content.DecorateMany(ctx, contentRows, true)
+	if err != nil {
+		web.Fail(c, 500, "服务异常")
+		return
+	}
+	contentItems := make(map[uint64]content.Item, len(decoratedContents))
+	for _, item := range decoratedContents {
+		contentItems[item.ID] = item
+	}
 	list := make([]gin.H, 0, len(rows))
 	for _, r := range rows {
 		item := gin.H{
@@ -397,8 +428,8 @@ func (h *Handler) claims(c *gin.Context) {
 			"approved_by": r.ApprovedBy, "remark": deref(r.Remark),
 			"created_at": web.TimeOf(r.CreatedAt), "updated_at": web.TimeOf(r.UpdatedAt),
 		}
-		if c, ok := contents[r.ContentID]; ok {
-			item["content"] = h.content.DecorateOne(ctx, c, true)
+		if decorated, ok := contentItems[r.ContentID]; ok {
+			item["content"] = decorated
 		} else {
 			item["content"] = nil
 		}

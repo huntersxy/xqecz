@@ -62,19 +62,27 @@ type Setup struct {
 	binDir string
 	store  ObjectStore
 
-	mu     sync.Mutex
-	synced map[string]int64 // 本地相对路径 → 最近一次确认已同步的字节数
+	mu sync.Mutex
+	// synced 记录最近一次确认已同步的本地文件状态。只用字节数会把「原地改写但
+	// 大小刚好没变」误当成同一份文件；把 mtime 一起记下来既保留正确性，也让
+	// 未变化的文件跳过昂贵的全文件 MD5 计算。
+	synced map[string]syncedFile
 	// archived 记录「本进程生命周期内已确认归档」的 rel。
 	// 归档件的本地来源（垃圾桶里的原件）不会像现役文件那样再被改写，
 	// 因此这里不需要比对字节数 —— 只要本次上传成功过就不再重复 HEAD。
 	archived map[string]bool
 }
 
+type syncedFile struct {
+	size    int64
+	modTime time.Time
+}
+
 // New 按目标构造镜像。凭据不全或客户端构造失败时返回停用态（Enabled()==false），
 // 调用方无需分支判断 —— 与 TinyPNG 缺 Key 即休眠同一套思路。
 // binDir 是本地垃圾桶目录：压缩后的原图留在那里，归档失败时回填任务据此补传。
 func New(t Target, binDir string) *Setup {
-	s := &Setup{cfg: t, binDir: binDir, synced: map[string]int64{}, archived: map[string]bool{}}
+	s := &Setup{cfg: t, binDir: binDir, synced: map[string]syncedFile{}, archived: map[string]bool{}}
 	if !t.Enabled() {
 		return s
 	}
@@ -218,7 +226,7 @@ func (s *Setup) upload(rel, key, absPath string) (bool, error) {
 	if info.IsDir() {
 		return false, nil
 	}
-	if s.isSynced(rel, info.Size()) {
+	if s.isSynced(rel, info.Size(), info.ModTime()) {
 		return false, nil
 	}
 
@@ -228,7 +236,7 @@ func (s *Setup) upload(rel, key, absPath string) (bool, error) {
 		return false, err
 	}
 	if sameObject(meta, found, want, info.Size()) {
-		s.markSynced(rel, info.Size())
+		s.markSynced(rel, info.Size(), info.ModTime())
 		return false, nil
 	}
 
@@ -239,7 +247,7 @@ func (s *Setup) upload(rel, key, absPath string) (bool, error) {
 		}
 		return false, err
 	}
-	s.markSynced(rel, info.Size())
+	s.markSynced(rel, info.Size(), info.ModTime())
 	slog.Info(s.cfg.LogName()+" 镜像完成", "key", key, "bytes", info.Size())
 	return true, nil
 }
@@ -357,8 +365,8 @@ func mirrorable(rel string) error {
 //   - 远端还停在原图时：文件名 md5（压缩前）== 远端 md5（原图），被误判成「已同步」，
 //     压缩图永远推不上去——公开域名会一直供着未压缩的大图。
 //
-// 代价是对变更过的文件每轮多读一遍内容；走到这里之前，isSynced 的字节数缓存已经挡掉
-// 绝大多数文件，实测全场 35MB 量级开销可忽略，换来的是两个方向都不再撒谎。
+// 代价是对变更过的文件每轮多读一遍内容；走到这里之前，isSynced 的字节数 + mtime
+// 缓存已经挡掉绝大多数文件，实测全场 35MB 量级开销可忽略，换来的是两个方向都不再撒谎。
 func localMD5(absPath string) string {
 	return fileMD5(absPath)
 }
@@ -405,17 +413,17 @@ func normRel(rel string) string {
 	return strings.TrimPrefix(strings.ReplaceAll(rel, "\\", "/"), "/")
 }
 
-func (s *Setup) isSynced(rel string, size int64) bool {
+func (s *Setup) isSynced(rel string, size int64, modTime time.Time) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	got, ok := s.synced[rel]
-	return ok && got == size
+	return ok && got.size == size && got.modTime.Equal(modTime)
 }
 
-func (s *Setup) markSynced(rel string, size int64) {
+func (s *Setup) markSynced(rel string, size int64, modTime time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.synced[rel] = size
+	s.synced[rel] = syncedFile{size: size, modTime: modTime}
 }
 
 // archivedRemotely 表示本进程内已把 rel 的原图归档过一次。
@@ -447,11 +455,11 @@ func newWithStore(cfg config.R2Config, store ObjectStore) *Setup {
 
 // newWithStoreTarget 供同包测试注入任意目标。
 func newWithStoreTarget(t Target, store ObjectStore) *Setup {
-	return &Setup{cfg: t, store: store, synced: map[string]int64{}, archived: map[string]bool{}}
+	return &Setup{cfg: t, store: store, synced: map[string]syncedFile{}, archived: map[string]bool{}}
 }
 
 // newWithStoreAndBin 供同包测试注入假存储与垃圾桶目录。
 func newWithStoreAndBin(cfg config.R2Config, store ObjectStore, binDir string) *Setup {
 	return &Setup{cfg: TargetFromR2(cfg), binDir: binDir, store: store,
-		synced: map[string]int64{}, archived: map[string]bool{}}
+		synced: map[string]syncedFile{}, archived: map[string]bool{}}
 }

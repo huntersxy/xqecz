@@ -473,7 +473,9 @@ func (h *Handler) userMapFor(ctx context.Context, rows []store.Content) map[uint
 		return out
 	}
 	var users []store.User
-	if err := h.deps.DB.WithContext(ctx).Where("id IN ?", ids).Find(&users).Error; err != nil {
+	// Public content decoration only needs the author identity and avatar
+	// source. Avoid fetching password/role/session fields for every list row.
+	if err := h.deps.DB.WithContext(ctx).Select("id", "username", "email").Where("id IN ?", ids).Find(&users).Error; err != nil {
 		return out
 	}
 	for _, u := range users {

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/huntersxy/xqecz/server/internal/config"
 	"github.com/huntersxy/xqecz/server/internal/r2"
@@ -176,6 +177,34 @@ func TestPushReuploadsAfterInPlaceCompression(t *testing.T) {
 	}
 	if string(store.objects["uploads/c.webp"]) != "tiny" {
 		t.Fatalf("R2 上应换成压缩后的内容，实际 %q", string(store.objects["uploads/c.webp"]))
+	}
+}
+
+func TestPushReuploadsSameSizeWhenFileChanges(t *testing.T) {
+	store := newFakeStore()
+	s, dir := testSetup(t, store)
+	abs := writeFile(t, dir, "same-size.webp", []byte("before"))
+	if _, err := s.Push("same-size.webp", abs); err != nil {
+		t.Fatal(err)
+	}
+	stat, err := os.Stat(abs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(abs, []byte("after!"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Force a distinct timestamp even on filesystems with coarse mtime
+	// granularity; the content size intentionally remains unchanged.
+	if err := os.Chtimes(abs, stat.ModTime(), stat.ModTime().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	uploaded, err := s.Push("same-size.webp", abs)
+	if err != nil || !uploaded {
+		t.Fatalf("same-size rewrite should upload: uploaded=%v err=%v", uploaded, err)
+	}
+	if got := string(store.objects["uploads/same-size.webp"]); got != "after!" {
+		t.Fatalf("remote content = %q, want after!", got)
 	}
 }
 

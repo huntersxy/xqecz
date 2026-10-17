@@ -156,17 +156,32 @@ func (h *Handler) query(ctx context.Context, contentID uint64, page, pageSize in
 		}
 	}
 
-	// 批量取作者，消除 N+1。
+	// 批量取作者，消除 N+1。一个用户可能写了多条回复，先去重可
+	// 明显缩短 IN 参数并避免把同一作者重复编码到请求中。
 	ids := make([]uint64, 0, len(tops)+len(replies))
-	for _, r := range append(append([]store.Comment{}, tops...), replies...) {
-		if r.UserID > 0 {
-			ids = append(ids, r.UserID)
+	seenUsers := make(map[uint64]struct{}, len(tops)+len(replies))
+	for i := range tops {
+		if uid := tops[i].UserID; uid > 0 {
+			if _, ok := seenUsers[uid]; !ok {
+				seenUsers[uid] = struct{}{}
+				ids = append(ids, uid)
+			}
+		}
+	}
+	for i := range replies {
+		if uid := replies[i].UserID; uid > 0 {
+			if _, ok := seenUsers[uid]; !ok {
+				seenUsers[uid] = struct{}{}
+				ids = append(ids, uid)
+			}
 		}
 	}
 	users := map[uint64]store.User{}
 	if len(ids) > 0 {
 		var rows []store.User
-		if err := db.Where("id IN ?", ids).Find(&rows).Error; err != nil {
+		// Comment responses only expose id, username and an avatar derived from
+		// email; avoid reading password and administrative fields into memory.
+		if err := db.Select("id", "username", "email").Where("id IN ?", ids).Find(&rows).Error; err != nil {
 			return Page{}, err
 		}
 		for _, u := range rows {
