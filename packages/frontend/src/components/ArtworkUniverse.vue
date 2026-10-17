@@ -38,6 +38,18 @@ const results = computed(() => query.value.trim() ? nodes.value.filter(node => `
 const isMap = computed(() => phase.value === 'map')
 const status = computed(() => ({ flight: '星球正在飞行', unfold: '作品正在展开', marquee: '作品阵列', collapse: '星系正在形成', map: '星图已展开', closing: '正在返回星球' })[phase.value])
 const originStyle = { width: `${props.origin.width}px`, height: `${props.origin.height}px`, backgroundImage: `url("${props.origin.image}")` }
+// 这条时间线把「共享的星球」作为唯一主角：飞行和展开保留呼吸感，
+// 走马灯缩短到一次可读的停留，避免彩蛋变成必须等待的页面加载。
+const OPENING_TIMELINE = {
+  flight: 900,
+  flightSettle: 920,
+  assetWait: 1800,
+  unfold: 1500,
+  marquee: 2700,
+  collapse: 1240,
+  collapseWait: 1480,
+} as const
+const EXIT_TIMELINE = { shrink: 620, return: 720 } as const
 let universe: ReturnType<typeof createUniverseScene> | undefined
 const selectionImageSource = computed(() => {
   const node = selected.value
@@ -123,22 +135,22 @@ function placeSelection() {
 }
 async function openSequence() {
   const current = version
-  animate(sprite.value!, [{ transform: originTransform(), opacity: 1 }, { transform: 'translate(-50%, -50%) scale(1.8)', opacity: 1 }], 900)
-  if (!await wait(920, current)) return
+  animate(sprite.value!, [{ transform: originTransform(), opacity: 1 }, { transform: 'translate(-50%, -50%) scale(1.8)', opacity: 1 }], OPENING_TIMELINE.flight)
+  if (!await wait(OPENING_TIMELINE.flightSettle, current)) return
   // 等待清晰首批图就绪，最多延长一次飞行停留；不能无限卡在慢图上。
-  await Promise.race([Promise.all(montageRequests.values()), wait(1800, current)])
+  await Promise.race([Promise.all(montageRequests.values()), wait(OPENING_TIMELINE.assetWait, current)])
   if (disposed || current !== version) return
   phase.value = 'unfold'
   if (surface.value) animate(surface.value, [
     { width: '320px', height: '320px', borderRadius: '50%', opacity: 0, transform: 'translate(-50%, -50%) perspective(1200px) rotateX(25deg)' },
     { offset: .4, width: '76vw', height: '48vh', borderRadius: '18%', opacity: 1, transform: 'translate(-50%, -50%) perspective(1200px) rotateX(10deg)' },
     { width: '130vw', height: '110vh', borderRadius: '0', opacity: 0, transform: 'translate(-50%, -50%) perspective(1200px) rotateX(0deg)' },
-  ], 1500)
-  animate(sprite.value!, [{ transform: 'translate(-50%, -50%) scale(1.8)', opacity: 1 }, { transform: 'translate(-50%, -50%) scale(5.5)', opacity: 0 }], 1500)
-  if (montage.value) animate(montage.value, [{ clipPath: 'circle(115px at 50% 50%)', transform: 'scale(.42)', opacity: .3 }, { clipPath: 'circle(150% at 50% 50%)', transform: 'scale(1)', opacity: 1 }], 1500)
-  if (!await wait(1520, current)) return
+  ], OPENING_TIMELINE.unfold)
+  animate(sprite.value!, [{ transform: 'translate(-50%, -50%) scale(1.8)', opacity: 1 }, { transform: 'translate(-50%, -50%) scale(5.5)', opacity: 0 }], OPENING_TIMELINE.unfold)
+  if (montage.value) animate(montage.value, [{ clipPath: 'circle(115px at 50% 50%)', transform: 'scale(.42)', opacity: .3 }, { clipPath: 'circle(150% at 50% 50%)', transform: 'scale(1)', opacity: 1 }], OPENING_TIMELINE.unfold)
+  if (!await wait(OPENING_TIMELINE.unfold + 20, current)) return
   phase.value = 'marquee'
-  if (!await wait(3400, current)) return
+  if (!await wait(OPENING_TIMELINE.marquee, current)) return
   await formMap()
 }
 async function formMap() {
@@ -179,9 +191,9 @@ async function formMap() {
       { offset: .35, transform: `translate(0,0) scale(${side/rect.width},${side/rect.height})`, clipPath: 'inset(0 round 50%)', opacity: 1 },
       { offset: .82, transform: `translate(${x}px,${y}px) scale(${scaleX},${scaleY})`, clipPath: 'inset(0 round 50%)', opacity: 1 },
       { transform: `translate(${x}px,${y}px) scale(${scaleX},${scaleY})`, clipPath: 'inset(0 round 50%)', opacity: 0 },
-    ], 1240, (index % columns) * 18)
+    ], OPENING_TIMELINE.collapse, (index % columns) * 18)
   })
-  if (!await wait(1480, current)) return
+  if (!await wait(OPENING_TIMELINE.collapseWait, current)) return
   phase.value = 'map'
   collapseLayer.value?.replaceChildren()
   montageFinished.value = true
@@ -197,11 +209,11 @@ async function close() {
   universe?.setActive(false)
   animations.forEach(animation => animation.cancel())
   sprite.value!.style.opacity = '0'
-  if (stage.value) animate(stage.value, [{ transform: 'scale(1) rotate(0deg)', opacity: 1, filter: 'brightness(1)' }, { transform: 'scale(.002) rotate(28deg)', opacity: 0, filter: 'brightness(4)' }], 650)
-  if (!await wait(640)) return
-  animate(sprite.value!, [{ transform: 'translate(-50%, -50%) scale(.04)', opacity: 1, filter: 'brightness(3)' }, { transform: originTransform(), opacity: 1, filter: 'brightness(1)' }], 760)
-  animate(root.value!, [{ backgroundColor: 'rgba(17,16,26,1)' }, { backgroundColor: 'rgba(17,16,26,0)' }], 760)
-  if (await wait(780)) emit('closed')
+  if (stage.value) animate(stage.value, [{ transform: 'scale(1) rotate(0deg)', opacity: 1, filter: 'brightness(1)' }, { transform: 'scale(.002) rotate(28deg)', opacity: 0, filter: 'brightness(4)' }], EXIT_TIMELINE.shrink)
+  if (root.value) animate(root.value, [{ backgroundColor: 'rgba(17,16,26,.96)' }, { backgroundColor: 'rgba(17,16,26,0)' }], EXIT_TIMELINE.shrink + EXIT_TIMELINE.return)
+  if (!await wait(EXIT_TIMELINE.shrink)) return
+  animate(sprite.value!, [{ transform: 'translate(-50%, -50%) scale(.04)', opacity: 1, filter: 'brightness(3)' }, { transform: originTransform(), opacity: 1, filter: 'brightness(1)' }], EXIT_TIMELINE.return)
+  if (await wait(EXIT_TIMELINE.return + 20)) emit('closed')
 }
 function focusNode(node: UniverseNode) { selected.value = node; query.value = ''; universe?.focus(node) }
 function openSelected() {
@@ -297,7 +309,7 @@ onBeforeUnmount(() => {
         <button class="au-icon" aria-label="显示全部星球" title="全景" @click="universe?.fit()"><IconExpand /></button>
       </div>
       <p v-if="isMap && !selected" class="au-map-hint">拖动漫游 · 滚轮缩放 · 点击星球查看作品</p>
-      <div v-if="isMap && selected" ref="selectionCard" class="au-selection">
+      <div v-if="isMap && selected" :key="selected.artwork.id" ref="selectionCard" class="au-selection">
         <img v-if="selected.artwork.thumb && !previewFailed" class="au-selection-image" :src="selectionImageSource" :alt="selected.artwork.title || '作品预览'" @load="placeSelection" @error="previewFailed = true" />
         <span class="au-coordinate">COORDINATE / {{ selected.artwork.id }}</span>
         <h3>{{ selected.artwork.title || `星球 ${selected.artwork.id}` }}</h3>
@@ -308,12 +320,19 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.au-root { position: fixed; inset: 0; width: 100vw; z-index: 1100; overflow: hidden; background: #11101a; color: #f2edf4; isolation: isolate; }
+.au-root { position: fixed; inset: 0; width: 100vw; z-index: 1100; overflow: hidden; background: rgb(17 16 26 / .96); color: #f2edf4; isolation: isolate; transition: background-color 620ms cubic-bezier(.16,1,.3,1); }
+.au-root.au-phase-flight { background: rgb(17 16 26 / .12); }
+.au-root.au-phase-unfold, .au-root.au-phase-marquee { background: rgb(17 16 26 / .86); }
+.au-root.au-phase-collapse { background: rgb(17 16 26 / .96); }
+.au-root.au-phase-map { background: rgb(17 16 26); }
+.au-root.au-phase-closing { background: transparent; }
 .au-collapse-layer { position: absolute; inset: 0; pointer-events: none; }
-.au-collapse-tile { will-change: transform, opacity; }
+.au-collapse-tile { will-change: transform, opacity; border-radius: 6px; box-shadow: 0 0 20px #e6b7c744; }
 .au-collapse-tile .au-tile-title { display: none; }
 .au-stage { position: absolute; inset: 0; transform-origin: center; }
-.au-nebula { position: absolute; inset: -15%; pointer-events: none; background: radial-gradient(ellipse at 30% 42%, #80567724 0%, transparent 42%), radial-gradient(ellipse at 66% 58%, #486b8926 0%, transparent 40%), radial-gradient(ellipse at 50% 50%, #48406825 0%, transparent 65%); filter: blur(24px); }
+.au-nebula { position: absolute; inset: -15%; pointer-events: none; background: radial-gradient(ellipse at 30% 42%, #80567724 0%, transparent 42%), radial-gradient(ellipse at 66% 58%, #486b8926 0%, transparent 40%), radial-gradient(ellipse at 50% 50%, #48406825 0%, transparent 65%); filter: blur(24px); opacity: .8; transition: opacity 700ms cubic-bezier(.16,1,.3,1); }
+.au-phase-flight .au-nebula { opacity: .18; }
+.au-phase-closing .au-nebula { opacity: 0; }
 .au-image-progress { display: inline-block; margin-left: 14px; color: #d5b1bf; }
 .au-map-hint { position: absolute; bottom: 34px; left: 50%; transform: translateX(-50%); margin: 0; color: #cbbdcbd1; font-size: 12px; letter-spacing: 1px; pointer-events: none; text-shadow: 0 1px 12px #000; white-space: nowrap; }
 .au-selection-image { display: block; width: 100%; max-height: 220px; object-fit: contain; margin-bottom: 16px; border-radius: 12px; background: #ffffff0b; }
@@ -321,8 +340,10 @@ onBeforeUnmount(() => {
 .au-map:active { cursor: grabbing; }
 .au-map.is-previewing { opacity: .16; filter: blur(5px) saturate(.72); transform: scale(1.018); }
 .au-map.is-visible { opacity: 1; filter: blur(0) saturate(1); transform: scale(1); }
-.au-flight-planet { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; background-size: cover; background-position: center; opacity: 0; pointer-events: none; box-shadow: 0 0 24px #d1a6b233; }
-.au-surface { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 320px; height: 320px; border-radius: 50%; background-size: 100% 100%; opacity: 0; pointer-events: none; }
+.au-flight-planet { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; background-size: cover; background-position: center; opacity: 0; pointer-events: none; isolation: isolate; will-change: transform, opacity, filter; box-shadow: 0 0 24px #d1a6b233; }
+.au-flight-planet::before { content: ''; position: absolute; inset: -14%; border: 1px solid #e8bdcb70; border-radius: 50%; box-shadow: 0 0 22px #e5b5c955, inset 0 0 12px #fff2; opacity: 0; transform: scale(.78); }
+.au-phase-flight .au-flight-planet::before { animation: au-portal-ring 1.55s cubic-bezier(.16,1,.3,1) infinite; }
+.au-surface { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 320px; height: 320px; border-radius: 50%; background-size: 100% 100%; opacity: 0; pointer-events: none; will-change: width, height, border-radius, opacity, transform; box-shadow: 0 0 36px #e5b4c933; }
 .au-montage { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: 14px; opacity: 0; pointer-events: none; }
 .au-row { display: flex; width: max-content; gap: 14px; animation: au-drift var(--row-duration) linear infinite; animation-play-state: paused; }
 .is-unfolding .au-row { animation-play-state: running; }
@@ -333,7 +354,8 @@ onBeforeUnmount(() => {
 .au-tile-title { position: absolute; inset: auto 0 0; padding: 20px 12px 10px; font-size: 12px; background: linear-gradient(transparent, #0009); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .au-tile-loading { position: absolute; left: calc(50% - 10px); top: calc(50% - 10px); width: 20px; height: 20px; border: 1px solid #ffffff30; border-top-color: #e0babb; border-radius: 50%; animation: au-loading 1.4s linear infinite; }
 .au-tile-missing { position: absolute; width: 26px; height: 26px; left: calc(50% - 13px); top: calc(50% - 13px); color: #c8bdc5; opacity: .6; }
-.au-header { position: absolute; top: 0; left: 0; width: 100%; padding: 28px 32px; display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; pointer-events: none; background: linear-gradient(#11101ab8, transparent); }
+.au-header { position: absolute; top: 0; left: 0; width: 100%; padding: 28px 32px; display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; pointer-events: none; background: linear-gradient(#11101ab8, transparent); transition: opacity 420ms cubic-bezier(.16,1,.3,1), transform 420ms cubic-bezier(.16,1,.3,1); }
+.au-phase-flight .au-header { opacity: .8; }
 .au-heading span, .au-coordinate { font-size: 10px; color: #c6a2ac; letter-spacing: 0; }
 .au-heading h2 { font: 27px/1.6 var(--creative-title-font); color: #f5ebef; margin: 2px 0; }
 .au-heading p { font-size: 12px; color: #9c96a6; }
@@ -349,7 +371,7 @@ onBeforeUnmount(() => {
 .au-search-results button, .au-search-results span { display: block; width: 100%; color: #ece3eb; padding: 10px; font-size: 13px; text-align: left; background: transparent; border: 0; overflow-wrap: anywhere; }
 .au-search-results button:hover { background: #43313c; cursor: pointer; }
 .au-map-controls { position: absolute; right: 32px; bottom: 32px; display: flex; gap: 8px; }
-.au-selection { position: absolute; left: 0; top: 0; height: max-content; will-change: transform; width: min(340px, calc(100% - 150px)); padding: 18px; background: #1d1826eb; border: 1px solid #cf9eaa70; border-radius: 18px; box-shadow: 0 12px 48px #0005; backdrop-filter: blur(18px); }
+.au-selection { position: absolute; left: 0; top: 0; height: max-content; will-change: transform; width: min(340px, calc(100% - 150px)); padding: 18px; background: #1d1826eb; border: 1px solid #cf9eaa70; border-radius: 18px; box-shadow: 0 12px 48px #0005; backdrop-filter: blur(18px); animation: au-selection-in 360ms cubic-bezier(.16,1,.3,1) both; }
 .au-selection h3 { margin: 8px 0 14px; font: 20px/1.5 var(--creative-title-font); color: #f1e4eb; overflow-wrap: anywhere; max-height: 90px; overflow: auto; }
 .au-open { display: flex; align-items: center; gap: 12px; border: 0; padding: 8px 0; background: transparent; color: #eab8c5; cursor: pointer; }
 .au-fallback { position: absolute; inset: 130px 24px 100px; overflow: auto; display: flex; flex-wrap: wrap; gap: 24px; align-content: start; }
@@ -357,5 +379,7 @@ onBeforeUnmount(() => {
 .au-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 @keyframes au-drift { to { transform: translateX(calc(-50% - 7px)); } }
 @keyframes au-loading { to { transform: rotate(360deg); } }
+@keyframes au-portal-ring { 0% { opacity: 0; transform: scale(.78); } 22% { opacity: .85; } 100% { opacity: 0; transform: scale(1.28); } }
+@keyframes au-selection-in { from { opacity: 0; filter: blur(6px); } to { opacity: 1; filter: blur(0); } }
 @media (max-width: 700px) { .au-image-progress { display: block; margin: 5px 0 0; } .au-map-hint { bottom: 24px; left: 16px; transform: none; max-width: calc(100% - 100px); white-space: normal; font-size: 10px; } .au-selection-image { max-height: 130px; } .au-header { padding: 18px 16px; } .au-heading h2 { font-size: 23px; } .au-heading span { font-size: 8px; } .au-search { width: 130px; } .au-search-results { width: 240px; } .au-map-controls { right: 16px; bottom: 20px; flex-direction: column; }  .au-tile { width: 180px; height: 20vh; } }
 </style>

@@ -306,7 +306,7 @@ onBeforeUnmount(() => {
 <template>
   <div ref="host" class="artwork-planet-wrap" :class="{ 'is-exploring': universeOrigin }">
     <div class="artwork-planet" :class="{ 'is-ready': ready, 'is-dragging': dragging }" :style="{ backgroundImage: `url(${heroArt})` }">
-      <canvas ref="canvas" class="artwork-planet-canvas" role="img" aria-label="作品星球，可拖动旋转" tabindex="0" title="拖动旋转，双击探索星图" @dblclick="explore" @keydown.enter.prevent="explore" @keydown="rotateByKey" @webglcontextlost="onContextLost" @webglcontextrestored="onContextRestored" />
+      <canvas ref="canvas" class="artwork-planet-canvas" role="img" aria-label="作品星球，可拖动旋转；双击进入全作品星图" tabindex="0" title="拖动旋转，双击探索星图" @dblclick="explore" @keydown.enter.prevent="explore" @keydown="rotateByKey" @webglcontextlost="onContextLost" @webglcontextrestored="onContextRestored" />
     </div>
     <button v-if="ready" class="planet-rotation-toggle" type="button" :aria-label="paused ? '继续星球自转' : '暂停星球自转'" :title="paused ? '继续自转' : '暂停自转'" :aria-pressed="paused" @click="toggleRotation">
       <IconPlayArrow v-if="paused" /><IconPause v-else />
