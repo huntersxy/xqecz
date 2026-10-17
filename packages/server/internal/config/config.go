@@ -46,12 +46,16 @@ type Config struct {
 	CompressEvery time.Duration
 
 	MySQL struct {
-		Host            string
-		Port            int
-		User            string
-		Password        string
-		Database        string
-		PoolSize        int
+		Host     string
+		Port     int
+		User     string
+		Password string
+		Database string
+		PoolSize int
+		// ConnectTimeout 是建立 MySQL TCP 连接的超时；对应 MYSQL_CONNECT_TIMEOUT。
+		ConnectTimeout time.Duration
+		// ConnMaxLifetime 保留用于兼容旧的进程内配置调用；它曾错误地承载
+		// MYSQL_CONNECT_TIMEOUT，新的代码应使用 ConnectTimeout。
 		ConnMaxLifetime time.Duration
 		// TLS 是连接的加密模式，直接透传给 go-sql-driver 的 tls DSN 参数：
 		// 空 = 不加密（自建 MySQL 默认），true = 校验服务端证书，skip-verify = 加密但不校验。
@@ -109,7 +113,8 @@ func Load() Config {
 	c.MySQL.Password = os.Getenv("MYSQL_PASSWORD")
 	c.MySQL.Database = env("MYSQL_DATABASE", "xqecz")
 	c.MySQL.PoolSize = envInt("MYSQL_POOL_SIZE", 10)
-	c.MySQL.ConnMaxLifetime = time.Duration(envInt("MYSQL_CONNECT_TIMEOUT", 10)) * time.Second
+	c.MySQL.ConnectTimeout = time.Duration(envInt("MYSQL_CONNECT_TIMEOUT", 10)) * time.Second
+	c.MySQL.ConnMaxLifetime = c.MySQL.ConnectTimeout
 	// 空值保持不加密，兼容既有自建 MySQL；托管实例（TiDB Cloud 等）按需开启。
 	c.MySQL.TLS = strings.TrimSpace(os.Getenv("MYSQL_TLS"))
 

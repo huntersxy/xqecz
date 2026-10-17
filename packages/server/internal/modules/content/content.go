@@ -420,6 +420,12 @@ func (h *Handler) tags(c *gin.Context) {
 
 // decorateRows 批量装饰：批量取作者与点赞数，消除 N+1。
 func (h *Handler) decorateRows(ctx context.Context, rows []store.Content) ([]Item, error) {
+	return h.decorateRowsWith(ctx, rows, false)
+}
+
+// decorateRowsWith 在一次作者查询和一次点赞聚合中装饰整批内容。
+// includeViewCount 仅由需要展示浏览量的管理端路径开启，避免公开列表扩大响应。
+func (h *Handler) decorateRowsWith(ctx context.Context, rows []store.Content, includeViewCount bool) ([]Item, error) {
 	if len(rows) == 0 {
 		return []Item{}, nil
 	}
@@ -448,7 +454,7 @@ func (h *Handler) decorateRows(ctx context.Context, rows []store.Content) ([]Ite
 	userMap := h.userMapFor(ctx, rows)
 	list := make([]Item, 0, len(rows))
 	for _, r := range rows {
-		list = append(list, decorateWith(h.mirror, r, userMap, likeMap[r.ID], false))
+		list = append(list, decorateWith(h.mirror, r, userMap, likeMap[r.ID], includeViewCount))
 	}
 	return list, nil
 }

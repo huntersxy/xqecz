@@ -38,6 +38,7 @@ func Register(api *gin.RouterGroup, deps app.Deps, contentHandler *content.Handl
 	g.PUT("/content/:id/author", h.updateAuthor)
 	g.GET("/users", h.users)
 	g.GET("/dashboard", h.dashboard)
+	g.GET("/logs", h.logs)
 	g.PUT("/users/:id/role", h.updateRole)
 	g.PUT("/users/:id/ban", h.updateBan)
 	g.DELETE("/users/:id", h.deleteUser)

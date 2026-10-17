@@ -5,11 +5,13 @@ import type { AdminNavGroup } from '@/components/admin/AdminNav.vue'
 import {
   IconDashboard, IconFile, IconEye, IconHome, IconUserGroup, IconBarChart,
   IconLink, IconExclamationCircle, IconUpload, IconLock, IconMenu, IconBook,
+  IconCode,
 } from '@arco-design/web-vue/es/icon'
 import AdminDashboard from '@/components/admin/AdminDashboard.vue'
 import AdminApiDocs from '@/components/admin/AdminApiDocs.vue'
 import AdminVisionSettings from '@/components/admin/AdminVisionSettings.vue'
 import AdminAI from '@/components/admin/AdminAI.vue'
+import AdminLogsTerminal from '@/components/admin/AdminLogsTerminal.vue'
 
 const userStore = useUserStore()
 const admin = useAdminStore()
@@ -52,6 +54,7 @@ const navGroups = computed<AdminNavGroup[]>(() => {
     items: [
       { key: 'api-keys', title: 'API 密钥', icon: IconLock },
       { key: 'api-docs', title: 'API 文档', icon: IconBook },
+      ...(userStore.user?.is_admin ? [{ key: 'logs', title: '运行日志', icon: IconCode }] : []),
     ],
   })
   return groups
@@ -136,6 +139,7 @@ onMounted(() => {
             <AdminReportTable v-else-if="admin.activeTab === 'reports' && userStore.user?.is_admin" />
             <AdminVisionSettings v-else-if="admin.activeTab === 'vision' && userStore.user?.is_admin" />
             <AdminAI v-else-if="admin.activeTab === 'ai' && userStore.user?.is_admin" />
+            <AdminLogsTerminal v-else-if="admin.activeTab === 'logs' && userStore.user?.is_admin" />
             <AdminApiKeys v-else-if="admin.activeTab === 'api-keys'" />
             <AdminApiDocs v-else-if="admin.activeTab === 'api-docs'" />
             <a-result

@@ -42,7 +42,8 @@ func main() {
 		cli.RunAdmin(cfg, os.Args[2:])
 		return
 	}
-	slog.SetDefault(slog.New(logx.New(os.Stdout)))
+	logs := logx.NewBuffer(500)
+	slog.SetDefault(slog.New(logx.NewWithBuffer(os.Stdout, logs)))
 
 	db, err := store.Open(cfg)
 	if err != nil {
@@ -56,7 +57,7 @@ func main() {
 		mirror.New(mirror.TargetFromR2(cfg.R2), cfg.BinDir),
 		mirror.New(mirror.TargetFromOpenList(cfg.OpenList), cfg.BinDir),
 	)
-	deps := app.Deps{Cfg: cfg, DB: db, Redis: cache.Open(cfg), Mirror: mediaMirror}
+	deps := app.Deps{Cfg: cfg, DB: db, Redis: cache.Open(cfg), Mirror: mediaMirror, Logs: logs}
 	web.Check(deps)
 
 	// 推荐位：启动即刷新一次，之后每 10 分钟刷新（与旧实现节奏一致）。

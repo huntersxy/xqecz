@@ -20,6 +20,7 @@ type dashboardContentStats struct {
 	Approved int64 `json:"approved"`
 	Rejected int64 `json:"rejected"`
 	Today    int64 `json:"today"`
+	Views    int64 `json:"-"`
 }
 
 type dashboardUsersStats struct {
@@ -100,7 +101,8 @@ func (h *Handler) computeDashboard(ctx context.Context) (dashboardData, error) {
 		       COALESCE(SUM(audit_status = 'pending'), 0) AS pending,
 		       COALESCE(SUM(audit_status = 'approved'), 0) AS approved,
 		       COALESCE(SUM(audit_status = 'rejected'), 0) AS rejected,
-		       COALESCE(SUM(created_at >= ?), 0) AS today
+		       COALESCE(SUM(created_at >= ?), 0) AS today,
+		       COALESCE(SUM(view_count), 0) AS views
 		FROM contents`, today).Scan(&contentRow).Error; err != nil {
 		return dashboardData{}, err
 	}
@@ -147,15 +149,6 @@ func (h *Handler) computeDashboard(ctx context.Context) (dashboardData, error) {
 		return dashboardData{}, err
 	}
 
-	var viewsRow struct {
-		Views int64 `json:"views"`
-	}
-	if err := db.Raw(`
-		SELECT COALESCE(SUM(view_count), 0) AS views
-		FROM contents`).Scan(&viewsRow).Error; err != nil {
-		return dashboardData{}, err
-	}
-
 	// 热门标签只统计已通过内容，避免待审与垃圾数据污染。
 	var tagRows []store.Content
 	if err := db.Select("tags").Where("audit_status = ?", "approved").Find(&tagRows).Error; err != nil {
@@ -185,9 +178,9 @@ func (h *Handler) computeDashboard(ctx context.Context) (dashboardData, error) {
 	if err := db.Order("created_at DESC").Limit(6).Find(&recentRows).Error; err != nil {
 		return dashboardData{}, err
 	}
-	recentContents := make([]content.Item, 0, len(recentRows))
-	for _, row := range recentRows {
-		recentContents = append(recentContents, h.content.DecorateOne(ctx, row, true))
+	recentContents, err := h.content.DecorateMany(ctx, recentRows, true)
+	if err != nil {
+		return dashboardData{}, err
 	}
 
 	var recentUserRows []store.User
@@ -202,7 +195,7 @@ func (h *Handler) computeDashboard(ctx context.Context) (dashboardData, error) {
 	return dashboardData{
 		Content: contentRow, Users: userRow, Comments: commentRow,
 		Claims: claimRow, Reports: reportRow, Polls: pollRow,
-		Views: viewsRow.Views, TopTags: ranked,
+		Views: contentRow.Views, TopTags: ranked,
 		RecentContents: recentContents, RecentUsers: recentUsers,
 	}, nil
 }

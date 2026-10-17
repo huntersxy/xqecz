@@ -41,11 +41,20 @@ func requestLogger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		c.Next()
+		cost := time.Since(start)
 		if c.Writer.Status() >= 400 {
 			slog.Warn("http",
 				"req", c.Request.Method+" "+c.Request.URL.Path,
 				"status", c.Writer.Status(),
-				"cost", time.Since(start),
+				"cost", cost,
+			)
+		} else if cost >= 500*time.Millisecond {
+			// Keep the hot path quiet while retaining a useful signal for the
+			// admin terminal when a successful request is unusually slow.
+			slog.Info("http slow",
+				"req", c.Request.Method+" "+c.Request.URL.Path,
+				"status", c.Writer.Status(),
+				"cost", cost,
 			)
 		}
 	}

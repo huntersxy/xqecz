@@ -182,6 +182,26 @@ export interface ClaimListResponse {
   total_page: number
 }
 
+// 管理端运行日志：服务端只返回已经格式化且脱敏的记录，前端不暴露环境变量、请求头或凭据。
+export type AdminLogLevel = 'debug' | 'info' | 'warn' | 'error'
+
+export interface AdminLogEntry {
+  id?: string | number
+  time: string
+  // API 兼容 slog 大写级别与前端约定的小写级别；展示层会统一归一化。
+  level: AdminLogLevel | Uppercase<AdminLogLevel>
+  message: string
+  line?: string
+  attrs?: Record<string, string | number | boolean | null>
+}
+
+export interface AdminLogsResponse {
+  entries: AdminLogEntry[]
+  next_cursor?: number
+  truncated?: boolean
+  server_time?: string
+}
+
 // ── 仪表盘统计 ──
 
 interface DashboardContentStats {

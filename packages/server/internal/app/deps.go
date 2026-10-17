@@ -5,6 +5,7 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/aigen"
 	"github.com/huntersxy/xqecz/server/internal/cache"
 	"github.com/huntersxy/xqecz/server/internal/config"
+	"github.com/huntersxy/xqecz/server/internal/logx"
 	"github.com/huntersxy/xqecz/server/internal/vision"
 	"gorm.io/gorm"
 )
@@ -37,4 +38,7 @@ type Deps struct {
 	// Vision is optional. Its durable outbox is written in the upload transaction.
 	Vision *vision.Service
 	AI     *aigen.Service
+	// Logs is the bounded in-memory diagnostic stream used by the admin viewer.
+	// It is nil in lightweight tests or command-line processes.
+	Logs *logx.Buffer
 }

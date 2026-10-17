@@ -32,6 +32,7 @@ import type {
   UpdateApiKeyData,
   DashboardStats,
   MetadataOptions, VisionSettings, VisionJob, VisionResult, VisionReference,
+  AdminLogLevel, AdminLogsResponse,
 } from '@/types'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -388,6 +389,8 @@ export const pollApi = {
 }
 
 export const adminApi = {
+  logs: (params?: { limit?: number; level?: AdminLogLevel; after?: number }, signal?: AbortSignal) =>
+    request<AdminLogsResponse>('/admin/logs', { query: params, signal }),
   visionSettings: (signal?: AbortSignal) => request<VisionSettings>('/admin/vision/settings', { signal }),
   saveVisionSettings: (data: VisionSettings & { api_key?: string; clear_api_key?: boolean }, signal?: AbortSignal) =>
     request<VisionSettings>('/admin/vision/settings', { method: 'PUT', body: data, signal }),

@@ -133,6 +133,12 @@ func (h *Handler) DecorateOne(ctx context.Context, row store.Content, includeVie
 	return decorate(row, h.userMapFor(ctx, []store.Content{row}), h.likeCount(ctx, row.ID), includeViewCount)
 }
 
+// DecorateMany 批量把内容装饰为对外形状。
+// 管理端仪表盘等需要展示多条内容时应使用此入口，避免逐条查询作者和点赞数。
+func (h *Handler) DecorateMany(ctx context.Context, rows []store.Content, includeViewCount bool) ([]Item, error) {
+	return h.decorateRowsWith(ctx, rows, includeViewCount)
+}
+
 // RefreshRecommend 立即重算推荐位。
 func (h *Handler) RefreshRecommend(ctx context.Context) error {
 	return h.rec.Refresh(ctx)

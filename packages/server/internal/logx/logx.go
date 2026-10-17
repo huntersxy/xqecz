@@ -27,11 +27,20 @@ var byteKeys = map[string]bool{
 
 // New 创建默认配置的 Handler（Info 起记，stdout 为终端时带色）。
 func New(w io.Writer) slog.Handler {
-	return newHandler(w, slog.LevelInfo, isTerminal(w))
+	return newHandler(w, slog.LevelInfo, isTerminal(w), nil)
 }
 
-func newHandler(w io.Writer, minLevel slog.Level, color bool) *Handler {
-	return &Handler{out: w, minLevel: minLevel, color: color}
+// NewWithBuffer creates a handler that writes to w and keeps the same rendered
+// lines in buffer. The buffer is deliberately optional so command-line tools
+// can keep the lightweight stdout-only behavior.
+func NewWithBuffer(w io.Writer, buffer *Buffer) slog.Handler {
+	return newHandler(w, slog.LevelInfo, isTerminal(w), buffer)
+}
+
+const defaultCapacity = 500
+
+func newHandler(w io.Writer, minLevel slog.Level, color bool, buffer *Buffer) *Handler {
+	return &Handler{out: w, minLevel: minLevel, color: color, buffer: buffer}
 }
 
 type Handler struct {
@@ -39,6 +48,7 @@ type Handler struct {
 	out      io.Writer
 	minLevel slog.Level
 	color    bool
+	buffer   *Buffer
 	pre      string // WithAttrs/WithGroup 累积的已格式化前缀
 	group    string // 当前组前缀（仅 WithGroup）
 }
@@ -57,8 +67,32 @@ func (h *Handler) Handle(_ context.Context, r slog.Record) error {
 	b = append(b, '\n')
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.buffer != nil {
+		// The terminal writer may use ANSI colors; the browser terminal receives
+		// plain text so escape sequences never become visible log noise.
+		h.buffer.Append(Entry{Time: r.Time, Level: r.Level.String(), Message: r.Message, Line: string(stripANSI(b[:len(b)-1]))})
+	}
 	_, err := h.out.Write(b)
 	return err
+}
+
+func stripANSI(src []byte) []byte {
+	result := make([]byte, 0, len(src))
+	for i := 0; i < len(src); i++ {
+		if src[i] != 0x1b || i+1 >= len(src) || src[i+1] != '[' {
+			result = append(result, src[i])
+			continue
+		}
+		i += 2
+		for i < len(src) {
+			b := src[i]
+			if (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') {
+				break
+			}
+			i++
+		}
+	}
+	return result
 }
 
 // appendAttrs 依次输出：WithAttrs 累积前缀 → 本条记录的属性。组内键带组名前缀。
@@ -134,6 +168,9 @@ func appendKey(b []byte, k string, color bool) []byte {
 }
 
 func appendValue(b []byte, v slog.Value, key string, color bool) []byte {
+	if isSensitiveKey(key) {
+		return append(b, "[REDACTED]"...)
+	}
 	var s string
 	switch v.Kind() {
 	case slog.KindDuration:
@@ -165,6 +202,16 @@ func appendValue(b []byte, v slog.Value, key string, color bool) []byte {
 		}
 	}
 	return append(b, s...)
+}
+
+func isSensitiveKey(key string) bool {
+	key = strings.ToLower(key)
+	for _, marker := range []string{"password", "token", "secret", "api_key", "apikey", "authorization", "cookie"} {
+		if strings.Contains(key, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 // formatDuration：亚毫秒用 µs、毫秒 1 位小数、秒级 2 位小数、分钟以上用 m。
@@ -216,7 +263,7 @@ func (h *Handler) WithAttrs(attrs []slog.Attr) slog.Handler {
 		}
 		sb.Write(appendGrouped(nil, h.group, a, h.color))
 	}
-	return &Handler{out: h.out, minLevel: h.minLevel, color: h.color, pre: sb.String(), group: h.group}
+	return &Handler{out: h.out, minLevel: h.minLevel, color: h.color, buffer: h.buffer, pre: sb.String(), group: h.group}
 }
 
 func (h *Handler) WithGroup(name string) slog.Handler {
@@ -227,7 +274,7 @@ func (h *Handler) WithGroup(name string) slog.Handler {
 	if h.group != "" {
 		group = h.group + "." + name
 	}
-	return &Handler{out: h.out, minLevel: h.minLevel, color: h.color, pre: h.pre, group: group}
+	return &Handler{out: h.out, minLevel: h.minLevel, color: h.color, buffer: h.buffer, pre: h.pre, group: group}
 }
 
 func isTerminal(w io.Writer) bool {

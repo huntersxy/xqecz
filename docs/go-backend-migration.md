@@ -26,11 +26,11 @@
 | 字段命名 | 请求/响应一律 snake_case（`page_size`、`audit_status`、`like_count`…） |
 | 端口 | 开发 API :3000（前端 Vite 代理 `/api`、`/uploads` 至此） |
 
-## 3. 冻结接口清单（60 条）
+## 3. 冻结接口清单（61 条）
 
 认证类：`health` 1 条、`auth` 6 条、`api-keys` 4 条。
 业务类：`content` 14 条、`comment` 5 条、`poll` 5 条。
-管理类：`admin` 18 条（全部要求 `AuthGuard + AdminGuard`）。
+管理类：`admin` 19 条（全部要求 `AuthGuard + AdminGuard`）。
 
 ### auth / health
 
@@ -86,6 +86,7 @@
 `PUT /api/admin/users/:id/ban`、`DELETE /api/admin/users/:id`、
 `GET /api/admin/comments/reports`、`POST /api/admin/comments/reports/:id/handle`、
 `GET /api/admin/claims`、`POST /api/admin/claims/:id/handle`、
+`GET /api/admin/logs`（`limit`、`level`、`after`，进程内环形缓冲）、
 `POST /api/admin/content/:id/regenerate-thumbnail`、
 `POST /api/admin/content/regenerate-all-thumbnails`、
 `GET /api/admin/content/regenerate-all-thumbnails/status`、
@@ -201,7 +202,7 @@ packages/server (单一 Go 二进制)
 | 内容读路径 | 完成 | 列表/搜索/推荐/标签/详情，含读穿缓存、浏览量、可见性规则 |
 | 内容写路径与媒体 | 完成 | 上传/快速上传/编辑/删除/认领/点赞/收藏，含 WebP 无损转换、ffmpeg 缩略图、软删除与缓存失效 |
 | 评论 / 投票 | 完成 | 树形评论（一层回复）、评论计数、举报；投票的列表/详情/投票/创建/删除，游客按 visitor_id 去重 |
-| 管理端 | 完成 | 审核/待审/全量内容、用户管理、仪表盘聚合、举报与认领处理、缩略图单条与批量重建、推荐刷新触发 |
+| 管理端 | 完成 | 审核/待审/全量内容、用户管理、仪表盘聚合、举报与认领处理、缩略图单条与批量重建、推荐刷新触发、进程内运行日志终端 |
 | 推荐打分与刷新 | 完成 | 纯函数打分并入本进程，Redis 锁防抖，启动即刷新 + 每 10 分钟周期刷新 |
 
 迁移期辅助工具（`packages/server/cmd/`）：`dbsync` 复制库结构、`dbinfo` 查看权限与表规模、`dbsql` 执行排查语句。
@@ -236,6 +237,7 @@ packages/server (单一 Go 二进制)
 - 热门标签沿用「只统计已通过内容」的口径；同数量标签用稳定排序保持首次出现顺序，避免 Go map 迭代随机导致结果漂移。
 - 批量缩略图：Redis 锁 + 30 秒心跳续期，进度写 `task:regen-all-thumbs:status`（7 天 TTL），接口立即返回、后台逐条处理。
 - 认领通过后会把内容作者变更给认领人，并失效内容缓存。
+- 运行日志通过 `GET /api/admin/logs` 提供最近 500 条进程内环形缓冲记录，支持 `limit`、`level` 和 `after` 游标；不写数据库，进程重启后清空，接口仍要求管理员会话。
 - 迁移中修正的缺陷：用户列表与认领列表的分页总数与列表内容原先可能不一致（过滤条件只作用于计数查询），
   现统一用同一份条件会话执行 Count 与 Find。
 
@@ -278,6 +280,8 @@ packages/server (单一 Go 二进制)
   （脚本 `scripts/migrations/2026-09-13-add-hot-path-indexes.sql`，已在线应用）。效果：
   `api_keys` 鉴权由全表扫变为 `ref const,const` 命中 1 行；内容列表由 `ALL` 变为 `range` + `Using index`（覆盖索引）；
   评论顶层列表与举报列表均走 `ref`。`contents.tags` 的 JSON_CONTAINS 无法用 B-Tree 索引，数据量大时需另做标签表。
+  后续移除 `deleted_at` 会连带移除以该列为前导的 `contents` / `polls` 索引；部署过
+  `scripts/migrations/2026-10-18-add-post-soft-delete-hot-path-indexes.sql` 后，列表和推荐查询改用不依赖软删除列的索引；该脚本同时补齐点赞、收藏和投票去重的组合索引。
 - **验收脚本** `scripts/acceptance.mjs`（`pnpm accept`）：覆盖公开读路径、登录态、上传与互动、投票去重、
   API 密钥鉴权与权限拒绝、管理端审核与统计、软删除可见性，共 44 项断言；结束后清理全部测试数据与上传文件。
   实测 44/44 通过、残留为 0。
