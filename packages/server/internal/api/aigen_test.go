@@ -27,6 +27,52 @@ import (
 
 type fixtureImages struct{}
 
+func TestLoginAndContentApprovalCreditRewards(t *testing.T) {
+	deps, handler := aiFixture(t)
+	account := func() aigen.Account {
+		t.Helper()
+		var row aigen.Account
+		if err := deps.DB.First(&row, "user_id = ?", 2).Error; err != nil {
+			t.Fatal(err)
+		}
+		return row
+	}
+	// A remembered session earns today's credit without requiring logout/login.
+	for i := 0; i < 2; i++ {
+		jsonData(t, aiRequest(t, handler, "GET", "/api/auth/me", "fixture-author", nil))
+	}
+	if a := account(); a.Available != 21 || a.DailyAvailable != 1 {
+		t.Fatal(a)
+	}
+	jsonData(t, aiRequest(t, handler, "POST", "/api/auth/login", "", map[string]string{"username": "测试作者", "password": "fixture-password"}))
+	if a := account(); a.Available != 21 {
+		t.Fatal("login duplicated reward", a)
+	}
+	row := store.Content{Title: "审核奖励", UserID: 2, AuditStatus: "pending", Tags: "[]"}
+	if err := deps.DB.Create(&row).Error; err != nil {
+		t.Fatal(err)
+	}
+	path := fmt.Sprintf("/api/admin/audit/%d", row.ID)
+	for _, status := range []string{"rejected", "approved", "approved", "rejected", "approved"} {
+		jsonData(t, aiRequest(t, handler, "POST", path, "fixture-admin", map[string]string{"status": status}))
+	}
+	if a := account(); a.Available != 22 || a.DailyAvailable != 1 {
+		t.Fatal("approval reward must be uncapped and once per work", a)
+	}
+	// If reward accounting fails, the audit status must roll back too.
+	broken := store.Content{Title: "rollback", UserID: 2, AuditStatus: "pending", Tags: "[]"}
+	deps.DB.Create(&broken)
+	deps.DB.Migrator().DropTable(&aigen.Ledger{})
+	w := aiRequest(t, handler, "POST", fmt.Sprintf("/api/admin/audit/%d", broken.ID), "fixture-admin", map[string]string{"status": "approved"})
+	if !bytes.Contains(w.Body.Bytes(), []byte(`"code":500`)) {
+		t.Fatal(w.Body.String())
+	}
+	deps.DB.First(&broken, broken.ID)
+	if broken.AuditStatus != "pending" {
+		t.Fatal("approval committed without reward")
+	}
+}
+
 func TestAIWorkspaceAndDiagnosticsIsolation(t *testing.T) {
 	deps, handler := aiFixture(t)
 	var workspace aigen.Session

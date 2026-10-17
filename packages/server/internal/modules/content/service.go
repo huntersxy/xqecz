@@ -10,9 +10,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/huntersxy/xqecz/server/internal/aigen"
 	"github.com/huntersxy/xqecz/server/internal/media"
 	"github.com/huntersxy/xqecz/server/internal/store"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // 批量缩略图任务的 Redis 键与节奏（与旧实现一致）。
@@ -83,8 +85,20 @@ func (h *Handler) DetailInternal(ctx context.Context, id uint64) (Item, error) {
 
 // SetAuditStatus 更新审核状态并失效缓存；通过时触发推荐刷新。
 func (h *Handler) SetAuditStatus(ctx context.Context, id uint64, status string) error {
-	if err := h.deps.DB.WithContext(ctx).Model(&store.Content{}).
-		Where("id = ?", id).Update("audit_status", status).Error; err != nil {
+	if err := h.deps.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var row store.Content
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&row, id).Error; err != nil {
+			return err
+		}
+		wasApproved := row.AuditStatus == "approved"
+		if err := tx.Model(&row).Update("audit_status", status).Error; err != nil {
+			return err
+		}
+		if status == "approved" && !wasApproved && h.deps.AI != nil {
+			return aigen.RewardApproval(tx, row.UserID, row.ID)
+		}
+		return nil
+	}); err != nil {
 		return err
 	}
 	h.invalidate(ctx, id)

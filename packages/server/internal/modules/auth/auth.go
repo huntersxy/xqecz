@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/huntersxy/xqecz/server/internal/aigen"
 	"github.com/huntersxy/xqecz/server/internal/app"
 	"github.com/huntersxy/xqecz/server/internal/cache"
 	"github.com/huntersxy/xqecz/server/internal/store"
@@ -135,6 +136,12 @@ func (h *Handler) login(c *gin.Context) {
 	}
 
 	sid := newSessionID()
+	if h.deps.AI != nil {
+		if err := aigen.GrantDailyLogin(c.Request.Context(), h.deps.DB, user.ID, time.Now()); err != nil {
+			web.Fail(c, 500, "登录额度发放失败，请重试")
+			return
+		}
+	}
 	if err := h.deps.Redis.SetSession(c.Request.Context(), sid, user.ID); err != nil {
 		web.Fail(c, 500, "服务异常")
 		return
@@ -171,6 +178,12 @@ func (h *Handler) me(c *gin.Context) {
 	if err != nil {
 		web.Fail(c, 500, "服务异常")
 		return
+	}
+	if h.deps.AI != nil {
+		if err := aigen.GrantDailyLogin(c.Request.Context(), h.deps.DB, user.ID, time.Now()); err != nil {
+			web.Fail(c, 500, "登录额度发放失败，请重试")
+			return
+		}
 	}
 	web.OK(c, userPayload(user), "ok")
 }

@@ -380,6 +380,7 @@ func (s *Service) insertTask(tx *gorm.DB, uid uint64, account Account, snap task
 		group = p.AllowedProviderID
 	}
 	task := Task{UserID: uid, SessionID: snap.Input.SessionID, IdempotencyKey: snap.Input.Key, Prompt: snap.Input.Prompt, Size: snap.Input.Size, Quality: snap.Input.Quality, Count: snap.Input.Count, Model: p.Model, Mode: snap.Input.Mode, Status: "queued", Cost: cost, Snapshot: encode(snap), ProviderID: p.ID, DispatchProviderID: group, ParentAssetID: snap.Input.ParentAssetID, IdeaID: ideaID}
+	task.DailyCost = min(account.DailyAvailable, cost)
 	for _, ref := range snap.References {
 		if ref.ID == task.ParentAssetID {
 			task.ParentTaskID = ref.TaskID
@@ -391,7 +392,7 @@ func (s *Service) insertTask(tx *gorm.DB, uid uint64, account Account, snap task
 	if cost == 0 {
 		return task, nil
 	}
-	if err := tx.Model(&Account{}).Where("user_id = ?", uid).Updates(map[string]any{"available": account.Available - cost, "reserved": account.Reserved + cost}).Error; err != nil {
+	if err := tx.Model(&Account{}).Where("user_id = ?", uid).Updates(map[string]any{"available": account.Available - cost, "reserved": account.Reserved + cost, "daily_available": account.DailyAvailable - task.DailyCost, "daily_reserved": account.DailyReserved + task.DailyCost}).Error; err != nil {
 		return task, err
 	}
 	return task, tx.Create(&Ledger{UserID: uid, TaskID: task.ID, Key: fmt.Sprintf("reserve:%d", task.ID), Kind: "reserve", Amount: -cost}).Error
@@ -608,11 +609,13 @@ func (s *Service) complete(task Task, expected, status, message string, assets [
 				return errors.New("额度预留记录不一致")
 			}
 			available, kind, amount := account.Available, "settle", int64(0)
+			dailyAvailable := account.DailyAvailable
 			if !consumed {
 				available += current.Cost
+				dailyAvailable += current.DailyCost
 				kind, amount = "release", current.Cost
 			}
-			if err = tx.Model(&Account{}).Where("user_id = ?", current.UserID).Updates(map[string]any{"available": available, "reserved": account.Reserved - current.Cost}).Error; err != nil {
+			if err = tx.Model(&Account{}).Where("user_id = ?", current.UserID).Updates(map[string]any{"available": available, "reserved": account.Reserved - current.Cost, "daily_available": dailyAvailable, "daily_reserved": account.DailyReserved - current.DailyCost}).Error; err != nil {
 				return err
 			}
 			if err = tx.Create(&Ledger{UserID: current.UserID, TaskID: current.ID, ActorID: actor, Key: fmt.Sprintf("finish:%d", current.ID), Kind: kind, Amount: amount, Note: message}).Error; err != nil {

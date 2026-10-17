@@ -53,6 +53,20 @@ const router = createRouter({
   routes,
 })
 
+const preloading = new Map<string, Promise<unknown>>()
+// Start the same lazy loader used by navigation on pointer/focus intent. This
+// warms code only: it does not mount pages, fetch private data, or start timers.
+export function preloadRoute(path: string) {
+  const record = router.resolve(path).matched.at(-1)
+  const loader = record?.components?.default
+  if (!record || typeof loader !== 'function' || preloading.has(record.path)) return
+  const loading = Promise.resolve((loader as () => Promise<unknown>)()).catch((error) => {
+    preloading.delete(record.path)
+    console.warn('页面预加载失败，将在打开时重试', error)
+  })
+  preloading.set(record.path, loading)
+}
+
 router.beforeEach(async (to) => {
   const userStore = useUserStore()
 

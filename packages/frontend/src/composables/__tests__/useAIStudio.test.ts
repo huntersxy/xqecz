@@ -76,6 +76,19 @@ afterEach(() => {
   vi.useRealTimers()
 })
 describe('AI studio persistence', () => {
+  it('skips saves of unchanged drafts, including after an autosave', async () => {
+    const { wrapper, studio } = await setup()
+    await studio.save()
+    expect(mock.saveSession).not.toHaveBeenCalled()
+    studio.prompt.value = '新的画面'
+    await flushPromises()
+    await studio.save()
+    await studio.save()
+    expect(mock.saveSession).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(900)
+    expect(mock.saveSession).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
   it('inserts a reference at a distant slot while preserving intermediate order and edit ancestry', async () => {
     const { wrapper, studio } = await setup()
     studio.references.value = [7, 8, 9].map((asset_id) => ({ asset_id, note: '' }))

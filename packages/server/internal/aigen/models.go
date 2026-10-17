@@ -17,6 +17,7 @@ type Task struct {
 	Status             string    `gorm:"size:20;index" json:"status"`
 	Archived           bool      `gorm:"index" json:"-"`
 	Cost               int64     `json:"cost"`
+	DailyCost          int64     `gorm:"not null;default:0" json:"-"`
 	Error              string    `gorm:"size:500" json:"error"`
 	Snapshot           string    `gorm:"type:longtext" json:"-"`
 	ProviderID         uint64    `gorm:"index" json:"provider_id"`
@@ -43,10 +44,14 @@ type Session struct {
 func (Session) TableName() string { return "ai_sessions" }
 
 type Account struct {
-	UserID    uint64    `gorm:"primaryKey" json:"user_id"`
-	Available int64     `json:"available"`
-	Reserved  int64     `json:"reserved"`
-	UpdatedAt time.Time `json:"-"`
+	UserID    uint64 `gorm:"primaryKey" json:"user_id"`
+	Available int64  `json:"available"`
+	Reserved  int64  `json:"reserved"`
+	// Daily balances are a subset of Available/Reserved; existing credits remain uncapped.
+	DailyAvailable int64     `gorm:"not null;default:0" json:"daily_available"`
+	DailyReserved  int64     `gorm:"not null;default:0" json:"daily_reserved"`
+	LastLoginDay   string    `gorm:"size:10" json:"-"`
+	UpdatedAt      time.Time `json:"-"`
 }
 
 func (Account) TableName() string { return "ai_quota_accounts" }
@@ -98,12 +103,12 @@ type ProviderConfig struct {
 	Name              string `gorm:"size:100" json:"name"`
 	// Adapter selects the wire protocol while Endpoint remains the complete
 	// provider URL. Empty values are read as the legacy OpenAI Images adapter.
-	Adapter        string `gorm:"size:40" json:"adapter"`
-	Endpoint       string `gorm:"size:500" json:"endpoint"`
-	Model          string `gorm:"size:160" json:"model"`
-	CipherKey      string `gorm:"type:text" json:"-"`
-	Enabled        bool   `json:"enabled"`
-	Default        bool   `json:"default"`
+	Adapter   string `gorm:"size:40" json:"adapter"`
+	Endpoint  string `gorm:"size:500" json:"endpoint"`
+	Model     string `gorm:"size:160" json:"model"`
+	CipherKey string `gorm:"type:text" json:"-"`
+	Enabled   bool   `json:"enabled"`
+	Default   bool   `json:"default"`
 	// Sizes remains in the schema for old clients and snapshots. Generation
 	// accepts the user's validated size (or auto) independently of this field.
 	Sizes          string `gorm:"type:text" json:"sizes"`

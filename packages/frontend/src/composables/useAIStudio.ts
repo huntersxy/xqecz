@@ -90,6 +90,8 @@ export function useAIStudio() {
     pollTimer: ReturnType<typeof setTimeout> | undefined
   const controller = new AbortController()
   let saveQueue: Promise<void> = Promise.resolve()
+  let savedDraft = ''
+  const draftSignature = () => JSON.stringify({ name: name.value || '未命名创作', draft: { ...input(), pending: pending.value } })
   async function run(action: () => Promise<unknown>) {
     error.value = ''
     try {
@@ -103,8 +105,12 @@ export function useAIStudio() {
     const id = session.value.id,
       savedName = name.value || '未命名创作',
       draft = JSON.parse(JSON.stringify({ ...input(), pending: pending.value }))
+    const signature = JSON.stringify({ name: savedName, draft })
     const operation = saveQueue.then(async () => {
       if (stopped) return
+      // Navigation must not wait for a network write when the draft is unchanged.
+      // Compare inside the queue so a completed autosave also covers a leave request.
+      if (signature === savedDraft) return
       const current = sessions.value.find((s) => s.id === id)
       if (!current) return
       saving = true
@@ -120,6 +126,7 @@ export function useAIStudio() {
         if (stopped) return
         const index = sessions.value.findIndex((s) => s.id === id)
         if (index >= 0) sessions.value[index] = row
+        savedDraft = signature
         saveState.value = '已保存'
       } catch (e) {
         if (!stopped) {
@@ -166,6 +173,7 @@ export function useAIStudio() {
     saveState.value = '已恢复'
     queueMicrotask(() => {
       restoring = false
+      savedDraft = draftSignature()
     })
   }
   async function refresh() {

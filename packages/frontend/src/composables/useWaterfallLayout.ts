@@ -1,4 +1,4 @@
-import { nextTick, onUnmounted, ref, watch, type Ref } from 'vue'
+import { nextTick, onActivated, onDeactivated, onUnmounted, ref, watch, type Ref } from 'vue'
 
 interface WaterfallItem {
   id: string | number
@@ -97,6 +97,7 @@ export function useWaterfallLayout(
   let colW = 0
   let lastContainerWidth = 0
   let rebalanceScheduled = false
+  let active = true
 
   function getColumnCount(width: number) {
     if (width >= 1400) return 5
@@ -125,6 +126,7 @@ export function useWaterfallLayout(
 
   /** 同步执行一次布局：列数/列宽变化或 `full` → 全量重排（重新平衡所有列）；否则增量（保留列） */
   function relayout(opts: { anchor?: boolean; full?: boolean } = {}) {
+    if (!active) return
     const el = containerRef.value
     if (!el || items.value.length === 0) {
       if (positions.value.size > 0 || containerHeight.value !== 0) reset()
@@ -205,6 +207,7 @@ export function useWaterfallLayout(
   let anchorOnNext = false
 
   function scheduleRelayout(anchor = false) {
+    if (!active) return
     if (rafId !== null) {
       anchorOnNext = anchorOnNext || anchor
       return
@@ -291,6 +294,21 @@ export function useWaterfallLayout(
   onUnmounted(() => {
     containerObserver?.disconnect()
     if (rafId !== null) cancelAnimationFrame(rafId)
+  })
+  // KeepAlive removes the homepage DOM without unmounting it. Its zero-width
+  // resize notifications must not overwrite the cached layout or move scrolling
+  // on whichever page the user has just opened.
+  onDeactivated(() => {
+    active = false
+    containerObserver?.disconnect()
+    if (rafId !== null) cancelAnimationFrame(rafId)
+    rafId = null
+    anchorOnNext = false
+  })
+  onActivated(() => {
+    active = true
+    const el = containerRef.value
+    if (el) setupContainerObserver(el)
   })
 
   return {

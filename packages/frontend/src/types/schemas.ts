@@ -35,6 +35,8 @@ export const AIAccountSchema = z.object({
   user_id: z.number(),
   available: z.number().int().nonnegative(),
   reserved: z.number().int().nonnegative(),
+  daily_available: z.number().int().nonnegative().optional(),
+  daily_reserved: z.number().int().nonnegative().optional(),
 })
 export const AISessionSchema = z.object({
   id: z.number().int().positive(),

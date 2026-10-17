@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useUserStore } from '../user'
 
@@ -12,6 +12,7 @@ vi.mock('@/api', () => ({
 }))
 
 describe('useUserStore', () => {
+  afterEach(() => vi.useRealTimers())
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
@@ -22,6 +23,21 @@ describe('useUserStore', () => {
 
     expect(store.user).toBeNull()
     expect(store.isLoggedIn).toBe(false)
+  })
+  it('shares an in-flight auth check and refreshes daily login after China midnight', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-17T15:59:00Z'))
+    const { authApi } = await import('@/api')
+    vi.mocked(authApi.getMe).mockResolvedValue({ code: 200, message: 'ok', data: { id: 1, username: 'test', is_admin: false } } as Awaited<ReturnType<typeof authApi.getMe>>)
+    const store = useUserStore()
+    await Promise.all([store.checkAuth(), store.checkAuth()])
+    expect(authApi.getMe).toHaveBeenCalledTimes(1)
+    await store.refreshDailyLogin()
+    expect(authApi.getMe).toHaveBeenCalledTimes(1)
+    vi.setSystemTime(new Date('2026-10-17T16:00:00Z'))
+    await store.refreshDailyLogin()
+    await store.refreshDailyLogin()
+    expect(authApi.getMe).toHaveBeenCalledTimes(2)
   })
 
   it('should login successfully', async () => {

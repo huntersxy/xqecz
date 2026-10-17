@@ -3,7 +3,7 @@ export default { name: 'HomeView' }
 </script>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onActivated, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onActivated, onDeactivated, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useIntersectionObserver } from '@vueuse/core'
 import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { contentApi } from '@/api'
@@ -64,6 +64,14 @@ let loadSeq = 0
 // （loadAllPages 或 homeStore/localStorage 缓存恢复）提供，不必再 sync。
 // 首次激活后复位，后续激活（详情页返回等）正常做增量同步。
 let isFirstActivation = true
+let restoreTimer: ReturnType<typeof setTimeout> | undefined
+function cancelScrollRestore() {
+  clearTimeout(restoreTimer)
+  restoreTimer = undefined
+  pendingScrollRestore.value = false
+}
+onDeactivated(cancelScrollRestore)
+onBeforeUnmount(cancelScrollRestore)
 
 // 列表长度变化：清空时重置布局；首次加载/列表变短（diff 删除）时全量重排重新平衡。
 // 布局由各写路径显式触发（relayout / appendNewItems），避免同一帧重复量高。
@@ -420,13 +428,13 @@ onActivated(() => {
 
   // 延迟恢复滚动，再拉取最新列表 diff（有新增时锚定当前可见内容，不丢阅读位置）。
   // 首次挂载的激活不 sync（数据已由 onMounted 提供），复位标志后后续激活正常增量同步。
-  setTimeout(() => {
+  const firstActivation = isFirstActivation
+  isFirstActivation = false
+  restoreTimer = setTimeout(() => {
+    restoreTimer = undefined
     pendingScrollRestore.value = false
     homeStore.restoreScroll()
-    if (isFirstActivation) {
-      isFirstActivation = false
-      return
-    }
+    if (firstActivation) return
     void syncLatestOnActivated()
   }, 300)
 })

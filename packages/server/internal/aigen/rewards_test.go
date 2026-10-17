@@ -1,0 +1,92 @@
+package aigen
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"gorm.io/gorm"
+)
+
+func TestDailyLoginCapAndRewardSeparation(t *testing.T) {
+	s, _, _, _ := testService(t)
+	ctx := context.Background()
+	// 15:59 UTC is still the previous calendar day in China.
+	now := time.Date(2026, 10, 17, 15, 59, 0, 0, time.UTC)
+	login := func(at time.Time) {
+		t.Helper()
+		if err := GrantDailyLogin(ctx, s.db, 1, at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	login(now)
+	login(now)
+	if a := balance(t, s, 1); a.Available != 1 {
+		t.Fatal("duplicate daily credit", a)
+	}
+	login(now.Add(time.Minute))
+	if a := balance(t, s, 1); a.Available != 2 {
+		t.Fatal("China midnight boundary", a)
+	}
+	for i := 1; i <= 7; i++ {
+		login(now.AddDate(0, 0, i))
+	}
+	if a := balance(t, s, 1); a.Available != 5 || a.DailyAvailable != 5 {
+		t.Fatal("daily cap", a)
+	}
+	grant(t, s, 1, 10)
+	if err := s.db.Transaction(func(tx *gorm.DB) error { return RewardApproval(tx, 1, 42) }); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.db.Transaction(func(tx *gorm.DB) error { return RewardApproval(tx, 1, 42) }); err != nil {
+		t.Fatal(err)
+	}
+	login(now.AddDate(0, 0, 9))
+	if a := balance(t, s, 1); a.Available != 16 || a.DailyAvailable != 5 {
+		t.Fatal("uncapped bonus or duplicate approval", a)
+	}
+}
+
+func TestDailyCreditsReservationRefundAndRefill(t *testing.T) {
+	s, _, p, session := testService(t)
+	ctx := context.Background()
+	now := time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)
+	for i := 0; i < 5; i++ {
+		if err := GrantDailyLogin(ctx, s.db, 1, now.AddDate(0, 0, i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	grant(t, s, 1, 10)
+	task, err := s.Submit(ctx, 1, inputFor(p, session, "daily-credit-submit-001"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a := balance(t, s, 1); a.DailyAvailable != 3 || a.DailyReserved != 2 || a.Available != 13 {
+		t.Fatal("daily first", a)
+	}
+	if err := GrantDailyLogin(ctx, s.db, 1, now.AddDate(0, 0, 5)); err != nil {
+		t.Fatal(err)
+	}
+	if a := balance(t, s, 1); a.Available != 13 {
+		t.Fatal("reserved credits bypassed cap", a)
+	}
+	if err := s.complete(task, "queued", "failed", "test", nil, false, 0); err != nil {
+		t.Fatal(err)
+	}
+	if a := balance(t, s, 1); a.DailyAvailable != 5 || a.DailyReserved != 0 || a.Available != 15 {
+		t.Fatal("refund source", a)
+	}
+	task, err = s.Submit(ctx, 1, inputFor(p, session, "daily-credit-submit-002"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.complete(task, "queued", "succeeded", "", nil, true, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := GrantDailyLogin(ctx, s.db, 1, now.AddDate(0, 0, 6)); err != nil {
+		t.Fatal(err)
+	}
+	if a := balance(t, s, 1); a.DailyAvailable != 4 || a.DailyReserved != 0 || a.Available != 14 {
+		t.Fatal("daily refill after spending", a)
+	}
+}

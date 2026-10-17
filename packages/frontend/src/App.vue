@@ -38,6 +38,7 @@ import type { Component } from 'vue'
 import ErrorBoundary from './components/ErrorBoundary.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import { revealOriginFrom, withRevealTransition } from '@/utils/viewTransition'
+import { preloadRoute } from '@/router'
 
 const route = useRoute()
 const router = useRouter()
@@ -133,13 +134,20 @@ const isMobile = ref(false)
 function updateBreakpoint() {
   isMobile.value = window.matchMedia('(max-width: 1360px)').matches
 }
+function onVisibilityChange() {
+  if (!document.hidden) void userStore.refreshDailyLogin()
+}
 
 onMounted(() => {
   if (!userStore.isLoggedIn) userStore.checkAuth()
   updateBreakpoint()
   window.addEventListener('resize', updateBreakpoint)
+  document.addEventListener('visibilitychange', onVisibilityChange)
 })
-onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateBreakpoint)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+})
 </script>
 
 <template>
@@ -170,6 +178,8 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
               type="text"
               :class="['app-nav-item', { 'app-nav-item-active': selectedKeys.includes(item.key) }]"
               @click="onNavClick(item.key)"
+              @pointerenter="preloadRoute(item.key)"
+              @focus="preloadRoute(item.key)"
             >
               <template #icon><component :is="item.icon" /></template>
               {{ item.label }}
