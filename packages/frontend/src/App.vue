@@ -80,7 +80,6 @@ interface NavItem {
 
 const navItems = computed<NavItem[]>(() => {
   const items: NavItem[] = [
-    { key: '/', icon: IconHome, label: '首页' },
     { key: '/quick-upload', icon: IconUpload, label: '快速上传' },
     { key: '/studio', icon: IconUpload, label: 'AI 创作' },
     { key: '/characters', icon: IconHome, label: '角色设定' },
@@ -93,9 +92,16 @@ const navItems = computed<NavItem[]>(() => {
   return items
 })
 
+// 品牌本身就是返回首页的入口，桌面导航不再重复放一个「首页」；
+// 移动抽屉仍保留文字入口，避免首页头部被搜索框占用时失去回家路径。
+const mobileNavItems = computed<NavItem[]>(() => [
+  { key: '/', icon: IconHome, label: '首页' },
+  ...navItems.value,
+])
+
 const selectedKeys = computed(() => {
   const p = route.path
-  const items = navItems.value || []
+  const items = mobileNavItems.value || []
   for (let i = items.length - 1; i >= 0; i--) {
     const item = items[i]
     if (item && 'key' in item) {
@@ -322,7 +328,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
         :accordion="false"
         class="app-menu-flat"
       >
-        <MenuItem v-for="item in navItems" :key="item.key">
+        <MenuItem v-for="item in mobileNavItems" :key="item.key">
           <template #icon><component :is="item.icon" /></template>
           {{ item.label }}
         </MenuItem>

@@ -123,6 +123,18 @@ beforeEach(() => {
 afterEach(() => wrappers.splice(0).forEach((w) => w.unmount()))
 
 describe('studio gallery and composer', () => {
+  it('keeps the creation modes visible without opening advanced settings', async () => {
+    const w = await render()
+    expect(w.find('.composer-settings').exists()).toBe(false)
+    expect(w.findAll('.composer-mode-option').map((item) => item.text())).toEqual([
+      '文生图只用文字描述',
+      '参考生成让参考图参与构图',
+      '继续编辑沿用已生成结果',
+    ])
+    expect(w.get('.composer-mode-option.active').text()).toContain('文生图')
+    expect(w.findAll('.composer-mode-option')[2]?.attributes('disabled')).toBeDefined()
+  })
+
   it('can collapse the phone composer and reopens it when reusing a task prompt', async () => {
     api.tasks.mockResolvedValue([task(1)])
     const w = await render()

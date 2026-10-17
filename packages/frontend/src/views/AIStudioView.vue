@@ -205,8 +205,12 @@ const activeTask = computed(() =>
       ['queued', 'running', 'unknown'].includes(row.task.status),
   ),
 )
-async function changeGenerationMode(event: Event) {
-  const value = (event.target as HTMLSelectElement).value
+async function changeGenerationMode(valueOrEvent: string | Event) {
+  const value =
+    typeof valueOrEvent === 'string'
+      ? valueOrEvent
+      : (valueOrEvent.target as HTMLSelectElement | null)?.value ?? ''
+  if (value === generationMode.value) return
   await studio.run(async () => {
     if (value === 'text') {
       if (
@@ -227,8 +231,22 @@ async function changeGenerationMode(event: Event) {
     } else if (selectedAsset.value) studio.continueFrom(selectedAsset.value)
     else throw new Error('请先选择一张生成结果，再继续编辑')
   })
-  ;(event.target as HTMLSelectElement).value = generationMode.value
 }
+const generationModeOptions = computed(() => [
+  { value: 'text', label: '文生图', hint: '只用文字描述', disabled: false },
+  {
+    value: 'reference',
+    label: '参考生成',
+    hint: '让参考图参与构图',
+    disabled: !provider.value?.max_references,
+  },
+  {
+    value: 'edit',
+    label: '继续编辑',
+    hint: '沿用已生成结果',
+    disabled: !provider.value?.max_references || !selectedAsset.value,
+  },
+])
 const keyForm = ref({ name: '', allowed_provider_id: 0, api_key: '', default: true })
 watch(keyOpen, (open) => {
   if (!open) return
@@ -863,6 +881,36 @@ watch(ready, (value) => {
             hidden
             @change="(event) => uploadFiles((event.target as HTMLInputElement).files)"
           />
+          <div class="composer-mode-row">
+            <div class="composer-mode-picker">
+              <div class="composer-mode-heading">
+                <span>创作模式</span>
+                <span class="creative-note">选择画面的输入方式</span>
+              </div>
+              <div class="composer-mode-options" role="group" aria-label="创作模式">
+                <button
+                  v-for="option in generationModeOptions"
+                  :key="option.value"
+                  type="button"
+                  class="composer-mode-option"
+                  :class="{ active: generationMode === option.value }"
+                  :disabled="composerLocked || (option.disabled && generationMode !== option.value)"
+                  :aria-pressed="generationMode === option.value"
+                  @click="changeGenerationMode(option.value)"
+                >
+                  <span>{{ option.label }}</span>
+                  <small>{{ option.hint }}</small>
+                </button>
+              </div>
+            </div>
+            <label class="composer-control composer-credit-control"
+              ><span>额度模式</span
+              ><select v-model="mode" aria-label="额度模式">
+                <option value="site">站点额度</option>
+                <option value="byok">自备 API Key</option>
+              </select></label
+            >
+          </div>
           <div
             id="studio-generation-controls"
             class="composer-controls"
@@ -904,36 +952,12 @@ watch(ready, (value) => {
                 </option>
               </select></label
             >
-            <details class="composer-settings">
-              <summary><IconSettings />更多</summary>
-              <div class="composer-settings-fields">
-                <label class="creative-field"
-                  >生成方式<select
-                    :value="generationMode"
-                    aria-label="生成方式"
-                    @change="changeGenerationMode"
-                  >
-                    <option value="text">文生图</option>
-                    <option value="reference" :disabled="!provider?.max_references">
-                      参考生成
-                    </option>
-                    <option value="edit" :disabled="!provider?.max_references || !selectedAsset">
-                      继续编辑
-                    </option>
-                  </select></label
-                >
-                <label class="creative-field"
-                  >额度模式<select v-model="mode" aria-label="额度模式">
-                    <option value="site">站点额度</option>
-                    <option value="byok">自备 API Key</option>
-                  </select></label
-                >
-                <a-button size="small" @click="studio.run(studio.save)">保存草稿</a-button
-                ><a-button size="small" :disabled="!prompt.trim()" @click="ideaOpen = true"
-                  >投稿创意</a-button
-                >
-              </div>
-            </details>
+            <div class="composer-quick-actions">
+              <a-button size="small" @click="studio.run(studio.save)">保存草稿</a-button
+              ><a-button size="small" :disabled="!prompt.trim()" @click="ideaOpen = true"
+                >投稿创意</a-button
+              >
+            </div>
           </div>
         </fieldset>
         <div class="composer-footer">

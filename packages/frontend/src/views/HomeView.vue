@@ -438,7 +438,7 @@ onActivated(() => {
     <section v-if="!swapSections" class="wf-hero" aria-labelledby="home-title">
       <div class="wf-hero-copy">
         <span class="wf-kicker"><span class="wf-kicker-dot"></span> XQECZ / UNIVERSE OF CREATORS</span>
-        <h1 id="home-title">在小泉宇宙，<em>每个人都是造物主</em></h1>
+        <h1 id="home-title">小泉宇宙——<em>每个人都是造物主</em></h1>
         <p>动漫二创内容分享平台 · 上传你的作品，点亮属于你的那颗星球。</p>
         <div class="wf-hero-actions">
           <button class="wf-primary-action" type="button" @click="showUploadSheet = true">
