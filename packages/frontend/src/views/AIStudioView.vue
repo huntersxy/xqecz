@@ -485,20 +485,12 @@ watch(ready, (value) => {
     <header class="studio-head">
       <div class="studio-identity">
         <h1>创作工作台</h1>
-        <span class="creative-note">让想象，有了形状</span>
-      </div>
-      <div class="studio-head-actions">
-        <nav aria-label="创作探索">
-          <RouterLink to="/characters">角色设定库</RouterLink>
-          <RouterLink to="/ideas">创意广场</RouterLink>
-        </nav>
       </div>
     </header>
     <div class="studio-workspace">
       <section class="studio-gallery" aria-label="作品与任务记录">
         <div class="studio-gallery-toolbar">
           <div class="studio-gallery-heading">
-            <h2>作品与记录</h2>
             <a-button
               v-if="failedTaskRows.length"
               size="small"
@@ -821,12 +813,6 @@ watch(ready, (value) => {
                 </option>
               </select></label
             >
-            <div class="composer-quick-actions">
-              <a-button size="small" @click="studio.run(studio.save)">保存草稿</a-button
-              ><a-button size="small" :disabled="!prompt.trim()" @click="ideaOpen = true"
-                >投稿创意</a-button
-              >
-            </div>
           </div>
         </fieldset>
         <div class="composer-footer">
@@ -843,6 +829,9 @@ watch(ready, (value) => {
               >上次提交结果尚未确认，草稿已锁定。请用原请求继续确认。</span
             >
           </div>
+          <div class="composer-quick-actions">
+            <a-button size="small" :disabled="composerLocked" @click="studio.run(studio.save)">保存草稿</a-button>
+            <a-button size="small" :disabled="composerLocked || !prompt.trim()" @click="ideaOpen = true">投稿创意</a-button>
           <a-button
             type="primary"
             class="composer-submit"
@@ -853,6 +842,7 @@ watch(ready, (value) => {
               pending ? '确认上次提交' : '开始生成'
             }}</a-button
           >
+          </div>
         </div>
       </section>
     </div>

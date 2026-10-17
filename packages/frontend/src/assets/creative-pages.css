@@ -1805,7 +1805,9 @@ body[arco-theme='dark'] .ai-studio select {
 }
 .composer-quick-actions {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
   gap: 8px;
   margin-left: auto;
 }
@@ -2355,6 +2357,10 @@ body[arco-theme='dark'] .ai-studio select {
   }
   .composer-footer {
     margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .composer-feedback {
+    flex-basis: 100%;
   }
   .attachment-hint,
   .composer-shortcut {
