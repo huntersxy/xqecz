@@ -142,6 +142,16 @@ describe('AI studio persistence', () => {
     expect(studio.ready.value).toBe(true)
     wrapper.unmount()
   })
+  it('remembers a selected size for the next new session', async () => {
+    const first = await setup()
+    first.studio.size.value = '1536x1024'
+    await flushPromises()
+    first.wrapper.unmount()
+
+    const second = await setup()
+    expect(second.studio.size.value).toBe('1536x1024')
+    second.wrapper.unmount()
+  })
   it('serializes autosave before persisting an idempotent submission', async () => {
     let finish!: () => void
     mock.saveSession.mockImplementationOnce(

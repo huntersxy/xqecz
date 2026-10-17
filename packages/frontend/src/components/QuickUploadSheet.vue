@@ -50,7 +50,7 @@ const progress = ref(0)
 const { filePreview, fileInput, dragOver, onFileChange, onDrop, clearPreview } = useFilePicker((f) => {
   file.value = f
   if (!form.value.title) form.value.title = f.name.replace(/\.[^.]+$/, '')
-})
+}, { allowVideo: false })
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s]+$/
 
@@ -159,7 +159,7 @@ watch(() => props.open, (val) => {
       <div class="qus-body">
         <section class="qus-media-column" aria-label="作品媒体">
           <div class="qus-field-heading"><span>作品画面</span><span class="qus-optional">可选</span></div>
-          <input ref="fileInput" type="file" accept="image/*,video/*" class="qus-hidden" :disabled="uploading" @change="onFileChange" />
+          <input ref="fileInput" type="file" accept="image/*" class="qus-hidden" :disabled="uploading" @change="onFileChange" />
           <Transition name="qus-media-state" mode="out-in">
           <button
             v-if="!file"
@@ -175,13 +175,12 @@ watch(() => props.open, (val) => {
           >
             <span class="qus-upload-art" aria-hidden="true"><IconUpload /><span class="qus-art-spark">✦</span></span>
             <span class="qus-dropzone-title">把你的灵感放进来</span>
-            <span class="qus-dropzone-hint">点击选择，或将图片 / 视频拖到这里</span>
+            <span class="qus-dropzone-hint">点击选择，或将图片拖到这里</span>
             <span class="qus-file-limit">原格式上传 · 单个文件不超过 20 MB</span>
           </button>
           <div v-else key="preview" class="qus-preview">
             <div class="qus-preview-stage">
-              <img v-if="file.type.startsWith('image/')" :src="filePreview" :alt="file.name" class="qus-preview-img" />
-              <video v-else :src="filePreview" controls class="qus-preview-video" />
+              <img :src="filePreview" :alt="file.name" class="qus-preview-img" />
             </div>
             <div class="qus-file-row">
               <IconCheckCircle class="qus-file-check" />
@@ -267,7 +266,7 @@ watch(() => props.open, (val) => {
 .qus-identity-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 .qus-preview { margin-top: 10px; overflow: hidden; border: 1px solid var(--creative-line); border-radius: 16px; background: var(--creative-canvas); }
 .qus-preview-stage { height: 258px; display: grid; place-items: center; padding: 12px; }
-.qus-preview-img, .qus-preview-video { width: 100%; height: 100%; max-height: 234px; object-fit: contain; border-radius: 8px; }
+.qus-preview-img { width: 100%; height: 100%; max-height: 234px; object-fit: contain; border-radius: 8px; }
 .qus-file-row { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 12px; border-top: 1px solid var(--creative-line); background: var(--creative-paper); }
 .qus-file-check { flex-shrink: 0; color: var(--creative-accent); }
 .qus-file-name { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; }

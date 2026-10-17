@@ -2,7 +2,28 @@ import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { aiApi, type GenerationInput } from '@/api/creative'
 import type { AIAccount, AIProvider, AISession, AIAsset, AITaskView } from '@/types/schemas'
 import { useUserStore } from '@/stores/user'
-import { AUTO_IMAGE_SIZE } from '@/utils/imageSize'
+import { AUTO_IMAGE_SIZE, normalizeImageSize, parseImageSize } from '@/utils/imageSize'
+
+const REMEMBERED_SIZE_KEY = 'xqecz:ai-studio-size'
+
+function readRememberedSize() {
+  try {
+    const value = localStorage.getItem(REMEMBERED_SIZE_KEY)?.trim() ?? ''
+    if (value.toLowerCase() === AUTO_IMAGE_SIZE) return AUTO_IMAGE_SIZE
+    return parseImageSize(value) ? normalizeImageSize(value) : AUTO_IMAGE_SIZE
+  } catch {
+    return AUTO_IMAGE_SIZE
+  }
+}
+
+function rememberSize(value: string) {
+  if (value !== AUTO_IMAGE_SIZE && !parseImageSize(value)) return
+  try {
+    localStorage.setItem(REMEMBERED_SIZE_KEY, value)
+  } catch {
+    // Storage is optional; the current session still retains the selection.
+  }
+}
 
 export function useAIStudio() {
   const user = useUserStore()
@@ -15,9 +36,8 @@ export function useAIStudio() {
   const sessionId = ref(0),
     name = ref('未命名创作'),
     prompt = ref(''),
-    mode = ref<'site' | 'byok'>('site'),
     providerId = ref(0),
-    size = ref(AUTO_IMAGE_SIZE),
+    size = ref(readRememberedSize()),
     quality = ref(''),
     count = ref(1),
     references = ref<{ asset_id: number; note: string }[]>([]),
@@ -39,13 +59,13 @@ export function useAIStudio() {
     sessionCursor = 0
   const availableProviders = computed(() =>
     providers.value.filter(
-      (p) => p.enabled && (mode.value === 'site' ? p.owner === 0 : p.owner === user.user?.id),
+      (p) => p.enabled && p.owner === 0,
     ),
   )
   const provider = computed(() => availableProviders.value.find((p) => p.id === providerId.value))
   const session = computed(() => sessions.value.find((s) => s.id === sessionId.value))
   const cost = computed(() =>
-    mode.value === 'byok' || user.user?.is_admin
+    user.user?.is_admin
       ? 0
       : (provider.value?.quality_costs[quality.value] ?? provider.value?.cost ?? 0) * count.value,
   )
@@ -54,7 +74,7 @@ export function useAIStudio() {
     idempotency_key: '',
     prompt: prompt.value,
     provider_id: providerId.value,
-    mode: mode.value,
+    mode: 'site',
     size: size.value,
     quality: quality.value,
     count: count.value,
@@ -130,9 +150,8 @@ export function useAIStudio() {
       error.value = '草稿格式不完整，已恢复会话名称'
     }
     prompt.value = draft.prompt ?? ''
-    mode.value = draft.mode === 'byok' ? 'byok' : 'site'
     providerId.value = draft.provider_id ?? 0
-    size.value = draft.size?.trim() || AUTO_IMAGE_SIZE
+    size.value = draft.size?.trim() || readRememberedSize()
     quality.value = draft.quality ?? ''
     count.value = draft.count ?? 1
     references.value = draft.references ?? []
@@ -312,7 +331,7 @@ export function useAIStudio() {
     if (!stopped) providers.value = cfg.providers
   }
   watch(
-    [prompt, name, references, mode, providerId, size, quality, count, parentAssetId, characterIds],
+    [prompt, name, references, providerId, size, quality, count, parentAssetId, characterIds],
     () => {
       if (!ready.value || restoring || pending.value) return
       saveState.value = '未保存'
@@ -321,6 +340,9 @@ export function useAIStudio() {
     },
     { deep: true },
   )
+  watch(size, (value) => {
+    if (!restoring) rememberSize(value)
+  })
   watch(availableProviders, (rows) => {
     if (!rows.some((p) => p.id === providerId.value)) providerId.value = rows[0]?.id ?? 0
   })
@@ -396,7 +418,6 @@ export function useAIStudio() {
     sessionId,
     name,
     prompt,
-    mode,
     providerId,
     size,
     quality,

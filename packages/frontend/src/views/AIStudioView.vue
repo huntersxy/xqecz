@@ -1,7 +1,4 @@
 <script setup lang="ts">
-function newKey() {
-  return crypto.randomUUID()
-}
 import { computed, ref, watch, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useAIStudio } from '@/composables/useAIStudio'
@@ -32,7 +29,6 @@ const studio = useAIStudio(),
   route = useRoute(),
   { confirm } = useConfirm()
 const {
-  providers,
   sessions,
   tasks,
   assets,
@@ -40,7 +36,6 @@ const {
   sessionId,
   name,
   prompt,
-  mode,
   providerId,
   size,
   quality,
@@ -58,7 +53,6 @@ const {
 } = studio
 const libraryOpen = ref(false),
   historyOpen = ref(false),
-  keyOpen = ref(false),
   ideaOpen = ref(false),
   publishOpen = ref(false),
   resultOpen = ref(false),
@@ -93,15 +87,13 @@ const canGenerate = computed(
     !confirming.value &&
     (!!pending.value ||
       (!!provider.value &&
-        (mode.value !== 'site' || provider.value.has_key) &&
+        provider.value.has_key &&
         !!prompt.value.trim())),
 )
 const quotaNote = computed(() =>
-  mode.value === 'byok'
-    ? '自备密钥 · 供应商可能收费'
-    : studio.isQuotaExempt.value
-      ? '管理员免额度'
-      : `本次 ${cost.value} 额度 · 可用 ${account.value.available}`,
+  studio.isQuotaExempt.value
+    ? '管理员免额度'
+    : `本次 ${cost.value} 额度 · 可用 ${account.value.available}`,
 )
 const mention = ref<ReturnType<typeof referenceMentionAt>>(null),
   mentionIndex = ref(0)
@@ -195,9 +187,6 @@ async function removeReference(index: number) {
   )
   mention.value = null
 }
-const generationMode = computed(() =>
-  studio.parentAssetId.value ? 'edit' : references.value.length ? 'reference' : 'text',
-)
 const activeTask = computed(() =>
   tasks.value.find(
     (row) =>
@@ -205,55 +194,6 @@ const activeTask = computed(() =>
       ['queued', 'running', 'unknown'].includes(row.task.status),
   ),
 )
-async function changeGenerationMode(valueOrEvent: string | Event) {
-  const value =
-    typeof valueOrEvent === 'string'
-      ? valueOrEvent
-      : (valueOrEvent.target as HTMLSelectElement | null)?.value ?? ''
-  if (value === generationMode.value) return
-  await studio.run(async () => {
-    if (value === 'text') {
-      if (
-        references.value.length &&
-        !(await confirm('切换到文生图将清空当前参考图，历史图片仍保留。确认？'))
-      )
-        return
-      prompt.value = remapReferenceMentions(
-        prompt.value,
-        references.value.map((r) => r.asset_id),
-        [],
-      )
-      references.value = []
-      studio.parentAssetId.value = 0
-    } else if (value === 'reference') {
-      studio.parentAssetId.value = 0
-      if (!references.value.length) historyOpen.value = true
-    } else if (selectedAsset.value) studio.continueFrom(selectedAsset.value)
-    else throw new Error('请先选择一张生成结果，再继续编辑')
-  })
-}
-const generationModeOptions = computed(() => [
-  { value: 'text', label: '文生图', hint: '只用文字描述', disabled: false },
-  {
-    value: 'reference',
-    label: '参考生成',
-    hint: '让参考图参与构图',
-    disabled: !provider.value?.max_references,
-  },
-  {
-    value: 'edit',
-    label: '继续编辑',
-    hint: '沿用已生成结果',
-    disabled: !provider.value?.max_references || !selectedAsset.value,
-  },
-])
-const keyForm = ref({ name: '', allowed_provider_id: 0, api_key: '', default: true })
-watch(keyOpen, (open) => {
-  if (!open) return
-  const approved = providers.value.filter((p) => p.owner === 0 && p.enabled)
-  if (!approved.some((p) => p.id === keyForm.value.allowed_provider_id))
-    keyForm.value.allowed_provider_id = approved[0]?.id ?? 0
-})
 const proposal = ref({ title: '', description: '', public_consent: false, reference_rights: false })
 const publishForm = ref({ title: '', description: '', public_consent: false })
 const labels: Record<string, string> = {
@@ -317,7 +257,7 @@ async function generate() {
       if (
         !pending.value &&
         !(await confirm(
-          `本次生成 ${count.value} 张图片，${mode.value === 'byok' ? '使用自备密钥' : `预留 ${cost.value} 额度`}。确认开始？`,
+          `本次生成 ${count.value} 张图片，预留 ${cost.value} 额度。确认开始？`,
         ))
       )
         return
@@ -377,6 +317,15 @@ async function useResult(asParent: boolean) {
     if (asParent) studio.continueFrom(selectedAsset.value!)
     else studio.addReference(selectedAsset.value!.id)
     resultOpen.value = false
+    await focusPrompt()
+  })
+}
+async function continueFromTask(row: AITaskView) {
+  const asset = row.assets[0]
+  if (!asset || composerLocked.value) return
+  await studio.run(async () => {
+    selectedAsset.value = asset
+    studio.continueFrom(asset)
     await focusPrompt()
   })
 }
@@ -458,15 +407,6 @@ async function applyResource(value: {
     )
       quality.value = value.parameters.quality
     libraryOpen.value = false
-  })
-}
-async function saveKey() {
-  await studio.run(async () => {
-    await aiApi.saveBYOK(keyForm.value)
-    keyForm.value.api_key = ''
-    keyOpen.value = false
-    await studio.loadProviders()
-    mode.value = 'byok'
   })
 }
 async function submitIdea() {
@@ -572,9 +512,6 @@ watch(ready, (value) => {
           :disabled="composerLocked"
           @click="studio.run(studio.loadMoreSessions)"
           >更多会话</a-button
-        >
-        <a-button aria-label="API 设置" :disabled="composerLocked" @click="keyOpen = true"
-          ><IconSettings /><span>API 设置</span></a-button
         >
       </div>
     </header>
@@ -709,6 +646,13 @@ watch(ready, (value) => {
                     ><IconRefresh />复用提示词</a-button
                   >
                   <a-button
+                    v-if="row.task.status === 'succeeded' && row.assets.length"
+                    size="small"
+                    :disabled="composerLocked"
+                    @click="continueFromTask(row)"
+                    >继续编辑</a-button
+                  >
+                  <a-button
                     v-if="row.task.status === 'queued'"
                     size="small"
                     @click="
@@ -803,9 +747,6 @@ watch(ready, (value) => {
                 ) + 1
               }}</span
             >
-            <a-button type="text" size="small" @click="studio.parentAssetId.value = 0"
-              >改为参考生成</a-button
-            >
           </div>
           <div class="composer-prompt">
             <label class="sr-only" for="studio-prompt">创作提示词</label>
@@ -881,36 +822,6 @@ watch(ready, (value) => {
             hidden
             @change="(event) => uploadFiles((event.target as HTMLInputElement).files)"
           />
-          <div class="composer-mode-row">
-            <div class="composer-mode-picker">
-              <div class="composer-mode-heading">
-                <span>创作模式</span>
-                <span class="creative-note">选择画面的输入方式</span>
-              </div>
-              <div class="composer-mode-options" role="group" aria-label="创作模式">
-                <button
-                  v-for="option in generationModeOptions"
-                  :key="option.value"
-                  type="button"
-                  class="composer-mode-option"
-                  :class="{ active: generationMode === option.value }"
-                  :disabled="composerLocked || (option.disabled && generationMode !== option.value)"
-                  :aria-pressed="generationMode === option.value"
-                  @click="changeGenerationMode(option.value)"
-                >
-                  <span>{{ option.label }}</span>
-                  <small>{{ option.hint }}</small>
-                </button>
-              </div>
-            </div>
-            <label class="composer-control composer-credit-control"
-              ><span>额度模式</span
-              ><select v-model="mode" aria-label="额度模式">
-                <option value="site">站点额度</option>
-                <option value="byok">自备 API Key</option>
-              </select></label
-            >
-          </div>
           <div
             id="studio-generation-controls"
             class="composer-controls"
@@ -962,11 +873,9 @@ watch(ready, (value) => {
         </fieldset>
         <div class="composer-footer">
           <div class="composer-feedback">
-            <span v-if="!provider" class="creative-note">{{
-              mode === 'byok' ? '请在 API 设置中添加自备密钥' : '管理员尚未启用生图供应商'
-            }}</span>
-            <span v-else-if="mode === 'site' && !provider.has_key" class="creative-note"
-              >此模型尚未配置站点密钥，可使用自备密钥或投稿创意。</span
+            <span v-if="!provider" class="creative-note">管理员尚未启用生图供应商</span>
+            <span v-else-if="!provider.has_key" class="creative-note"
+              >此模型尚未配置站点密钥，请联系管理员。</span
             >
             <span v-else class="creative-note"
               >{{ quotaNote }}<span class="composer-shortcut"> · Ctrl / ⌘ + Enter 生成</span></span
@@ -1083,57 +992,6 @@ watch(ready, (value) => {
         >加载更早的图片</a-button
       >
       <p v-if="!assets.length">上传的参考图与生成结果会保存在这里。</p></a-modal
-    >
-    <a-modal
-      v-model:visible="keyOpen"
-      class="creative-theme creative-dialog ai-dialog"
-      title="自备 API Key"
-      :footer="false"
-      ><p class="creative-note">密钥在服务器加密保存。仅可选择管理员批准的供应商。</p>
-      <label class="creative-field">配置名称<a-input v-model="keyForm.name" /></label
-      ><label class="creative-field"
-        >供应商<select v-model="keyForm.allowed_provider_id">
-          <option
-            v-for="p in providers.filter((p) => p.owner === 0 && p.enabled)"
-            :key="p.id"
-            :value="p.id"
-          >
-            {{ p.name }}
-          </option>
-        </select></label
-      ><label class="creative-field"
-        >API Key<a-input-password v-model="keyForm.api_key" autocomplete="new-password" /></label
-      ><a-checkbox v-model="keyForm.default">设为默认</a-checkbox
-      ><a-button type="primary" @click="saveKey">加密保存</a-button>
-      <div v-for="p in providers.filter((p) => p.owner !== 0)" :key="p.id" class="studio-task">
-        <strong>{{ p.name }}</strong>
-        <div class="creative-actions">
-          <a-button
-            size="small"
-            :disabled="!p.enabled"
-            @click="
-              studio.run(async () => {
-                if (await confirm('连通测试会生成一张图，并可能产生供应商费用。继续？')) {
-                  await aiApi.testBYOK(p.id, newKey())
-                  keyOpen = false
-                  await studio.refresh()
-                }
-              })
-            "
-            >测试</a-button
-          ><a-button
-            size="small"
-            status="danger"
-            @click="
-              studio.run(async () => {
-                await aiApi.deleteBYOK(p.id)
-                await studio.loadProviders()
-              })
-            "
-            >删除</a-button
-          >
-        </div>
-      </div></a-modal
     >
     <a-modal
       v-model:visible="ideaOpen"

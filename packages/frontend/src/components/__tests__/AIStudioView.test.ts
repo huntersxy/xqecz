@@ -123,16 +123,13 @@ beforeEach(() => {
 afterEach(() => wrappers.splice(0).forEach((w) => w.unmount()))
 
 describe('studio gallery and composer', () => {
-  it('keeps the creation modes visible without opening advanced settings', async () => {
+  it('uses the prompt and references without exposing a mode picker or BYOK controls', async () => {
     const w = await render()
     expect(w.find('.composer-settings').exists()).toBe(false)
-    expect(w.findAll('.composer-mode-option').map((item) => item.text())).toEqual([
-      '文生图只用文字描述',
-      '参考生成让参考图参与构图',
-      '继续编辑沿用已生成结果',
-    ])
-    expect(w.get('.composer-mode-option.active').text()).toContain('文生图')
-    expect(w.findAll('.composer-mode-option')[2]?.attributes('disabled')).toBeDefined()
+    expect(w.find('.composer-mode-row').exists()).toBe(false)
+    expect(w.find('[aria-label="API 设置"]').exists()).toBe(false)
+    expect(w.text()).not.toContain('自备 API Key')
+    expect(w.get('[aria-label="画面尺寸"]').text()).toContain('自动')
   })
 
   it('can collapse the phone composer and reopens it when reusing a task prompt', async () => {
@@ -157,7 +154,7 @@ describe('studio gallery and composer', () => {
     expect(w.findAll('.studio-task-card')).toHaveLength(2)
     await w.get('[aria-label="查看任务 1 的结果 2"]').trigger('click')
     expect(w.get('.test-modal .test-image').attributes('data-id')).toBe('3')
-    await button(w, '继续编辑').trigger('click')
+    await w.get('.result-actions').findAll('button').find((item) => item.text() === '继续编辑')!.trigger('click')
     await flushPromises()
     expect(w.find('.test-modal').exists()).toBe(false)
     expect(w.get('.composer-references .test-image').attributes('data-id')).toBe('3')

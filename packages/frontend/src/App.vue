@@ -154,7 +154,6 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
             aria-label="小泉宇宙首页"
           >
             <img :src="logoImg" alt="小泉宇宙" class="app-logo-img" />
-            <span class="app-brand-copy" aria-hidden="true"><b>小泉宇宙</b><span>A LITTLE UNIVERSE OF OUR OWN <i>✦</i></span></span>
           </RouterLink>
 
           <!-- 桌面端：用 Space + text Button 做导航，避免 Arco 横向 Menu 的「…」折叠 -->
@@ -387,7 +386,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  gap: 8px;
+  gap: 0;
   margin: 0 26px 0 -10px;
   padding: 6px 10px;
   border-radius: 12px;
@@ -634,10 +633,6 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
 }
 
 /* 导航独立使用创作主题，后台内容仍沿用自身配色。 */
-.app-brand-copy { display: flex; flex-direction: column; gap: 3px; }
-.app-brand-copy b { font-size: 14px; font-weight: 650; letter-spacing: .06em; color: var(--creative-ink); }
-.app-brand-copy > span { font-size: 7px; letter-spacing: .13em; color: var(--creative-muted); }
-.app-brand-copy i { font-style: normal; color: var(--creative-accent); }
 .app-theme-btn, .app-mobile-menu-btn { border-radius: 50%; color: var(--creative-muted); }
 .app-theme-btn:hover, .app-mobile-menu-btn:hover { color: var(--creative-accent); background: var(--creative-soft); }
 .app-header .app-login-link { min-height: 36px; gap: 6px; padding-inline: 14px; border: 1px solid var(--creative-line); border-radius: 999px; color: var(--creative-accent); font-size: 12px; background: var(--creative-paper); }
@@ -655,7 +650,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
 :global(.app-mobile-drawer .arco-menu) { background: var(--creative-paper); }
 :global(.app-mobile-drawer .arco-menu-item) { border-radius: 10px; color: var(--creative-muted); }
 :global(.app-mobile-drawer .arco-menu-selected) { background: var(--creative-soft); color: var(--creative-accent); }
-@media (max-width: 1120px) { .app-brand-copy { display: none; } .app-logo { margin-right: 10px; } }
+@media (max-width: 1120px) { .app-logo { margin-right: 10px; } }
 @media (max-width: 768px) { .app-header, .app-header-inner { height: 62px; } .app-header-inner { padding-inline: 16px; } .app-header-right { margin-left: 8px; } .app-header .app-login-link { padding-inline: 10px; font-size: 11px; } }
 
 .app-footer-legal .app-footer-badge { padding: 3px 9px; border: 1px solid var(--creative-line); border-radius: 999px; background: var(--creative-canvas); color: var(--creative-muted); font-size: 9px; }

@@ -26,15 +26,13 @@ const form = ref({
 })
 const file = ref<File | undefined>(undefined)
 const { autoMetadata, isAiGenerated, metadataOptions, canGenerate, metadataTitle, metadataTags } = useAutoMetadata(() => file.value)
-const fileKind = ref<'' | 'image' | 'video'>('')
 const availableTags = ref<string[]>([])
 const uploading = ref(false)
 const progress = ref(0)
 const { filePreview, fileInput, dragOver, onFileChange, onDrop, clearPreview } = useFilePicker((f) => {
   file.value = f
-  fileKind.value = f.type.startsWith('image/') ? 'image' : 'video'
   if (!form.value.title) form.value.title = f.name.replace(/\.[^.]+$/, '')
-})
+}, { allowVideo: false })
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -49,7 +47,6 @@ function handleAddCustomTag(tag: string) {
 
 function removeFile() {
   file.value = undefined
-  fileKind.value = ''
   clearPreview()
 }
 
@@ -130,14 +127,14 @@ onMounted(async () => {
         <div class="qu-body">
           <section class="qu-media" aria-labelledby="qu-media-title">
             <div class="qu-section-heading"><span class="qu-step">01</span><h2 id="qu-media-title">作品画面</h2><span class="qu-optional">可选</span></div>
-            <input ref="fileInput" type="file" class="qu-hidden" accept="image/*,video/*" :disabled="uploading" @change="onFileChange" />
+            <input ref="fileInput" type="file" class="qu-hidden" accept="image/*" :disabled="uploading" @change="onFileChange" />
             <Transition name="qu-media-state" mode="out-in">
             <button v-if="!file" key="dropzone" type="button" class="qu-dropzone" :class="{ 'is-dragover': dragOver }" :disabled="uploading" @click="fileInput?.click()" @dragover.prevent="!uploading && (dragOver = true)" @dragleave.prevent="dragOver = false" @drop.prevent="!uploading && onDrop($event)">
               <span class="qu-upload-art" aria-hidden="true"><IconUpload /><span>✦</span></span>
-              <strong>把你的灵感放进来</strong><span>点击选择，或拖拽图片 / 视频到这里</span><span class="qu-file-limit">图片或视频 · 最大 20MB</span>
+              <strong>把你的灵感放进来</strong><span>点击选择，或拖拽图片到这里</span><span class="qu-file-limit">图片 · 最大 20MB</span>
             </button>
             <div v-else key="preview" class="qu-preview">
-              <div class="qu-preview-stage"><a-image v-if="fileKind === 'image'" :src="filePreview" :preview="false" class="qu-preview-img" alt="所选作品预览" /><video v-else :src="filePreview" controls class="qu-preview-video" /></div>
+              <div class="qu-preview-stage"><a-image :src="filePreview" :preview="false" class="qu-preview-img" alt="所选作品预览" /></div>
               <div class="qu-file-row"><span class="qu-file-name">{{ file.name }}</span><button type="button" class="qu-remove" aria-label="移除已选文件" :disabled="uploading" @click="removeFile"><IconClose /></button></div>
             </div>
             </Transition>
@@ -219,7 +216,7 @@ onMounted(async () => {
 .qu-preview { border: 1px solid var(--creative-line); border-radius: 16px; overflow: hidden; background: var(--creative-canvas); }
 .qu-preview-stage { display: grid; place-items: center; height: 286px; padding: 14px; }
 .qu-preview-img { width: 100%; }
-.qu-preview-img :deep(.arco-image-img), .qu-preview-video { display: block; width: 100%; max-height: 258px; object-fit: contain; border-radius: 8px; }
+.qu-preview-img :deep(.arco-image-img) { display: block; width: 100%; max-height: 258px; object-fit: contain; border-radius: 8px; }
 .qu-file-row { display: flex; align-items: center; gap: 8px; padding: 12px; border-top: 1px solid var(--creative-line); background: var(--creative-paper); }
 .qu-file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--creative-ink); font-size: 11px; }
 .qu-remove { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: var(--creative-canvas); color: var(--creative-muted); cursor: pointer; }
