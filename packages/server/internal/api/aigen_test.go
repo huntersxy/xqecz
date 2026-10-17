@@ -27,6 +27,44 @@ import (
 
 type fixtureImages struct{}
 
+func TestAIWorkspaceAndDiagnosticsIsolation(t *testing.T) {
+	deps, handler := aiFixture(t)
+	var workspace aigen.Session
+	for i := 0; i < 2; i++ {
+		var row aigen.Session
+		json.Unmarshal(jsonData(t, aiRequest(t, handler, "POST", "/api/ai/sessions", "fixture-admin", map[string]any{"name": "workspace"})), &row)
+		if i > 0 && row.ID != workspace.ID {
+			t.Fatal("created a second workspace")
+		}
+		workspace = row
+	}
+	var provider aigen.ProviderConfig
+	deps.DB.Where("user_id = 0").First(&provider)
+	task, err := deps.AI.QueueTest(context.Background(), 1, provider.ID, true, "diagnostic-isolation-001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if task.SessionID != 0 {
+		t.Fatal("diagnostic created a workspace", task.SessionID)
+	}
+	asset := aigen.Asset{UserID: 1, TaskID: task.ID, Mime: "image/png"}
+	deps.DB.Create(&asset)
+	var tasks []struct {
+		Task aigen.Task `json:"task"`
+	}
+	json.Unmarshal(jsonData(t, aiRequest(t, handler, "GET", "/api/ai/tasks", "fixture-admin", nil)), &tasks)
+	if len(tasks) != 0 {
+		t.Fatal("diagnostic leaked into studio", tasks)
+	}
+	var assets []aigen.Asset
+	json.Unmarshal(jsonData(t, aiRequest(t, handler, "GET", "/api/ai/assets", "fixture-admin", nil)), &assets)
+	for _, row := range assets {
+		if row.ID == asset.ID {
+			t.Fatal("diagnostic leaked into library")
+		}
+	}
+}
+
 func (fixtureImages) Generate(ctx context.Context, _ aigen.ProviderConfig, _ string, _ aigen.Input, _ []string) ([]aigen.Image, error) {
 	select {
 	case <-ctx.Done():
@@ -344,13 +382,8 @@ func TestAIHTTPPrivacyFiltersAndPagination(t *testing.T) {
 	}
 	var page []aigen.Session
 	json.Unmarshal(jsonData(t, aiRequest(t, handler, "GET", "/api/ai/sessions", "fixture-author", nil)), &page)
-	if len(page) != 100 {
-		t.Fatal(len(page))
-	}
-	var older []aigen.Session
-	json.Unmarshal(jsonData(t, aiRequest(t, handler, "GET", fmt.Sprintf("/api/ai/sessions?before_id=%d", page[99].ID), "fixture-author", nil)), &older)
-	if len(older) != 2 || older[0].ID != rows[0].ID || older[1].ID != session.ID {
-		t.Fatal(older)
+	if len(page) != 1 || page[0].ID != rows[100].ID {
+		t.Fatal(page)
 	}
 	var template creative.Resource
 	deps.DB.Where("kind = ?", "template").First(&template)

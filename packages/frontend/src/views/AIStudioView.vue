@@ -29,12 +29,10 @@ const studio = useAIStudio(),
   route = useRoute(),
   { confirm } = useConfirm()
 const {
-  sessions,
   tasks,
   assets,
   account,
   sessionId,
-  name,
   prompt,
   providerId,
   size,
@@ -45,11 +43,11 @@ const {
   availableProviders,
   cost,
   error,
-  saveState,
   busy,
   ready,
   pending,
   selectedAsset,
+  archiveAsset,
 } = studio
 const libraryOpen = ref(false),
   historyOpen = ref(false),
@@ -91,10 +89,9 @@ const canGenerate = computed(
         !!prompt.value.trim())),
 )
 const quotaNote = computed(() =>
-  studio.isQuotaExempt.value
-    ? '管理员免额度'
-    : `本次 ${cost.value} 额度 · 可用 ${account.value.available}`,
+  `本次 ${cost.value} 额度 · 可用 ${account.value.available}`,
 )
+const quotaVisible = computed(() => !studio.isQuotaExempt.value)
 const mention = ref<ReturnType<typeof referenceMentionAt>>(null),
   mentionIndex = ref(0)
 const mentionChoices = computed(() =>
@@ -189,9 +186,7 @@ async function removeReference(index: number) {
 }
 const activeTask = computed(() =>
   tasks.value.find(
-    (row) =>
-      row.task.session_id === sessionId.value &&
-      ['queued', 'running', 'unknown'].includes(row.task.status),
+    (row) => ['queued', 'running', 'unknown'].includes(row.task.status),
   ),
 )
 const proposal = ref({ title: '', description: '', public_consent: false, reference_rights: false })
@@ -207,7 +202,6 @@ const labels: Record<string, string> = {
 const shownTasks = computed(() =>
   tasks.value.filter(
     (t) =>
-      (historyScope.value !== 'session' || t.task.session_id === sessionId.value) &&
       (!search.value || t.task.prompt.includes(search.value)) &&
       (!status.value || t.task.status === status.value),
   ),
@@ -215,20 +209,18 @@ const shownTasks = computed(() =>
 const failedTaskRows = computed(() =>
   shownTasks.value.filter((row) => ['failed', 'cancelled'].includes(row.task.status)),
 )
-const historyScope = ref(route.query.history === 'all' ? 'all' : 'session')
 function clearFilters() {
   search.value = ''
   status.value = ''
 }
 let historyTimer: ReturnType<typeof setTimeout> | undefined
-watch([ready, sessionId, search, status, historyScope], () => {
+watch([ready, search, status], () => {
   if (!ready.value) return
   if (historyTimer) clearTimeout(historyTimer)
   historyTimer = setTimeout(
     () =>
       void studio.run(() =>
         studio.setHistoryQuery({
-          ...(historyScope.value === 'session' ? { session_id: sessionId.value } : {}),
           search: search.value,
           status: status.value,
         }),
@@ -328,6 +320,10 @@ async function continueFromTask(row: AITaskView) {
     studio.continueFrom(asset)
     await focusPrompt()
   })
+}
+async function removeLibraryAsset(asset: AIAsset) {
+  if (!(await confirm(`移除图片“${asset.title || `图片 ${asset.id}`}”？`))) return
+  await studio.run(() => archiveAsset(asset.id))
 }
 async function reusePrompt(row: AITaskView) {
   if (composerLocked.value) return
@@ -458,11 +454,7 @@ async function removeResult() {
     return
   await studio.run(async () => {
     const id = selectedAsset.value!.id
-    await aiApi.archive(id)
-    tasks.value = tasks.value.map((row) => ({
-      ...row,
-      assets: row.assets.filter((a) => a.id !== id),
-    }))
+    await archiveAsset(id)
     selectedAsset.value = null
     resultOpen.value = false
     await studio.refresh()
@@ -496,42 +488,12 @@ watch(ready, (value) => {
         <span class="creative-note">让想象，有了形状</span>
       </div>
       <div class="studio-head-actions">
-        <a-select
-          :model-value="sessionId"
-          aria-label="切换会话"
-          :disabled="composerLocked"
-          @change="(value) => studio.run(() => studio.switchSession(Number(value)))"
-        >
-          <a-option v-for="row in sessions" :key="row.id" :value="row.id">{{ row.name }}</a-option>
-        </a-select>
-        <a-button :disabled="composerLocked" @click="studio.run(studio.newSession)"
-          ><IconPlus />新建</a-button
-        >
-        <a-button
-          v-if="studio.moreSessions.value"
-          :disabled="composerLocked"
-          @click="studio.run(studio.loadMoreSessions)"
-          >更多会话</a-button
-        >
+        <nav aria-label="创作探索">
+          <RouterLink to="/characters">角色设定库</RouterLink>
+          <RouterLink to="/ideas">创意广场</RouterLink>
+        </nav>
       </div>
     </header>
-    <div class="studio-session-line">
-      <a-input
-        v-model="name"
-        :input-attrs="{ 'aria-label': '创作会话名称' }"
-        :disabled="composerLocked"
-      />
-      <span class="creative-note" role="status">{{ saveState }}</span>
-      <span class="studio-balance creative-note">{{
-        studio.isQuotaExempt.value
-          ? '管理员 · 生成不消耗站点额度'
-          : `可用 ${account.available} · 预留 ${account.reserved} 额度`
-      }}</span>
-      <nav aria-label="创作探索">
-        <RouterLink to="/characters">角色设定库</RouterLink
-        ><RouterLink to="/ideas">创意广场</RouterLink>
-      </nav>
-    </div>
     <div class="studio-workspace">
       <section class="studio-gallery" aria-label="作品与任务记录">
         <div class="studio-gallery-toolbar">
@@ -546,10 +508,6 @@ watch(ready, (value) => {
               ><IconDelete />清除失败 {{ failedTaskRows.length }}</a-button
             >
           </div>
-          <select v-model="historyScope" aria-label="查看哪些任务">
-            <option value="session">当前会话</option>
-            <option value="all">全部生成与赞助</option>
-          </select>
           <div class="studio-gallery-filters">
             <a-input
               v-model="search"
@@ -877,9 +835,10 @@ watch(ready, (value) => {
             <span v-else-if="!provider.has_key" class="creative-note"
               >此模型尚未配置站点密钥，请联系管理员。</span
             >
-            <span v-else class="creative-note"
+            <span v-else-if="quotaVisible" class="creative-note"
               >{{ quotaNote }}<span class="composer-shortcut"> · Ctrl / ⌘ + Enter 生成</span></span
             >
+            <span v-else class="creative-note composer-shortcut">Ctrl / ⌘ + Enter 生成</span>
             <span v-if="pending" class="creative-note"
               >上次提交结果尚未确认，草稿已锁定。请用原请求继续确认。</span
             >
@@ -974,19 +933,23 @@ watch(ready, (value) => {
       title="个人常用参考图"
       :footer="false"
       ><div class="creative-grid">
-        <button
-          v-for="asset in assets"
-          :key="asset.id"
-          class="library-asset"
-          @click="
-            studio.run(async () => {
-              studio.addReference(asset.id)
-              historyOpen = false
-            })
-          "
-        >
-          <CreativeImage :id="asset.id" /><span>{{ asset.title || `图片 ${asset.id}` }}</span>
-        </button>
+        <div v-for="asset in assets" :key="asset.id" class="library-asset">
+          <button
+            type="button"
+            class="library-asset-select"
+            @click="
+              studio.run(async () => {
+                studio.addReference(asset.id)
+                historyOpen = false
+              })
+            "
+          >
+            <CreativeImage :id="asset.id" /><span>{{ asset.title || `图片 ${asset.id}` }}</span>
+          </button>
+          <button type="button" class="library-asset-delete" :disabled="composerLocked" @click="removeLibraryAsset(asset)">
+            删除
+          </button>
+        </div>
       </div>
       <a-button v-if="studio.moreAssets.value" @click="studio.run(studio.loadMoreAssets)"
         >加载更早的图片</a-button

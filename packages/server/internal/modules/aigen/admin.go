@@ -89,31 +89,6 @@ func (h *Handler) deleteProvider(c *gin.Context) {
 	}
 	ok(c, nil)
 }
-func (h *Handler) byok(c *gin.Context) {
-	var req providerRequest
-	if bind(c, &req) != nil {
-		fail(c, core.ErrInvalid)
-		return
-	}
-	row, err := h.s.SaveProvider(c.Request.Context(), uid(c), req.model(), req.Key)
-	if err != nil {
-		fail(c, err)
-		return
-	}
-	ok(c, providerView(row))
-}
-func (h *Handler) deleteBYOK(c *gin.Context) {
-	result := h.db(c).Model(&core.ProviderConfig{}).Where("id = ? AND user_id = ?", pathID(c), uid(c)).Updates(map[string]any{"enabled": false, "default": false, "cipher_key": ""})
-	if result.Error != nil {
-		fail(c, result.Error)
-		return
-	}
-	if result.RowsAffected == 0 {
-		fail(c, core.ErrInvalid)
-		return
-	}
-	ok(c, nil)
-}
 func (h *Handler) adminTasks(c *gin.Context) { h.listTasks(c, true) }
 func (h *Handler) resolve(c *gin.Context) {
 	var req struct {
@@ -249,7 +224,6 @@ func (h *Handler) assetMetadata(c *gin.Context) {
 	ok(c, nil)
 }
 func (h *Handler) testSite(c *gin.Context) { h.queueTest(c, true) }
-func (h *Handler) testBYOK(c *gin.Context) { h.queueTest(c, false) }
 func (h *Handler) queueTest(c *gin.Context, site bool) {
 	var req struct {
 		Key string `json:"idempotency_key"`

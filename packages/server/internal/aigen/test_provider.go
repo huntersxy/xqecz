@@ -38,11 +38,6 @@ func (s *Service) QueueTest(ctx context.Context, uid, id uint64, site bool, key 
 		if tx.Where("user_id = ? AND idempotency_key = ?", uid, key).First(&task).Error == nil {
 			return nil
 		}
-		session := Session{UserID: uid, Name: "供应商连通测试", Draft: `{}`, Version: 1}
-		if err := tx.Create(&session).Error; err != nil {
-			return err
-		}
-		snap.Input.SessionID = session.ID
 		task, err = s.insertTask(tx, uid, account, snap, 0, 0)
 		return err
 	})

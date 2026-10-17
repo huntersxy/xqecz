@@ -1329,7 +1329,6 @@ body[arco-theme='dark'] .ai-studio {
 .studio-head,
 .studio-head-actions,
 .studio-identity,
-.studio-session-line,
 .studio-gallery-toolbar,
 .studio-gallery-heading,
 .studio-gallery-filters,
@@ -1357,35 +1356,20 @@ body[arco-theme='dark'] .ai-studio {
 .studio-head-actions {
   flex-wrap: wrap;
 }
-.studio-head-actions .arco-select-view {
-  width: 180px;
-}
 .studio-head-actions .arco-btn {
   gap: 6px;
 }
-.studio-session-line {
-  margin-block: 16px 24px;
-  font-size: 12px;
-  flex-wrap: wrap;
-}
-.studio-session-line > .arco-input-wrapper {
-  width: 170px;
-  background: transparent;
-}
-.studio-balance {
-  margin-left: auto;
-}
-.studio-session-line nav {
+.studio-head-actions nav {
   display: flex;
   gap: 16px;
 }
-.studio-session-line a,
+.studio-head-actions a,
 .task-actions a {
   color: var(--creative-accent);
   text-decoration: none;
   text-underline-offset: 3px;
 }
-.studio-session-line a:hover,
+.studio-head-actions a:hover,
 .task-actions a:hover {
   text-decoration: underline;
 }
@@ -2219,17 +2203,45 @@ body[arco-theme='dark'] .ai-studio select {
   gap: 8px;
 }
 .library-asset {
+  position: relative;
+  display: grid;
+  gap: 4px;
   border: 1px solid var(--creative-line);
   border-radius: 10px;
   background: var(--creative-paper);
   color: var(--creative-ink);
   min-width: 0;
-  height: 180px;
-  padding: 10px;
+  height: 200px;
+  padding: 0;
+}
+.library-asset-select {
+  min-width: 0;
+  padding: 10px 10px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
 }
 .library-asset .creative-image {
   height: 130px;
+}
+.library-asset-delete {
+  justify-self: end;
+  margin: 0 8px 6px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--creative-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.library-asset-delete:hover {
+  background: var(--creative-soft);
+  color: var(--creative-accent);
 }
 .studio-result-dialog .arco-modal-body {
   max-height: 80dvh;
@@ -2265,18 +2277,6 @@ body[arco-theme='dark'] .ai-studio select {
   }
   .studio-identity .creative-note {
     display: none;
-  }
-  .studio-session-line {
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-  .studio-session-line nav {
-    margin-left: auto;
-  }
-  .studio-balance {
-    width: 100%;
-    order: 2;
-    margin: 0;
   }
   .studio-gallery-toolbar {
     gap: 8px;
@@ -2402,23 +2402,11 @@ body[arco-theme='dark'] .ai-studio select {
     width: 100%;
     gap: 8px;
   }
-  .studio-head-actions .arco-select-view {
-    flex: 1;
-    min-width: 100px;
-    width: auto;
-  }
   .studio-head-actions .arco-btn {
     padding-inline: 12px;
   }
   .studio-head-actions .arco-btn > span > span {
     display: none;
-  }
-  .studio-session-line nav {
-    display: none;
-  }
-  .studio-session-line > .arco-input-wrapper {
-    flex: 1;
-    width: auto;
   }
   /* The page scrolls behind the dock; keep the empty-state action near its top. */
   .studio-gallery-empty {

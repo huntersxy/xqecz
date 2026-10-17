@@ -101,19 +101,6 @@ export const aiApi = {
       method: 'POST',
       body: { title, description, public_consent: true },
     }),
-  saveBYOK: (data: {
-    id?: number
-    name: string
-    allowed_provider_id: number
-    api_key?: string
-    default: boolean
-  }) => checked('/ai/providers', AIProviderSchema, { method: 'POST', body: data }),
-  deleteBYOK: (id: number) => checked(`/ai/providers/${id}`, nil, { method: 'DELETE' }),
-  testBYOK: (id: number, key: string) =>
-    checked(`/ai/providers/${id}/test`, AITaskSchema, {
-      method: 'POST',
-      body: { idempotency_key: key },
-    }),
   ideas: (query: Record<string, unknown> = {}, signal?: AbortSignal) =>
     checked('/ideas', z.array(AIIdeaViewSchema), { query, signal }),
   idea: (id: number, signal?: AbortSignal) => checked(`/ideas/${id}`, AIIdeaViewSchema, { signal }),

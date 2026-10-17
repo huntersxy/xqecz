@@ -14,6 +14,7 @@ const mock = vi.hoisted(() => ({
   submit: vi.fn(),
   createSession: vi.fn(),
   upload: vi.fn(),
+  archive: vi.fn(),
 }))
 vi.mock('@/api/creative', () => ({ aiApi: mock }))
 vi.mock('@/stores/user', () => ({
@@ -104,7 +105,7 @@ describe('AI studio persistence', () => {
     expect(studio.references.value).toEqual([])
     expect(studio.assets.value).toEqual([])
   })
-  it('keeps a late upload in the library without attaching it to a different session', async () => {
+  it('keeps a late upload in the single workspace library', async () => {
     let finish!: (value: { id: number }) => void
     mock.upload.mockImplementationOnce(
       () =>
@@ -114,10 +115,9 @@ describe('AI studio persistence', () => {
     )
     const { wrapper, studio } = await setup()
     const upload = studio.upload(new File(['png'], 'ref.png', { type: 'image/png' }))
-    await studio.newSession()
     finish({ id: 9 })
     await upload
-    expect(studio.references.value).toEqual([])
+    expect(studio.references.value).toEqual([{ asset_id: 9, note: '' }])
     expect(studio.assets.value.map((a) => a.id)).toEqual([9])
     wrapper.unmount()
   })
@@ -151,6 +151,19 @@ describe('AI studio persistence', () => {
     const second = await setup()
     expect(second.studio.size.value).toBe('1536x1024')
     second.wrapper.unmount()
+  })
+  it('archives a library asset and removes its workspace references', async () => {
+    const { wrapper, studio } = await setup()
+    studio.assets.value = [{ id: 9 } as never]
+    studio.references.value = [{ asset_id: 9, note: '' }]
+    studio.parentAssetId.value = 9
+    mock.archive.mockResolvedValue(undefined)
+    await studio.archiveAsset(9)
+    expect(mock.archive).toHaveBeenCalledWith(9)
+    expect(studio.assets.value).toEqual([])
+    expect(studio.references.value).toEqual([])
+    expect(studio.parentAssetId.value).toBe(0)
+    wrapper.unmount()
   })
   it('serializes autosave before persisting an idempotent submission', async () => {
     let finish!: () => void

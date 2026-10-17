@@ -3,6 +3,7 @@ import { aiApi, type GenerationInput } from '@/api/creative'
 import type { AIAccount, AIProvider, AISession, AIAsset, AITaskView } from '@/types/schemas'
 import { useUserStore } from '@/stores/user'
 import { AUTO_IMAGE_SIZE, normalizeImageSize, parseImageSize } from '@/utils/imageSize'
+import { remapReferenceMentions } from '@/utils/creativeMentions'
 
 const REMEMBERED_SIZE_KEY = 'xqecz:ai-studio-size'
 
@@ -51,12 +52,10 @@ export function useAIStudio() {
   const characterIds = ref<number[]>([])
   const taskQuery = ref<Record<string, unknown>>({}),
     moreTasks = ref(false),
-    moreAssets = ref(false),
-    moreSessions = ref(false)
+    moreAssets = ref(false)
   let queryFingerprint = '',
     requestEpoch = 0,
-    pagedHistory = false,
-    sessionCursor = 0
+    pagedHistory = false
   const availableProviders = computed(() =>
     providers.value.filter(
       (p) => p.enabled && p.owner === 0,
@@ -158,29 +157,16 @@ export function useAIStudio() {
     parentAssetId.value = draft.parent_asset_id ?? 0
     pending.value = draft.pending ?? null
     characterIds.value = draft.character_ids ?? []
-    taskQuery.value = { session_id: row.id }
+    taskQuery.value = {}
     const chosen =
       availableProviders.value.find((p) => p.id === providerId.value) ?? availableProviders.value[0]
     providerId.value = chosen?.id ?? 0
     selectedAsset.value =
       tasks.value.filter((t) => t.task.session_id === row.id).flatMap((t) => t.assets)[0] ?? null
-    localStorage.setItem(`xqecz:ai-session:${user.user?.id}`, String(row.id))
     saveState.value = '已恢复'
     queueMicrotask(() => {
       restoring = false
     })
-  }
-  async function switchSession(id: number) {
-    if (timer) clearTimeout(timer)
-    await save()
-    const row = sessions.value.find((s) => s.id === id)
-    if (row) restore(row)
-  }
-  async function newSession() {
-    await save()
-    const row = await aiApi.createSession('新的创作')
-    sessions.value.unshift(row)
-    restore(row)
   }
   async function refresh() {
     const signature = JSON.stringify(taskQuery.value),
@@ -206,10 +192,7 @@ export function useAIStudio() {
     )
       selectedAsset.value = null
     if (!selectedAsset.value)
-      selectedAsset.value =
-        nextTasks
-          .filter((t) => t.task.session_id === sessionId.value)
-          .flatMap((t) => t.assets)[0] ?? null
+      selectedAsset.value = nextTasks.flatMap((t) => t.assets)[0] ?? null
   }
   async function setHistoryQuery(query: Record<string, unknown>) {
     if (JSON.stringify(query) === JSON.stringify(taskQuery.value)) return
@@ -236,15 +219,6 @@ export function useAIStudio() {
     const ids = new Set(assets.value.map((a) => a.id))
     assets.value.push(...batch.filter((a) => !ids.has(a.id)))
     moreAssets.value = batch.length === 100
-  }
-  async function loadMoreSessions() {
-    if (!sessionCursor) return
-    const batch = await aiApi.sessions(controller.signal, sessionCursor)
-    if (stopped) return
-    const ids = new Set(sessions.value.map((s) => s.id))
-    sessions.value.push(...batch.filter((s) => !ids.has(s.id)))
-    sessionCursor = batch.at(-1)?.id ?? 0
-    moreSessions.value = batch.length === 100
   }
   async function poll() {
     if (stopped) return
@@ -296,6 +270,16 @@ export function useAIStudio() {
     if (!assets.value.some((a) => a.id === row.id)) assets.value.unshift(row)
     // Uploaded assets stay in the library; only their originating draft receives the reference.
     if (sessionId.value === originSession) addReference(row.id)
+  }
+  async function archiveAsset(id: number) {
+    await aiApi.archive(id)
+    const before = references.value.map((reference) => reference.asset_id)
+    assets.value = assets.value.filter((asset) => asset.id !== id)
+    references.value = references.value.filter((reference) => reference.asset_id !== id)
+    prompt.value = remapReferenceMentions(prompt.value, before, references.value.map((reference) => reference.asset_id))
+    tasks.value = tasks.value.map((row) => ({ ...row, assets: row.assets.filter((asset) => asset.id !== id) }))
+    if (parentAssetId.value === id) parentAssetId.value = 0
+    if (selectedAsset.value?.id === id) selectedAsset.value = null
   }
   function addReference(id: number) {
     if (references.value.some((r) => r.asset_id === id)) return
@@ -371,23 +355,10 @@ export function useAIStudio() {
         ])
         if (stopped) return
         providers.value = cfg.providers
-        sessions.value = rows
+        sessions.value = rows.slice(0, 1)
         assets.value = library
-        sessionCursor = rows.at(-1)?.id ?? 0
-        moreSessions.value = rows.length === 100
         moreAssets.value = library.length === 100
-        const stored = Number(localStorage.getItem(`xqecz:ai-session:${user.user?.id}`))
-        let row = rows.find((r) => r.id === stored)
-        if (!row && stored) {
-          try {
-            row = await aiApi.session(stored, controller.signal)
-            if (!stopped) sessions.value.push(row)
-          } catch (e) {
-            if (stopped) return
-            error.value = `先前会话无法恢复：${(e as Error).message}`
-          }
-        }
-        row ??= rows[0]
+        const row = rows[0]
         if (row) restore(row)
         else {
           const fresh = await aiApi.createSession('第一次创作')
@@ -411,7 +382,6 @@ export function useAIStudio() {
   return {
     isQuotaExempt,
     providers,
-    sessions,
     tasks,
     assets,
     account,
@@ -437,17 +407,14 @@ export function useAIStudio() {
     selectedAsset,
     moreTasks,
     moreAssets,
-    moreSessions,
     setHistoryQuery,
     loadMoreTasks,
     loadMoreAssets,
-    loadMoreSessions,
     run,
     save,
-    switchSession,
-    newSession,
     generate,
     upload,
+    archiveAsset,
     addReference,
     removeReference,
     moveReference,

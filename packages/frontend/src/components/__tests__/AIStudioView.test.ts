@@ -128,7 +128,10 @@ describe('studio gallery and composer', () => {
     expect(w.find('.composer-settings').exists()).toBe(false)
     expect(w.find('.composer-mode-row').exists()).toBe(false)
     expect(w.find('[aria-label="API 设置"]').exists()).toBe(false)
+    expect(w.find('[aria-label="切换会话"]').exists()).toBe(false)
+    expect(w.find('[aria-label="创作会话名称"]').exists()).toBe(false)
     expect(w.text()).not.toContain('自备 API Key')
+    expect(w.text()).not.toContain('管理员 · 生成不消耗站点额度')
     expect(w.get('[aria-label="画面尺寸"]').text()).toContain('自动')
   })
 
@@ -145,13 +148,11 @@ describe('studio gallery and composer', () => {
     expect(button(w, '生成设置').attributes('aria-expanded')).toBe('true')
     expect(w.get('.composer-controls').classes()).toContain('is-mobile-open')
   })
-  it('shows every result with its task and isolates the current session until all history is selected', async () => {
+  it('shows every result in the single workspace and continues editing from a completed task', async () => {
     api.tasks.mockResolvedValue([task(1), task(2, 2)])
     const w = await render()
-    expect(w.findAll('.studio-task-card')).toHaveLength(1)
-    expect(w.findAll('.task-images button')).toHaveLength(2)
-    await w.get('select[aria-label="查看哪些任务"]').setValue('all')
     expect(w.findAll('.studio-task-card')).toHaveLength(2)
+    expect(w.findAll('.task-images button')).toHaveLength(4)
     await w.get('[aria-label="查看任务 1 的结果 2"]').trigger('click')
     expect(w.get('.test-modal .test-image').attributes('data-id')).toBe('3')
     await w.get('.result-actions').findAll('button').find((item) => item.text() === '继续编辑')!.trigger('click')

@@ -21,6 +21,7 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/store"
 	"github.com/huntersxy/xqecz/server/internal/web"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Handler struct {
@@ -62,9 +63,6 @@ func Register(api *gin.RouterGroup, deps app.Deps, contentHandler *content.Handl
 	g.GET("/assets/:id", h.image)
 	g.DELETE("/assets/:id", h.archiveAsset)
 	g.POST("/assets/:id/publish", h.publish)
-	g.POST("/providers", h.byok)
-	g.DELETE("/providers/:id", h.deleteBYOK)
-	g.POST("/providers/:id/test", h.testBYOK)
 	g.POST("/ideas", h.createIdea)
 	g.POST("/ideas/:id/sponsor", h.sponsor)
 	g.DELETE("/ideas/:id", h.withdraw)
@@ -218,11 +216,7 @@ func (h *Handler) listLedger(c *gin.Context, user uint64) {
 }
 func (h *Handler) sessions(c *gin.Context) {
 	rows := []core.Session{}
-	q := h.db(c).Where("user_id = ?", uid(c))
-	if before, _ := strconv.ParseUint(c.Query("before_id"), 10, 64); before != 0 {
-		q = q.Where("id < ?", before)
-	}
-	if err := q.Order("id desc").Limit(100).Find(&rows).Error; err != nil {
+	if err := h.db(c).Where("user_id = ? AND name <> ?", uid(c), "供应商连通测试").Order("updated_at desc, id desc").Limit(1).Find(&rows).Error; err != nil {
 		fail(c, err)
 		return
 	}
@@ -247,8 +241,24 @@ func (h *Handler) createSession(c *gin.Context) {
 	if req.Name == "" {
 		req.Name = "未命名创作"
 	}
-	row := core.Session{UserID: uid(c), Name: req.Name, Draft: `{}`, Version: 1}
-	if err := h.db(c).Create(&row).Error; err != nil {
+	var row core.Session
+	err := h.db(c).Transaction(func(tx *gorm.DB) error {
+		// Serialize first-use requests per user so two tabs reuse one workspace.
+		var user store.User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&user, uid(c)).Error; err != nil {
+			return err
+		}
+		err := tx.Where("user_id = ? AND name <> ?", uid(c), "供应商连通测试").Order("updated_at desc, id desc").First(&row).Error
+		if err == nil {
+			return nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		row = core.Session{UserID: uid(c), Name: "创作工作台", Draft: `{}`, Version: 1}
+		return tx.Create(&row).Error
+	})
+	if err != nil {
 		fail(c, err)
 		return
 	}
@@ -339,7 +349,7 @@ func (h *Handler) listTasks(c *gin.Context, admin bool) {
 		q = q.Where("id < ?", before)
 	}
 	if !admin {
-		q = q.Where("user_id = ? AND archived = ?", uid(c), false)
+		q = q.Where("user_id = ? AND archived = ? AND mode <> ?", uid(c), false, "test")
 	}
 	if c.Query("sponsored") == "1" {
 		q = q.Where("idea_id <> 0")
@@ -406,7 +416,8 @@ func (h *Handler) archiveTask(c *gin.Context) {
 }
 func (h *Handler) assets(c *gin.Context) {
 	rows := []core.Asset{}
-	q := h.db(c).Where("user_id = ? AND archived = ?", uid(c), false)
+	q := h.db(c).Where("user_id = ? AND archived = ?", uid(c), false).
+		Where("task_id = 0 OR task_id NOT IN (?)", h.db(c).Model(&core.Task{}).Select("id").Where("mode = ?", "test"))
 	if before, _ := strconv.ParseUint(c.Query("before_id"), 10, 64); before != 0 {
 		q = q.Where("id < ?", before)
 	}
