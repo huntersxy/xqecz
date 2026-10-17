@@ -146,7 +146,13 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
   <Layout :class="['app-layout', { 'creative-theme app-public-theme': !route.path.startsWith('/admin') }]">
       <LayoutHeader class="app-header creative-theme">
         <div class="app-header-inner">
-          <RouterLink v-if="!isMobile" to="/" class="app-logo" @click="isMobileMenuOpen = false" aria-label="返回首页">
+          <RouterLink
+            v-if="!isMobile"
+            to="/"
+            class="app-logo"
+            @click="isMobileMenuOpen = false"
+            aria-label="小泉宇宙首页"
+          >
             <img :src="logoImg" alt="小泉宇宙" class="app-logo-img" />
             <span class="app-brand-copy" aria-hidden="true"><b>小泉宇宙</b><span>A LITTLE UNIVERSE OF OUR OWN <i>✦</i></span></span>
           </RouterLink>
@@ -381,8 +387,20 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  margin-right: 36px;
-  gap: 10px;
+  gap: 8px;
+  margin: 0 26px 0 -10px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  text-decoration: none;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+.app-logo:hover {
+  background: var(--creative-soft);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--creative-accent) 10%, transparent);
+}
+.app-logo:focus-visible {
+  outline: 2px solid var(--creative-accent);
+  outline-offset: 2px;
 }
 
 .app-logo-img {
@@ -637,7 +655,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', updateBreakpoint))
 :global(.app-mobile-drawer .arco-menu) { background: var(--creative-paper); }
 :global(.app-mobile-drawer .arco-menu-item) { border-radius: 10px; color: var(--creative-muted); }
 :global(.app-mobile-drawer .arco-menu-selected) { background: var(--creative-soft); color: var(--creative-accent); }
-@media (max-width: 1120px) { .app-brand-copy { display: none; } .app-logo { margin-right: 20px; } }
+@media (max-width: 1120px) { .app-brand-copy { display: none; } .app-logo { margin-right: 10px; } }
 @media (max-width: 768px) { .app-header, .app-header-inner { height: 62px; } .app-header-inner { padding-inline: 16px; } .app-header-right { margin-left: 8px; } .app-header .app-login-link { padding-inline: 10px; font-size: 11px; } }
 
 .app-footer-legal .app-footer-badge { padding: 3px 9px; border: 1px solid var(--creative-line); border-radius: 999px; background: var(--creative-canvas); color: var(--creative-muted); font-size: 9px; }
