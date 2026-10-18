@@ -511,7 +511,11 @@ watch(ready, (value) => {
   <div class="creative-page creative-theme ai-studio" :style="dockStyle">
     <header class="studio-head">
       <div class="studio-identity">
-        <h1>创作工作台</h1>
+        <div class="studio-identity-copy">
+          <span class="studio-kicker">AI CREATIVE STUDIO</span>
+          <h1>创作工作台</h1>
+          <p class="studio-lede">把一个画面写下来，参考图、生成结果与每次尝试都会留在这里。</p>
+        </div>
         <div v-if="ready" class="studio-credit-summary" aria-label="积分来源">
           <span class="studio-credit-item" title="每日登录后获得一点积分，上限5点">
             每日登录 <strong>{{ dailyCreditTotal }}/5</strong>
@@ -524,11 +528,19 @@ watch(ready, (value) => {
           </span>
         </div>
       </div>
+      <nav class="studio-head-nav" aria-label="工作台导航">
+        <RouterLink to="/">作品广场</RouterLink>
+        <RouterLink to="/ideas">创意接力</RouterLink>
+      </nav>
     </header>
     <div class="studio-workspace">
       <section class="studio-gallery" aria-label="作品与任务记录">
         <div class="studio-gallery-toolbar">
           <div class="studio-gallery-heading">
+            <div>
+              <span class="studio-section-kicker">YOUR WORK</span>
+              <h2>我的生成</h2>
+            </div>
             <a-button
               v-if="failedTaskRows.length"
               size="small"
@@ -686,6 +698,11 @@ watch(ready, (value) => {
         @dragleave.self="dragging = false"
         @drop.prevent="dropImages"
       >
+        <div class="composer-heading">
+          <span class="studio-section-kicker">NEW PIECE</span>
+          <h2>构想一张新作品</h2>
+          <p>输入画面描述，或从参考图开始。</p>
+        </div>
         <div class="composer-mobile-bar">
           <span class="composer-model-summary"
             >{{ provider?.name || '创作输入' }} · {{ size }}</span
@@ -1036,3 +1053,502 @@ watch(ready, (value) => {
     >
   </div>
 </template>
+
+<style scoped>
+/*
+ * The studio keeps the same warm editorial language as the gallery home:
+ * a quiet canvas, cream paper surfaces and restrained wine accents. The
+ * rules live with this view so the generation contract and other creative
+ * pages keep their existing layout and interaction affordances.
+ */
+.ai-studio {
+  --studio-canvas: #ebe4e1;
+  --studio-paper: #fffdf9;
+  --studio-ink: #201b1c;
+  --studio-muted: #817779;
+  --studio-line: rgba(52, 40, 42, 0.14);
+  --studio-soft: #f1e9e6;
+  --studio-accent: #6b173b;
+  --studio-accent-soft: #efe1e5;
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  max-width: none;
+  min-height: calc(100dvh - 72px);
+  margin: 0;
+  padding: clamp(28px, 4vw, 58px) clamp(20px, 5vw, 76px) 64px;
+  overflow: hidden;
+  color: var(--studio-ink);
+  background:
+    radial-gradient(circle at 80% -10%, color-mix(in srgb, var(--studio-paper) 72%, transparent), transparent 35rem),
+    var(--studio-canvas);
+}
+.ai-studio::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  content: '';
+  opacity: 0.28;
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--studio-muted) 20%, transparent) 0.6px, transparent 0.8px);
+  background-size: 7px 7px;
+  mask-image: linear-gradient(to bottom, black, transparent 76%);
+}
+body[arco-theme='dark'] .ai-studio {
+  --studio-canvas: #211b1e;
+  --studio-paper: #2b2427;
+  --studio-ink: #f8f0ed;
+  --studio-muted: #c0b1b4;
+  --studio-line: rgba(250, 240, 237, 0.16);
+  --studio-soft: #342b2f;
+  --studio-accent: #f0a8bb;
+  --studio-accent-soft: #4a303a;
+}
+.studio-head,
+.studio-workspace {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 1280px);
+  margin-inline: auto;
+}
+.studio-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--studio-line);
+}
+.studio-identity {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 22px 30px;
+  min-width: 0;
+}
+.studio-identity-copy {
+  min-width: min(100%, 320px);
+}
+.studio-kicker,
+.studio-section-kicker {
+  display: block;
+  color: var(--studio-muted);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.17em;
+  line-height: 1.2;
+}
+.ai-studio .studio-head h1 {
+  margin: 8px 0 0;
+  color: var(--studio-ink);
+  font: 600 clamp(28px, 4vw, 43px)/1.05 Georgia, 'Songti SC', 'SimSun', serif;
+  letter-spacing: -0.04em;
+}
+.studio-lede {
+  max-width: 42em;
+  margin: 12px 0 0;
+  color: var(--studio-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.studio-credit-summary {
+  gap: 7px;
+}
+.studio-credit-item {
+  border-color: var(--studio-line);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--studio-paper) 84%, transparent);
+  color: var(--studio-muted);
+}
+.studio-credit-item strong {
+  color: var(--studio-ink);
+}
+.studio-head-nav {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 18px;
+  padding-bottom: 3px;
+  font-size: 11px;
+}
+.studio-head-nav a {
+  color: var(--studio-muted);
+  text-decoration: none;
+  text-underline-offset: 4px;
+}
+.studio-head-nav a:hover,
+.studio-head-nav a.router-link-active {
+  color: var(--studio-accent);
+  text-decoration: underline;
+}
+.studio-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(330px, 420px);
+  align-items: start;
+  gap: clamp(22px, 4vw, 58px);
+  height: auto;
+  min-height: 0;
+  margin-top: 26px;
+}
+.studio-gallery {
+  min-width: 0;
+  min-height: 480px;
+}
+.studio-gallery-toolbar {
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 0 15px;
+  border-bottom: 1px solid var(--studio-line);
+}
+.studio-gallery-heading {
+  align-items: flex-end;
+  gap: 14px;
+}
+.ai-studio .studio-gallery-toolbar h2 {
+  margin: 5px 0 0;
+  color: var(--studio-ink);
+  font: 600 21px/1.2 Georgia, 'Songti SC', 'SimSun', serif;
+  letter-spacing: -0.025em;
+}
+.studio-gallery-filters {
+  align-items: center;
+  flex-wrap: nowrap;
+  margin-left: auto;
+}
+.studio-gallery-filters .arco-input-wrapper {
+  width: 210px;
+  border-color: var(--studio-line);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--studio-paper) 72%, transparent);
+}
+.ai-studio select {
+  border-color: var(--studio-line);
+  border-radius: 4px;
+  background: var(--studio-paper);
+  color: var(--studio-ink);
+}
+.studio-gallery-scroll {
+  overflow: visible;
+  padding: 22px 2px 18px;
+}
+.studio-task-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: auto;
+  gap: 20px;
+}
+.ai-studio .studio-task-card {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  min-height: 0;
+  border: 1px solid var(--studio-line);
+  border-radius: 5px;
+  background: var(--studio-paper);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--studio-ink) 5%, transparent);
+}
+.ai-studio .studio-task-card.is-selected {
+  border-color: var(--studio-accent);
+  box-shadow: 0 0 0 1px var(--studio-accent), 0 8px 22px color-mix(in srgb, var(--studio-accent) 12%, transparent);
+}
+.task-images {
+  aspect-ratio: 1.18;
+  min-height: 0;
+  flex: none;
+  background: var(--studio-soft);
+}
+.task-images button,
+.task-images.has-multiple button {
+  min-height: 0;
+}
+.task-images .creative-image img {
+  object-fit: cover;
+}
+.task-image-open {
+  right: 10px;
+  bottom: 10px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--studio-paper) 90%, transparent);
+  color: var(--studio-ink);
+}
+.task-placeholder {
+  aspect-ratio: 1.18;
+  flex: none;
+  padding: 20px;
+  background: var(--studio-soft);
+  color: var(--studio-muted);
+}
+.task-placeholder[data-status='running'] {
+  background: var(--studio-accent-soft);
+  color: var(--studio-accent);
+}
+.task-body {
+  min-height: 154px;
+  gap: 8px;
+  padding: 15px 16px 16px;
+}
+.task-meta {
+  font-size: 10px;
+}
+.task-status {
+  color: var(--studio-accent);
+}
+.ai-studio .task-prompt {
+  font-size: 13px;
+  line-height: 1.55;
+}
+.task-parameters {
+  color: var(--studio-muted);
+  font-size: 10px;
+}
+.task-actions {
+  gap: 5px;
+  padding-top: 6px;
+}
+.task-actions .arco-btn {
+  border-radius: 3px;
+  color: var(--studio-muted);
+  font-size: 11px;
+}
+.task-actions .arco-btn:hover {
+  color: var(--studio-accent);
+}
+.studio-load-more {
+  margin-top: 24px;
+  border: 0;
+  border-radius: 0;
+  color: var(--studio-accent);
+  background: transparent;
+  font-size: 11px;
+}
+.studio-gallery-empty,
+.studio-gallery-loading {
+  min-height: 360px;
+  color: var(--studio-muted);
+}
+.ai-studio .studio-gallery-empty h2 {
+  color: var(--studio-ink);
+  font: 600 23px/1.2 Georgia, 'Songti SC', 'SimSun', serif;
+}
+.studio-gallery-empty > .arco-btn {
+  border-radius: 4px;
+}
+.studio-composer {
+  position: sticky;
+  top: 92px;
+  width: auto;
+  max-height: none;
+  margin: 0;
+  padding: 24px;
+  overflow: visible;
+  border: 1px solid var(--studio-line);
+  border-radius: 5px;
+  background: var(--studio-paper);
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--studio-ink) 6%, transparent);
+}
+.studio-composer.is-dragging {
+  background: var(--studio-accent-soft);
+}
+.composer-heading {
+  margin-bottom: 18px;
+  padding-bottom: 17px;
+  border-bottom: 1px solid var(--studio-line);
+}
+.composer-heading h2 {
+  margin: 6px 0 0;
+  color: var(--studio-ink);
+  font: 600 20px/1.2 Georgia, 'Songti SC', 'SimSun', serif;
+  letter-spacing: -0.02em;
+}
+.composer-heading p {
+  margin: 8px 0 0;
+  color: var(--studio-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.composer-prompt textarea {
+  min-height: 112px;
+  padding: 2px 36px 8px 0;
+  color: var(--studio-ink);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.composer-prompt:focus-within {
+  box-shadow: 0 1px 0 var(--studio-accent);
+}
+.composer-attachments {
+  margin-block: 8px 18px;
+}
+.composer-attachments .arco-btn {
+  border-radius: 3px;
+  color: var(--studio-muted);
+  font-size: 11px;
+}
+.composer-controls {
+  gap: 7px;
+  padding-top: 15px;
+  border-top-color: var(--studio-line);
+}
+.composer-control {
+  border-radius: 3px;
+  background: var(--studio-canvas);
+  font-size: 11px;
+}
+.studio-size-trigger {
+  font-size: 11px;
+}
+.composer-footer {
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 18px;
+}
+.composer-feedback .creative-note {
+  color: var(--studio-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.composer-quick-actions {
+  gap: 6px;
+}
+.composer-quick-actions .arco-btn {
+  border-radius: 3px;
+  font-size: 11px;
+}
+.composer-submit.arco-btn {
+  min-width: 126px;
+  height: 40px;
+  border-radius: 3px;
+  background: var(--studio-ink);
+  border-color: var(--studio-ink);
+  color: var(--studio-paper);
+}
+.composer-submit.arco-btn:hover {
+  background: var(--studio-accent);
+  border-color: var(--studio-accent);
+}
+.composer-submit.arco-btn:disabled {
+  opacity: 0.45;
+}
+.reference-mentions {
+  border-color: var(--studio-line);
+  border-radius: 4px;
+  background: var(--studio-paper);
+}
+.reference-mentions button {
+  border-radius: 3px;
+}
+.ai-studio button:focus-visible,
+.ai-studio select:focus-visible,
+.ai-studio textarea:focus-visible,
+.studio-gallery-scroll:focus-visible {
+  outline-color: var(--studio-accent);
+}
+
+@media (max-width: 980px) {
+  .ai-studio {
+    padding-inline: clamp(18px, 4vw, 40px);
+  }
+  .studio-workspace {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+    gap: 24px;
+  }
+  .studio-credit-summary {
+    gap: 4px;
+  }
+  .studio-credit-item {
+    padding-inline: 7px;
+  }
+}
+@media (max-width: 800px) {
+  .ai-studio {
+    min-height: 100dvh;
+    padding: 22px 16px calc(var(--studio-dock-height, 280px) + 28px);
+  }
+  .studio-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .studio-identity {
+    display: block;
+  }
+  .studio-identity-copy {
+    min-width: 0;
+  }
+  .studio-lede {
+    max-width: 34em;
+  }
+  .studio-credit-summary {
+    margin-top: 15px;
+  }
+  .studio-head-nav {
+    gap: 15px;
+    padding: 0;
+  }
+  .studio-workspace {
+    display: block;
+    margin-top: 20px;
+  }
+  .studio-gallery {
+    min-height: 0;
+  }
+  .studio-gallery-scroll {
+    padding-top: 18px;
+  }
+  .studio-composer {
+    position: fixed;
+    z-index: 90;
+    inset-inline: max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-right));
+    bottom: var(--studio-dock-bottom, 0px);
+    width: auto;
+    max-height: min(60dvh, calc(var(--studio-visible-height, 100dvh) - 16px));
+    padding: 8px 16px max(12px, env(safe-area-inset-bottom));
+    border-radius: 5px 5px 0 0;
+    box-shadow: 0 -8px 30px color-mix(in srgb, var(--studio-ink) 13%, transparent);
+  }
+  .composer-heading {
+    display: none;
+  }
+  .studio-task-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+@media (max-width: 540px) {
+  .ai-studio {
+    padding-inline: 12px;
+  }
+  .ai-studio .studio-head h1 {
+    font-size: 31px;
+  }
+  .studio-lede {
+    font-size: 11px;
+  }
+  .studio-gallery-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 11px;
+  }
+  .studio-gallery-filters {
+    width: 100%;
+    margin-left: 0;
+  }
+  .studio-gallery-filters .arco-input-wrapper {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+  }
+  .studio-task-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .studio-task-card .task-images,
+  .studio-task-card .task-placeholder {
+    aspect-ratio: 1.35;
+  }
+  .studio-composer {
+    padding-inline: 12px;
+  }
+}
+</style>
