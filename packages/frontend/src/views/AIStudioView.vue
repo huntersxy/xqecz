@@ -95,6 +95,12 @@ const canGenerate = computed(
 const quotaNote = computed(() =>
   `本次 ${cost.value} 额度 · 可用 ${account.value.available}`,
 )
+const dailyCreditTotal = computed(
+  () => (account.value.daily_available ?? 0) + (account.value.daily_reserved ?? 0),
+)
+const otherCreditTotal = computed(() =>
+  Math.max(0, account.value.available + account.value.reserved - dailyCreditTotal.value),
+)
 const quotaVisible = computed(() => !studio.isQuotaExempt.value)
 const mention = ref<ReturnType<typeof referenceMentionAt>>(null),
   mentionIndex = ref(0)
@@ -506,6 +512,17 @@ watch(ready, (value) => {
     <header class="studio-head">
       <div class="studio-identity">
         <h1>创作工作台</h1>
+        <div v-if="ready" class="studio-credit-summary" aria-label="积分来源">
+          <span class="studio-credit-item" title="每日登录后获得一点积分，上限5点">
+            每日登录 <strong>{{ dailyCreditTotal }}/5</strong>
+          </span>
+          <span class="studio-credit-item" title="上传作品通过审核后奖励1点积分；其他奖励以账本记录为准">
+            其他积分 <strong>{{ otherCreditTotal }}</strong>
+          </span>
+          <span class="studio-credit-item" title="当前可用积分；生成中的额度会暂时计入预留">
+            可用 <strong>{{ account.available }}</strong>
+          </span>
+        </div>
       </div>
     </header>
     <div class="studio-workspace">

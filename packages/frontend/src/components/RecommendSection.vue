@@ -5,7 +5,7 @@ import MediaImage from '@/components/MediaImage.vue'
 import type { RecommendContent } from '@/types'
 import type { RecommendLoader } from '@/composables/useRecommendLoader'
 
-const props = defineProps<{ loader: RecommendLoader }>()
+const props = defineProps<{ loader: RecommendLoader; compact?: boolean }>()
 const emit = defineEmits<{ click: [item: RecommendContent] }>()
 const scrollRef = ref<HTMLElement | null>(null)
 
@@ -114,7 +114,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section id="recommend-section" class="wf-recommend">
+  <section id="recommend-section" class="wf-recommend" :class="{ 'is-compact': props.compact }">
     <div class="wf-recommend-head">
       <h2><span class="wf-rec-spark" aria-hidden="true">✦</span> 造物主精选</h2>
       <button
@@ -224,4 +224,30 @@ onBeforeUnmount(() => {
 }
 .wf-rec-spark { color: var(--creative-accent); margin-right: 5px; font-size: 15px; }
 .wf-recommend-card:focus-visible { outline: 2px solid var(--creative-accent); outline-offset: 2px; }
+.wf-recommend.is-compact {
+  padding-top: 10px;
+  padding-bottom: 2px;
+}
+.wf-recommend.is-compact .wf-recommend-head {
+  margin-bottom: 4px;
+}
+.wf-recommend.is-compact .wf-recommend-head h2 {
+  font-size: 0.78rem;
+}
+.wf-recommend.is-compact .wf-rec-refresh {
+  width: 26px;
+  height: 26px;
+}
+.wf-recommend.is-compact .wf-recommend-scroll {
+  gap: 8px;
+  padding-bottom: 8px;
+}
+.wf-recommend.is-compact .wf-recommend-card {
+  width: 96px;
+  height: 112px;
+  border-radius: 9px;
+}
+.wf-recommend.is-compact .wf-rec-caption {
+  font-size: 0.62rem;
+}
 </style>

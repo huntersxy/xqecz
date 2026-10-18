@@ -443,6 +443,13 @@ onActivated(() => {
 <template>
   <div class="wf-root creative-theme">
     <UniverseMargins v-if="!swapSections" />
+    <RecommendSection
+      v-if="!swapSections && recommendLoader.recommendContents.value.length > 0"
+      class="wf-recommend-top"
+      compact
+      :loader="recommendLoader"
+      @click="openContent"
+    />
     <section v-if="!swapSections" class="wf-hero" aria-labelledby="home-title">
       <div class="wf-hero-copy">
         <span class="wf-kicker"><span class="wf-kicker-dot"></span> XQECZ / UNIVERSE OF CREATORS</span>
@@ -492,12 +499,6 @@ onActivated(() => {
     </section>
 
     <IdeasSection v-if="!swapSections" class="wf-ideas" />
-    <RecommendSection
-      v-if="!swapSections && recommendLoader.recommendContents.value.length > 0"
-      :loader="recommendLoader"
-      @click="openContent"
-    />
-
     <div class="wf-masonry-wrap">
       <div class="wf-feed-heading">
         <div>
@@ -570,10 +571,11 @@ onActivated(() => {
   color: var(--home-ink);
   padding: 0 28px;
 }
-.wf-hero, .wf-discovery, .wf-masonry-wrap, .wf-ideas { max-width: 1440px; margin-inline: auto; }
+.wf-hero, .wf-discovery, .wf-masonry-wrap, .wf-ideas, .wf-recommend-top { max-width: 1440px; margin-inline: auto; }
+.wf-recommend-top { border-bottom: 1px solid var(--home-line); }
 .wf-hero {
   display: flex; align-items: center; justify-content: space-between; gap: 30px;
-  position: relative; isolation: isolate; padding: 40px 0 36px; border-bottom: 1px solid var(--home-line);
+  position: relative; isolation: isolate; padding: 28px 0 26px; border-bottom: 1px solid var(--home-line);
 }
 .wf-hero::before { content: ''; position: absolute; inset: 0 -28px; z-index: -1; pointer-events: none; background-image: var(--creative-grain), radial-gradient(ellipse at 80% 35%, color-mix(in srgb, var(--creative-warm) 14%, transparent), transparent 55%); background-size: 5px 5px, 100% 100%; }
 .wf-hero-copy { min-width: 0; }
@@ -581,31 +583,31 @@ onActivated(() => {
 .wf-kicker, .wf-section-kicker { font-size: 10px; font-weight: 600; letter-spacing: .13em; color: var(--home-muted); }
 .wf-kicker { display: flex; align-items: center; gap: 8px; }
 .wf-kicker-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--home-accent); }
-.wf-hero h1 { margin: 14px 0 12px; font-family: var(--creative-title-font); font-size: clamp(29px, 2.7vw, 40px); font-weight: 600; line-height: 1.55; letter-spacing: .015em; }
+.wf-hero h1 { margin: 10px 0 10px; font-family: var(--creative-title-font); font-size: clamp(29px, 2.7vw, 38px); font-weight: 600; line-height: 1.45; letter-spacing: .015em; }
 .wf-hero h1 em { position: relative; display: inline-block; font-style: normal; color: var(--home-accent); }
 .wf-hero h1 em::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 5px; border-bottom: 2px solid color-mix(in srgb, var(--creative-warm) 80%, transparent); border-radius: 50%; transform: rotate(-1.5deg); pointer-events: none; }
 .wf-hero p { margin: 0; color: var(--home-muted); font-size: 13px; line-height: 1.8; }
-.wf-hero-actions { display: flex; align-items: center; gap: 20px; margin-top: 22px; }
+.wf-hero-actions { display: flex; align-items: center; gap: 20px; margin-top: 16px; }
 .wf-primary-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 18px; background: var(--home-accent); color: var(--color-on-primary); border: 0; border-radius: 999px; cursor: pointer; font-size: 12px; font-weight: 600; box-shadow: 0 5px 14px color-mix(in srgb, var(--home-accent) 16%, transparent); transition: background .2s, box-shadow .2s; }
 .wf-primary-action:hover { background: var(--creative-accent-hover); box-shadow: 0 6px 18px color-mix(in srgb, var(--home-accent) 24%, transparent); }
 .wf-hero-note { color: var(--home-muted); font-size: 11px; }
-.wf-hero-mark { flex: 0 0 340px; }
-.wf-discovery { padding: 27px 0 22px; }
+.wf-hero-mark { flex: 0 0 300px; }
+.wf-discovery { padding: 15px 0 12px; }
 .wf-discovery-heading, .wf-feed-heading { display: flex; justify-content: space-between; align-items: end; gap: 16px; }
-.wf-discovery h2, .wf-feed-heading h2 { font-size: 20px; font-weight: 600; margin: 5px 0 0; line-height: 1.5; overflow-wrap: anywhere; }
+.wf-discovery h2, .wf-feed-heading h2 { font-size: 18px; font-weight: 600; margin: 3px 0 0; line-height: 1.4; overflow-wrap: anywhere; }
 .wf-content-count { padding: 6px 10px; border: 1px solid var(--home-line); border-radius: 999px; background: var(--home-paper); }
 .wf-content-count, .wf-feed-caption { flex-shrink: 0; font-size: 11px; color: var(--home-muted); }
-.wf-tag-toolbar { display: flex; align-items: center; gap: 16px; margin-top: 18px; }
-.wf-tag-row { position: relative; display: flex; align-items: center; flex: 1; min-width: 0; gap: 10px; overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--creative-line) transparent; padding: 4px 3px 8px; }
-.wf-tag-chip { position: relative; display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; min-height: 42px; padding: 8px 13px; border: 1px solid var(--home-line); border-radius: 20px 24px 21px 18px; background: var(--home-paper); color: var(--home-muted); font: inherit; font-size: 12px; cursor: pointer; transition: color .18s, border-color .18s, background .18s; }
+.wf-tag-toolbar { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.wf-tag-row { position: relative; display: flex; align-items: center; flex: 1; min-width: 0; gap: 8px; overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--creative-line) transparent; padding: 2px 3px 5px; }
+.wf-tag-chip { position: relative; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; min-height: 34px; padding: 6px 10px; border: 1px solid var(--home-line); border-radius: 20px 24px 21px 18px; background: var(--home-paper); color: var(--home-muted); font: inherit; font-size: 11px; cursor: pointer; transition: color .18s, border-color .18s, background .18s; }
 .wf-tag-chip::after { content: ''; position: absolute; inset: 3px; border: 1px dashed color-mix(in srgb, var(--home-accent) 32%, transparent); border-radius: inherit; opacity: 0; pointer-events: none; }
 .wf-tag-chip.active { color: var(--home-accent); border-color: color-mix(in srgb, var(--home-accent) 40%, var(--home-line)); background: var(--home-soft); font-weight: 600; }
 .wf-tag-chip.active::after { opacity: 1; }
-.wf-tag-planet { width: 23px; height: 23px; color: var(--home-accent); opacity: .75; }
+.wf-tag-planet { width: 18px; height: 18px; color: var(--home-accent); opacity: .75; }
 .wf-tag-chip.active .wf-tag-planet { opacity: 1; }
 .wf-tag-label { max-width: 165px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .wf-tag-hash { margin-right: 5px; color: var(--home-accent); opacity: .65; font-size: 10px; }
-.wf-tag-shuffle { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0; min-height: 42px; padding: 8px 2px; margin-bottom: 4px; border: 0; background: transparent; color: var(--home-muted); font: inherit; font-size: 11px; cursor: pointer; transition: color .18s; }
+.wf-tag-shuffle { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0; min-height: 34px; padding: 6px 2px; margin-bottom: 2px; border: 0; background: transparent; color: var(--home-muted); font: inherit; font-size: 11px; cursor: pointer; transition: color .18s; }
 .wf-tag-shuffle svg { width: 15px; height: 15px; }
 @media (hover: hover) and (pointer: fine) {
   .wf-tag-chip:hover { color: var(--home-accent); border-color: color-mix(in srgb, var(--home-accent) 45%, var(--home-line)); background: var(--home-soft); }
@@ -639,10 +641,11 @@ button:focus-visible { outline: 2px solid var(--home-accent); outline-offset: 4p
   .wf-hero p { max-width: 300px; font-size: 12px; }
   .wf-hero-mark { display: none; }
   .wf-hero-note { font-size: 10px; }
-  .wf-discovery { padding: 24px 0 18px; }
+  .wf-discovery { padding: 18px 0 12px; }
   .wf-tag-toolbar { gap: 8px; }
   .wf-tag-row { gap: 8px; }
-  .wf-tag-chip { min-height: 44px; padding-inline: 11px; }
+  .wf-tag-chip { min-height: 36px; padding-inline: 10px; }
+  .wf-tag-planet { width: 17px; height: 17px; }
   .wf-tag-label { max-width: 132px; }
   .wf-tag-shuffle { width: 44px; height: 44px; padding: 0; border: 1px solid var(--home-line); border-radius: 50%; background: var(--home-paper); }
   .wf-tag-shuffle > span { display: none; }

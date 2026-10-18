@@ -1353,6 +1353,29 @@ body[arco-theme='dark'] .ai-studio {
   letter-spacing: 0;
   margin: 0;
 }
+.studio-credit-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.studio-credit-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 5px 8px;
+  border: 1px solid var(--creative-line);
+  border-radius: 999px;
+  background: var(--creative-paper);
+  color: var(--creative-muted);
+  font-size: 11px;
+  cursor: help;
+}
+.studio-credit-item strong {
+  color: var(--creative-ink);
+  font-size: 12px;
+  font-weight: 650;
+}
 .studio-head-actions {
   flex-wrap: wrap;
 }
@@ -2425,6 +2448,19 @@ body[arco-theme='dark'] .ai-studio select {
   .studio-head-actions {
     width: 100%;
     gap: 8px;
+  }
+  .studio-identity {
+    width: 100%;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .studio-credit-summary {
+    gap: 4px;
+  }
+  .studio-credit-item {
+    padding: 4px 7px;
+    font-size: 10px;
   }
   .studio-head-actions .arco-btn {
     padding-inline: 12px;

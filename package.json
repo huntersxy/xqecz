@@ -18,6 +18,7 @@
     "server:fmt": "go -C packages/server fmt ./...",
     "fe:test": "pnpm --filter ./packages/frontend run test",
     "fe:typecheck": "pnpm --filter ./packages/frontend run type-check",
+    "fe:typecheck:native": "pnpm --filter ./packages/frontend run type-check:native",
     "accept": "node scripts/acceptance.mjs"
   },
   "devDependencies": {
