@@ -1,43 +1,106 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import ArtworkPlanet from '@/components/ArtworkPlanet.vue'
 import type { UniverseArtwork } from '@/utils/artworkUniverse'
 
 defineProps<{ artworks: readonly UniverseArtwork[] }>()
 const emit = defineEmits<{ select: [id: number] }>()
+
+// “双击画布”仍是星图入口，但手势不可发现：补一个看得见的按钮。
+// 星图浮层归 ArtworkPlanet 持有，点按与双击走同一条 explore()。
+const planet = ref<{ explore: () => void } | null>(null)
+function openUniverse() {
+  planet.value?.explore()
+}
 </script>
 
 <template>
   <div class="universe-sketch">
-    <span class="universe-halo"></span>
-    <svg class="universe-orbits" viewBox="0 0 340 240" fill="none" focusable="false" aria-hidden="true">
-      <path class="universe-pencil" d="M66 156C20 133 65 67 151 48c88-20 161-4 161 35 0 38-78 88-164 99-49 7-82-2-88-20" />
-      <path class="universe-guide" d="M98 44c-43 45-46 106-8 140 37 35 104 27 153-12 44-36 55-82 23-115" />
-      <path class="universe-guide" d="m23 54 35-4m-15-13 2 30m249 116 26-4m-13-11 2 26" />
-    </svg>
-    <ArtworkPlanet :artworks="artworks" @select="emit('select', $event)" />
-    <svg class="universe-orbits universe-front" viewBox="0 0 340 240" fill="none" focusable="false" aria-hidden="true">
-      <path class="universe-pencil" d="M34 113c-3 30 68 42 147 18 72-21 122-51 122-77" />
-      <path class="universe-pencil universe-second-stroke" d="M45 125c25 20 91 16 140 2 57-17 100-43 111-60" />
-      <path class="universe-star" d="m279 34 3 10 10 3-10 3-3 11-3-11-10-3 10-3 3-10Z" />
-      <path class="universe-tiny-star" d="m71 173 2 7 7 2-7 2-2 7-2-7-7-2 7-2 2-7Z" />
-      <circle class="universe-satellite" cx="48" cy="107" r="5" />
-    </svg>
-    <span class="universe-caption">宇宙，从你的这一笔开始</span>
-    <span class="universe-note">a little universe of our own</span>
+    <div class="universe-stage">
+      <svg class="universe-orbits" viewBox="0 0 240 170" fill="none" focusable="false" aria-hidden="true">
+        <ellipse class="universe-orbit" cx="120" cy="85" rx="112" ry="64" transform="rotate(-12 120 85)" />
+        <ellipse class="universe-orbit is-faint" cx="120" cy="85" rx="88" ry="49" transform="rotate(9 120 85)" stroke-dasharray="2 8" />
+      </svg>
+      <div class="universe-planet-box">
+        <ArtworkPlanet ref="planet" :artworks="artworks" @select="emit('select', $event)" />
+      </div>
+    </div>
+    <button class="universe-enter" type="button" @click="openUniverse">进入星图<span aria-hidden="true">↗</span></button>
   </div>
 </template>
 
 <style scoped>
-.universe-sketch { position: relative; width: 340px; height: 250px; pointer-events: none; }
-.universe-halo { position: absolute; inset: 5px 30px 25px; border-radius: 50%; background: radial-gradient(ellipse, color-mix(in srgb, var(--creative-warm) 38%, transparent), transparent 70%); }
-.universe-orbits { position: absolute; inset: 0; width: 100%; height: 240px; stroke-linecap: round; stroke-linejoin: round; }
-.universe-pencil { stroke: var(--creative-accent); stroke-width: 1.4; opacity: .6; }
-.universe-guide { stroke: var(--creative-muted); stroke-width: 1; stroke-dasharray: 3 7; opacity: .3; }
-.universe-second-stroke { opacity: .2; stroke-width: .8; }
-.universe-star, .universe-tiny-star { stroke: var(--creative-accent); stroke-width: 1.4; fill: var(--creative-paper); }
-.universe-star { transform-origin: 279px 47px; animation: universe-light-up 1s ease-out both; }
-.universe-satellite { fill: var(--creative-warm); stroke: var(--creative-accent); stroke-width: 1.2; }
-.universe-caption { position: absolute; bottom: 20px; left: 68px; color: var(--creative-ink); font: 17px/1.5 var(--creative-title-font); transform: rotate(-4deg); }
-.universe-note { position: absolute; bottom: 0; left: 92px; color: var(--creative-muted); font: italic 10px/1.5 Georgia, serif; }
-@keyframes universe-light-up { from { opacity: .25; transform: scale(.65); } to { opacity: 1; transform: scale(1); } }
+.universe-sketch {
+  --planet-size: clamp(108px, 9.8vw, 144px);
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  width: calc(var(--planet-size) * 1.58);
+  flex: 0 0 auto;
+}
+.universe-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: calc(var(--planet-size) * 1.34);
+}
+.universe-stage::before {
+  content: '';
+  position: absolute;
+  width: calc(var(--planet-size) * 1.28);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--creative-warm) 24%, transparent), transparent 68%);
+  pointer-events: none;
+}
+.universe-orbits {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(var(--planet-size) * 1.52);
+  height: calc(var(--planet-size) * 1.08);
+  transform: translate(-50%, -50%);
+  overflow: visible;
+  pointer-events: none;
+}
+.universe-orbit {
+  stroke: color-mix(in srgb, var(--home-accent) 28%, transparent);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.universe-orbit.is-faint {
+  stroke: color-mix(in srgb, var(--home-accent) 16%, transparent);
+}
+.universe-planet-box {
+  position: relative;
+  z-index: 2;
+  width: var(--planet-size);
+  height: var(--planet-size);
+}
+.universe-enter {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: color-mix(in srgb, var(--home-ink) 70%, var(--home-muted));
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: color .18s;
+}
+.universe-enter:hover { color: var(--home-accent); }
+.universe-enter:focus-visible { outline: 2px solid var(--home-accent); outline-offset: 3px; border-radius: 2px; }
+@media (max-width: 900px) {
+  .universe-sketch { --planet-size: 108px; }
+}
+@media (max-width: 768px) {
+  /* 手机端不初始化星球渲染，静态底图会读成一张头像；星图入口也仅桌面可用，整块收起。 */
+  .universe-sketch { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .universe-enter { transition: none; }
+}
 </style>

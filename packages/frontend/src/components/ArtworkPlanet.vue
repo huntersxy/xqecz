@@ -27,6 +27,7 @@ let direction: Vector3
 let scratch: Vector3
 let samples: Vector3[][] = []
 let observer: IntersectionObserver | undefined
+let sizeObserver: ResizeObserver | undefined
 let desktop: MediaQueryList
 let reducedMotion: MediaQueryList
 let active = true
@@ -75,6 +76,14 @@ function explore() {
 }
 function closeUniverse() { universeOrigin.value = undefined; updateAnimation() }
 function selectUniverse(id: number) { closeUniverse(); emit('select', id) }
+
+/** 容器尺寸变化时重设绘制缓冲；正交相机取景不变，只影响清晰度。 */
+function syncRenderSize() {
+  if (!renderer || !ready.value || !host.value) return
+  const rect = host.value.getBoundingClientRect()
+  renderer.setSize(Math.max(1, Math.round(rect.width)), Math.max(1, Math.round(rect.height)), false)
+  renderer.render(scene, camera)
+}
 
 function refill() {
   if (!renderer || !ready.value || !canRun() || paused.value || dragging.value) return
@@ -205,7 +214,9 @@ async function initialize() {
     if (!canRun() || !canvas.value) return
     renderer = new THREE.WebGLRenderer({ canvas: canvas.value, alpha: true, antialias: true, powerPreference: 'low-power' })
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
-    renderer.setSize(180, 180, false)
+    // 画布尺寸跟随容器：首屏星球远大于星图入口，固定 180 会把贴图放糊。
+    const initialRect = host.value?.getBoundingClientRect()
+    renderer.setSize(Math.max(1, Math.round(initialRect?.width || 180)), Math.max(1, Math.round(initialRect?.height || 180)), false)
     renderer.outputColorSpace = THREE.SRGBColorSpace
     scene = new THREE.Scene()
     camera = new THREE.OrthographicCamera(-1.08, 1.08, 1.08, -1.08, .1, 10)
@@ -287,6 +298,10 @@ onMounted(() => {
   document.addEventListener('visibilitychange', updateAnimation)
   observer = new IntersectionObserver(entries => { inView = entries.some(entry => entry.isIntersecting); updateAnimation() })
   if (host.value) observer.observe(host.value)
+  if (host.value && typeof ResizeObserver !== 'undefined') {
+    sizeObserver = new ResizeObserver(syncRenderSize)
+    sizeObserver.observe(host.value)
+  }
 })
 onActivated(() => { active = true; updateAnimation() })
 onDeactivated(() => { active = false; universeOrigin.value = undefined; updateAnimation() })
@@ -296,11 +311,16 @@ onBeforeUnmount(() => {
   lifetime.abort()
   loads.abort()
   observer?.disconnect()
+  sizeObserver?.disconnect()
+  sizeObserver = undefined
   desktop?.removeEventListener('change', updateAnimation)
   reducedMotion?.removeEventListener('change', updateAnimation)
   document.removeEventListener('visibilitychange', updateAnimation)
   disposeScene()
 })
+
+// 首屏把“双击进星图”的隐藏手势补成可见入口；星图浮层仍归本组件持有。
+defineExpose({ explore })
 </script>
 
 <template>
@@ -316,15 +336,15 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.artwork-planet-wrap { position: absolute; top: 31px; left: 81px; width: 180px; height: 180px; pointer-events: auto; }
+.artwork-planet-wrap { position: relative; width: 100%; height: 100%; pointer-events: auto; }
 .artwork-planet-wrap.is-exploring { visibility: hidden; }
 .artwork-planet { width: 100%; height: 100%; border: 1px solid color-mix(in srgb, var(--creative-accent) 28%, var(--creative-line)); border-radius: 50%; background-position: center 22%; background-size: cover; overflow: hidden; box-shadow: 8px 12px 26px color-mix(in srgb, var(--creative-accent) 10%, transparent); }
 .artwork-planet.is-ready { background-image: none !important; }
 .artwork-planet-canvas { display: block; width: 100%; height: 100%; opacity: 0; cursor: grab; touch-action: none; }
 .is-ready .artwork-planet-canvas { opacity: 1; }
 .is-dragging .artwork-planet-canvas { cursor: grabbing; }
-.planet-rotation-toggle { position: absolute; right: -9px; bottom: 4px; display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--creative-line); border-radius: 50%; color: var(--creative-accent); background: var(--creative-paper); cursor: pointer; }
-.planet-rotation-toggle svg { width: 13px; height: 13px; }
-.planet-rotation-toggle:hover { background: var(--creative-soft); }
+.planet-rotation-toggle { position: absolute; right: -7px; bottom: 3px; display: grid; place-items: center; width: 23px; height: 23px; border: 1px solid color-mix(in srgb, var(--creative-line) 80%, transparent); border-radius: 50%; color: var(--creative-muted); background: color-mix(in srgb, var(--creative-paper) 88%, transparent); opacity: .7; cursor: pointer; transition: opacity .18s, color .18s; }
+.planet-rotation-toggle svg { width: 11px; height: 11px; }
+.planet-rotation-toggle:hover { opacity: 1; color: var(--creative-accent); background: var(--creative-soft); }
 .artwork-planet-wrap:has(:focus-visible) .artwork-planet { outline: 2px solid var(--creative-accent); outline-offset: 4px; }
 </style>

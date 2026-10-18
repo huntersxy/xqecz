@@ -4,6 +4,7 @@ export default { name: 'HomeView' }
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onActivated, onDeactivated, onBeforeUnmount, nextTick, watch } from 'vue'
+import dayjs from 'dayjs'
 import { useIntersectionObserver } from '@vueuse/core'
 import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { contentApi } from '@/api'
@@ -13,6 +14,7 @@ import { useSearchFilter } from '@/composables/useSearchFilter'
 import { watchGlobalSearch } from '@/composables/useGlobalSearch'
 import { useWaterfallLayout } from '@/composables/useWaterfallLayout'
 import { useListCache, diffLists } from '@/composables/useListCache'
+import { getImageUrl, scrollBehavior } from '@/utils'
 import { ContentSchema } from '@/types/schemas'
 import WaterfallCard from '@/components/WaterfallCard.vue'
 import RecommendSection from '@/components/RecommendSection.vue'
@@ -20,7 +22,6 @@ import QuickUploadSheet from '@/components/QuickUploadSheet.vue'
 import SketchPlanet from '@/components/SketchPlanet.vue'
 import UniverseSketch from '@/components/UniverseSketch.vue'
 import UniverseMargins from '@/components/UniverseMargins.vue'
-import HeroOrbitCanvas from '@/components/HeroOrbitCanvas.vue'
 import { IconRefresh } from '@arco-design/web-vue/es/icon'
 import type { Content, ListParams, RecommendContent } from '@/types'
 
@@ -39,6 +40,25 @@ const swapSections = computed(
 
 const allContents = ref<Content[]>([])
 const planetArtworks = computed(() => [...recommendLoader.recommendContents.value, ...allContents.value])
+// 上传未填元数据时标题是 UUID，直接展示等于没有标题；优先挑有真实标题的作品。
+const UUID_TITLE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const latestWorks = computed(() => {
+  const named = allContents.value.filter(item => item.title.trim() && !UUID_TITLE.test(item.title.trim()))
+  return (named.length ? named : allContents.value).slice(0, 3)
+})
+// created_at 经 zod 统一成 Unix 秒（见 types/schemas.ts:dateNum），不能按毫秒构造 Date。
+const todayCount = computed(() => {
+  const start = dayjs().startOf('day').unix()
+  return allContents.value.filter(item => item.created_at >= start).length
+})
+function shortDate(unixSeconds: number) {
+  const date = dayjs.unix(unixSeconds)
+  return date.isSame(dayjs(), 'day') ? '今天' : date.format('M-D')
+}
+const feedRef = ref<HTMLElement | null>(null)
+function scrollToFeed() {
+  feedRef.value?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
+}
 const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
@@ -452,43 +472,46 @@ onActivated(() => {
       @click="openContent"
     />
     <section v-if="!swapSections" class="wf-hero" aria-labelledby="home-title">
-      <div class="wf-hero-surface">
+      <div class="wf-hero-stage">
         <div class="wf-hero-copy">
-          <div class="wf-hero-intro">
-            <span class="wf-kicker"><span class="wf-kicker-dot"></span> XQECZ / UNIVERSE OF CREATORS</span>
-            <span class="wf-hero-index">LIVE / {{ total > 0 ? total : '—' }} WORLDS</span>
-          </div>
-          <div class="wf-hero-wordmark">
-            <span>小泉宇宙</span>
+          <div class="wf-hero-head">
             <h1 id="home-title">每个人都是<em>造物主</em></h1>
+            <p class="wf-hero-ledger">
+              <span><strong>{{ total > 0 ? total : '—' }}</strong> 件作品</span>
+              <span><strong>{{ searchFilter.allTags.value.length || '—' }}</strong> 个坐标</span>
+              <span>今日 <strong>{{ todayCount > 0 ? `+${todayCount}` : '0' }}</strong></span>
+            </p>
           </div>
           <p class="wf-hero-lede">动漫二创内容分享平台。把喜欢的画面、角色和灵感，点亮成属于你的那颗星球。</p>
           <div class="wf-hero-actions">
             <button class="wf-primary-action" type="button" @click="showUploadSheet = true">
               <SketchPlanet /> 点亮一颗新星球
             </button>
-            <span class="wf-hero-note">灵感落笔，星球亮起。</span>
-          </div>
-          <div class="wf-hero-meta" aria-label="创作空间概览">
-            <span class="wf-hero-meta-item"><strong>{{ total > 0 ? total : '—' }}</strong>颗星球已点亮</span>
-            <span class="wf-hero-meta-item"><strong>{{ recommendLoader.recommendContents.value.length || '—' }}</strong>个灵感坐标</span>
-          </div>
-          <div class="wf-hero-route" aria-hidden="true">
-            <span class="wf-hero-route-index">01</span>
-            <span class="wf-hero-route-line"></span>
-            <span>MAKE / EXPLORE / SHARE</span>
+            <button class="wf-hero-browse" type="button" @click="scrollToFeed">
+              先逛逛作品 <span aria-hidden="true">↓</span>
+            </button>
           </div>
         </div>
-        <div class="wf-hero-visual">
-          <div class="wf-hero-visual-top" aria-hidden="true">
-            <span>ORBITAL INDEX</span>
-            <span>LIVE FIELD / 01</span>
-          </div>
-          <HeroOrbitCanvas class="wf-hero-orbit-canvas" />
-          <UniverseSketch class="wf-hero-mark" :artworks="planetArtworks" @select="router.push(`/content/${$event}`)" />
-          <div class="wf-hero-visual-bottom" aria-hidden="true">
-            <span>drag to explore</span>
-            <span>SCROLL TO DISCOVER ↓</span>
+        <div class="wf-hero-live">
+          <UniverseSketch class="wf-hero-planet" :artworks="planetArtworks" @select="router.push(`/content/${$event}`)" />
+          <div class="wf-hero-live-list">
+            <div class="wf-hero-live-head"><span class="wf-hero-live-dot" aria-hidden="true"></span>最近点亮</div>
+            <RouterLink
+              v-for="item in latestWorks"
+              :key="item.id"
+              class="wf-hero-live-row"
+              :to="`/content/${item.id}`"
+              :title="item.title || '未命名作品'"
+            >
+              <span class="wf-hero-live-thumb">
+                <img v-if="item.thumb" :src="getImageUrl(item.thumb)" alt="" loading="lazy" />
+                <span v-else aria-hidden="true">{{ (item.title || '未').slice(0, 1) }}</span>
+              </span>
+              <span class="wf-hero-live-text">
+                <span class="wf-hero-live-title">{{ item.title || '未命名作品' }}</span>
+                <span class="wf-hero-live-meta">{{ item.user?.username }} · {{ shortDate(item.created_at) }}</span>
+              </span>
+            </RouterLink>
           </div>
         </div>
       </div>
@@ -528,7 +551,7 @@ onActivated(() => {
     </section>
 
     <IdeasSection v-if="!swapSections" class="wf-ideas" />
-    <div class="wf-masonry-wrap">
+    <div ref="feedRef" class="wf-masonry-wrap">
       <div class="wf-feed-heading">
         <div>
           <span class="wf-section-kicker">{{ swapSections ? 'SEARCH & DISCOVER' : 'THE LATEST STORIES' }}</span>
@@ -603,47 +626,63 @@ onActivated(() => {
 .wf-hero, .wf-discovery, .wf-masonry-wrap, .wf-ideas, .wf-recommend-top { max-width: 1440px; margin-inline: auto; }
 .wf-recommend-top { border-bottom: 1px solid var(--home-line); }
 .wf-hero {
-  position: relative; isolation: isolate; padding: 0 0 32px; border-bottom: 1px solid var(--home-line);
+  position: relative;
+  padding: clamp(22px, 2.2vw, 30px) 0 clamp(20px, 2vw, 26px);
+  border-bottom: 1px solid var(--home-line);
 }
-.wf-hero-surface { position: relative; display: grid; grid-template-columns: minmax(0, .92fr) minmax(380px, 1.08fr); min-height: 430px; overflow: hidden; background: var(--home-paper); border-top: 1px solid var(--home-line); border-bottom: 1px solid var(--home-line); }
-.wf-hero-surface::before { content: ''; position: absolute; inset: 0; pointer-events: none; background-image: var(--creative-grain), radial-gradient(ellipse at 12% 18%, color-mix(in srgb, var(--creative-warm) 13%, transparent), transparent 54%); background-size: 5px 5px, 100% 100%; opacity: .48; }
-.wf-hero-copy { position: relative; z-index: 2; display: flex; flex-direction: column; justify-content: center; min-width: 0; padding: clamp(42px, 6vw, 84px) clamp(24px, 5vw, 76px) clamp(44px, 6vw, 72px) 0; }
-.wf-hero-intro { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.wf-kicker, .wf-section-kicker { font-size: 10px; font-weight: 600; letter-spacing: .13em; color: var(--home-muted); }
-.wf-kicker { display: flex; align-items: center; gap: 8px; }
-.wf-kicker-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--home-accent); }
-.wf-hero-index { flex-shrink: 0; color: var(--home-accent); font: 10px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .08em; }
-.wf-hero-wordmark { margin-top: clamp(38px, 5vw, 64px); }
-.wf-hero-wordmark > span { display: block; color: var(--home-muted); font: 600 11px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .28em; }
-.wf-hero h1 { max-width: 680px; margin: 12px 0 18px; font-family: var(--creative-title-font); font-size: clamp(48px, 6.2vw, 88px); font-weight: 600; line-height: .98; letter-spacing: .01em; }
-.wf-hero h1 em { position: relative; display: block; width: fit-content; margin-top: 7px; font-style: normal; color: var(--home-accent); }
-.wf-hero h1 em::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 5px; border-bottom: 2px solid color-mix(in srgb, var(--creative-warm) 80%, transparent); border-radius: 50%; transform: rotate(-1.5deg); pointer-events: none; }
-.wf-hero-lede { max-width: 500px; margin: 0; color: var(--home-muted); font-size: 14px; line-height: 1.85; }
-.wf-hero-actions { display: flex; align-items: center; gap: 20px; margin-top: 28px; }
+.wf-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: var(--creative-grain);
+  background-size: 5px 5px;
+  opacity: .22;
+}
+.wf-hero-stage {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(22px, 3vw, 44px);
+}
+.wf-hero-copy { min-width: 0; }
+.wf-hero-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 22px; }
+.wf-hero h1 { margin: 0; font-family: var(--creative-title-font); font-size: clamp(40px, 4.6vw, 62px); font-weight: 600; line-height: 1.06; letter-spacing: .01em; }
+.wf-hero h1 em { position: relative; display: inline-block; font-style: normal; color: var(--home-accent); }
+.wf-hero h1 em::after { content: ''; position: absolute; left: 2px; right: 1px; bottom: .01em; height: 4px; border-bottom: 2px solid color-mix(in srgb, var(--creative-warm) 78%, transparent); border-radius: 50%; transform: rotate(-1.2deg); pointer-events: none; }
+.wf-hero-ledger { display: flex; align-items: baseline; flex-wrap: wrap; margin: 0; color: var(--home-muted); font-size: 11px; line-height: 1.6; }
+.wf-hero-ledger > span { white-space: nowrap; }
+.wf-hero-ledger > span + span::before { content: '·'; margin: 0 7px 0 2px; color: color-mix(in srgb, var(--home-muted) 45%, transparent); }
+.wf-hero-ledger strong { color: var(--home-ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.wf-hero-lede { max-width: 40em; margin: 9px 0 0; color: var(--home-muted); font-size: 13px; line-height: 1.75; }
+.wf-hero-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 20px; margin-top: 17px; }
 .wf-primary-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 18px; background: var(--home-accent); color: var(--color-on-primary); border: 0; border-radius: 999px; cursor: pointer; font-size: 12px; font-weight: 600; box-shadow: 0 5px 14px color-mix(in srgb, var(--home-accent) 16%, transparent); transition: background .2s, box-shadow .2s; }
 .wf-primary-action:hover { background: var(--creative-accent-hover); box-shadow: 0 6px 18px color-mix(in srgb, var(--home-accent) 24%, transparent); }
-.wf-hero-note { color: var(--home-muted); font-size: 11px; }
-.wf-hero-meta { display: flex; align-items: stretch; gap: 24px; max-width: 520px; margin-top: 36px; padding-top: 15px; border-top: 1px solid var(--home-line); }
-.wf-hero-meta-item { display: grid; gap: 2px; color: var(--home-muted); font-size: 10px; line-height: 1.4; }
-.wf-hero-meta-item strong { color: var(--home-ink); font: 600 20px/1 var(--creative-title-font); }
-.wf-hero-route { display: flex; align-items: center; gap: 10px; margin-top: 34px; color: var(--home-muted); font: 9px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .1em; }
-.wf-hero-route-index { color: var(--home-accent); }
-.wf-hero-route-line { width: 44px; height: 1px; background: var(--home-line); }
-.wf-hero-visual { position: relative; display: grid; place-items: center; min-height: 430px; overflow: hidden; background: color-mix(in srgb, var(--home-soft) 72%, var(--home-paper)); border-left: 1px solid var(--home-line); color: var(--home-ink); isolation: isolate; }
-.wf-hero-visual::before { content: ''; position: absolute; inset: 4% -10% -16% 5%; border: 1px solid color-mix(in srgb, var(--home-accent) 32%, var(--home-line)); border-radius: 50%; transform: rotate(-18deg); animation: wf-orbit-breathe 15s ease-in-out infinite; pointer-events: none; }
-.wf-hero-visual::after { content: ''; position: absolute; inset: 16% -8% 5% 17%; border: 1px dashed color-mix(in srgb, var(--creative-warm) 42%, var(--home-line)); border-radius: 50%; transform: rotate(12deg); animation: wf-orbit-drift 24s linear infinite; pointer-events: none; }
-.wf-hero-orbit-canvas { position: absolute; inset: 0; z-index: 0; opacity: .48; }
-.wf-hero-orbit-canvas { --orbit-accent: var(--home-accent); --orbit-warm: var(--creative-warm); --orbit-paper: var(--home-paper); }
-.wf-hero-visual-top, .wf-hero-visual-bottom { position: absolute; z-index: 3; display: flex; justify-content: space-between; width: calc(100% - 42px); color: var(--home-muted); font: 9px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .12em; text-transform: uppercase; }
-.wf-hero-visual-top { top: 20px; }
-.wf-hero-visual-top span:last-child { color: var(--home-accent); }
-.wf-hero-visual-bottom { bottom: 18px; }
-.wf-hero-visual-bottom span:last-child { color: color-mix(in srgb, var(--home-muted) 70%, transparent); }
-.wf-hero-mark { position: relative; z-index: 1; transform: scale(1); }
-@keyframes wf-orbit-breathe { 0%, 100% { transform: rotate(-18deg) scale(.98); opacity: .72; } 50% { transform: rotate(-12deg) scale(1.03); opacity: 1; } }
-@keyframes wf-orbit-drift { from { transform: rotate(12deg) translateX(-2%); } to { transform: rotate(372deg) translateX(-2%); } }
+.wf-hero-browse { display: inline-flex; align-items: center; gap: 6px; padding: 6px 0; border: 0; background: none; color: var(--home-muted); font: inherit; font-size: 11.5px; cursor: pointer; }
+.wf-hero-browse span { transition: transform .2s ease; }
+.wf-hero-live { display: flex; align-items: center; gap: clamp(14px, 1.6vw, 24px); padding-left: clamp(16px, 2vw, 30px); border-left: 1px solid var(--home-line); }
+.wf-hero-planet { flex: 0 0 auto; }
+.wf-hero-live-list { width: clamp(240px, 21vw, 318px); min-height: 162px; }
+.wf-hero-live-head { display: flex; align-items: center; gap: 7px; padding-bottom: 6px; color: var(--home-ink); font-size: 11px; font-weight: 600; letter-spacing: .04em; }
+.wf-hero-live-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--home-accent); }
+.wf-hero-live-row { display: flex; align-items: center; gap: 9px; padding: 5px 0; border-top: 1px solid var(--home-line); color: inherit; text-decoration: none; }
+.wf-hero-live-row:focus-visible { outline: 2px solid var(--home-accent); outline-offset: 2px; }
+.wf-hero-live-thumb { flex: 0 0 auto; display: grid; place-items: center; width: 30px; height: 38px; overflow: hidden; border-radius: 3px; background: var(--home-soft); color: var(--home-accent); font: 14px/1 var(--creative-title-font); }
+.wf-hero-live-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .3s ease; }
+.wf-hero-live-text { display: grid; gap: 1px; min-width: 0; }
+.wf-hero-live-title { overflow: hidden; color: var(--home-ink); font-size: 12px; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+.wf-hero-live-meta { overflow: hidden; color: var(--home-muted); font-size: 10.5px; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.wf-section-kicker { font-size: 10px; font-weight: 600; letter-spacing: .13em; color: var(--home-muted); }
+@media (hover: hover) and (pointer: fine) {
+  .wf-hero-browse:hover { color: var(--home-accent); }
+  .wf-hero-browse:hover span { transform: translateY(3px); }
+  .wf-hero-live-row:hover .wf-hero-live-title { color: var(--home-accent); }
+  .wf-hero-live-row:hover .wf-hero-live-thumb img { transform: scale(1.06); }
+}
 @media (prefers-reduced-motion: reduce) {
-  .wf-hero-visual::before, .wf-hero-visual::after { animation: none; }
+  .wf-hero-browse span, .wf-hero-live-thumb img { transition: none; }
 }
 .wf-discovery { padding: 15px 0 12px; }
 .wf-discovery-heading, .wf-feed-heading { display: flex; justify-content: space-between; align-items: end; gap: 16px; }
@@ -684,27 +723,23 @@ onActivated(() => {
 .wf-end { text-align: center; padding: 28px; font-size: 11px; color: var(--home-muted); }
 .wf-fab { display: none; }
 button:focus-visible { outline: 2px solid var(--home-accent); outline-offset: 4px; }
+@media (max-width: 900px) {
+  .wf-hero-stage { grid-template-columns: minmax(0, 1fr); align-items: start; gap: 18px; }
+  .wf-hero h1 { font-size: clamp(38px, 6.2vw, 52px); }
+  .wf-hero-live { border-left: 0; padding-left: 0; border-top: 1px solid var(--home-line); padding-top: 14px; }
+  .wf-hero-live-list { flex: 1; width: auto; }
+}
 @media (max-width: 768px) {
   .wf-root { padding: 0 16px; }
-  .wf-hero { padding: 0 0 22px; }
-  .wf-hero-surface { display: flex; flex-direction: column; min-height: 0; }
-  .wf-hero-surface::before { width: 100%; }
-  .wf-hero-copy { padding: 34px 20px 30px; }
-  .wf-hero-intro { align-items: flex-start; }
-  .wf-hero-index { font-size: 9px; }
-  .wf-hero-wordmark { margin-top: 34px; }
-  .wf-hero h1 { margin: 12px 0 12px; font-size: clamp(40px, 12vw, 60px); }
-  .wf-hero h1 em { margin-top: 4px; }
-  .wf-hero-lede { max-width: 300px; font-size: 12px; }
-  .wf-hero-actions { align-items: flex-start; flex-direction: column; gap: 10px; margin-top: 22px; }
-  .wf-hero-meta { gap: 18px; margin-top: 24px; }
-  .wf-hero-route { margin-top: 26px; }
-  .wf-hero-visual { min-height: 330px; border-left: 0; border-top: 1px solid var(--home-line); }
-  .wf-hero-visual-top, .wf-hero-visual-bottom { width: calc(100% - 30px); }
-  .wf-hero-visual-top { top: 15px; }
-  .wf-hero-visual-bottom { bottom: 13px; }
-  .wf-hero-mark { transform: scale(.9); }
-  .wf-hero-note { font-size: 10px; }
+  .wf-hero { padding: 22px 0 24px; }
+  .wf-hero-head { gap: 8px; }
+  .wf-hero h1 { font-size: clamp(34px, 10vw, 46px); }
+  .wf-hero-ledger { font-size: 10.5px; }
+  .wf-hero-lede { max-width: 34em; margin-top: 8px; font-size: 12px; }
+  .wf-hero-actions { gap: 6px 16px; margin-top: 14px; }
+  .wf-hero-live { gap: 14px; }
+  .wf-hero-live-row { padding: 6px 0; }
+  .wf-hero-live-thumb { width: 28px; height: 36px; }
   .wf-discovery { padding: 18px 0 12px; }
   .wf-tag-toolbar { gap: 8px; }
   .wf-tag-row { gap: 8px; }

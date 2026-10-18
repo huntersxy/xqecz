@@ -82,7 +82,6 @@ declare module 'vue' {
     CreativeLibrary: typeof import('./components/CreativeLibrary.vue')['default']
     CreativeResourceEditor: typeof import('./components/admin/CreativeResourceEditor.vue')['default']
     ErrorBoundary: typeof import('./components/ErrorBoundary.vue')['default']
-    HeroOrbitCanvas: typeof import('./components/HeroOrbitCanvas.vue')['default']
     IdeasSection: typeof import('./components/IdeasSection.vue')['default']
     MarkdownEditor: typeof import('./components/MarkdownEditor.vue')['default']
     MediaImage: typeof import('./components/MediaImage.vue')['default']
