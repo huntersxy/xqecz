@@ -528,9 +528,12 @@ watch(ready, (value) => {
           </span>
         </div>
       </div>
-      <nav class="studio-head-nav" aria-label="工作台导航">
-        <RouterLink to="/">作品广场</RouterLink>
-        <RouterLink to="/ideas">创意接力</RouterLink>
+      <nav class="studio-head-nav" aria-label="主要入口">
+        <div class="studio-primary-switch">
+          <RouterLink to="/studio" active-class="is-active" exact-active-class="is-active">工作台</RouterLink>
+          <RouterLink to="/" active-class="is-active" exact-active-class="is-active">作品广场</RouterLink>
+        </div>
+        <RouterLink class="studio-ideas-link" to="/ideas">创意接力</RouterLink>
       </nav>
     </header>
     <div class="studio-workspace">
@@ -1167,20 +1170,45 @@ body[arco-theme='dark'] .ai-studio {
   display: flex;
   align-items: center;
   flex: 0 0 auto;
-  gap: 18px;
-  padding-bottom: 3px;
+  gap: 10px;
   font-size: 11px;
 }
-.studio-head-nav a {
+.studio-primary-switch {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--studio-line);
+  border-radius: 11px;
+  background: var(--studio-soft);
+}
+.studio-primary-switch a {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 13px;
+  border-radius: 8px;
   color: var(--studio-muted);
   text-decoration: none;
-  text-underline-offset: 4px;
+  transition: color .18s ease, background .18s ease, transform .18s ease;
 }
-.studio-head-nav a:hover,
-.studio-head-nav a.router-link-active {
+.studio-primary-switch a:hover,
+.studio-primary-switch a.is-active {
   color: var(--studio-accent);
-  text-decoration: underline;
+  background: var(--studio-paper);
 }
+.studio-primary-switch a:active {
+  transform: scale(.98);
+}
+.studio-ideas-link {
+  color: var(--studio-accent);
+  text-decoration: none;
+  text-underline-offset: 4px;
+  transition: color .18s ease, transform .18s ease;
+}
+.studio-ideas-link:hover { text-decoration: underline; }
+.studio-ideas-link:active { transform: scale(.98); }
 .studio-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(330px, 420px);

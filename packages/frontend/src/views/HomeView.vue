@@ -543,11 +543,23 @@ onActivated(() => {
       </div>
 
       <div class="gallery-primary-switch" aria-label="主要入口">
-        <RouterLink to="/studio" class="gallery-primary-link" @click="closeMobileSidebar">
+        <RouterLink
+          to="/studio"
+          class="gallery-primary-link"
+          active-class="is-active"
+          exact-active-class="is-active"
+          @click="closeMobileSidebar"
+        >
           <IconUpload />
           <span>工作台</span>
         </RouterLink>
-        <RouterLink to="/" class="gallery-primary-link is-active" @click="closeMobileSidebar">
+        <RouterLink
+          to="/"
+          class="gallery-primary-link"
+          active-class="is-active"
+          exact-active-class="is-active"
+          @click="closeMobileSidebar"
+        >
           <IconHome />
           <span>作品广场</span>
         </RouterLink>
