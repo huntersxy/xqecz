@@ -7,16 +7,16 @@
 - Primary action: discover a work or light a new creative planet.
 - Positioning: warm, creator-led, exploratory, and hand-drawn rather than a generic AI gallery.
 - Adjectives: warm, exploratory, handcrafted, restrained.
-- Aesthetic essence: editorial orbit.
+- Aesthetic essence: warm editorial orbit.
 - Single-minded proposition: every upload can become a small world worth visiting.
 - Archetype: Creator + Explorer.
 - Mode: both light and dark; density is airy at the top and balanced in the feed.
 
 ## Aesthetic
 
-- Direction: editorial field notes over a warm orbital canvas.
+- Direction: warm paper, hand-drawn orbit lines, and a quiet moving constellation.
 - Defining trait: horizontal recommendation strip leads into an asymmetric two-column Hero, then a compact coordinate filter and the content field.
-- Signature move: the recommendation strip acts as a visual launch rail into the high-contrast orbital Hero stage instead of a separate card section.
+- Signature move: the recommendation strip acts as a visual launch rail into a paper-like orbital Hero stage instead of a separate card section.
 
 ## Typography
 
@@ -39,8 +39,8 @@
 
 ## Layout and composition
 
-- Grid: asymmetric three-track desktop composition: coordinate rail, copy, orbital stage; one column on mobile.
-- Signature layout move: the Hero stage bleeds toward the right edge while the copy remains anchored to the left reading edge.
+- Grid: asymmetric two-column desktop composition: copy and orbital stage; one column on mobile.
+- Signature layout move: the Hero stage shares the paper surface with the copy and uses a fine divider to keep the reading edge clear.
 - Responsive: desktop-first for the wide homepage, with a mobile single-column restack and the visual stage below the CTA.
 
 ## Components and states
@@ -52,14 +52,14 @@
 
 ## Motion
 
-- Animate only opacity and transform, under 300ms for interaction feedback.
-- Preserve the orbital illustration's existing reduced-motion behavior; no new layout animation.
+- Animate only opacity and transform; interaction feedback stays under 300ms while ambient motion loops slowly.
+- Preserve the orbital illustration's existing reduced-motion behavior and pause the Canvas when hidden.
 
 ## Imagery and illustration
 
 - Use the existing `UniverseSketch` and live artwork pool as the Hero visual, backed by `HeroOrbitCanvas.vue` for a deterministic looping particle field.
-- Keep the hand-drawn orbit lines, grain, and coordinate language; avoid adding generic gradients, stock images, or decorative card grids.
-- Canvas owns its animation frame, ResizeObserver, visibility pause, reduced-motion fallback, and teardown; CSS owns the slow orbit and scan-line loops.
+- Keep the hand-drawn orbit lines, light grain, and coordinate language; avoid generic gradients, stock images, dark sci-fi panels, or decorative card grids.
+- Canvas owns its animation frame, ResizeObserver, visibility pause, reduced-motion fallback, and teardown; CSS owns two restrained slow orbit loops.
 
 ## Accessibility
 
@@ -75,4 +75,4 @@
 ## Changelog
 
 - 2026-10-18: replaced the centered Hero treatment with an asymmetric editorial orbit composition while preserving existing creative tokens and content contracts.
-- 2026-10-18: added a high-contrast orbital stage with a looping canvas particle field and CSS scan motion.
+- 2026-10-18: tuned the orbital stage back to the site's warm paper system and kept the Canvas particle field as a low-contrast ambient layer.
