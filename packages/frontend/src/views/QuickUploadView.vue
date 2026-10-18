@@ -120,32 +120,32 @@ onMounted(async () => {
   <div class="qu-page creative-theme">
     <div class="qu-layout">
       <header class="qu-heading">
-        <div><span class="qu-kicker">LIGHT UP YOUR PLANET <span aria-hidden="true">✦</span></span><h1>点亮属于你的星球<span>。</span></h1><p>一段文字，一张画面，都可以是宇宙的第一笔。</p></div>
-        <RouterLink to="/" class="qu-back">← 返回首页</RouterLink>
+        <div><span class="qu-kicker">PUBLISH A PIECE <span aria-hidden="true">/</span></span><h1>发布一份作品<span>。</span></h1><p>把你的画面、文字和灵感，留在小泉作品广场。</p></div>
+        <RouterLink to="/" class="qu-back">返回作品广场 <span aria-hidden="true">↗</span></RouterLink>
       </header>
       <a-form class="qu-card" layout="vertical" :model="form" @submit="handleSubmit">
         <div class="qu-body">
           <section class="qu-media" aria-labelledby="qu-media-title">
-            <div class="qu-section-heading"><span class="qu-step">01</span><h2 id="qu-media-title">作品画面</h2><span class="qu-optional">可选</span></div>
+            <div class="qu-section-heading"><span class="qu-step">01</span><h2 id="qu-media-title">添加媒体</h2><span class="qu-optional">可选</span></div>
             <input ref="fileInput" type="file" class="qu-hidden" accept="image/*" :disabled="uploading" @change="onFileChange" />
             <Transition name="qu-media-state" mode="out-in">
             <button v-if="!file" key="dropzone" type="button" class="qu-dropzone" :class="{ 'is-dragover': dragOver }" :disabled="uploading" @click="fileInput?.click()" @dragover.prevent="!uploading && (dragOver = true)" @dragleave.prevent="dragOver = false" @drop.prevent="!uploading && onDrop($event)">
-              <span class="qu-upload-art" aria-hidden="true"><IconUpload /><span>✦</span></span>
-              <strong>把你的灵感放进来</strong><span>点击选择，或拖拽图片到这里</span><span class="qu-file-limit">图片 · 最大 20MB</span>
+              <span class="qu-upload-art" aria-hidden="true"><IconUpload /><span>+</span></span>
+              <strong>选择一张图片</strong><span>点击选择，或拖拽到这里</span><span class="qu-file-limit">支持图片 · 最大 20MB</span>
             </button>
             <div v-else key="preview" class="qu-preview">
               <div class="qu-preview-stage"><a-image :src="filePreview" :preview="false" class="qu-preview-img" alt="所选作品预览" /></div>
               <div class="qu-file-row"><span class="qu-file-name">{{ file.name }}</span><button type="button" class="qu-remove" aria-label="移除已选文件" :disabled="uploading" @click="removeFile"><IconClose /></button></div>
             </div>
             </Transition>
-            <p class="qu-media-note"><span aria-hidden="true">✧</span> 没有图片也没关系，一段文字也能成为一颗星球。</p>
-            <div class="qu-tip-card"><span class="qu-tip-kicker">A SMALL REMINDER</span><p>创作不必完美，<br>宇宙会记住你的坐标<span>。</span></p><span class="qu-tip-spark" aria-hidden="true">✧</span></div>
+            <p class="qu-media-note"><span aria-hidden="true">/</span> 没有图片也没关系，一段文字同样可以发布。</p>
+            <div class="qu-tip-card"><span class="qu-tip-kicker">A SMALL REMINDER</span><p>先把想法留下，<br>细节之后再慢慢完善<span>。</span></p><span class="qu-tip-spark" aria-hidden="true">+</span></div>
           </section>
 
           <section class="qu-fields" aria-labelledby="qu-story-title">
-            <div class="qu-section-heading"><span class="qu-step">02</span><h2 id="qu-story-title">作品的故事</h2></div>
+            <div class="qu-section-heading"><span class="qu-step">02</span><h2 id="qu-story-title">作品信息</h2></div>
             <div v-if="!isLoggedIn" class="qu-guest-grid"><a-form-item label="昵称" required><a-input v-model="form.nickname" placeholder="怎么称呼你？" :maxlength="50" :disabled="uploading" /></a-form-item><a-form-item label="邮箱" required><a-input v-model="form.email" placeholder="仅用于标识身份，不会公开" :maxlength="254" :disabled="uploading" /></a-form-item></div>
-            <p v-else class="qu-identity"><span aria-hidden="true">✦</span> 以 {{ userStore.user?.username }} 的身份发布</p>
+            <p v-else class="qu-identity"><span aria-hidden="true">/</span> 将以 {{ userStore.user?.username }} 的身份发布</p>
             <a-form-item><AutoMetadataOption v-model="autoMetadata" :options="metadataOptions" :can-generate="canGenerate" :disabled="uploading" /></a-form-item>
             <a-form-item><a-checkbox v-model="isAiGenerated" :disabled="uploading">这是 AI 生成的作品（添加 AIGC 标签）</a-checkbox></a-form-item>
             <a-form-item label="作品标题" required><a-input :model-value="metadataTitle(form.title)" @update:model-value="form.title = $event" placeholder="给这份灵感起个名字" :maxlength="200" :disabled="uploading || autoMetadata" /></a-form-item>
@@ -155,8 +155,8 @@ onMounted(async () => {
           </section>
         </div>
         <footer class="qu-footer">
-          <div class="qu-footer-copy"><div class="qu-license" v-html="CC_LICENSE_TEXT"></div><div v-if="uploading" class="qu-progress" aria-live="polite"><span>正在上传 {{ progress }}%</span><a-progress :percent="progress" :show-text="false" :stroke-width="4" /></div><p v-else><span aria-hidden="true">✦</span> 每一颗星球，都值得被点亮。</p></div>
-          <a-button type="primary" size="large" html-type="submit" class="qu-submit" :loading="uploading">{{ uploading ? '正在点亮…' : '点亮这颗星球' }}<IconArrowRight v-if="!uploading" /></a-button>
+          <div class="qu-footer-copy"><div class="qu-license" v-html="CC_LICENSE_TEXT"></div><div v-if="uploading" class="qu-progress" aria-live="polite"><span>正在上传 {{ progress }}%</span><a-progress :percent="progress" :show-text="false" :stroke-width="4" /></div><p v-else><span aria-hidden="true">/</span> 发布后，作品会出现在作品广场。</p></div>
+          <a-button type="primary" size="large" html-type="submit" class="qu-submit" :loading="uploading">{{ uploading ? '正在发布…' : '发布作品' }}<IconArrowRight v-if="!uploading" /></a-button>
         </footer>
       </a-form>
     </div>
@@ -164,75 +164,107 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.qu-page { background: var(--creative-canvas); padding: 44px 28px 64px; }
-.qu-layout { max-width: 1080px; margin: 0 auto; }
-.qu-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
-.qu-kicker { font-size: 9px; letter-spacing: .16em; color: var(--creative-muted); }
-.qu-kicker > span { margin-left: 8px; color: var(--creative-accent); }
-.qu-heading h1 { font-family: var(--creative-title-font); margin: 14px 0 10px; font-size: 30px; font-weight: 650; letter-spacing: .02em; color: var(--creative-ink); line-height: 1.5; }
-.qu-heading h1 > span { color: var(--creative-accent); }
-.qu-heading p { color: var(--creative-muted); font-size: 12px; line-height: 1.8; }
-.qu-back { padding-bottom: 3px; text-decoration: none; color: var(--creative-muted); font-size: 11px; white-space: nowrap; }
-.qu-back:hover { color: var(--creative-accent); }
-.qu-card { border: 1px solid var(--creative-line); border-radius: 22px; background: var(--creative-paper); box-shadow: var(--creative-shadow); overflow: hidden; }
-.qu-body { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 42px; padding: 32px; }
-.qu-section-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
-.qu-step { display: grid; place-items: center; width: 26px; height: 26px; border: 1px solid var(--creative-line); border-radius: 50%; background: var(--creative-canvas); color: var(--creative-accent); font-size: 9px; }
-.qu-section-heading h2 { font-size: 13px; font-weight: 600; color: var(--creative-ink); margin: 0; }
-.qu-optional { margin-left: auto; font-size: 10px; color: var(--creative-muted); }
+.qu-page {
+  --qu-canvas: #ebe4e1;
+  --qu-paper: #fffdf9;
+  --qu-ink: #201b1c;
+  --qu-muted: #817779;
+  --qu-line: rgba(52, 40, 42, .14);
+  --qu-soft: #f1e9e6;
+  --qu-accent: #6b173b;
+  min-height: calc(100vh - 72px);
+  background: var(--qu-canvas);
+  color: var(--qu-ink);
+  padding: clamp(32px, 5vw, 70px) clamp(18px, 5vw, 72px) 80px;
+}
+body[arco-theme='dark'] .qu-page {
+  --qu-canvas: #211b1e;
+  --qu-paper: #2b2427;
+  --qu-ink: #f8f0ed;
+  --qu-muted: #c0b1b4;
+  --qu-line: rgba(250, 240, 237, .16);
+  --qu-soft: #342b2f;
+  --qu-accent: #f0a8bb;
+}
+.qu-page, .qu-page :deep(.arco-form) {
+  --creative-paper: var(--qu-paper);
+  --creative-canvas: var(--qu-canvas);
+  --creative-soft: var(--qu-soft);
+  --creative-ink: var(--qu-ink);
+  --creative-muted: var(--qu-muted);
+  --creative-line: var(--qu-line);
+  --creative-accent: var(--qu-accent);
+  --creative-title-font: Georgia, 'Songti SC', 'SimSun', serif;
+}
+.qu-layout { width: min(100%, 1180px); margin: 0 auto; }
+.qu-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; padding-bottom: 28px; border-bottom: 1px solid var(--qu-line); }
+.qu-kicker { color: var(--qu-muted); font-size: 9px; letter-spacing: .15em; text-transform: uppercase; }
+.qu-kicker > span { margin-left: 7px; color: var(--qu-accent); }
+.qu-heading h1 { margin: 13px 0 10px; color: var(--qu-ink); font: 600 clamp(35px, 5vw, 56px)/1.03 Georgia, 'Songti SC', 'SimSun', serif; letter-spacing: -.04em; }
+.qu-heading h1 > span { color: var(--qu-accent); }
+.qu-heading p { max-width: 34em; color: var(--qu-muted); font-size: 12px; line-height: 1.75; }
+.qu-back { align-self: flex-end; padding: 0 0 3px; color: var(--qu-muted); font-size: 11px; text-decoration: none; white-space: nowrap; }
+.qu-back:hover { color: var(--qu-accent); }
+.qu-back span { margin-left: 5px; color: var(--qu-accent); }
+.qu-card { margin-top: 28px; border: 1px solid var(--qu-line); border-radius: 14px; background: var(--qu-paper); overflow: hidden; }
+.qu-body { display: grid; grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); gap: clamp(26px, 5vw, 72px); padding: clamp(24px, 4vw, 48px); }
+.qu-section-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+.qu-step { display: grid; place-items: center; width: 25px; height: 25px; border: 1px solid var(--qu-line); border-radius: 7px; background: var(--qu-soft); color: var(--qu-accent); font-size: 9px; font-variant-numeric: tabular-nums; }
+.qu-section-heading h2 { margin: 0; color: var(--qu-ink); font: 600 21px/1.2 Georgia, 'Songti SC', 'SimSun', serif; letter-spacing: -.02em; }
+.qu-optional { margin-left: auto; color: var(--qu-muted); font-size: 10px; }
 .qu-hidden { display: none; }
-.qu-dropzone { width: 100%; min-height: 286px; padding: 30px 16px; border: 1px dashed color-mix(in srgb, var(--creative-accent) 28%, var(--creative-line)); border-radius: 16px; background: var(--creative-canvas); color: var(--creative-ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; cursor: pointer; transition: border-color .2s, background .2s; }
-.qu-dropzone:hover:not(:disabled), .qu-dropzone.is-dragover { background: var(--creative-soft); border-color: var(--creative-accent); }
-.qu-upload-art { position: relative; display: grid; place-items: center; width: 62px; height: 72px; margin: 4px 0 15px; border: 1px solid color-mix(in srgb, var(--creative-accent) 25%, var(--creative-line)); border-radius: 12px 24px 12px 12px; background: var(--creative-paper); color: var(--creative-accent); transform: rotate(-7deg); box-shadow: 7px 7px 0 color-mix(in srgb, var(--creative-accent) 8%, transparent); }
-.qu-upload-art > svg { font-size: 25px; transform: rotate(7deg); }
-.qu-upload-art > span { position: absolute; top: -17px; right: -16px; font-size: 27px; }
+.qu-dropzone { width: 100%; min-height: 290px; padding: 30px 16px; border: 1px dashed color-mix(in srgb, var(--qu-accent) 38%, var(--qu-line)); border-radius: 9px; background: var(--qu-canvas); color: var(--qu-ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; transition: border-color .18s, background .18s; }
+.qu-dropzone:hover:not(:disabled), .qu-dropzone.is-dragover { background: var(--qu-soft); border-color: var(--qu-accent); }
+.qu-upload-art { position: relative; display: grid; place-items: center; width: 44px; height: 44px; margin: 4px 0 11px; border: 1px solid var(--qu-line); border-radius: 50%; background: var(--qu-paper); color: var(--qu-accent); }
+.qu-upload-art > svg { font-size: 19px; }
+.qu-upload-art > span { position: absolute; right: -8px; bottom: -8px; color: var(--qu-accent); font: 19px/1 Georgia, serif; }
 .qu-dropzone strong { font-size: 13px; font-weight: 600; }
-.qu-dropzone > span:not(.qu-upload-art) { font-size: 10px; color: var(--creative-muted); line-height: 1.8; }
-.qu-file-limit { margin-top: 3px; }
-.qu-media-note { display: flex; gap: 7px; margin: 14px 0 0; font-size: 11px; line-height: 1.9; color: var(--creative-muted); }
-.qu-media-note > span { color: var(--creative-accent); }
-.qu-tip-card { position: relative; margin-top: 30px; border-top: 1px solid var(--creative-line); padding-top: 24px; }
-.qu-tip-kicker { font-size: 8px; letter-spacing: .13em; color: var(--creative-muted); }
-.qu-tip-card p { margin: 12px 0 0; color: var(--creative-ink); font-size: 18px; line-height: 1.8; }
-.qu-tip-card p > span { color: var(--creative-accent); }
-.qu-tip-spark { position: absolute; right: 10px; bottom: 10px; font-size: 35px; color: var(--creative-accent); }
+.qu-dropzone > span:not(.qu-upload-art) { color: var(--qu-muted); font-size: 10px; line-height: 1.8; }
+.qu-file-limit { margin-top: 2px; }
+.qu-media-note { display: flex; gap: 7px; margin: 13px 0 0; color: var(--qu-muted); font-size: 11px; line-height: 1.8; }
+.qu-media-note > span { color: var(--qu-accent); }
+.qu-tip-card { position: relative; margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--qu-line); }
+.qu-tip-kicker { color: var(--qu-muted); font-size: 8px; letter-spacing: .13em; }
+.qu-tip-card p { margin: 11px 0 0; color: var(--qu-ink); font: 18px/1.7 Georgia, 'Songti SC', 'SimSun', serif; }
+.qu-tip-card p > span { color: var(--qu-accent); }
+.qu-tip-spark { position: absolute; right: 4px; bottom: 4px; color: var(--qu-accent); font: 30px/1 Georgia, serif; }
 .qu-fields { min-width: 0; }
 .qu-guest-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .qu-fields :deep(.arco-form-item) { margin-bottom: 22px; }
-.qu-fields :deep(.arco-form-item-label-col) { margin-bottom: 9px; }
-.qu-fields :deep(.arco-form-item-label) { color: var(--creative-ink); font-size: 12px; font-weight: 600; }
-.qu-fields :deep(.arco-input-wrapper) { min-height: 42px; border: 1px solid var(--creative-line); border-radius: 10px; background: var(--creative-canvas); }
-.qu-fields :deep(.arco-input-focus) { border-color: var(--creative-accent); background: var(--creative-paper); box-shadow: 0 0 0 3px color-mix(in srgb, var(--creative-accent) 9%, transparent); }
-.qu-fields :deep(.arco-input) { font-size: 12px; color: var(--creative-ink); }
-.qu-fields :deep(.vditor) { border-color: var(--creative-line); border-radius: 10px; background: var(--creative-paper); --toolbar-background-color: var(--creative-canvas); --textarea-background-color: var(--creative-paper); --border-color: var(--creative-line); --second-color: var(--creative-muted); }
-.qu-fields :deep(.vditor-toolbar) { border-bottom-color: var(--creative-line); }
-.qu-fields :deep(.vditor-toolbar button:hover) { color: var(--creative-accent); }
-.qu-identity { display: flex; gap: 7px; margin: 0 0 22px; padding: 11px 13px; border: 1px solid var(--creative-line); border-radius: 10px; background: var(--creative-soft); color: var(--creative-accent); font-size: 12px; }
-.qu-form-note { margin: -10px 0 24px; color: var(--creative-muted); font-size: 10px; line-height: 1.8; }
-.qu-tags { width: 100%; padding: 12px; border: 1px solid var(--creative-line); border-radius: 10px; background: var(--creative-canvas); }
-.qu-tags :deep(.tag-item) { background: var(--creative-paper); border-color: var(--creative-line); color: var(--creative-muted); font-size: 11px; padding: 5px 10px; }
-.qu-tags :deep(.tag-item:hover) { background: var(--creative-soft); border-color: var(--creative-accent); color: var(--creative-accent); }
-.qu-tags :deep(.tag-item.is-selected) { background: var(--creative-soft); border-color: var(--creative-accent); color: var(--creative-accent); }
-.qu-preview { border: 1px solid var(--creative-line); border-radius: 16px; overflow: hidden; background: var(--creative-canvas); }
-.qu-preview-stage { display: grid; place-items: center; height: 286px; padding: 14px; }
+.qu-fields :deep(.arco-form-item-label-col) { margin-bottom: 8px; }
+.qu-fields :deep(.arco-form-item-label) { color: var(--qu-ink); font-size: 11px; font-weight: 600; }
+.qu-fields :deep(.arco-input-wrapper) { min-height: 42px; border: 1px solid var(--qu-line); border-radius: 7px; background: var(--qu-canvas); }
+.qu-fields :deep(.arco-input-focus) { border-color: var(--qu-accent); background: var(--qu-paper); box-shadow: 0 0 0 3px color-mix(in srgb, var(--qu-accent) 10%, transparent); }
+.qu-fields :deep(.arco-input) { color: var(--qu-ink); font-size: 12px; }
+.qu-fields :deep(.vditor) { border-color: var(--qu-line); border-radius: 8px; background: var(--qu-paper); --toolbar-background-color: var(--qu-canvas); --textarea-background-color: var(--qu-paper); --border-color: var(--qu-line); --second-color: var(--qu-muted); }
+.qu-fields :deep(.vditor-toolbar) { border-bottom-color: var(--qu-line); }
+.qu-fields :deep(.vditor-toolbar button:hover) { color: var(--qu-accent); }
+.qu-identity { display: flex; gap: 7px; margin: 0 0 22px; padding: 11px 13px; border: 1px solid var(--qu-line); border-radius: 7px; background: var(--qu-soft); color: var(--qu-accent); font-size: 12px; }
+.qu-form-note { margin: -10px 0 24px; color: var(--qu-muted); font-size: 10px; line-height: 1.8; }
+.qu-tags { width: 100%; padding: 12px; border: 1px solid var(--qu-line); border-radius: 7px; background: var(--qu-canvas); }
+.qu-tags :deep(.tag-item) { background: var(--qu-paper); border-color: var(--qu-line); color: var(--qu-muted); font-size: 11px; padding: 5px 10px; }
+.qu-tags :deep(.tag-item:hover), .qu-tags :deep(.tag-item.is-selected) { background: var(--qu-soft); border-color: var(--qu-accent); color: var(--qu-accent); }
+.qu-preview { border: 1px solid var(--qu-line); border-radius: 9px; overflow: hidden; background: var(--qu-canvas); }
+.qu-preview-stage { display: grid; place-items: center; height: 290px; padding: 14px; }
 .qu-preview-img { width: 100%; }
-.qu-preview-img :deep(.arco-image-img) { display: block; width: 100%; max-height: 258px; object-fit: contain; border-radius: 8px; }
-.qu-file-row { display: flex; align-items: center; gap: 8px; padding: 12px; border-top: 1px solid var(--creative-line); background: var(--creative-paper); }
-.qu-file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--creative-ink); font-size: 11px; }
-.qu-remove { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: var(--creative-canvas); color: var(--creative-muted); cursor: pointer; }
-.qu-remove:hover { background: var(--creative-soft); color: var(--creative-accent); }
-.qu-footer { display: flex; align-items: center; justify-content: space-between; gap: 24px; border-top: 1px solid var(--creative-line); padding: 22px 32px; background: var(--creative-paper); }
+.qu-preview-img :deep(.arco-image-img) { display: block; width: 100%; max-height: 262px; object-fit: contain; border-radius: 5px; }
+.qu-file-row { display: flex; align-items: center; gap: 8px; padding: 11px 12px; border-top: 1px solid var(--qu-line); background: var(--qu-paper); }
+.qu-file-name { flex: 1; min-width: 0; overflow: hidden; color: var(--qu-ink); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.qu-remove { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: var(--qu-canvas); color: var(--qu-muted); cursor: pointer; }
+.qu-remove:hover { background: var(--qu-soft); color: var(--qu-accent); }
+.qu-footer { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 20px clamp(24px, 4vw, 48px); border-top: 1px solid var(--qu-line); background: var(--qu-paper); }
 .qu-footer-copy { min-width: 0; }
-.qu-license { color: var(--creative-muted); font-size: 10px; line-height: 1.8; }
-.qu-license :deep(a) { color: var(--creative-accent); }
-.qu-footer-copy > p { margin: 8px 0 0; color: var(--creative-muted); font-size: 11px; }
-.qu-footer-copy > p > span { margin-right: 6px; color: var(--creative-accent); }
-.qu-submit { flex-shrink: 0; min-width: 144px; border-radius: 999px; gap: 14px; }
-.qu-progress { max-width: 250px; margin-top: 9px; font-size: 11px; color: var(--creative-muted); }
+.qu-license { color: var(--qu-muted); font-size: 10px; line-height: 1.8; }
+.qu-license :deep(a) { color: var(--qu-accent); }
+.qu-footer-copy > p { margin: 8px 0 0; color: var(--qu-muted); font-size: 11px; }
+.qu-footer-copy > p > span { margin-right: 6px; color: var(--qu-accent); }
+.qu-submit { flex-shrink: 0; min-width: 130px; border-radius: 9px; gap: 12px; background: var(--qu-ink); color: var(--qu-paper); border-color: var(--qu-ink); }
+.qu-submit:hover { background: var(--qu-accent); border-color: var(--qu-accent); }
+.qu-progress { max-width: 250px; margin-top: 9px; color: var(--qu-muted); font-size: 11px; }
 button:disabled { cursor: not-allowed; }
-@media (max-width: 900px) { .qu-body { grid-template-columns: 260px minmax(0, 1fr); gap: 28px; padding: 26px; } .qu-guest-grid { grid-template-columns: 1fr; gap: 0; } }
-@media (max-width: 768px) { .qu-page { padding: 30px 20px 44px; } .qu-heading { align-items: flex-start; gap: 14px; } .qu-heading h1 { font-size: 24px; } .qu-heading p { font-size: 11px; max-width: 250px; } .qu-back { font-size: 10px; margin-top: 4px; } .qu-body { grid-template-columns: minmax(0, 1fr); gap: 26px; padding: 24px; } .qu-section-heading { margin-bottom: 18px; } .qu-tip-card { display: none; } .qu-dropzone { min-height: 210px; } .qu-guest-grid { grid-template-columns: 1fr 1fr; gap: 12px; } .qu-footer { padding: 20px 24px; gap: 16px; } .qu-submit { min-width: 120px; } }
-@media (max-width: 480px) { .qu-heading { flex-direction: column; gap: 12px; } .qu-heading h1 { font-size: 25px; } .qu-heading p { max-width: none; } .qu-card { border-radius: 18px; } .qu-body { padding: 20px; } .qu-guest-grid { grid-template-columns: 1fr; gap: 0; } .qu-footer { flex-direction: column; align-items: stretch; padding: 20px; } .qu-submit { width: 100%; } }
+@media (max-width: 900px) { .qu-body { grid-template-columns: 260px minmax(0, 1fr); gap: 28px; } .qu-guest-grid { grid-template-columns: 1fr; gap: 0; } }
+@media (max-width: 768px) { .qu-page { min-height: calc(100dvh - 62px); padding: 30px 20px 48px; } .qu-heading { align-items: flex-start; gap: 18px; } .qu-heading h1 { font-size: 37px; } .qu-heading p { max-width: 27em; font-size: 11px; } .qu-back { margin-top: 3px; font-size: 10px; } .qu-body { grid-template-columns: minmax(0, 1fr); gap: 30px; padding: 26px 22px; } .qu-section-heading { margin-bottom: 17px; } .qu-tip-card { display: none; } .qu-dropzone { min-height: 220px; } .qu-guest-grid { grid-template-columns: 1fr 1fr; gap: 12px; } .qu-footer { padding: 18px 22px; gap: 16px; } .qu-submit { min-width: 120px; } }
+@media (max-width: 480px) { .qu-heading { flex-direction: column; gap: 14px; } .qu-heading h1 { font-size: 35px; } .qu-heading p { max-width: none; } .qu-card { border-radius: 11px; } .qu-body { padding: 22px 18px; } .qu-guest-grid { grid-template-columns: 1fr; gap: 0; } .qu-footer { flex-direction: column; align-items: stretch; padding: 18px; } .qu-submit { width: 100%; } }
 .qu-media-state-enter-active, .qu-media-state-leave-active { transition: opacity .16s ease, transform .16s ease; }
 .qu-media-state-enter-from { opacity: 0; transform: translateY(4px); }
 .qu-media-state-leave-to { opacity: 0; transform: translateY(-4px); }
