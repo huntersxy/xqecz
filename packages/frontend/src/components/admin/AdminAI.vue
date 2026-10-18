@@ -413,7 +413,7 @@ onBeforeUnmount(() => {
         <button
           v-for="menu in menus"
           :key="menu[0]"
-          :class="{ active: tab === menu[0] }"
+          :class="{ 'is-active': tab === menu[0] }"
           @click="switchTab(menu[0]!)"
         >
           {{ menu[1] }}
@@ -1045,7 +1045,7 @@ onBeforeUnmount(() => {
 .admin-ai-tabs button:active:not(:disabled) {
   transform: scale(.98);
 }
-.admin-ai-tabs button.active {
+.admin-ai-tabs button.is-active {
   background: var(--creative-soft);
   color: var(--creative-accent);
   border-color: var(--creative-accent);
