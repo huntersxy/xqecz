@@ -617,30 +617,20 @@ onActivated(() => {
 
 <style scoped>
 .gallery-home-content {
-  --gallery-title-font: Georgia, 'Songti SC', 'SimSun', serif;
-  --gallery-canvas: #ebe4e1;
-  --gallery-paper: #fffdf9;
-  --gallery-ink: #201b1c;
-  --gallery-muted: #817779;
-  --gallery-line: rgba(52, 40, 42, .14);
-  --gallery-soft: #f1e9e6;
-  --gallery-accent: #6b173b;
-  --gallery-accent-soft: #efe1e5;
+  --gallery-title-font: var(--site-title-font);
+  --gallery-canvas: var(--site-canvas);
+  --gallery-paper: var(--site-paper);
+  --gallery-ink: var(--site-ink);
+  --gallery-muted: var(--site-muted);
+  --gallery-line: var(--site-line);
+  --gallery-soft: var(--site-soft);
+  --gallery-accent: var(--site-accent);
+  --gallery-accent-soft: var(--site-accent-soft);
   min-width: 0;
   color: var(--gallery-ink);
   font-family: var(--font-sans);
 }
 .gallery-mobile-publish { display: none; }
-body[arco-theme='dark'] .gallery-home-content {
-  --gallery-canvas: #211b1e;
-  --gallery-paper: #2b2427;
-  --gallery-ink: #f8f0ed;
-  --gallery-muted: #c0b1b4;
-  --gallery-line: rgba(250, 240, 237, .16);
-  --gallery-soft: #342b2f;
-  --gallery-accent: #f0a8bb;
-  --gallery-accent-soft: #4a303a;
-}
 .gallery-content {
   width: 100%;
   margin: 0;

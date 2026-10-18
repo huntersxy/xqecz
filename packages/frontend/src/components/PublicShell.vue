@@ -20,10 +20,9 @@ watch(searchKeyword, (value) => {
   searchDraft.value = value
 })
 
-// 顶栏只切换「创作 / 浏览」两种模式；发现类页面是浏览模式下的子页面，
-// 不在这里再放一份目的地。这样 /studio 与 / 各自只有一个入口。
+// 顶栏只切换「工作台 / 作品广场」；后台与发现页归入现有入口，不在顶栏重复铺路由。
 const pageTab = computed(() => {
-  if (route.path === '/studio' || route.path.startsWith('/studio/')) return 'studio'
+  if (route.path === '/studio' || route.path.startsWith('/studio/') || route.path.startsWith('/admin')) return 'studio'
   if (route.path === '/login' || route.path.startsWith('/quick-upload')) return 'none'
   return 'browse'
 })
@@ -78,7 +77,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKeydown))
 
 <template>
   <div class="public-shell creative-theme" :class="{ 'is-mobile-open': mobileOpen }">
-    <aside class="public-shell-sidebar" aria-label="作品广场导航">
+    <aside class="public-shell-sidebar" aria-label="站点导航">
       <button
         v-if="mobileOpen"
         class="public-shell-drawer-close"

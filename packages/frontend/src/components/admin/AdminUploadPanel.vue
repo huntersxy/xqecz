@@ -145,7 +145,7 @@ async function handleSubmit() {
             <Tag
               v-for="tag in form.tags"
               :key="tag"
-              color="arcoblue"
+              class="admin-tag-accent"
               closable
               @close.prevent="toggleTag(tag)"
             >{{ tag }}</Tag>

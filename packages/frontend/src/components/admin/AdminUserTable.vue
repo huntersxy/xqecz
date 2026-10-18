@@ -67,7 +67,7 @@ onMounted(() => admin.loadUsers())
             </div>
           </template>
           <template #role="{ record }">
-            <Tag :color="record.is_admin ? 'arcoblue' : 'gray'" :bordered="false" class="admin-tag-inline">{{ record.is_admin ? '管理员' : '普通用户' }}</Tag>
+            <Tag :color="record.is_admin ? undefined : 'gray'" :bordered="false" :class="['admin-tag-inline', { 'admin-tag-accent': record.is_admin }]">{{ record.is_admin ? '管理员' : '普通用户' }}</Tag>
           </template>
           <template #status="{ record }">
             <AdminStatus :type="record.is_banned ? 'danger' : 'success'" :label="record.is_banned ? '已封禁' : '正常'" />
@@ -99,7 +99,7 @@ onMounted(() => admin.loadUsers())
             <div class="flex items-center gap-2 flex-wrap">
               <UserAvatar :size="24" class="user-avatar" :email="record.email" :username="record.username" />
               <span class="admin-cell-title">{{ record.username }}</span>
-              <Tag :color="record.is_admin ? 'arcoblue' : 'gray'" size="small" :bordered="false" class="admin-tag-inline">{{ record.is_admin ? '管理员' : '普通用户' }}</Tag>
+              <Tag :color="record.is_admin ? undefined : 'gray'" size="small" :bordered="false" :class="['admin-tag-inline', { 'admin-tag-accent': record.is_admin }]">{{ record.is_admin ? '管理员' : '普通用户' }}</Tag>
               <AdminStatus v-if="record.is_banned" type="danger" label="已封禁" />
             </div>
             <div v-if="record.id !== userStore.user?.id" class="admin-mobile-actions">

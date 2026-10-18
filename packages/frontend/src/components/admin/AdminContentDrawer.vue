@@ -206,7 +206,7 @@ function onFileChange(_fileList: FileItem[], fileItem: FileItem) {
         <a-tab-pane key="author" title="修改作者">
           <div class="author-current">
             <span class="author-current-label">当前作者：</span>
-            <Tag color="arcoblue" :bordered="false" class="drawer-tag-inline">{{ admin.drawerContent.user?.username }}</Tag>
+              <Tag :bordered="false" class="drawer-tag-inline admin-tag-accent">{{ admin.drawerContent.user?.username }}</Tag>
           </div>
           <a-input v-model="authorKeyword" placeholder="搜索用户名..." allow-clear class="author-search">
             <template #prefix><IconSearch /></template>
@@ -217,7 +217,7 @@ function onFileChange(_fileList: FileItem[], fileItem: FileItem) {
                 <a-list-item class="user-item" @click="handleChangeAuthor(item.id, item.username)">
                   <UserAvatar :size="24" :email="item.email" :username="item.username" />
                   <span class="admin-cell-title">{{ item.username }}</span>
-                  <Tag v-if="item.is_admin" color="arcoblue" size="small" :bordered="false" class="drawer-tag-inline">管理员</Tag>
+                  <Tag v-if="item.is_admin" size="small" :bordered="false" class="drawer-tag-inline admin-tag-accent">管理员</Tag>
                 </a-list-item>
               </template>
             </a-list>
@@ -261,7 +261,7 @@ function onFileChange(_fileList: FileItem[], fileItem: FileItem) {
 .preview-text :deep(h3) { font-size: 16px; }
 .preview-text :deep(p) { margin-bottom: 12px; color: $admin-text-2; }
 .preview-text :deep(ul), .preview-text :deep(ol) { margin-bottom: 12px; padding-left: 24px; }
-.preview-text :deep(blockquote) { border-left: 3px solid $admin-primary; padding-left: 12px; margin: 12px 0; color: $admin-text-3; font-style: italic; }
+.preview-text :deep(blockquote) { border-left: 1px solid $admin-border; padding-left: 12px; margin: 12px 0; color: $admin-text-3; font-style: italic; }
 .preview-text :deep(code) { background: $admin-fill; padding: 2px 6px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .preview-text :deep(pre) {
   background: #1a1a1a;

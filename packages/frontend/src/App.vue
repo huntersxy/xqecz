@@ -10,7 +10,7 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const isPublicShellRoute = computed(
-  () => !route.path.startsWith('/admin') && !route.path.startsWith('/content/'),
+  () => !route.path.startsWith('/content/'),
 )
 // 详情层负责自身入场；公开整页之间使用轻量过渡，不延迟覆盖层挂载。
 const pageTransition = ref(false)
@@ -52,8 +52,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <Layout :class="['app-layout', { 'creative-theme app-public-theme': !route.path.startsWith('/admin'), 'home-gallery-mode': route.path === '/' }]">
-      <main :class="route.path.startsWith('/admin') ? 'admin-main' : ''" role="main">
+  <Layout :class="['app-layout', { 'creative-theme app-public-theme': isPublicShellRoute, 'home-gallery-mode': route.path === '/' }]">
+      <main role="main">
         <ErrorBoundary>
           <RouterView v-slot="{ Component }">
             <PublicShell v-if="isPublicShellRoute && Component">

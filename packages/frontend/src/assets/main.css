@@ -121,6 +121,39 @@ body[arco-theme='dark'] {
   }
 }
 
+/* 作品广场是站点的主视觉；首页与管理空间共用这组纸感中性色和酒红强调。 */
+body {
+  --site-paper: #fffdf9;
+  --site-canvas: #ebe4e1;
+  --site-ink: #201b1c;
+  --site-muted: #817779;
+  --site-line: rgba(52, 40, 42, .14);
+  --site-soft: #f1e9e6;
+  --site-accent: #6b173b;
+  --site-accent-hover: #54102e;
+  --site-accent-soft: #efe1e5;
+  --site-action: #201b1c;
+  --site-action-hover: #382e30;
+  --site-on-action: #fffdf9;
+  --site-action-rgb: 32, 27, 28;
+  --site-title-font: Georgia, 'Songti SC', 'SimSun', serif;
+}
+body[arco-theme='dark'] {
+  --site-paper: #2b2427;
+  --site-canvas: #211b1e;
+  --site-ink: #f8f0ed;
+  --site-muted: #c0b1b4;
+  --site-line: rgba(250, 240, 237, .16);
+  --site-soft: #342b2f;
+  --site-accent: #f0a8bb;
+  --site-accent-hover: #f6bbca;
+  --site-accent-soft: #4a303a;
+  --site-action: #f0a8bb;
+  --site-action-hover: #f6bbca;
+  --site-on-action: #30202a;
+  --site-action-rgb: 240, 168, 187;
+}
+
 /* 创作界面的共享调色板：仅 .creative-theme 使用，工作台保留独立布局与状态色。
    抽屉通过 Teleport 挂到 body，必须在抽屉根节点显式携带此类。 */
 body {

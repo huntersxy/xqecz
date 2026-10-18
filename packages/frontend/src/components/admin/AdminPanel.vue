@@ -4,16 +4,17 @@
 interface Props {
   title: string
   desc?: string
+  flat?: boolean
 }
 
 defineProps<Props>()
 </script>
 
 <template>
-  <section class="admin-panel">
+  <section class="admin-panel" :class="{ 'is-flat': flat }">
     <header class="admin-panel-head">
       <div class="admin-panel-head-text">
-        <h2 class="admin-panel-title"><span class="admin-panel-spark" aria-hidden="true">✧</span>{{ title }}</h2>
+        <h2 class="admin-panel-title">{{ title }}</h2>
         <p v-if="desc" class="admin-panel-desc">{{ desc }}</p>
       </div>
       <div v-if="$slots.actions" class="admin-panel-actions">
@@ -31,8 +32,14 @@ defineProps<Props>()
   background: var(--admin-surface);
   border: 1px solid var(--admin-border-soft);
   border-radius: var(--admin-radius);
-  box-shadow: var(--admin-shadow);
   overflow: hidden;
+}
+
+.admin-panel.is-flat {
+  overflow: visible;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
 }
 
 .admin-panel-head {
@@ -45,18 +52,23 @@ defineProps<Props>()
   border-bottom: 1px solid var(--admin-border-soft);
 }
 
+.admin-panel.is-flat .admin-panel-head {
+  align-items: flex-end;
+  padding: 0 0 20px;
+  border-bottom: 0;
+}
+
 .admin-panel-title {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 0;
   margin: 0;
-  font-size: 17px;
+  font-family: var(--site-title-font);
+  font-size: 21px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -.02em;
   color: var(--admin-text);
 }
-
-.admin-panel-spark { color: var(--admin-primary); font-size: 20px; font-weight: 400; }
 
 .admin-panel-desc {
   margin: 4px 0 0;
@@ -246,10 +258,14 @@ defineProps<Props>()
   }
 }
 
+.admin-panel.is-flat .admin-panel-body { min-height: 0; }
+
 @media (max-width: 768px) {
   .admin-panel-head {
     padding: 16px;
   }
+
+  .admin-panel.is-flat .admin-panel-head { padding: 0 0 16px; }
 }
 </style>
 

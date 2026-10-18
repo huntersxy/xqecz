@@ -1,5 +1,6 @@
 <script lang="ts">
-// 导航数据结构（供 AdminView 组装）
+import type { Component } from 'vue'
+
 interface AdminNavItem {
   key: string
   title: string
@@ -14,17 +15,9 @@ export interface AdminNavGroup {
 </script>
 
 <script setup lang="ts">
-// 后台侧边导航：品牌区 + 分组菜单（带待办角标）+ 底部用户卡
-// 同时用于桌面侧边栏与移动端抽屉
-import type { Component } from 'vue'
-import { IconLeft, IconDashboard } from '@arco-design/web-vue/es/icon'
-import UserAvatar from '@/components/UserAvatar.vue'
-
 interface Props {
   groups: AdminNavGroup[]
   active: string
-  username?: string
-  email?: string
   isAdmin?: boolean
 }
 
@@ -36,243 +29,203 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="admin-nav">
-    <div class="admin-nav-brand">
-      <div class="admin-nav-mark">
-        <IconDashboard />
-      </div>
-      <div class="admin-nav-brand-text">
-        <strong>{{ isAdmin ? '管理控制台' : '创作工作台' }}</strong>
-        <span>A LITTLE SPACE TO CREATE</span>
-      </div>
+  <nav class="admin-nav" aria-label="工作区功能">
+    <div class="admin-nav-heading">
+      <strong>{{ isAdmin ? '管理工作台' : '创作者空间' }}</strong>
+      <span>在这里切换功能</span>
     </div>
 
-    <div class="admin-nav-scroll">
-      <div v-for="group in groups" :key="group.label" class="admin-nav-group">
-        <div class="admin-nav-group-label">{{ group.label }}</div>
-        <button
-          v-for="item in group.items"
-          :key="item.key"
-          type="button"
-          class="admin-nav-item"
-          :class="{ 'is-active': active === item.key }"
-          :aria-current="active === item.key ? 'page' : undefined"
-          @click="emit('select', item.key)"
-        >
-          <component :is="item.icon" class="admin-nav-icon" />
-          <span class="admin-nav-item-label">{{ item.title }}</span>
-          <span v-if="item.badge" class="admin-nav-badge">{{ item.badge > 99 ? '99+' : item.badge }}</span>
-        </button>
-      </div>
-    </div>
-
-    <div class="admin-nav-foot">
-      <div class="admin-nav-user">
-        <UserAvatar :size="32" class="admin-nav-avatar" :email="email" :username="username" />
-        <div class="admin-nav-user-meta">
-          <span class="admin-nav-username">{{ username || '未登录' }}</span>
-          <span class="admin-nav-role">{{ isAdmin ? '管理员' : '成员' }}</span>
+    <div class="admin-nav-groups">
+      <section
+        v-for="group in groups"
+        :key="group.label"
+        class="admin-nav-group"
+        :class="{ 'is-wide': group.label === '管理' }"
+        :aria-label="group.label"
+      >
+        <h2 class="admin-nav-group-label">{{ group.label }}</h2>
+        <div class="admin-nav-items">
+          <button
+            v-for="item in group.items"
+            :key="item.key"
+            type="button"
+            class="admin-nav-item"
+            :class="{ 'is-active': active === item.key }"
+            :aria-current="active === item.key ? 'page' : undefined"
+            :aria-label="item.badge ? `${item.title}，${item.badge} 项待处理` : undefined"
+            @click="emit('select', item.key)"
+          >
+            <component :is="item.icon" class="admin-nav-icon" aria-hidden="true" />
+            <span class="admin-nav-item-label">{{ item.title }}</span>
+            <span v-if="item.badge" class="admin-nav-badge">{{ item.badge > 99 ? '99+' : item.badge }}</span>
+          </button>
         </div>
-      </div>
-      <RouterLink to="/" class="admin-nav-home">
-        <IconLeft />
-        <span>返回首页</span>
-      </RouterLink>
+      </section>
     </div>
-  </div>
+  </nav>
 </template>
 
 <style lang="scss" scoped>
 .admin-nav {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+  padding: 8px 0 20px;
+  border-bottom: 1px solid var(--site-line);
+}
+
+.admin-nav-heading {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 0;
-}
-
-// ── 品牌区 ──
-.admin-nav-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 22px 20px 18px;
-}
-
-.admin-nav-mark {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  font-size: 18px;
-  color: var(--admin-primary);
-  background: var(--admin-primary-soft);
-  border: 1px solid var(--admin-border);
-  flex-shrink: 0;
-}
-
-.admin-nav-brand-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.3;
-  min-width: 0;
+  gap: 4px;
+  padding-top: 2px;
 
   strong {
-    font-family: var(--creative-title-font);
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--admin-text);
-    letter-spacing: -0.01em;
+    color: var(--site-ink);
+    font: 600 17px/1.25 var(--site-title-font);
+    letter-spacing: -.02em;
   }
 
   span {
-    font-size: 11px;
-    color: var(--admin-text-3);
-    letter-spacing: 0.04em;
+    color: var(--site-muted);
+    font-size: 10px;
   }
 }
 
-// ── 分组菜单 ──
-.admin-nav-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 4px 12px 12px;
+.admin-nav-groups {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  min-width: 0;
 }
 
-.admin-nav-group + .admin-nav-group {
-  margin-top: 20px;
+.admin-nav-group {
+  min-width: 0;
+}
+
+.admin-nav-group.is-wide {
+  flex: 1 1 420px;
 }
 
 .admin-nav-group-label {
-  padding: 0 10px 6px;
-  font-size: 11px;
+  margin: 0 0 7px 8px;
+  color: var(--site-muted);
+  font-size: 10px;
   font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--admin-text-3);
+  letter-spacing: .08em;
+}
+
+.admin-nav-items {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px;
 }
 
 .admin-nav-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 11px 12px;
-  margin-top: 2px;
-  border: none;
-  border-radius: 12px;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
   background: transparent;
-  font-size: 13.5px;
-  color: var(--admin-text-2);
+  color: var(--site-muted);
+  font: inherit;
+  font-size: 11px;
+  white-space: nowrap;
   cursor: pointer;
-  text-align: left;
-  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  transition: background-color .16s ease, color .16s ease, border-color .16s ease;
 
   &:hover {
-    background: var(--admin-fill);
-    color: var(--admin-text);
+    background: var(--site-soft);
+    color: var(--site-ink);
   }
 
   &.is-active {
-    background: var(--creative-ink);
-    color: var(--creative-paper);
-    font-weight: 500;
+    border-color: color-mix(in srgb, var(--site-accent) 18%, transparent);
+    background: var(--site-accent-soft);
+    color: var(--site-accent);
+    font-weight: 600;
   }
 
-  &:active {
-    transform: scale(.98);
+  &:focus-visible {
+    outline: 2px solid var(--site-accent);
+    outline-offset: 2px;
   }
 }
 
 .admin-nav-icon {
-  font-size: 16px;
-  flex-shrink: 0;
-}
-
-.admin-nav-item-label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 0 0 auto;
+  font-size: 14px;
 }
 
 .admin-nav-badge {
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
   background: var(--admin-danger-soft);
   color: var(--admin-danger);
-  flex-shrink: 0;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 
-// ── 底部用户卡 ──
-.admin-nav-foot {
-  padding: 12px;
-  border-top: 1px solid var(--admin-border-soft);
-}
-
-.admin-nav-user {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: var(--admin-fill);
-}
-
-.admin-nav-avatar {
-  background: var(--admin-primary-soft);
-  color: var(--admin-primary);
-  flex-shrink: 0;
-}
-
-.admin-nav-user-meta {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.35;
-  min-width: 0;
-}
-
-.admin-nav-username {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--admin-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.admin-nav-role {
-  font-size: 11px;
-  color: var(--admin-text-3);
-}
-
-.admin-nav-home {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 8px;
-  padding: 8px 10px;
-  border-radius: 9px;
-  font-size: 13px;
-  color: var(--admin-text-3);
-  text-decoration: none;
-  transition: background 0.15s ease, color 0.15s ease;
-
-  &:hover {
-    background: var(--admin-fill);
-    color: var(--admin-text);
+@media (max-width: 900px) {
+  .admin-nav {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding: 4px 0 16px;
   }
+
+  .admin-nav-heading {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  .admin-nav-groups {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 14px;
+  }
+
+  .admin-nav-group.is-wide {
+    grid-column: 1 / -1;
+  }
+
+  .admin-nav-item {
+    min-height: 32px;
+    padding-inline: 8px;
+  }
+}
+
+@media (max-width: 520px) {
+  .admin-nav-groups {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-nav-group.is-wide {
+    grid-column: auto;
+  }
+
+  .admin-nav-items {
+    gap: 2px;
+  }
+
+  .admin-nav-item {
+    font-size: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-nav-item { transition: none; }
 }
 </style>

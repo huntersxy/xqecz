@@ -98,7 +98,8 @@ function permLabel(p: string) {
 }
 
 function permColor(p: string) {
-  const map: Record<string, string> = { upload: 'arcoblue', read: 'green', delete: 'red' }
+  const map: Record<string, string> = { read: 'green', delete: 'red' }
+  if (p === 'upload') return undefined
   return map[p] || 'gray'
 }
 
@@ -130,7 +131,7 @@ onMounted(loadKeys)
           <code class="admin-mono">{{ record.key_prefix }}…</code>
         </template>
         <template #permissions="{ record }">
-          <a-tag v-for="p in record.permissions" :key="p" :color="permColor(p)" :bordered="false" size="small" class="admin-tag-inline">
+          <a-tag v-for="p in record.permissions" :key="p" :color="permColor(p)" :bordered="false" size="small" :class="['admin-tag-inline', { 'admin-tag-accent': p === 'upload' }]">
             {{ permLabel(p) }}
           </a-tag>
         </template>

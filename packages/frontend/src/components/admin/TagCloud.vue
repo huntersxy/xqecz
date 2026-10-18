@@ -47,20 +47,15 @@ function toggleCustomInput() {
   }
 }
 
-// 预定义渐变色彩方案
+// 未选中的标签保持首页的纸白、暖灰与酒红色板，不再混入 Arco 默认的多色标签。
 const colorSchemes = [
-  { bg: 'rgba(var(--arcoblue-6), 0.1)', border: 'rgba(var(--arcoblue-6), 0.3)', text: 'rgb(var(--arcoblue-6))', hover: 'rgba(var(--arcoblue-6), 0.2)' },
-  { bg: 'rgba(var(--magenta-6), 0.1)', border: 'rgba(var(--magenta-6), 0.3)', text: 'rgb(var(--magenta-6))', hover: 'rgba(var(--magenta-6), 0.2)' },
-  { bg: 'rgba(var(--purple-6), 0.1)', border: 'rgba(var(--purple-6), 0.3)', text: 'rgb(var(--purple-6))', hover: 'rgba(var(--purple-6), 0.2)' },
-  { bg: 'rgba(var(--green-6), 0.1)', border: 'rgba(var(--green-6), 0.3)', text: 'rgb(var(--green-6))', hover: 'rgba(var(--green-6), 0.2)' },
-  { bg: 'rgba(var(--gold-6), 0.1)', border: 'rgba(var(--gold-6), 0.3)', text: 'rgb(var(--gold-6))', hover: 'rgba(var(--gold-6), 0.2)' },
-  { bg: 'rgba(var(--pinkpurple-6), 0.1)', border: 'rgba(var(--pinkpurple-6), 0.3)', text: 'rgb(var(--pinkpurple-6))', hover: 'rgba(var(--pinkpurple-6), 0.2)' },
-  { bg: 'rgba(var(--cyan-6), 0.1)', border: 'rgba(var(--cyan-6), 0.3)', text: 'rgb(var(--cyan-6))', hover: 'rgba(var(--cyan-6), 0.2)' },
-  { bg: 'rgba(var(--orangered-6), 0.1)', border: 'rgba(var(--orangered-6), 0.3)', text: 'rgb(var(--orangered-6))', hover: 'rgba(var(--orangered-6), 0.2)' },
+  { bg: 'color-mix(in srgb, var(--site-accent) 8%, var(--site-paper))', border: 'color-mix(in srgb, var(--site-accent) 20%, var(--site-line))', text: 'var(--site-accent)', hover: 'color-mix(in srgb, var(--site-accent) 14%, var(--site-paper))' },
+  { bg: 'var(--site-soft)', border: 'var(--site-line)', text: 'var(--site-muted)', hover: 'color-mix(in srgb, var(--site-soft) 74%, var(--site-accent-soft))' },
+  { bg: 'var(--site-paper)', border: 'var(--site-line)', text: 'var(--site-ink)', hover: 'var(--site-soft)' },
 ]
 
-// 选中状态的颜色
-const selectedScheme = { bg: 'var(--admin-primary, rgb(var(--primary-6)))', border: 'var(--admin-primary, rgb(var(--primary-6)))', text: '#ffffff', hover: 'var(--admin-primary, rgb(var(--primary-6)))' }
+// 选中状态沿用首页的浅底与酒红边线，清楚区分状态但不铺满高饱和色。
+const selectedScheme = { bg: 'var(--site-paper)', border: 'var(--site-accent)', text: 'var(--site-accent)', hover: 'var(--site-accent-soft)' }
 
 // 根据标签名称生成稳定的哈希值，用于确定大小和颜色
 function getTagHash(tag: string): number {
@@ -129,7 +124,7 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
         :aria-disabled="disabled || undefined"
         @click="!disabled && emit('toggle', tag)"
       >
-        <span v-if="selectedTags.includes(tag)" class="flex items-center text-current animate-[check-pop_0.2s_cubic-bezier(0.34,1.56,0.64,1)]">
+        <span v-if="selectedTags.includes(tag)" class="flex items-center text-current animate-[check-pop_0.2s_ease-out]">
           <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12">
             <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0z" />
           </svg>
@@ -180,7 +175,7 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
   border: 1.5px solid var(--tag-border);
   background: var(--tag-bg);
   color: var(--tag-text);
-  animation: tag-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: tag-pop 0.3s ease-out both;
 
   &::before {
     content: '';
@@ -239,7 +234,7 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
 // TransitionGroup 动画
 .tag-fade {
   &-enter-active {
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: all 0.3s ease-out;
   }
 
   &-leave-active {
