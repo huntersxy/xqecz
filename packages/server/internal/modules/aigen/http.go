@@ -68,6 +68,8 @@ func Register(api *gin.RouterGroup, deps app.Deps, contentHandler *content.Handl
 	g.DELETE("/ideas/:id", h.withdraw)
 	a := api.Group("/admin/ai", ready, web.RequireAuth(deps), web.RequireAdmin(), sessionOnly)
 	a.GET("/providers", h.adminProviders)
+	a.GET("/prompt-enhancement", h.adminPromptEnhancement)
+	a.PUT("/prompt-enhancement", h.savePromptEnhancement)
 	a.GET("/users", h.grantUsers)
 	a.POST("/providers", h.saveProvider)
 	a.PATCH("/providers/:id", h.setProviderEnabled)
@@ -172,7 +174,12 @@ func (h *Handler) config(c *gin.Context) {
 	for _, row := range rows {
 		out = append(out, providerView(row))
 	}
-	ok(c, gin.H{"providers": out})
+	enhancement, err := h.s.PromptEnhancement(c.Request.Context())
+	if err != nil {
+		fail(c, err)
+		return
+	}
+	ok(c, gin.H{"providers": out, "prompt_enhancement": enhancement})
 }
 func providerView(row core.ProviderConfig) any {
 	options := row.Options

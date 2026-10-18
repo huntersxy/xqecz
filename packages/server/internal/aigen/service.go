@@ -123,7 +123,7 @@ func (s *Service) Init(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err = s.db.WithContext(ctx).AutoMigrate(&Session{}, &Account{}, &Task{}, &Ledger{}, &Asset{}, &ProviderConfig{}, &Idea{}, &IdeaEvent{}); err != nil {
+	if err = s.db.WithContext(ctx).AutoMigrate(&Session{}, &Account{}, &Task{}, &Ledger{}, &Asset{}, &ProviderConfig{}, &Idea{}, &IdeaEvent{}, &promptEnhancementRow{}); err != nil {
 		return err
 	}
 	var count int64
@@ -134,6 +134,30 @@ func (s *Service) Init(ctx context.Context) error {
 		_, err = s.SaveProvider(ctx, 0, ProviderConfig{Name: "站点生图", Adapter: defaultAdapter, Endpoint: s.cfg.AIImageBaseURL, Model: s.cfg.AIImageModel, Enabled: true, Default: true, Sizes: `[]`, Qualities: `[]`, MaxCount: 1, EditTransport: "none", TimeoutSeconds: 180, Concurrency: 1, Cost: 1, QualityCosts: `{}`, Options: `{}`}, s.cfg.AIImageAPIKey)
 	}
 	return err
+}
+
+func (s *Service) PromptEnhancement(ctx context.Context) (PromptEnhancement, error) {
+	var row promptEnhancementRow
+	err := s.db.WithContext(ctx).First(&row, 1).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return PromptEnhancement{Enabled: true, Prompt: DefaultPromptEnhancement}, nil
+	}
+	if err != nil {
+		return PromptEnhancement{}, err
+	}
+	return PromptEnhancement{Enabled: row.Enabled, Prompt: row.Prompt}, nil
+}
+
+func (s *Service) SavePromptEnhancement(ctx context.Context, value PromptEnhancement) (PromptEnhancement, error) {
+	value.Prompt = strings.TrimSpace(value.Prompt)
+	if len([]rune(value.Prompt)) < 1 || len([]rune(value.Prompt)) > 4000 {
+		return PromptEnhancement{}, invalidInput("提示词增强内容需为 1–4000 个字")
+	}
+	row := promptEnhancementRow{ID: 1, Enabled: value.Enabled, Prompt: value.Prompt}
+	if err := s.db.WithContext(ctx).Save(&row).Error; err != nil {
+		return PromptEnhancement{}, err
+	}
+	return value, nil
 }
 
 // Resolve existing parents as well as junctions/symlinks before creating a new
@@ -167,15 +191,34 @@ type prepareOptions struct {
 }
 
 func (s *Service) prepare(ctx context.Context, uid uint64, input Input, options prepareOptions) (taskSnapshot, int64, error) {
-	input.Prompt = strings.TrimSpace(input.Prompt)
+	rawPrompt := strings.TrimSpace(input.Prompt)
+	if input.BasePrompt != "" {
+		rawPrompt = strings.TrimSpace(input.BasePrompt)
+	}
 	input.Size = strings.TrimSpace(input.Size)
 	if strings.EqualFold(input.Size, "auto") {
 		input.Size = "auto"
 	} else if input.Size == "" {
 		input.Size = "auto"
 	}
-	if uid == 0 || len([]rune(input.Prompt)) < 1 || len([]rune(input.Prompt)) > 8000 {
+	if uid == 0 || len([]rune(rawPrompt)) < 1 || len([]rune(rawPrompt)) > 8000 {
 		return taskSnapshot{}, 0, ErrInvalid
+	}
+	if input.BasePrompt == "" {
+		input.BasePrompt = rawPrompt
+		input.Prompt = rawPrompt
+		if input.EnhancePrompt {
+			enhancement, err := s.PromptEnhancement(ctx)
+			if err != nil {
+				return taskSnapshot{}, 0, err
+			}
+			if enhancement.Enabled && strings.TrimSpace(enhancement.Prompt) != "" {
+				input.Prompt = rawPrompt + "\n\n" + strings.TrimSpace(enhancement.Prompt)
+				if len([]rune(input.Prompt)) > 8000 {
+					return taskSnapshot{}, 0, invalidInput("启用提示词增强后内容超过8000字")
+				}
+			}
+		}
 	}
 	p, err := s.providerFor(ctx, uid, input)
 	if options.allowNoSiteKey && input.Mode == "site" && errors.Is(err, ErrUnavailable) {

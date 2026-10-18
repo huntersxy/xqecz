@@ -4,6 +4,7 @@ import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useAIStudio } from '@/composables/useAIStudio'
 import { useStudioDock } from '@/composables/useStudioDock'
 import { aiApi } from '@/api/creative'
+import { contentApi } from '@/api'
 import type { AIAsset, AITaskView } from '@/types/schemas'
 import {
   IconImage,
@@ -21,6 +22,7 @@ import CreativeImage from '@/components/CreativeImage.vue'
 import CreativeLibrary from '@/components/CreativeLibrary.vue'
 import StudioReferences from '@/components/StudioReferences.vue'
 import StudioSizePicker from '@/components/StudioSizePicker.vue'
+import AutoMetadataOption from '@/components/AutoMetadataOption.vue'
 import '@/assets/creative-pages.css'
 import { referenceMentionAt, remapReferenceMentions } from '@/utils/creativeMentions'
 import { formatImageSize, normalizeImageSize, parseImageSize, AUTO_IMAGE_SIZE } from '@/utils/imageSize'
@@ -48,6 +50,8 @@ const {
   pending,
   selectedAsset,
   archiveAsset,
+  enhancePrompt,
+  promptEnhancement,
 } = studio
 const libraryOpen = ref(false),
   historyOpen = ref(false),
@@ -190,7 +194,8 @@ const activeTask = computed(() =>
   ),
 )
 const proposal = ref({ title: '', description: '', public_consent: false, reference_rights: false })
-const publishForm = ref({ title: '', description: '', public_consent: false })
+const publishForm = ref({ title: '', description: '', tags: [] as string[], auto_metadata: true, public_consent: false })
+const publishMetadata = ref({ available: false, ready: false, placeholder_title: '待命名作品', placeholder_tag: '待生成标签' })
 const labels: Record<string, string> = {
   queued: '排队中',
   running: '生成中',
@@ -334,6 +339,7 @@ async function reusePrompt(row: AITaskView) {
   )
     return
   prompt.value = row.task.prompt
+  enhancePrompt.value = false
   await focusPrompt()
 }
 async function archiveTask(row: AITaskView) {
@@ -426,10 +432,25 @@ async function publish() {
       selectedAsset.value!.id,
       publishForm.value.title,
       publishForm.value.description,
+      publishForm.value.tags,
+      publishForm.value.auto_metadata,
     )
     publishOpen.value = false
     await router.push(`/content/${row.content_id}`)
   })
+}
+async function openPublish() {
+  publishForm.value = { title: '', description: '', tags: [], auto_metadata: true, public_consent: false }
+  try {
+    const response = await contentApi.metadataOptions()
+    if (response.code === 200) {
+      publishMetadata.value = response.data
+      publishForm.value.auto_metadata = response.data.available
+    }
+  } catch {
+    publishForm.value.auto_metadata = false
+  }
+  publishOpen.value = true
 }
 async function download() {
   if (!selectedAsset.value) return
@@ -813,6 +834,13 @@ watch(ready, (value) => {
                 </option>
               </select></label
             >
+            <label class="composer-control composer-enhancement"
+              ><span>提示词增强</span
+              ><span class="prompt-enhancement-toggle" :title="promptEnhancement.prompt || '暂无增强提示词'">
+                <input v-model="enhancePrompt" type="checkbox" :disabled="!promptEnhancement.enabled || !promptEnhancement.prompt" />
+                <strong>{{ enhancePrompt && promptEnhancement.enabled ? '已开启' : '未开启' }}</strong>
+              </span>
+            </label>
           </div>
         </fieldset>
         <div class="composer-footer">
@@ -895,7 +923,7 @@ watch(ready, (value) => {
             @click="useResult(false)"
             >加入参考图</a-button
           ><a-button @click="download">下载原图</a-button
-          ><a-button @click="publishOpen = true">发布到站内</a-button
+          ><a-button @click="openPublish">发布到站内</a-button
           ><a-button type="text" status="danger" @click="removeResult">移除结果</a-button>
         </div>
       </template>
@@ -974,10 +1002,13 @@ watch(ready, (value) => {
       class="creative-theme creative-dialog ai-dialog"
       title="发布生成作品"
       :footer="false"
-      ><label class="creative-field"
-        >作品标题<a-input v-model="publishForm.title" aria-label="作品标题" /></label
+      ><AutoMetadataOption v-model="publishForm.auto_metadata" :options="publishMetadata" :can-generate="true" />
+      <label class="creative-field"
+        >作品标题<a-input :model-value="publishForm.auto_metadata ? publishMetadata.placeholder_title : publishForm.title" aria-label="作品标题" :disabled="publishForm.auto_metadata" @update:model-value="publishForm.title = $event" /></label
       ><label class="creative-field"
         >作品描述<a-textarea v-model="publishForm.description" aria-label="作品描述" /></label
+      ><label class="creative-field"
+        >标签<a-input-tag :model-value="publishForm.auto_metadata ? [publishMetadata.placeholder_tag] : publishForm.tags" aria-label="作品标签" placeholder="输入标签后按回车" :disabled="publishForm.auto_metadata" @update:model-value="publishForm.tags = $event.filter((tag): tag is string => typeof tag === 'string')" /></label
       ><a-checkbox v-model="publishForm.public_consent"
         >将此结果公开发布到站内，遵循现有作品审核与授权规则</a-checkbox
       >

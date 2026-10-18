@@ -17,6 +17,8 @@ const api = vi.hoisted(() => ({
   deleteIdea: vi.fn(),
   deleteAdminAsset: vi.fn(),
   deleteResource: vi.fn(),
+  adminPromptEnhancement: vi.fn(),
+  savePromptEnhancement: vi.fn(),
   confirm: vi.fn(),
 }))
 vi.mock('@/api/creative', () => ({
@@ -76,6 +78,8 @@ beforeEach(() => {
   api.metadata.mockResolvedValue(null)
   api.resolve.mockResolvedValue(null)
   api.confirm.mockResolvedValue(true)
+  api.adminPromptEnhancement.mockResolvedValue({ enabled: true, prompt: '补充画面细节' })
+  api.savePromptEnhancement.mockResolvedValue({ enabled: true, prompt: '补充画面细节' })
   api.grantBatch.mockResolvedValue({ count: 2 })
   api.grantUsers.mockResolvedValue([
     { id: 1, username: '管理员' },

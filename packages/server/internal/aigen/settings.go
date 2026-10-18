@@ -94,6 +94,8 @@ func invalidProvider(message string) error {
 
 const defaultAdapter = "openai"
 
+const DefaultPromptEnhancement = `请在不改变主体、构图和用户明确要求的前提下，补充适合图片生成的细节：保持角色外观与参考图一致，明确光线、材质、景别和画面层次；避免水印、乱码、额外肢体、重复人物和无关文字。`
+
 func normalizedAdapter(adapter string) string {
 	if strings.TrimSpace(adapter) == "" {
 		return defaultAdapter

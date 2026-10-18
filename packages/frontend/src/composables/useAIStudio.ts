@@ -34,6 +34,7 @@ export function useAIStudio() {
     tasks = ref<AITaskView[]>([]),
     assets = ref<AIAsset[]>([])
   const account = ref<AIAccount>({ user_id: 0, available: 0, reserved: 0 })
+  const promptEnhancement = ref({ enabled: true, prompt: '' })
   const sessionId = ref(0),
     name = ref('未命名创作'),
     prompt = ref(''),
@@ -42,7 +43,8 @@ export function useAIStudio() {
     quality = ref(''),
     count = ref(1),
     references = ref<{ asset_id: number; note: string }[]>([]),
-    parentAssetId = ref(0)
+    parentAssetId = ref(0),
+    enhancePrompt = ref(true)
   const error = ref(''),
     saveState = ref(''),
     busy = ref(false),
@@ -82,6 +84,7 @@ export function useAIStudio() {
     expected_cost: cost.value,
     provider_revision: provider.value?.revision ?? 0,
     character_ids: [...characterIds.value],
+    enhance_prompt: enhancePrompt.value,
   })
   let stopped = false,
     restoring = false,
@@ -162,6 +165,7 @@ export function useAIStudio() {
     count.value = draft.count ?? 1
     references.value = draft.references ?? []
     parentAssetId.value = draft.parent_asset_id ?? 0
+    enhancePrompt.value = draft.enhance_prompt ?? true
     pending.value = draft.pending ?? null
     characterIds.value = draft.character_ids ?? []
     taskQuery.value = {}
@@ -320,10 +324,13 @@ export function useAIStudio() {
   }
   async function loadProviders() {
     const cfg = await aiApi.config(controller.signal)
-    if (!stopped) providers.value = cfg.providers
+    if (!stopped) {
+      providers.value = cfg.providers
+      promptEnhancement.value = cfg.prompt_enhancement
+    }
   }
   watch(
-    [prompt, name, references, providerId, size, quality, count, parentAssetId, characterIds],
+    [prompt, name, references, providerId, size, quality, count, parentAssetId, characterIds, enhancePrompt],
     () => {
       if (!ready.value || restoring || pending.value) return
       saveState.value = '未保存'
@@ -363,6 +370,7 @@ export function useAIStudio() {
         ])
         if (stopped) return
         providers.value = cfg.providers
+        promptEnhancement.value = cfg.prompt_enhancement
         sessions.value = rows.slice(0, 1)
         assets.value = library
         moreAssets.value = library.length === 100
@@ -403,6 +411,8 @@ export function useAIStudio() {
     references,
     parentAssetId,
     characterIds,
+    enhancePrompt,
+    promptEnhancement,
     provider,
     availableProviders,
     cost,

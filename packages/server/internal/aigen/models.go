@@ -129,6 +129,22 @@ type ProviderConfig struct {
 
 func (ProviderConfig) TableName() string { return "ai_provider_configs" }
 
+// PromptEnhancement is a public, site-wide suffix appended to generation
+// prompts when the user enables the workbench option. The text is editable by
+// administrators and contains no provider credentials.
+type PromptEnhancement struct {
+	Enabled bool   `json:"enabled"`
+	Prompt  string `json:"prompt"`
+}
+
+type promptEnhancementRow struct {
+	ID      uint   `gorm:"primaryKey"`
+	Enabled bool   `json:"enabled"`
+	Prompt  string `gorm:"type:text;not null" json:"prompt"`
+}
+
+func (promptEnhancementRow) TableName() string { return "ai_prompt_enhancements" }
+
 type Idea struct {
 	ID                uint64    `gorm:"primaryKey" json:"id"`
 	UserID            uint64    `gorm:"index" json:"user_id"`
@@ -165,9 +181,13 @@ type Reference struct {
 	Note    string `json:"note"`
 }
 type Input struct {
-	SessionID        uint64      `json:"session_id"`
-	Key              string      `json:"idempotency_key"`
-	Prompt           string      `json:"prompt"`
+	SessionID uint64 `json:"session_id"`
+	Key       string `json:"idempotency_key"`
+	Prompt    string `json:"prompt"`
+	// BasePrompt is persisted inside task/idea snapshots so an historical
+	// request is never re-expanded with a later administrator setting.
+	BasePrompt       string      `json:"base_prompt,omitempty"`
+	EnhancePrompt    bool        `json:"enhance_prompt"`
 	ProviderID       uint64      `json:"provider_id"`
 	Mode             string      `json:"mode"`
 	Size             string      `json:"size"`

@@ -29,6 +29,7 @@ export interface GenerationInput {
   expected_cost: number
   provider_revision: number
   character_ids: number[]
+  enhance_prompt: boolean
 }
 type Options = Parameters<typeof request>[1]
 // Mutations never retry automatically. Their stable client key is retained by
@@ -96,10 +97,10 @@ export const aiApi = {
     fetchApiBlob(`/creative/assets/${id}${preview ? '?preview=1' : ''}`, signal),
   ideaBlob: (ideaId: number, id: number, signal?: AbortSignal, preview = false) =>
     fetchApiBlob(`/ideas/${ideaId}/assets/${id}${preview ? '?preview=1' : ''}`, signal),
-  publish: (id: number, title: string, description: string) =>
+  publish: (id: number, title: string, description: string, tags: string[] = [], auto_metadata = false) =>
     checked(`/ai/assets/${id}/publish`, z.object({ content_id: z.number() }), {
       method: 'POST',
-      body: { title, description, public_consent: true },
+      body: { title, description, tags, auto_metadata, public_consent: true },
     }),
   ideas: (query: Record<string, unknown> = {}, signal?: AbortSignal) =>
     checked('/ideas', z.array(AIIdeaViewSchema), { query, signal }),
@@ -113,6 +114,9 @@ export const aiApi = {
     }),
   withdraw: (id: number) => checked(`/ai/ideas/${id}`, nil, { method: 'DELETE' }),
   providers: () => checked('/admin/ai/providers', z.array(AIProviderSchema)),
+  adminPromptEnhancement: () => checked('/admin/ai/prompt-enhancement', z.object({ enabled: z.boolean(), prompt: z.string() })),
+  savePromptEnhancement: (data: { enabled: boolean; prompt: string }) =>
+    checked('/admin/ai/prompt-enhancement', z.object({ enabled: z.boolean(), prompt: z.string() }), { method: 'PUT', body: data }),
   saveProvider: (data: Omit<AIProvider, 'owner' | 'has_key'> & { api_key?: string }) =>
     checked('/admin/ai/providers', AIProviderSchema, { method: 'POST', body: data }),
   setProviderEnabled: (id: number, enabled: boolean) =>

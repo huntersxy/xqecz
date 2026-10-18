@@ -43,6 +43,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
   mock.config.mockResolvedValue({
+    prompt_enhancement: { enabled: true, prompt: '补充画面细节' },
     providers: [
       {
         id: 1,
@@ -153,6 +154,15 @@ describe('AI studio persistence', () => {
     expect(studio.providerId.value).toBe(1)
     expect(studio.size.value).toBe('auto')
     expect(studio.ready.value).toBe(true)
+    wrapper.unmount()
+  })
+  it('defaults prompt enhancement on and keeps the toggle in the generation contract', async () => {
+    const { wrapper, studio } = await setup()
+    expect(studio.enhancePrompt.value).toBe(true)
+    expect(studio.promptEnhancement.value.prompt).toBe('补充画面细节')
+    expect(studio.input().enhance_prompt).toBe(true)
+    studio.enhancePrompt.value = false
+    expect(studio.input().enhance_prompt).toBe(false)
     wrapper.unmount()
   })
   it('remembers a selected size for the next new session', async () => {

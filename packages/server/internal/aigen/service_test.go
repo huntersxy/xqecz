@@ -3,6 +3,7 @@ package aigen
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"image"
 	"image/png"
@@ -147,6 +148,40 @@ func TestReservationIdempotencyAndImmutableSuccess(t *testing.T) {
 	if _, err = os.Stat(path); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestPromptEnhancementIsAppliedOnceAndCapturedInTaskSnapshot(t *testing.T) {
+	s, fake, p, session := testService(t)
+	ctx := context.Background()
+	grant(t, s, 1, 10)
+	if _, err := s.SavePromptEnhancement(ctx, PromptEnhancement{Enabled: true, Prompt: "保持光线柔和"}); err != nil {
+		t.Fatal(err)
+	}
+	fake.check = func(input Input, _ []string) {
+		if input.Prompt != "A pink circle\n\n保持光线柔和" {
+			t.Fatalf("provider prompt = %q", input.Prompt)
+		}
+	}
+	input := inputFor(p, session, "enhance-prompt-0001")
+	input.EnhancePrompt = true
+	task, err := s.Submit(ctx, 1, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if task.Prompt != "A pink circle\n\n保持光线柔和" {
+		t.Fatalf("task prompt = %q", task.Prompt)
+	}
+	var snap taskSnapshot
+	if err = json.Unmarshal([]byte(task.Snapshot), &snap); err != nil {
+		t.Fatal(err)
+	}
+	if snap.Input.BasePrompt != "A pink circle" || snap.Input.Prompt != task.Prompt {
+		t.Fatalf("snapshot input = %+v", snap.Input)
+	}
+	if _, err = s.SavePromptEnhancement(ctx, PromptEnhancement{Enabled: true, Prompt: "改后的要求"}); err != nil {
+		t.Fatal(err)
+	}
+	s.runOne(ctx)
 }
 
 func TestUserImageSizeIsNotBoundByProviderList(t *testing.T) {

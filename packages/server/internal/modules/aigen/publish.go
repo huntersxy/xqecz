@@ -17,13 +17,25 @@ import (
 
 func (h *Handler) publish(c *gin.Context) {
 	var req struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		Consent     bool   `json:"public_consent"`
+		Title        string   `json:"title"`
+		Description  string   `json:"description"`
+		Tags         []string `json:"tags"`
+		AutoMetadata bool     `json:"auto_metadata"`
+		Consent      bool     `json:"public_consent"`
 	}
-	if bind(c, &req) != nil || !req.Consent || len([]rune(strings.TrimSpace(req.Title))) < 1 || len([]rune(req.Title)) > 200 || len([]rune(req.Description)) > 10000 {
+	if bind(c, &req) != nil || !req.Consent || (!req.AutoMetadata && len([]rune(strings.TrimSpace(req.Title))) < 1) || len([]rune(req.Title)) > 200 || len([]rune(req.Description)) > 10000 || len(req.Tags) > 16 {
 		fail(c, core.ErrInvalid)
 		return
+	}
+	if req.AutoMetadata && h.deps.Vision == nil {
+		web.SoftFail(c, 400, "视觉生成服务暂不可用，请关闭自动标题与标签后手动填写")
+		return
+	}
+	for _, tag := range req.Tags {
+		if len([]rune(strings.TrimSpace(tag))) > 40 {
+			fail(c, core.ErrInvalid)
+			return
+		}
 	}
 	var asset core.Asset
 	if err := h.db(c).Where("id = ? AND user_id = ? AND archived = ? AND task_id <> 0", pathID(c), uid(c), false).First(&asset).Error; err != nil {
@@ -51,7 +63,7 @@ func (h *Handler) publish(c *gin.Context) {
 	}
 	var existing uint64
 	already := errors.New("already linked")
-	item, err := h.content.PublishAI(c.Request.Context(), uid(c), req.Title, req.Description, rel, target, asset.Bytes, web.MustIdentity(c).IsAdmin, func(tx *gorm.DB, id uint64) error {
+	item, err := h.content.PublishAI(c.Request.Context(), uid(c), req.Title, req.Description, req.Tags, req.AutoMetadata, rel, target, asset.Bytes, web.MustIdentity(c).IsAdmin, func(tx *gorm.DB, id uint64) error {
 		var locked core.Asset
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&locked, asset.ID).Error; err != nil {
 			return err

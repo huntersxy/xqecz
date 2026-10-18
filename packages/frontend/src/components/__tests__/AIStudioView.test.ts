@@ -90,6 +90,7 @@ beforeEach(() => {
   localStorage.clear()
   api.confirm.mockResolvedValue(true)
   api.config.mockResolvedValue({
+    prompt_enhancement: { enabled: true, prompt: '补充画面细节' },
     providers: [
       {
         id: 1,

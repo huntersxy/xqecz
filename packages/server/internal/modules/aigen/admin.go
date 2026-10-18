@@ -55,6 +55,27 @@ func (h *Handler) adminProviders(c *gin.Context) {
 	}
 	ok(c, out)
 }
+func (h *Handler) adminPromptEnhancement(c *gin.Context) {
+	row, err := h.s.PromptEnhancement(c.Request.Context())
+	if err != nil {
+		fail(c, err)
+		return
+	}
+	ok(c, row)
+}
+func (h *Handler) savePromptEnhancement(c *gin.Context) {
+	var req core.PromptEnhancement
+	if bind(c, &req) != nil {
+		fail(c, core.ErrInvalid)
+		return
+	}
+	row, err := h.s.SavePromptEnhancement(c.Request.Context(), req)
+	if err != nil {
+		fail(c, err)
+		return
+	}
+	ok(c, row)
+}
 func (h *Handler) saveProvider(c *gin.Context) {
 	var req providerRequest
 	if bind(c, &req) != nil {

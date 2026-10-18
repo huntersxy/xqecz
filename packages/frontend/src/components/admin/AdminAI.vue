@@ -19,6 +19,7 @@ const tab = ref('providers'),
   tasks = ref<AITaskView[]>([]),
   ideas = ref<AIIdeaView[]>([]),
   resources = ref<CreativeResource[]>([]),
+  promptEnhancement = ref({ enabled: true, prompt: '' }),
   ledger = ref<z.infer<typeof AILedgerSchema>[]>([]),
   error = ref(''),
   loading = ref(false),
@@ -40,6 +41,7 @@ const providerOpen = ref(false),
   selected = ref<number[]>([])
 const assetError = ref(''),
   assetSaving = ref(false)
+const promptEnhancementSaving = ref(false)
 const assetLicenseChoice = ref('')
 const previewAsset = ref<{ id: number; title: string } | null>(null)
 const resolveError = ref(''),
@@ -176,7 +178,7 @@ async function run(fn: () => Promise<unknown>) {
 async function load() {
   loading.value = true
   try {
-    const [p, a, t, i, r, l, users] = await Promise.all([
+    const [p, a, t, i, r, l, users, enhancement] = await Promise.all([
       aiApi.providers(),
       aiApi.adminAssets(),
       aiApi.adminTasks(),
@@ -184,6 +186,7 @@ async function load() {
       creativeApi.adminResources(),
       aiApi.adminLedger(),
       aiApi.grantUsers(),
+      aiApi.adminPromptEnhancement(),
     ])
     if (stopped) return
     providers.value = p
@@ -193,10 +196,19 @@ async function load() {
     resources.value = r
     ledger.value = l
     grantUsers.value = users
+    promptEnhancement.value = enhancement
     await queryRows()
   } finally {
     loading.value = false
   }
+}
+async function savePromptEnhancement() {
+  if (promptEnhancementSaving.value) return
+  promptEnhancementSaving.value = true
+  await run(async () => {
+    promptEnhancement.value = await aiApi.savePromptEnhancement(promptEnhancement.value)
+  })
+  promptEnhancementSaving.value = false
 }
 function editResource(row: CreativeResource | null) {
   editingResource.value = row
@@ -409,7 +421,18 @@ onBeforeUnmount(() => {
       </div>
       <div v-if="error" class="creative-error">{{ error }}</div>
       <template v-if="tab === 'providers'"
-        ><a-button type="primary" @click="editProvider(null)">添加供应商</a-button>
+        ><div class="creative-box prompt-enhancement-admin">
+          <div class="creative-actions">
+            <div>
+              <h3>提示词增强</h3>
+              <p class="creative-note">勾选后会把这段固定要求追加到用户提示词末尾。所有用户可在工作台悬浮查看。</p>
+            </div>
+            <a-button type="primary" :loading="promptEnhancementSaving" @click="savePromptEnhancement">保存提示词</a-button>
+          </div>
+          <a-checkbox v-model="promptEnhancement.enabled">允许用户使用提示词增强（工作台默认勾选）</a-checkbox>
+          <a-textarea v-model="promptEnhancement.prompt" :maxlength="4000" :auto-size="{ minRows: 3, maxRows: 8 }" aria-label="提示词增强内容" />
+        </div>
+        <a-button type="primary" @click="editProvider(null)">添加供应商</a-button>
         <div v-for="p in providers" :key="p.id" class="admin-ai-row">
           <div>
             <strong>{{ p.name }}</strong>
