@@ -709,4 +709,49 @@ body[arco-theme='dark'] .app-header {
 @keyframes public-page-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 .app-mobile-brand { flex: 1; min-width: 0; color: var(--creative-ink); font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; }
 .app-mobile-brand > span { color: var(--creative-accent); margin-left: 4px; font-size: 10px; }
+
+/* Shared gallery chrome: every page keeps the same quiet paper bar as the
+   gallery home. The active route is a solid ink pill, so navigation remains
+   legible even when a page adds its own dense controls below it. */
+.app-header {
+  height: 64px;
+  background: var(--creative-paper);
+  border-bottom: 1px solid var(--creative-line);
+  box-shadow: none;
+}
+.app-header-inner { height: 64px; max-width: none; padding-inline: 28px; }
+.app-logo { margin-inline: -8px 22px; padding: 6px 8px; border-radius: 999px; }
+.app-logo:hover { background: var(--creative-canvas); box-shadow: none; transform: none; }
+.app-logo-img { height: 28px; }
+.app-nav-space { gap: 2px; }
+.app-nav-item {
+  height: 32px;
+  padding-inline: 13px;
+  border-radius: 999px;
+  color: var(--creative-muted) !important;
+  font-size: 11px;
+  letter-spacing: .04em;
+}
+.app-nav-item:hover { color: var(--creative-ink) !important; background: var(--creative-canvas) !important; transform: none; }
+.app-public-theme .app-nav-item.app-nav-item-active {
+  color: var(--creative-paper) !important;
+  background: var(--creative-ink) !important;
+}
+.app-search-input { margin-left: auto; max-width: 300px; }
+.app-header-right { margin-left: 14px; }
+.app-header .app-theme-btn { width: 32px; height: 32px; }
+.app-header .app-login-link { min-height: 32px; padding-inline: 12px; font-size: 11px; }
+.app-header .app-user-trigger { min-height: 32px; padding: 3px 8px 3px 4px; }
+.app-public-theme .app-footer { background: var(--creative-canvas); }
+
+@media (max-width: 768px) {
+  .app-header, .app-header-inner { height: 60px; }
+  .app-header-inner { padding-inline: 16px; }
+  .app-logo { margin-inline: -6px auto 0; }
+  .app-logo-img { height: 26px; }
+  .app-header .app-login-link { min-height: 32px; }
+  .app-layout > main { padding-top: 60px; }
+  .app-layout > main.admin-main { padding-top: 60px; }
+  .app-layout.home-gallery-mode > main { padding-top: 0; }
+}
 </style>

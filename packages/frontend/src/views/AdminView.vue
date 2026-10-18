@@ -232,18 +232,18 @@ body[arco-theme='dark'] .admin-theme {
 .admin-shell {
   display: flex;
   align-items: flex-start;
-  min-height: calc(100vh - 72px);
+  min-height: calc(100vh - 64px);
   background: var(--admin-canvas);
   color: var(--admin-text);
 }
 
 // ── 侧边栏 ──
 .admin-side {
-  width: 240px;
+  width: 248px;
   flex-shrink: 0;
   position: sticky;
-  top: 72px;
-  height: calc(100vh - 72px);
+  top: 64px;
+  height: calc(100vh - 64px);
   background: var(--admin-surface);
   border-right: 1px solid var(--admin-border-soft);
 }
@@ -258,14 +258,14 @@ body[arco-theme='dark'] .admin-theme {
 
 .admin-topbar {
   position: sticky;
-  top: 72px;
+  top: 64px;
   z-index: 40;
-  height: 56px;
+  height: 52px;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 0 24px;
-  background: color-mix(in srgb, var(--admin-canvas) 92%, transparent);
+  background: color-mix(in srgb, var(--admin-canvas) 96%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--admin-border-soft);
@@ -314,7 +314,7 @@ body[arco-theme='dark'] .admin-theme {
 
 .admin-content {
   flex: 1;
-  padding: 24px;
+  padding: 28px 32px 48px;
 }
 
 .admin-page {
@@ -322,10 +322,10 @@ body[arco-theme='dark'] .admin-theme {
   margin: 0 auto;
 }
 
-.admin-intro { max-width: 1120px; margin: 4px auto 28px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.admin-intro { max-width: 1120px; margin: 2px auto 30px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .admin-intro-label { color: var(--admin-primary); font-size: 10px; letter-spacing: .18em; }
 .admin-intro-label span { margin-left: 8px; }
-.admin-intro h1 { margin: 10px 0 8px; font-size: clamp(22px, 2.2vw, 30px); font-weight: 600; letter-spacing: .03em; }
+.admin-intro h1 { margin: 10px 0 8px; font-family: var(--creative-title-font); font-size: clamp(24px, 2.2vw, 34px); font-weight: 600; letter-spacing: .03em; }
 .admin-intro p { color: var(--admin-text-2); font-size: 13px; line-height: 1.8; }
 .admin-intro-art { width: 150px; flex-shrink: 0; stroke: var(--admin-primary); stroke-width: 1.2; opacity: .55; pointer-events: none; }
 
@@ -353,7 +353,7 @@ body[arco-theme='dark'] .admin-theme {
   }
 
   .admin-topbar {
-    top: 62px;
+    top: 60px;
     padding: 0 16px;
   }
 
@@ -367,6 +367,6 @@ body[arco-theme='dark'] .admin-theme {
   .admin-intro { margin: 8px 4px 22px; }
   .admin-intro-art { width: 72px; }
   .admin-intro-label { font-size: 9px; letter-spacing: .1em; }
-  .admin-shell { min-height: calc(100vh - 62px); }
+  .admin-shell { min-height: calc(100vh - 60px); }
 }
 </style>

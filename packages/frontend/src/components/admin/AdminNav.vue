@@ -95,7 +95,7 @@ const emit = defineEmits<{
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 20px 20px 16px;
+  padding: 22px 20px 18px;
 }
 
 .admin-nav-mark {
@@ -104,7 +104,7 @@ const emit = defineEmits<{
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: 50%;
+  border-radius: 12px;
   font-size: 18px;
   color: var(--admin-primary);
   background: var(--admin-primary-soft);
@@ -119,7 +119,8 @@ const emit = defineEmits<{
   min-width: 0;
 
   strong {
-    font-size: 14px;
+    font-family: var(--creative-title-font);
+    font-size: 16px;
     font-weight: 600;
     color: var(--admin-text);
     letter-spacing: -0.01em;
@@ -175,8 +176,8 @@ const emit = defineEmits<{
   }
 
   &.is-active {
-    background: var(--admin-primary-soft);
-    color: var(--admin-primary);
+    background: var(--creative-ink);
+    color: var(--creative-paper);
     font-weight: 500;
   }
 }
