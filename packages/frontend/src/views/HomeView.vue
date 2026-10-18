@@ -47,7 +47,7 @@ const listCache = useListCache()
 const showUploadSheet = ref(false)
 const mobileSidebarOpen = ref(false)
 const searchDraft = ref('')
-const feedMode = ref<'recommended' | 'latest' | 'popular'>('recommended')
+const feedMode = ref<'recommended' | 'latest' | 'popular'>('latest')
 const feedRef = ref<HTMLElement | null>(null)
 const featuredRef = ref<HTMLElement | null>(null)
 
