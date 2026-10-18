@@ -8,45 +8,30 @@ import { useIntersectionObserver } from '@vueuse/core'
 import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { contentApi } from '@/api'
 import { useHomeStore } from '@/stores/home'
-import { useUserStore } from '@/stores/user'
-import { useThemeStore } from '@/stores/theme'
 import { useRecommendLoader } from '@/composables/useRecommendLoader'
 import { useSearchFilter } from '@/composables/useSearchFilter'
 import { watchGlobalSearch } from '@/composables/useGlobalSearch'
 import { useWaterfallLayout } from '@/composables/useWaterfallLayout'
 import { useListCache, diffLists } from '@/composables/useListCache'
 import { scrollBehavior } from '@/utils'
-import { revealOriginFrom, withRevealTransition } from '@/utils/viewTransition'
 import { ContentSchema } from '@/types/schemas'
 import WaterfallCard from '@/components/WaterfallCard.vue'
 import MediaImage from '@/components/MediaImage.vue'
-import UserAvatar from '@/components/UserAvatar.vue'
 import QuickUploadSheet from '@/components/QuickUploadSheet.vue'
 import {
   IconArrowRight,
-  IconBarChart,
-  IconHome,
   IconImage,
-  IconMenu,
-  IconMoon,
   IconPlus,
   IconRefresh,
-  IconSearch,
-  IconSettings,
-  IconSun,
-  IconUpload,
 } from '@arco-design/web-vue/es/icon'
 import type { Content, ListParams, RecommendContent } from '@/types'
 
 const router = useRouter()
 const homeStore = useHomeStore()
-const userStore = useUserStore()
-const themeStore = useThemeStore()
 const recommendLoader = useRecommendLoader()
 const searchFilter = useSearchFilter()
 const listCache = useListCache()
 const showUploadSheet = ref(false)
-const mobileSidebarOpen = ref(false)
 const searchDraft = ref('')
 const feedMode = ref<'recommended' | 'latest' | 'popular'>('latest')
 const feedRef = ref<HTMLElement | null>(null)
@@ -58,18 +43,8 @@ const featuredWorks = computed(() => {
   return recommendLoader.recommendContents.value.slice(start, start + 8)
 })
 
-function closeMobileSidebar() {
-  mobileSidebarOpen.value = false
-}
-
-function toggleGalleryTheme(event: MouseEvent) {
-  const button = ((event.target as Element | null)?.closest?.('.gallery-theme-toggle') as Element | null) ?? null
-  withRevealTransition(() => themeStore.toggleMode(), revealOriginFrom(event, button))
-}
-
 function submitSearch() {
   homeStore.searchKeyword = searchDraft.value.trim()
-  closeMobileSidebar()
   resetAndLoad(false)
 }
 
@@ -78,17 +53,14 @@ function selectFeedMode(mode: 'recommended' | 'latest' | 'popular') {
   feedMode.value = mode
   if (mode === 'recommended') {
     if (previousMode === 'popular') resetAndLoad(false)
-    closeMobileSidebar()
     featuredRef.value?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
     return
   }
-  closeMobileSidebar()
   resetAndLoad(false)
   nextTick(() => scrollToFeed())
 }
 
 function goToUpload() {
-  closeMobileSidebar()
   showUploadSheet.value = true
 }
 
@@ -514,144 +486,7 @@ onActivated(() => {
 </script>
 
 <template>
-  <div class="gallery-home creative-theme" :class="{ 'is-mobile-sidebar-open': mobileSidebarOpen }">
-    <div class="gallery-mobile-topbar">
-      <button class="gallery-mobile-menu" type="button" aria-label="打开导航" @click="mobileSidebarOpen = true">
-        <IconMenu />
-      </button>
-      <RouterLink to="/" class="gallery-mobile-brand">小泉宇宙</RouterLink>
-      <button class="gallery-mobile-upload" type="button" aria-label="发布作品" @click="goToUpload">
-        <IconPlus />
-      </button>
-    </div>
-
-    <aside class="gallery-sidebar" aria-label="作品广场导航">
-      <div class="gallery-brand-row">
-        <button
-          class="gallery-theme-toggle"
-          type="button"
-          :aria-label="themeStore.mode === 'dark' ? '切换到日间模式' : '切换到暗色模式'"
-          @click="toggleGalleryTheme"
-        >
-          <IconSun v-if="themeStore.mode === 'dark'" />
-          <IconMoon v-else />
-        </button>
-        <RouterLink to="/" class="gallery-brand-link" @click="closeMobileSidebar">
-          <strong>小泉宇宙</strong>
-          <span>二创画廊</span>
-        </RouterLink>
-      </div>
-
-      <div class="gallery-primary-switch" aria-label="主要入口">
-        <RouterLink
-          to="/studio"
-          class="gallery-primary-link"
-          active-class="is-active"
-          exact-active-class="is-active"
-          @click="closeMobileSidebar"
-        >
-          <IconUpload />
-          <span>工作台</span>
-        </RouterLink>
-        <RouterLink
-          to="/"
-          class="gallery-primary-link"
-          active-class="is-active"
-          exact-active-class="is-active"
-          @click="closeMobileSidebar"
-        >
-          <IconHome />
-          <span>作品广场</span>
-        </RouterLink>
-      </div>
-
-      <nav class="gallery-side-nav" aria-label="发现">
-        <p class="gallery-side-label">发现</p>
-        <button class="gallery-side-link" :class="{ 'is-active': feedMode === 'recommended' }" type="button" @click="selectFeedMode('recommended')">
-          <IconHome />
-          <span>推荐</span>
-        </button>
-        <button class="gallery-side-link" :class="{ 'is-active': feedMode === 'latest' }" type="button" @click="selectFeedMode('latest')">
-          <IconArrowRight />
-          <span>最新发布</span>
-        </button>
-        <button class="gallery-side-link" :class="{ 'is-active': feedMode === 'popular' }" type="button" @click="selectFeedMode('popular')">
-          <IconBarChart />
-          <span>热门作品</span>
-        </button>
-        <RouterLink to="/ideas" class="gallery-side-link" @click="closeMobileSidebar">
-          <IconPlus />
-          <span>创意广场</span>
-        </RouterLink>
-      </nav>
-
-      <div class="gallery-side-library">
-        <p class="gallery-side-label">我的库</p>
-        <RouterLink v-if="userStore.isLoggedIn" to="/admin" class="gallery-side-link" @click="closeMobileSidebar">
-          <IconSettings />
-          <span>我的内容</span>
-        </RouterLink>
-        <RouterLink v-else to="/login" class="gallery-library-note" @click="closeMobileSidebar">
-          登录后查看收藏和发布
-          <IconArrowRight />
-        </RouterLink>
-      </div>
-
-      <div class="gallery-sidebar-bottom">
-        <button class="gallery-publish-button" type="button" @click="goToUpload">
-          <IconUpload />
-          <span>发布作品</span>
-        </button>
-        <RouterLink v-if="!userStore.isLoggedIn" to="/login" class="gallery-user-row" @click="closeMobileSidebar">
-          <span class="gallery-user-avatar"><IconSettings /></span>
-          <span><strong>登录 / 注册</strong><small>保存你的创作</small></span>
-        </RouterLink>
-        <div v-else class="gallery-user-row">
-          <UserAvatar :size="32" :email="userStore.user?.email" :username="userStore.user?.username" />
-          <span><strong>{{ userStore.user?.username }}</strong><small>创作者</small></span>
-        </div>
-      </div>
-    </aside>
-
-    <button v-if="mobileSidebarOpen" class="gallery-sidebar-scrim" type="button" aria-label="关闭导航" @click="closeMobileSidebar"></button>
-
-    <main class="gallery-main" role="main">
-      <header class="gallery-topbar">
-        <div class="gallery-page-tabs" role="tablist" aria-label="页面视图">
-          <button
-            class="gallery-page-tab"
-            :class="{ 'is-active': feedMode !== 'popular' }"
-            type="button"
-            role="tab"
-            :aria-selected="feedMode !== 'popular'"
-            @click="feedMode === 'popular' ? selectFeedMode('latest') : scrollToFeed()"
-          >首页</button>
-          <button
-            class="gallery-page-tab"
-            :class="{ 'is-active': feedMode === 'popular' }"
-            type="button"
-            role="tab"
-            :aria-selected="feedMode === 'popular'"
-            @click="selectFeedMode('popular')"
-          >发现</button>
-        </div>
-        <div class="gallery-top-actions">
-          <label class="gallery-search">
-            <IconSearch aria-hidden="true" />
-            <input v-model="searchDraft" type="search" placeholder="搜索作品、提示词、标签或用户" @keydown.enter.prevent="submitSearch" />
-            <kbd>/</kbd>
-          </label>
-          <button class="gallery-theme-toggle gallery-theme-toggle-main" type="button" :aria-label="themeStore.mode === 'dark' ? '切换到日间模式' : '切换到暗色模式'" @click="toggleGalleryTheme">
-            <IconSun v-if="themeStore.mode === 'dark'" />
-            <IconMoon v-else />
-          </button>
-          <RouterLink v-if="!userStore.isLoggedIn" to="/login" class="gallery-login-link">登录</RouterLink>
-          <RouterLink v-else to="/admin" class="gallery-top-avatar" aria-label="打开我的内容">
-            <UserAvatar :size="32" :email="userStore.user?.email" :username="userStore.user?.username" />
-          </RouterLink>
-        </div>
-      </header>
-
+  <div class="gallery-home-content">
       <div class="gallery-content">
         <section class="gallery-intro" aria-labelledby="home-title">
           <div>
@@ -733,15 +568,13 @@ onActivated(() => {
           <div v-if="!hasMore && allContents.length > 0" class="gallery-end">已经看到这里了</div>
         </section>
       </div>
-    </main>
-
     <button class="gallery-mobile-publish" type="button" aria-label="发布作品" @click="goToUpload"><IconPlus /></button>
     <QuickUploadSheet :open="showUploadSheet" @close="showUploadSheet = false" @uploaded="onUploaded" />
   </div>
 </template>
 
 <style scoped>
-.gallery-home {
+.gallery-home-content {
   --gallery-title-font: Georgia, 'Songti SC', 'SimSun', serif;
   --gallery-canvas: #ebe4e1;
   --gallery-paper: #fffdf9;
@@ -751,14 +584,12 @@ onActivated(() => {
   --gallery-soft: #f1e9e6;
   --gallery-accent: #6b173b;
   --gallery-accent-soft: #efe1e5;
-  display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  min-height: 100vh;
-  background: var(--gallery-canvas);
+  min-width: 0;
   color: var(--gallery-ink);
   font-family: var(--font-sans);
 }
-body[arco-theme='dark'] .gallery-home {
+.gallery-mobile-publish { display: none; }
+body[arco-theme='dark'] .gallery-home-content {
   --gallery-canvas: #211b1e;
   --gallery-paper: #2b2427;
   --gallery-ink: #f8f0ed;
@@ -768,344 +599,10 @@ body[arco-theme='dark'] .gallery-home {
   --gallery-accent: #f0a8bb;
   --gallery-accent-soft: #4a303a;
 }
-.gallery-sidebar {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  height: 100vh;
-  padding: 28px 20px 20px;
-  background: var(--gallery-paper);
-  border-right: 1px solid var(--gallery-line);
-}
-.gallery-brand-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 13px;
-  min-width: 0;
-}
-.gallery-brand-link {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  color: var(--gallery-ink);
-  text-decoration: none;
-}
-.gallery-brand-link strong {
-  font: 600 26px/1.05 var(--gallery-title-font);
-  letter-spacing: -.02em;
-}
-.gallery-brand-link span {
-  color: var(--gallery-muted);
-  font-size: 10px;
-  letter-spacing: .14em;
-}
-.gallery-theme-toggle {
-  display: inline-grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--gallery-accent);
-  cursor: pointer;
-  transition: background .18s ease, transform .18s ease;
-}
-.gallery-theme-toggle:hover {
-  background: var(--gallery-accent-soft);
-  transform: rotate(-12deg);
-}
-.gallery-theme-toggle:active { transform: rotate(-12deg) scale(.93); }
-.gallery-theme-toggle :deep(svg) { width: 17px; height: 17px; }
-.gallery-primary-switch {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
-  margin-top: 34px;
-  padding: 4px;
-  border-radius: 14px;
-  background: var(--gallery-soft);
-}
-.gallery-primary-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-width: 0;
-  min-height: 40px;
-  padding: 0 8px;
-  border-radius: 10px;
-  color: var(--gallery-muted);
-  text-decoration: none;
-  font-size: 11px;
-  transition: background .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease;
-}
-.gallery-primary-link :deep(svg) { width: 15px; height: 15px; }
-.gallery-primary-link:hover { color: var(--gallery-ink); }
-.gallery-primary-link:active { transform: scale(.98); }
-.gallery-primary-link.is-active {
-  color: #fff;
-  background: var(--gallery-ink);
-  box-shadow: 0 5px 12px rgba(32, 27, 28, .12);
-}
-body[arco-theme='dark'] .gallery-primary-link.is-active {
-  color: #2b2023;
-  background: var(--gallery-ink);
-}
-.gallery-side-nav,
-.gallery-side-library {
-  display: grid;
-  gap: 4px;
-  margin-top: 42px;
-}
-.gallery-side-library {
-  margin-top: 28px;
-}
-.gallery-side-label {
-  margin: 0 0 7px 11px;
-  color: var(--gallery-muted);
-  font-size: 10px;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-}
-.gallery-side-link {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  min-height: 38px;
-  padding: 0 11px;
-  border: 0;
-  border-radius: 9px;
-  background: transparent;
-  color: var(--gallery-muted);
-  font: inherit;
-  font-size: 12px;
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background .18s ease, color .18s ease, transform .18s ease;
-}
-.gallery-side-link :deep(svg) {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 auto;
-}
-.gallery-side-link:hover {
-  color: var(--gallery-ink);
-  background: var(--gallery-soft);
-  transform: translateX(2px);
-}
-.gallery-side-link:active { transform: translateX(1px) scale(.98); }
-.gallery-side-link.is-active {
-  color: var(--gallery-accent);
-  background: var(--gallery-accent-soft);
-  font-weight: 600;
-}
-.gallery-library-note {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 11px;
-  color: var(--gallery-muted);
-  font-size: 11px;
-  line-height: 1.6;
-  text-decoration: none;
-  transition: color .18s ease, transform .18s ease;
-}
-.gallery-library-note:hover { color: var(--gallery-accent); }
-.gallery-library-note:active { transform: translateX(1px) scale(.99); }
-.gallery-library-note :deep(svg) { width: 14px; height: 14px; flex: 0 0 auto; }
-.gallery-sidebar-bottom {
-  display: grid;
-  gap: 16px;
-  margin-top: auto;
-}
-.gallery-publish-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 44px;
-  border: 0;
-  border-radius: 12px;
-  background: var(--gallery-ink);
-  color: var(--gallery-paper);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
-}
-.gallery-publish-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 9px 22px rgba(32, 27, 28, .16);
-}
-.gallery-publish-button:active { transform: translateY(0) scale(.98); }
-.gallery-publish-button :deep(svg) { width: 16px; height: 16px; }
-.gallery-user-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  color: var(--gallery-ink);
-  text-decoration: none;
-  transition: color .18s ease;
-}
-.gallery-user-row:hover { color: var(--gallery-accent); }
-.gallery-user-avatar {
-  display: inline-grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--gallery-soft);
-  color: var(--gallery-muted);
-}
-.gallery-user-avatar :deep(svg) { width: 15px; height: 15px; }
-.gallery-user-row > span:last-child {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-.gallery-user-row strong {
-  overflow: hidden;
-  color: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.gallery-user-row small {
-  color: var(--gallery-muted);
-  font-size: 10px;
-}
-.gallery-main {
-  min-width: 0;
-  background: var(--gallery-canvas);
-}
-.gallery-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  min-height: 84px;
-  padding: 0 clamp(24px, 4vw, 64px);
-}
-.gallery-page-tabs {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-}
-.gallery-page-tab {
-  position: relative;
-  padding: 8px 0 11px;
-  border: 0;
-  background: transparent;
-  color: var(--gallery-muted);
-  font: 600 25px/1 var(--gallery-title-font);
-  cursor: pointer;
-  transition: color .18s ease, transform .18s ease;
-}
-.gallery-page-tab:hover { color: var(--gallery-ink); }
-.gallery-page-tab:active { transform: scale(.98); }
-.gallery-page-tab::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--gallery-accent);
-  transform: scaleX(0);
-  transform-origin: center;
-  transition: transform .2s ease;
-}
-.gallery-page-tab.is-active { color: var(--gallery-ink); }
-.gallery-page-tab.is-active::after { transform: scaleX(1); }
-.gallery-top-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-.gallery-search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: min(320px, 28vw);
-  min-width: 180px;
-  height: 42px;
-  padding: 0 10px 0 14px;
-  border: 1px solid transparent;
-  border-radius: 14px;
-  background: var(--gallery-paper);
-  color: var(--gallery-muted);
-  transition: border-color .18s ease, box-shadow .18s ease;
-}
-.gallery-search:focus-within {
-  border-color: color-mix(in srgb, var(--gallery-accent) 48%, transparent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--gallery-accent) 9%, transparent);
-}
-.gallery-search :deep(svg) { width: 16px; height: 16px; flex: 0 0 auto; }
-.gallery-search input {
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--gallery-ink);
-  font: inherit;
-  font-size: 11px;
-}
-.gallery-search input::placeholder { color: var(--gallery-muted); opacity: .9; }
-.gallery-search kbd {
-  flex: 0 0 auto;
-  padding: 2px 6px;
-  border: 1px solid var(--gallery-line);
-  border-radius: 5px;
-  color: var(--gallery-muted);
-  font: 10px/1.3 var(--font-sans);
-}
-.gallery-theme-toggle-main {
-  background: var(--gallery-paper);
-}
-.gallery-login-link,
-.gallery-top-avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 38px;
-  color: var(--gallery-ink);
-  text-decoration: none;
-}
-.gallery-login-link {
-  padding: 0 13px;
-  border: 1px solid var(--gallery-line);
-  border-radius: 10px;
-  font-size: 11px;
-  transition: color .18s ease, border-color .18s ease, transform .18s ease;
-}
-.gallery-login-link:hover {
-  border-color: var(--gallery-accent);
-  color: var(--gallery-accent);
-}
-.gallery-login-link:active { transform: scale(.98); }
-.gallery-top-avatar {
-  border-radius: 50%;
-  transition: transform .18s ease;
-}
-.gallery-top-avatar:hover { transform: translateY(-2px); }
 .gallery-content {
-  width: min(100%, 1680px);
-  margin: 0 auto;
-  padding: 0 clamp(24px, 4vw, 64px) 76px;
+  width: 100%;
+  margin: 0;
+  padding: 0 0 76px;
 }
 .gallery-intro {
   display: flex;
@@ -1408,114 +905,30 @@ body[arco-theme='dark'] .gallery-primary-link.is-active {
   text-align: center;
   letter-spacing: .06em;
 }
-.gallery-mobile-topbar,
-.gallery-mobile-publish,
-.gallery-sidebar-scrim {
-  display: none;
-}
-.gallery-home button:focus-visible,
-.gallery-home a:focus-visible,
-.gallery-home input:focus-visible {
+
+.gallery-home-content button:focus-visible,
+.gallery-home-content a:focus-visible,
+.gallery-home-content input:focus-visible {
   outline: 2px solid var(--gallery-accent);
   outline-offset: 3px;
 }
 @keyframes gallery-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .gallery-home *,
-  .gallery-home *::before,
-  .gallery-home *::after {
+  .gallery-home-content *,
+  .gallery-home-content *::before,
+  .gallery-home-content *::after {
     scroll-behavior: auto !important;
     transition-duration: .01ms !important;
     animation-duration: .01ms !important;
   }
 }
 @media (max-width: 1100px) {
-  .gallery-home { grid-template-columns: 232px minmax(0, 1fr); }
-  .gallery-sidebar { padding-inline: 15px; }
-  .gallery-primary-link { font-size: 10px; }
-  .gallery-content { padding-inline: 32px; }
-  .gallery-topbar { padding-inline: 32px; }
+  .gallery-content { padding-inline: 0; }
   .gallery-intro { align-items: flex-start; flex-direction: column; }
   .gallery-intro-stats { justify-content: flex-start; }
 }
 @media (max-width: 820px) {
-  .gallery-home {
-    display: block;
-    min-height: 100dvh;
-  }
-  .gallery-sidebar {
-    position: fixed;
-    inset: 0 auto 0 0;
-    width: min(82vw, 300px);
-    transform: translateX(-104%);
-    transition: transform .24s cubic-bezier(.22, 1, .36, 1);
-    box-shadow: 12px 0 32px rgba(31, 24, 27, .14);
-  }
-  .gallery-home.is-mobile-sidebar-open .gallery-sidebar { transform: translateX(0); }
-  .gallery-sidebar-scrim {
-    position: fixed;
-    inset: 0;
-    z-index: 25;
-    display: block;
-    border: 0;
-    background: rgba(32, 25, 27, .32);
-    cursor: pointer;
-  }
-  .gallery-mobile-topbar {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    min-height: 58px;
-    padding: 0 16px;
-    background: color-mix(in srgb, var(--gallery-paper) 92%, transparent);
-    border-bottom: 1px solid var(--gallery-line);
-    backdrop-filter: blur(14px);
-  }
-  .gallery-mobile-brand {
-    color: var(--gallery-ink);
-    font: 600 20px/1 var(--gallery-title-font);
-    text-decoration: none;
-  }
-  .gallery-mobile-menu,
-  .gallery-mobile-upload {
-    display: inline-grid;
-    place-items: center;
-    width: 34px;
-    height: 34px;
-    padding: 0;
-    border: 0;
-    border-radius: 50%;
-    background: transparent;
-    color: var(--gallery-accent);
-    cursor: pointer;
-    transition: color .18s ease, background .18s ease, transform .18s ease;
-  }
-  .gallery-mobile-menu:hover,
-  .gallery-mobile-upload:hover { background: var(--gallery-accent-soft); }
-  .gallery-mobile-menu:active,
-  .gallery-mobile-upload:active { transform: scale(.92); }
-  .gallery-mobile-menu :deep(svg),
-  .gallery-mobile-upload :deep(svg) { width: 18px; height: 18px; }
-  .gallery-topbar {
-    min-height: 68px;
-    padding: 0 16px;
-  }
-  .gallery-topbar .gallery-theme-toggle-main,
-  .gallery-topbar .gallery-login-link,
-  .gallery-topbar .gallery-top-avatar {
-    display: none;
-  }
-  .gallery-top-actions { width: 100%; }
-  .gallery-search {
-    width: 100%;
-    min-width: 0;
-    height: 40px;
-  }
-  .gallery-page-tabs { display: none; }
-  .gallery-content { padding: 0 16px 60px; }
+  .gallery-content { padding: 0 0 60px; }
   .gallery-intro { padding-top: 9px; }
   .gallery-intro h1 { font-size: 39px; }
   .gallery-intro p { font-size: 11px; }
@@ -1550,9 +963,7 @@ body[arco-theme='dark'] .gallery-primary-link.is-active {
   .gallery-mobile-publish :deep(svg) { width: 20px; height: 20px; }
 }
 @media (max-width: 520px) {
-  .gallery-topbar { min-height: 60px; }
   .gallery-search kbd { display: none; }
-  .gallery-page-tab { font-size: 22px; }
   .gallery-section-heading h2,
   .gallery-feed-heading h2 { font-size: 19px; }
   .gallery-featured-strip { gap: 9px; grid-auto-columns: minmax(102px, 31vw); }

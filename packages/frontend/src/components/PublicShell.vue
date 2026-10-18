@@ -29,6 +29,11 @@ function closeMobile() {
   mobileOpen.value = false
 }
 
+function handlePublish() {
+  closeMobile()
+  void router.push('/quick-upload')
+}
+
 function toggleTheme(event: MouseEvent) {
   const target = ((event.target as Element | null)?.closest?.('.public-shell-theme') as Element | null) ?? null
   withRevealTransition(() => themeStore.toggleMode(), revealOriginFrom(event, target))
@@ -105,10 +110,10 @@ function submitSearch() {
       </div>
 
       <div class="public-shell-bottom">
-        <RouterLink to="/quick-upload" class="public-shell-publish" @click="closeMobile">
+        <button class="public-shell-publish" type="button" @click="handlePublish">
           <IconUpload />
           <span>发布作品</span>
-        </RouterLink>
+        </button>
         <RouterLink v-if="!userStore.isLoggedIn" to="/login" class="public-shell-user" @click="closeMobile">
           <span class="public-shell-user-mark"><IconSettings /></span>
           <span><strong>登录 / 注册</strong><small>保存你的创作</small></span>
