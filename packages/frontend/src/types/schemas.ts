@@ -64,6 +64,7 @@ export const AIAssetSchema = z.object({
   purpose: z.string(),
   public: z.boolean(),
   download_allowed: z.boolean(),
+  liked: z.boolean().default(false),
   archived: z.boolean(),
   content_id: z.number().nullable(),
   created_at: aiTime,

@@ -73,25 +73,28 @@ func (Ledger) TableName() string { return "ai_quota_ledger" }
 // Image bytes and filenames never change. Archive removes a library entry,
 // while existing tasks keep their validated reference snapshots readable.
 type Asset struct {
-	ID              uint64    `gorm:"primaryKey" json:"id"`
-	TaskID          uint64    `gorm:"index" json:"task_id"`
-	UserID          uint64    `gorm:"index;index:idx_ai_asset_digest,priority:1" json:"user_id"`
-	FileName        string    `gorm:"size:100" json:"-"`
-	PreviewFileName string    `gorm:"size:120" json:"-"`
-	Digest          string    `gorm:"size:64;index:idx_ai_asset_digest,priority:2" json:"-"`
-	Mime            string    `gorm:"size:40" json:"mime"`
-	Bytes           int64     `json:"bytes"`
-	Width           int       `json:"width"`
-	Height          int       `json:"height"`
-	Title           string    `gorm:"size:150" json:"title"`
-	Description     string    `gorm:"type:text" json:"description"`
-	License         string    `gorm:"size:300" json:"license"`
-	Purpose         string    `gorm:"size:80" json:"purpose"`
-	Public          bool      `gorm:"index" json:"public"`
-	DownloadAllowed bool      `json:"download_allowed"`
-	Archived        bool      `gorm:"index" json:"archived"`
-	ContentID       *uint64   `json:"content_id"`
-	CreatedAt       time.Time `json:"created_at"`
+	ID              uint64 `gorm:"primaryKey" json:"id"`
+	TaskID          uint64 `gorm:"index" json:"task_id"`
+	UserID          uint64 `gorm:"index;index:idx_ai_asset_digest,priority:1" json:"user_id"`
+	FileName        string `gorm:"size:100" json:"-"`
+	PreviewFileName string `gorm:"size:120" json:"-"`
+	Digest          string `gorm:"size:64;index:idx_ai_asset_digest,priority:2" json:"-"`
+	Mime            string `gorm:"size:40" json:"mime"`
+	Bytes           int64  `json:"bytes"`
+	Width           int    `json:"width"`
+	Height          int    `json:"height"`
+	Title           string `gorm:"size:150" json:"title"`
+	Description     string `gorm:"type:text" json:"description"`
+	License         string `gorm:"size:300" json:"license"`
+	Purpose         string `gorm:"size:80" json:"purpose"`
+	Public          bool   `gorm:"index" json:"public"`
+	DownloadAllowed bool   `json:"download_allowed"`
+	// Liked is the owner's private bookmark on generated results. It never
+	// changes public visibility and is only editable through the owner route.
+	Liked     bool      `gorm:"index" json:"liked"`
+	Archived  bool      `gorm:"index" json:"archived"`
+	ContentID *uint64   `json:"content_id"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 func (Asset) TableName() string { return "ai_assets" }

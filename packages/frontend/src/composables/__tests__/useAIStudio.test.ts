@@ -6,6 +6,7 @@ const mock = vi.hoisted(() => ({
   isAdmin: false,
   config: vi.fn(),
   sessions: vi.fn(),
+  session: vi.fn(),
   assets: vi.fn(),
   account: vi.fn(),
   tasks: vi.fn(),
@@ -15,6 +16,7 @@ const mock = vi.hoisted(() => ({
   createSession: vi.fn(),
   upload: vi.fn(),
   archive: vi.fn(),
+  setLiked: vi.fn(),
 }))
 vi.mock('@/api/creative', () => ({ aiApi: mock }))
 vi.mock('@/stores/user', () => ({
@@ -62,6 +64,7 @@ beforeEach(() => {
     ],
   })
   mock.sessions.mockResolvedValue([session()])
+  mock.session.mockImplementation(async (id: number) => ({ ...session(), id }))
   mock.assets.mockResolvedValue([])
   mock.account.mockResolvedValue({ user_id: 1, available: 10, reserved: 0 })
   mock.tasks.mockResolvedValue([])
@@ -72,6 +75,7 @@ beforeEach(() => {
   )
   mock.submit.mockResolvedValue({ id: 1 })
   mock.createSession.mockResolvedValue({ ...session(), id: 2 })
+  mock.setLiked.mockImplementation(async (id: number, liked: boolean) => ({ id, liked }))
 })
 afterEach(() => {
   vi.useRealTimers()
@@ -232,6 +236,51 @@ describe('AI studio persistence', () => {
     mock.quote.mockResolvedValueOnce({ cost: 3 })
     await expect(studio.generate()).rejects.toThrow('价格已变化')
     expect(mock.submit).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+  it('saves before switching workspaces and scopes the task list', async () => {
+    mock.sessions.mockResolvedValue([session(), { ...session(), id: 2, name: '工作区 B' }])
+    const { wrapper, studio } = await setup()
+    studio.prompt.value = '当前草稿'
+    await vi.advanceTimersByTimeAsync(900)
+    await studio.switchSession(2)
+    expect(mock.saveSession).toHaveBeenCalledWith(
+      1,
+      expect.any(String),
+      expect.any(Object),
+      expect.any(Number),
+      expect.any(AbortSignal),
+    )
+    expect(mock.session).toHaveBeenCalledWith(2, expect.any(AbortSignal))
+    expect(studio.sessionId.value).toBe(2)
+    expect(mock.tasks).toHaveBeenLastCalledWith(
+      expect.objectContaining({ session_id: 2 }),
+      expect.any(AbortSignal),
+    )
+    wrapper.unmount()
+  })
+  it('creates an explicit new workspace and loads its empty task list', async () => {
+    const { wrapper, studio } = await setup()
+    await studio.createWorkspace('灵感')
+    expect(mock.createSession).toHaveBeenCalledWith('灵感', true)
+    expect(studio.sessionId.value).toBe(2)
+    expect(studio.sessions.value[0]?.id).toBe(2)
+    expect(mock.tasks).toHaveBeenLastCalledWith(
+      expect.objectContaining({ session_id: 2 }),
+      expect.any(AbortSignal),
+    )
+    wrapper.unmount()
+  })
+  it('optimistically likes an asset and rolls back a failed request', async () => {
+    const { wrapper, studio } = await setup()
+    const item = { id: 9, liked: false } as never
+    mock.setLiked.mockResolvedValueOnce({ id: 9, liked: true })
+    await studio.toggleLike(item)
+    expect(mock.setLiked).toHaveBeenCalledWith(9, true)
+    expect(studio.likedAssets.value.map((asset) => asset.id)).toEqual([9])
+    mock.setLiked.mockRejectedValueOnce(new Error('offline'))
+    await expect(studio.toggleLike(item)).rejects.toThrow('offline')
+    expect(studio.likedAssets.value).toEqual([])
     wrapper.unmount()
   })
 })

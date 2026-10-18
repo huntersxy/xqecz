@@ -26,6 +26,10 @@ const pageTab = computed(() => {
   if (route.path === '/login' || route.path.startsWith('/quick-upload')) return 'none'
   return 'browse'
 })
+// 工作台是独立应用外壳：站点侧栏改成抽屉，把横向空间让给历史/舞台/详情。
+const workspaceMode = computed(
+  () => route.path === '/studio' || route.path.startsWith('/studio/'),
+)
 
 function closeMobile() {
   mobileOpen.value = false
@@ -76,7 +80,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKeydown))
 </script>
 
 <template>
-  <div class="public-shell creative-theme" :class="{ 'is-mobile-open': mobileOpen }">
+  <div
+    class="public-shell creative-theme"
+    :class="{ 'is-mobile-open': mobileOpen, 'is-workspace': workspaceMode }"
+  >
     <aside class="public-shell-sidebar" aria-label="站点导航">
       <button
         v-if="mobileOpen"
@@ -337,6 +344,55 @@ body[arco-theme='dark'] .public-shell {
 .public-shell-menu,
 .public-shell-scrim,
 .public-shell-drawer-close { display: none; }
+/* 工作台模式：站点侧栏不占列宽，改为可用顶栏菜单唤出的抽屉。 */
+.public-shell.is-workspace .public-shell-menu {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--shell-muted);
+  cursor: pointer;
+}
+.public-shell.is-workspace .public-shell-drawer-close {
+  position: absolute;
+  top: 18px;
+  right: 16px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--shell-line);
+  border-radius: 50%;
+  background: var(--shell-paper);
+  color: var(--shell-muted);
+  cursor: pointer;
+}
+@media (min-width: 821px) {
+  .public-shell.is-workspace .public-shell-sidebar {
+    position: fixed;
+    z-index: 30;
+    inset: 0 auto 0 0;
+    height: 100dvh;
+    transform: translateX(-104%);
+    transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow: 12px 0 32px rgba(31, 24, 27, 0.14);
+  }
+  .public-shell.is-workspace.is-mobile-open .public-shell-sidebar { transform: translateX(0); }
+  .public-shell.is-workspace .public-shell-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 25;
+    display: block;
+    border: 0;
+    background: rgba(32, 25, 27, 0.32);
+  }
+}
 @media (max-width: 820px) {
   .public-shell-sidebar { position: fixed; inset: 0 auto 0 0; width: min(82vw, 300px); overflow-y: auto; overscroll-behavior: contain; transform: translateX(-104%); transition: transform .24s cubic-bezier(.22,1,.36,1); box-shadow: 12px 0 32px rgba(31,24,27,.14); }
   .public-shell.is-mobile-open .public-shell-sidebar { transform: translateX(0); }

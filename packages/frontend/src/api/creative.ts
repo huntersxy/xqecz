@@ -65,8 +65,8 @@ export const aiApi = {
     checked('/ai/sessions', z.array(AISessionSchema), { signal, query: { before_id: beforeId } }),
   session: (id: number, signal?: AbortSignal) =>
     checked(`/ai/sessions/${id}`, AISessionSchema, { signal }),
-  createSession: (name: string) =>
-    checked('/ai/sessions', AISessionSchema, { method: 'POST', body: { name } }),
+  createSession: (name: string, isNew = false) =>
+    checked('/ai/sessions', AISessionSchema, { method: 'POST', body: { name, new: isNew } }),
   saveSession: (id: number, name: string, draft: unknown, version: number, signal?: AbortSignal) =>
     checked(`/ai/sessions/${id}`, AISessionSchema, {
       method: 'PATCH',
@@ -81,8 +81,11 @@ export const aiApi = {
     checked('/ai/quote', z.object({ cost: z.number() }), { method: 'POST', body: input }),
   cancel: (id: number) => checked(`/ai/tasks/${id}/cancel`, nil, { method: 'POST' }),
   archiveTask: (id: number) => checked(`/ai/tasks/${id}`, nil, { method: 'DELETE' }),
-  assets: (signal?: AbortSignal, beforeId?: number) =>
-    checked('/ai/assets', z.array(AIAssetSchema), { signal, query: { before_id: beforeId } }),
+  assets: (signal?: AbortSignal, beforeId?: number, liked = false) =>
+    checked('/ai/assets', z.array(AIAssetSchema), {
+      signal,
+      query: { before_id: beforeId, liked: liked ? 1 : undefined },
+    }),
   publicAssets: (signal?: AbortSignal, ids?: number[]) =>
     checked('/creative/assets', z.array(AIAssetSchema), { signal, query: { ids: ids?.join(',') } }),
   upload: (file: File, signal?: AbortSignal) => {
@@ -91,6 +94,8 @@ export const aiApi = {
     return checked('/ai/assets', AIAssetSchema, { method: 'POST', body, timeout: 60000, signal })
   },
   archive: (id: number) => checked(`/ai/assets/${id}`, nil, { method: 'DELETE' }),
+  setLiked: (id: number, liked: boolean) =>
+    checked(`/ai/assets/${id}`, AIAssetSchema, { method: 'PATCH', body: { liked } }),
   blob: (id: number, signal?: AbortSignal, preview = false) =>
     fetchApiBlob(`/ai/assets/${id}${preview ? '?preview=1' : ''}`, signal),
   publicBlob: (id: number, signal?: AbortSignal, preview = false) =>

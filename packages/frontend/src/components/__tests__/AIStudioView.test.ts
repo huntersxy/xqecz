@@ -7,6 +7,8 @@ import AIStudioView from '@/views/AIStudioView.vue'
 const api = vi.hoisted(() => ({
   config: vi.fn(),
   sessions: vi.fn(),
+  session: vi.fn(),
+  createSession: vi.fn(),
   assets: vi.fn(),
   tasks: vi.fn(),
   account: vi.fn(),
@@ -15,14 +17,17 @@ const api = vi.hoisted(() => ({
   quote: vi.fn(),
   submit: vi.fn(),
   archiveTask: vi.fn(),
+  setLiked: vi.fn(),
   confirm: vi.fn(),
 }))
 vi.mock('@/api/creative', () => ({ aiApi: api }))
-vi.mock('@/stores/user', () => ({ useUserStore: () => ({ user: { id: 1 } }) }))
+vi.mock('@/stores/user', () => ({
+  useUserStore: () => ({ user: { id: 1, username: '小泉', email: 'a@qq.com' } }),
+}))
 vi.mock('@/composables/useToast', () => ({ useConfirm: () => ({ confirm: api.confirm }) }))
 const wrappers: ReturnType<typeof mount>[] = []
 const time = '2026-10-14T00:00:00.000Z'
-const asset = (id: number) => ({
+const asset = (id: number, liked = false) => ({
   id,
   task_id: 1,
   user_id: 1,
@@ -31,6 +36,8 @@ const asset = (id: number) => ({
   height: 1024,
   title: '',
   bytes: 100,
+  liked,
+  created_at: time,
 })
 const task = (id: number, session_id = 1) => ({
   task: {
@@ -42,11 +49,13 @@ const task = (id: number, session_id = 1) => ({
     size: '1024x1024',
     count: 2,
     error: '',
+    created_at: time,
   },
   assets: [asset(id * 2), asset(id * 2 + 1)],
+  references: [],
 })
-function session(draft = '{}', version = 1) {
-  return { id: 1, name: '我的创作', draft, version, created_at: time, updated_at: time }
+function session(draft = '{}', version = 1, id = 1) {
+  return { id, name: '我的创作', draft, version, created_at: time, updated_at: time }
 }
 async function render() {
   const router = createRouter({
@@ -77,13 +86,17 @@ async function render() {
   return wrapper
 }
 function button(w: ReturnType<typeof mount>, text: string) {
-  return w.findAll('button').find((b) => b.text() === text)!
+  return w.findAll('button').find((item) => item.text().trim() === text)!
 }
 function paste(w: ReturnType<typeof mount>, files: File[]) {
   const event = new Event('paste', { bubbles: true, cancelable: true })
   Object.defineProperty(event, 'clipboardData', { value: { files } })
   w.get('textarea').element.dispatchEvent(event)
   return event
+}
+async function openSettings(w: ReturnType<typeof mount>) {
+  await w.get('[aria-label="生成设置"]').trigger('click')
+  await flushPromises()
 }
 beforeEach(() => {
   vi.clearAllMocks()
@@ -110,65 +123,87 @@ beforeEach(() => {
     ],
   })
   api.sessions.mockResolvedValue([session()])
+  api.session.mockImplementation(async (id: number) => session('{}', 1, id))
+  api.createSession.mockImplementation(async (name: string) => session('{}', 1, 2))
   api.assets.mockResolvedValue([])
   api.tasks.mockResolvedValue([])
   api.account.mockResolvedValue({ user_id: 1, available: 20, reserved: 0 })
-  api.saveSession.mockImplementation(async (_id, _name, draft, version) =>
-    session(JSON.stringify(draft), version + 1),
+  api.saveSession.mockImplementation(async (id, _name, draft, version) =>
+    session(JSON.stringify(draft), version + 1, id),
   )
   api.upload.mockResolvedValue(asset(9))
   api.quote.mockResolvedValue({ cost: 2 })
   api.submit.mockResolvedValue({ id: 99 })
   api.archiveTask.mockResolvedValue(undefined)
+  api.setLiked.mockImplementation(async (id: number, liked: boolean) => asset(id, liked))
 })
 afterEach(() => wrappers.splice(0).forEach((w) => w.unmount()))
 
-describe('studio gallery and composer', () => {
+describe('studio workspace and composer', () => {
   it('uses the prompt and references without exposing a mode picker or BYOK controls', async () => {
     const w = await render()
     expect(w.find('.composer-settings').exists()).toBe(false)
     expect(w.find('.composer-mode-row').exists()).toBe(false)
     expect(w.find('[aria-label="API 设置"]').exists()).toBe(false)
     expect(w.find('[aria-label="切换会话"]').exists()).toBe(false)
-    expect(w.find('[aria-label="创作会话名称"]').exists()).toBe(false)
     expect(w.text()).not.toContain('自备 API Key')
     expect(w.text()).not.toContain('管理员 · 生成不消耗站点额度')
+    expect(w.find('[aria-label="画面尺寸"]').exists()).toBe(false)
+    await openSettings(w)
     expect(w.get('[aria-label="画面尺寸"]').text()).toContain('自动')
+    expect(w.get('[aria-label="生成设置"]').attributes('aria-expanded')).toBe('true')
   })
 
-  it('can collapse the phone composer and reopens it when reusing a task prompt', async () => {
+  it('opens generation settings and refocuses the prompt when reusing a task prompt', async () => {
     api.tasks.mockResolvedValue([task(1)])
     const w = await render()
-    await w.get('[aria-label="收起创作输入区"]').trigger('click')
-    expect(w.get('.studio-composer').classes()).toContain('is-collapsed')
+    await openSettings(w)
+    expect(w.find('.ws-settings').exists()).toBe(true)
     await button(w, '复用提示词').trigger('click')
     await flushPromises()
-    expect(w.get('.studio-composer').classes()).not.toContain('is-collapsed')
     expect(document.activeElement).toBe(w.get('textarea').element)
-    await button(w, '生成设置').trigger('click')
-    expect(button(w, '生成设置').attributes('aria-expanded')).toBe('true')
-    expect(w.get('.composer-controls').classes()).toContain('is-mobile-open')
+    expect((w.get('textarea').element as HTMLTextAreaElement).value).toBe('画面 1')
   })
-  it('shows every result in the single workspace and continues editing from a completed task', async () => {
+
+  it('switches between single and all results and continues editing from a completed task', async () => {
     api.tasks.mockResolvedValue([task(1), task(2, 2)])
     const w = await render()
-    expect(w.findAll('.studio-task-card')).toHaveLength(2)
-    expect(w.findAll('.task-images button')).toHaveLength(4)
-    await w.get('[aria-label="查看任务 1 的结果 2"]').trigger('click')
+    expect(w.findAll('.ws-history-item')).toHaveLength(2)
+    expect(w.get('.ws-canvas-image .test-image').attributes('data-id')).toBe('2')
+    await button(w, '全部').trigger('click')
+    expect(w.findAll('.ws-canvas-grid button')).toHaveLength(2)
+    await w.findAll('.ws-canvas-grid button')[1]!.trigger('click')
+    await button(w, '单张').trigger('click')
+    await w.get('.ws-canvas-image').trigger('click')
     expect(w.get('.test-modal .test-image').attributes('data-id')).toBe('3')
-    await w.get('.result-actions').findAll('button').find((item) => item.text() === '继续编辑')!.trigger('click')
+    await w
+      .get('.result-actions')
+      .findAll('button')
+      .find((item) => item.text() === '继续编辑')!
+      .trigger('click')
     await flushPromises()
     expect(w.find('.test-modal').exists()).toBe(false)
     expect(w.get('.composer-references .test-image').attributes('data-id')).toBe('3')
     expect(document.activeElement).toBe(w.get('textarea').element)
     await w.get('textarea').setValue('继续画这张图')
-    await button(w, '开始生成').trigger('click')
+    await w.get('[aria-label="开始生成"]').trigger('click')
     await flushPromises()
     expect(api.submit).toHaveBeenCalledWith(
       expect.objectContaining({ parent_asset_id: 3, references: [{ asset_id: 3, note: '' }] }),
       expect.any(AbortSignal),
     )
   })
+
+  it('likes a selected result and lists it under the liked tab', async () => {
+    api.tasks.mockResolvedValue([task(1)])
+    const w = await render()
+    await button(w, '喜欢').trigger('click')
+    await flushPromises()
+    expect(api.setLiked).toHaveBeenCalledWith(2, true)
+    await button(w, '喜欢').trigger('click')
+    expect(api.setLiked).toHaveBeenLastCalledWith(2, false)
+  })
+
   it('removes failed task records while keeping successful tasks protected', async () => {
     const failed = task(3)
     failed.task.status = 'failed'
@@ -176,11 +211,13 @@ describe('studio gallery and composer', () => {
     failed.assets = []
     api.tasks.mockResolvedValueOnce([failed]).mockResolvedValueOnce([])
     const w = await render()
+    await w.get('.ws-history-item').trigger('click')
     await button(w, '删除记录').trigger('click')
     await flushPromises()
     expect(api.archiveTask).toHaveBeenCalledWith(3)
-    expect(w.findAll('.studio-task-card')).toHaveLength(0)
+    expect(w.findAll('.ws-history-item')).toHaveLength(0)
   })
+
   it('clears visible failed and cancelled records together', async () => {
     const failed = task(4)
     failed.task.status = 'failed'
@@ -198,8 +235,9 @@ describe('studio gallery and composer', () => {
     await flushPromises()
     expect(api.archiveTask).toHaveBeenNthCalledWith(1, 4)
     expect(api.archiveTask).toHaveBeenNthCalledWith(2, 5)
-    expect(w.findAll('.studio-task-card')).toHaveLength(1)
+    expect(w.findAll('.ws-history-item')).toHaveLength(1)
   })
+
   it('keeps plain text paste native and uploads a pasted image through the same reference path', async () => {
     const w = await render()
     expect(paste(w, []).defaultPrevented).toBe(false)
@@ -212,6 +250,7 @@ describe('studio gallery and composer', () => {
     await w.get('.reference-label').trigger('click')
     expect((w.get('textarea').element as HTMLTextAreaElement).value).toBe('@图片1 ')
   })
+
   it('rejects an oversized reference batch before uploading any files', async () => {
     const w = await render()
     paste(
@@ -222,6 +261,7 @@ describe('studio gallery and composer', () => {
     expect(api.upload).not.toHaveBeenCalled()
     expect(w.get('[role="alert"]').text()).toContain('参考图数量超出当前模型上限')
   })
+
   it('remaps reference mentions when pictures move or are removed', async () => {
     api.sessions.mockResolvedValue([
       session(
@@ -243,6 +283,7 @@ describe('studio gallery and composer', () => {
     expect((w.get('textarea').element as HTMLTextAreaElement).value).toBe('@图片1 与 ')
     expect(w.findAll('.composer-reference')).toHaveLength(1)
   })
+
   it('submits with Ctrl+Enter, preserves the text, and ignores an IME composition Enter', async () => {
     const w = await render()
     await w.get('textarea').setValue('窗边的小泉')
@@ -253,6 +294,15 @@ describe('studio gallery and composer', () => {
     expect(api.submit).toHaveBeenCalledTimes(1)
     expect((w.get('textarea').element as HTMLTextAreaElement).value).toBe('窗边的小泉')
   })
+
+  it('submits with Shift+Enter like the dock hint', async () => {
+    const w = await render()
+    await w.get('textarea').setValue('Shift 提交')
+    await w.get('textarea').trigger('keydown', { key: 'Enter', shiftKey: true })
+    await flushPromises()
+    expect(api.submit).toHaveBeenCalledTimes(1)
+  })
+
   it('keeps one confirmation for repeated shortcuts and submits the visible output settings', async () => {
     let respond!: (accepted: boolean) => void
     api.confirm.mockImplementationOnce(
@@ -263,6 +313,7 @@ describe('studio gallery and composer', () => {
     )
     api.quote.mockResolvedValue({ cost: 4 })
     const w = await render()
+    await openSettings(w)
     await w.get('textarea').setValue('两幅横向画面')
     await w.get('button[aria-label="画面尺寸"]').trigger('click')
     const ratioTab = Array.from(
@@ -283,7 +334,7 @@ describe('studio gallery and composer', () => {
     ratioOption!.click()
     const confirmSize = Array.from(
       document.body.querySelectorAll<HTMLButtonElement>('.studio-size-dialog button'),
-    ).find((button) => button.textContent?.trim() === '确定')
+    ).find((item) => item.textContent?.trim() === '确定')
     expect(confirmSize).toBeTruthy()
     confirmSize!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
     await flushPromises()
@@ -300,23 +351,26 @@ describe('studio gallery and composer', () => {
       expect.any(AbortSignal),
     )
   })
+
   it('submits automatic sizing without adding a concrete resolution', async () => {
     const w = await render()
+    await openSettings(w)
     await w.get('textarea').setValue('让模型自行决定构图尺寸')
     await w.get('button[aria-label="画面尺寸"]').trigger('click')
     const confirmSize = Array.from(
       document.body.querySelectorAll<HTMLButtonElement>('.studio-size-dialog button'),
-    ).find((button) => button.textContent?.trim() === '确定')
+    ).find((item) => item.textContent?.trim() === '确定')
     expect(confirmSize).toBeTruthy()
     confirmSize!.click()
     await flushPromises()
-    await button(w, '开始生成').trigger('click')
+    await w.get('[aria-label="开始生成"]').trigger('click')
     await flushPromises()
     expect(api.submit).toHaveBeenCalledWith(
       expect.objectContaining({ size: 'auto' }),
       expect.any(AbortSignal),
     )
   })
+
   it('blocks drop and paste mutations while a lost submission is pending and reuses its original key', async () => {
     const pending = {
       session_id: 1,
@@ -337,11 +391,11 @@ describe('studio gallery and composer', () => {
     const w = await render()
     const file = new File(['png'], 'ref.png', { type: 'image/png' })
     paste(w, [file])
-    await w.get('.studio-composer').trigger('drop', { dataTransfer: { files: [file] } })
+    await w.get('.ws-composer').trigger('drop', { dataTransfer: { files: [file] } })
     await flushPromises()
     expect(api.upload).not.toHaveBeenCalled()
     expect(w.get('textarea').element.matches(':disabled')).toBe(true)
-    await button(w, '确认上次提交').trigger('click')
+    await w.get('[aria-label="确认上次提交"]').trigger('click')
     await flushPromises()
     expect(api.submit).toHaveBeenCalledWith(
       expect.objectContaining({ idempotency_key: 'original-key' }),

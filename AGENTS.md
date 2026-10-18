@@ -22,7 +22,7 @@
 
 | 要修改的规则 | 先读/先改的位置 |
 |--------------|------------------|
-| AI 工作室、角色设定库、创意广场的页面与控件外观 | `packages/frontend/src/assets/creative-pages.css`；配色复用 `main.css` 的 `--creative-*`，弹层显式带 `creative-theme creative-dialog`，画布/侧栏布局由对应页面负责 |
+| AI 工作室、角色设定库、创意广场的页面与控件外观 | `packages/frontend/src/assets/creative-pages.css`；配色复用 `main.css` 的 `--creative-*`，弹层显式带 `creative-theme creative-dialog`。工作台三栏结构、移动端抽屉与吸底输入归 `views/AIStudioView.vue`；多工作区、任务列表隔离与「喜欢」归 `composables/useAIStudio.ts`；`/studio` 的站点侧栏改为抽屉由 `PublicShell.vue` 的 `is-workspace` 控制 |
 | 角色/模板/旧组合关系、图片引用编号与授权预设 | `packages/frontend/src/utils/creativeResources.ts` / `packages/frontend/src/utils/creativeMentions.ts` / `packages/frontend/src/utils/creativeLicenses.ts`；资源统一展开后同时导入角色与参考图，重排图片须保持提示词引用目标。`StudioReferences.vue` 只负责鼠标/触摸拖曳、键盘排序与手势清理，实际顺序归 `useAIStudio.ts`，页面重映射提示词引用 |
 | 首页灵感接力与创意广场的提示词摘要 | `packages/frontend/src/utils/creativeIdeas.ts`；首页栏目宽度由 `HomeView.vue` 与其它首页区块统一约束，不能在子组件扩成全屏 |
 | 公开投票入口、参与与统计 | `PollPreview.vue` / `views/PollsView.vue`；列表请求归 `usePollList.ts`，投票与详情统计归 `usePollBallot.ts`；首页不嵌入投票，访客从导航进入投票广场；前台仅参与和查看统计，发起/管理保留在后台；票数与本人选择采用后端回写 |
@@ -127,7 +127,7 @@ pnpm-workspace.yaml             # 前端依赖与传递依赖安全覆盖
 | 投票 | `/poll/*`（5） | `modules/poll` | 列表/详情/投票/创建/删除；游客按 visitor_id 去重 |
 | 管理端 | `/admin/*`（17） | `modules/admin` | 审核、待审、全量内容、用户管理、仪表盘、举报、认领、缩略图重建、推荐刷新 |
 | API 密钥 | `/api-keys`（4） | `modules/apikey` | 创建（完整密钥仅返回一次）/列表/更新/删除 |
-| AI 创作 | `/ai/*` / `/ideas/*` / `/creative/assets*` | `modules/aigen` | 会话、生成、资产、额度与创意赞助 |
+| AI 创作 | `/ai/*` / `/ideas/*` / `/creative/assets*` | `modules/aigen` | 多工作区会话、按 `session_id` 隔离的任务、生成、资产点赞、额度与创意赞助 |
 | AI 管理 | `/admin/ai/*` | `modules/aigen/admin.go` | 供应商、任务核查、资产、用户选择与单用户/批量/全体额度发放 |
 | 角色资源 | `/creative/resources*` / `/creative/templates/*` / `/admin/creative/*` | `modules/creative` | 角色与图片、提示词模板，兼容旧组合 |
 
@@ -181,7 +181,7 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 
 ## 核心约束
 
-- **AI 管理与资源** — 管理员的站点生成/赞助不扣额度，权限判定归后端，普通用户仍需预留与结算。任务列表由后端批量返回作者的 id/username，不能依赖额度选择器的截断用户列表推断作者；创意广场预览以提示词为主、原始参考图为辅，生成结果不替代创意输入。额度发放使用用户名选择或全体用户；批量余额/账本同事务提交，全体用户幂等重试复用首次快照。角色和图片统一在“角色资源”维护，旧 `preset` 保留兼容；公开资源关联图须有授权并允许用于生成与二创。工作台参考图上传的取消与会话归属由 `useAIStudio.ts` 管理，拖入/粘贴不能绕过待确认草稿的锁定；桌面输入区保持正常文档流，手机改为悬浮吸底、参数按需展开，任务记录随整页滚动。`useStudioDock.ts` 负责测量输入区占位并跟随可视视口避让软键盘，观察器、视口监听和帧调度随卸载清理；输入内容独立滚动，提交栏保持可达。详细接口与行为见 `docs/ai-creation.md`。
+- **AI 管理与资源** — 管理员的站点生成/赞助不扣额度，权限判定归后端，普通用户仍需预留与结算。任务列表由后端批量返回作者的 id/username，不能依赖额度选择器的截断用户列表推断作者；创意广场预览以提示词为主、原始参考图为辅，生成结果不替代创意输入。额度发放使用用户名选择或全体用户；批量余额/账本同事务提交，全体用户幂等重试复用首次快照。角色和图片统一在“角色资源”维护，旧 `preset` 保留兼容；公开资源关联图须有授权并允许用于生成与二创。工作台按参考站结构组织：左侧「工作区/喜欢」+ 任务历史，中间舞台（单张/全部、结果操作），右侧任务详情，底部常驻输入；窄屏把左侧改为抽屉、隐藏详情，输入区吸底。任务列表按 `session_id` 隔离，显式新建工作区才带 `new:true`；`ai_assets.liked` 是作者私有收藏，公开列表与创意广场响应必须清零。工作台参考图上传的取消与会话归属由 `useAIStudio.ts` 管理，拖入/粘贴不能绕过待确认草稿的锁定；`useStudioDock.ts` 负责测量输入区占位并跟随可视视口避让软键盘，观察器、视口监听和帧调度随卸载清理；输入内容独立滚动，提交栏保持可达。详细接口与行为见 `docs/ai-creation.md`。
 
 - **前端是契约** — `packages/frontend/src/api/index.ts` 与 `src/types/schemas.ts` 定义接口形状；后端响应必须能被前端 zod schema 直接解析（改接口后跑契约冒烟）
 - **统一响应** — `{ code, message, data }`；错误文案放 `message`（前端直接展示）。**校验类失败沿用 HTTP 200 + 业务码**（如 `{code:400,message:"描述正文与媒体文件至少填一项"}`），鉴权类失败才改 HTTP 状态码
@@ -209,7 +209,7 @@ pnpm exec moon query projects                  # 查看工程图（当前为 fro
 - **View Transition 只有一个入口** — 一律经 `utils/viewTransition.ts:withRevealTransition(update, origin?)` 发起，不要各处裸调 `document.startViewTransition`。当前唯一使用方是日/夜切换（`App.vue:onThemeToggle`，圆形揭示从按钮位置铺开）。三条必须知道的：① **减少动效只能在发起前判**——UA 给 `::view-transition-*` 的默认交叉淡出挂在快照伪元素树上，`main.css` 里用 `*` 的媒体查询压不到它，所以 `prefers-reduced-motion` 的处理写在该函数里（不支持 / 要求减少动效 → 直接执行 update，视觉等同改动前）；② **回调里改 Vue 响应式状态必须 `await nextTick()` 再返回**，否则新快照拍在 DOM 更新之前（主题的 `applyMode` 挂在 `watch` 上，落地要等一次调度微任务），动画就成了「铺了个寂寞」；③ `main.css` 末尾把根快照的默认淡出全局关掉了（`animation:none` + `mix-blend-mode:normal` + 新的在上），**任何后续 VT 都拿不到 UA 默认淡出**，要淡出得自己排动画。**没有给首页↔详情加路由级过渡**，不是漏做：详情媒体受 `imageSource` 的 `resolved` 门控，快照时刻大图往往还没渲染，拍到的只有骨架屏，反而不如组件自带的 `cd-fade-in`；共享元素（卡片缩略图→大图）同理，两侧必须同时在场才谈得上形变
 - **迁移期工具** — `cmd/` 下的四个小工具（dbsync/dbinfo/dbsql/rediskeys）是排查与对拍用的，改动数据库相关行为时优先用它们核实，不要凭记忆断言
 - **数据库连接单一来源** — DSN 一律经 `internal/mysqldsn.Format()` 组装（服务端与四个 cmd 工具共用），不要在调用点各写一份：新增连接参数时分散写法必然漏配。加密由 `MYSQL_TLS` 控制（透传驱动的 `tls` 参数，留空=不加密）；**TiDB Cloud Serverless 强制加密**，明文连接报 `1105 insecure transport`，必须设 `MYSQL_TLS=true`。逐字节搬运数据（迁移校验）时须关 `ParseTime`，否则驱动做时区换算会改写时间值
-- **TiDB 兼容性** — 生产库为 TiDB 时有四处与 MySQL/MariaDB 不同：① `TEXT`/`BLOB`/`JSON` 列**不允许 DEFAULT**（报 1101），建表须去掉默认值（业务代码对这些列总是显式赋值，故无语义变化）；② 不支持 `CHECKSUM TABLE`，一致性校验改用「按主键有序导出后比对 md5」（见 `scripts/migrations/2026-09-26-migrate-to-tidb.sh`）；③ `sys`/`mysql` 等系统库对业务账号**只读**，必须建独立库（误建会报 `ERROR 1142 ... CREATE command denied`）；④ 自增游标别查 `information_schema.tables.auto_increment`——`CLUSTERED` 自增主键的表恒返回 0，`ALTER TABLE ... AUTO_INCREMENT=` 也不生效，判据用 `SHOW CREATE TABLE` 的 `AUTO_INCREMENT=` 或 `SHOW TABLE <t> NEXT_ROW_ID`（迁移后实测无需手工对齐）
+- **TiDB 兼容性** — 生产库为 TiDB 时有五处与 MySQL/MariaDB 不同：① `TEXT`/`BLOB`/`JSON` 列**不允许 DEFAULT**（报 1101），建表须去掉默认值（业务代码对这些列总是显式赋值，故无语义变化）；② 不支持 `CHECKSUM TABLE`，一致性校验改用「按主键有序导出后比对 md5」（见 `scripts/migrations/2026-09-26-migrate-to-tidb.sh`）；③ `sys`/`mysql` 等系统库对业务账号**只读**，必须建独立库（误建会报 `ERROR 1142 ... CREATE command denied`）；④ 自增游标别查 `information_schema.tables.auto_increment`——`CLUSTERED` 自增主键的表恒返回 0，`ALTER TABLE ... AUTO_INCREMENT=` 也不生效，判据用 `SHOW CREATE TABLE` 的 `AUTO_INCREMENT=` 或 `SHOW TABLE <t> NEXT_ROW_ID`（迁移后实测无需手工对齐）；⑤ 同一条 `ALTER TABLE` 里不能给刚新增的列建索引（报 `1072 column does not exist`），拆成「先 ADD COLUMN、再 ADD INDEX」两条执行
 
 ## 技术栈
 

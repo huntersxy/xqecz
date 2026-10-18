@@ -47,6 +47,11 @@ func (h *Handler) ideaViews(c *gin.Context, rows []core.Idea) ([]any, error) {
 			return nil, err
 		}
 	}
+	// Liked is only meaningful to the owner; the public plaza renders assets as
+	// submitted references/results and must not expose the private bookmark.
+	for i := range assets {
+		assets[i].Liked = false
+	}
 	byID := map[uint64]core.Asset{}
 	byTask := map[uint64][]core.Asset{}
 	for _, asset := range assets {
@@ -73,6 +78,9 @@ func (h *Handler) ideaViews(c *gin.Context, rows []core.Idea) ([]any, error) {
 		if row.ReferenceSnapshot != "" {
 			var snapshot []core.Asset
 			if json.Unmarshal([]byte(row.ReferenceSnapshot), &snapshot) == nil {
+				for i := range snapshot {
+					snapshot[i].Liked = false
+				}
 				refs = snapshot
 			}
 		}

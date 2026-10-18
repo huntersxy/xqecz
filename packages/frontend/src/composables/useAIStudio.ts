@@ -32,7 +32,8 @@ export function useAIStudio() {
   const providers = ref<AIProvider[]>([]),
     sessions = ref<AISession[]>([]),
     tasks = ref<AITaskView[]>([]),
-    assets = ref<AIAsset[]>([])
+    assets = ref<AIAsset[]>([]),
+    likedAssets = ref<AIAsset[]>([])
   const account = ref<AIAccount>({ user_id: 0, available: 0, reserved: 0 })
   const promptEnhancement = ref({ enabled: true, prompt: '' })
   const sessionId = ref(0),
@@ -49,12 +50,14 @@ export function useAIStudio() {
     saveState = ref(''),
     busy = ref(false),
     ready = ref(false),
+    switching = ref(false),
     pending = ref<GenerationInput | null>(null),
     selectedAsset = ref<AIAsset | null>(null)
   const characterIds = ref<number[]>([])
   const taskQuery = ref<Record<string, unknown>>({}),
     moreTasks = ref(false),
-    moreAssets = ref(false)
+    moreAssets = ref(false),
+    moreLiked = ref(false)
   let queryFingerprint = '',
     requestEpoch = 0,
     pagedHistory = false
@@ -148,6 +151,11 @@ export function useAIStudio() {
     )
     return operation
   }
+  /**
+   * Restore one workspace draft without touching its task list. Selection and
+   * history are filled by refresh() so switching never shows the previous
+   * workspace's image under the new prompt.
+   */
   function restore(row: AISession) {
     restoring = true
     sessionId.value = row.id
@@ -169,11 +177,10 @@ export function useAIStudio() {
     pending.value = draft.pending ?? null
     characterIds.value = draft.character_ids ?? []
     taskQuery.value = {}
+    selectedAsset.value = null
     const chosen =
       availableProviders.value.find((p) => p.id === providerId.value) ?? availableProviders.value[0]
     providerId.value = chosen?.id ?? 0
-    selectedAsset.value =
-      tasks.value.filter((t) => t.task.session_id === row.id).flatMap((t) => t.assets)[0] ?? null
     saveState.value = '已恢复'
     queueMicrotask(() => {
       restoring = false
@@ -181,13 +188,14 @@ export function useAIStudio() {
     })
   }
   async function refresh() {
-    const signature = JSON.stringify(taskQuery.value),
+    const query = { ...taskQuery.value, session_id: sessionId.value }
+    const signature = JSON.stringify(query),
       epoch = ++requestEpoch
     const [nextTasks, nextAccount] = await Promise.all([
-      aiApi.tasks(taskQuery.value, controller.signal),
+      aiApi.tasks(query, controller.signal),
       aiApi.account(controller.signal),
     ])
-    if (stopped || epoch !== requestEpoch || signature !== JSON.stringify(taskQuery.value)) return
+    if (stopped || epoch !== requestEpoch || signature !== JSON.stringify({ ...taskQuery.value, session_id: sessionId.value })) return
     const oldest = nextTasks.at(-1)?.task.id ?? Infinity
     const older =
       signature === queryFingerprint && pagedHistory && nextTasks.length === 100
@@ -198,13 +206,16 @@ export function useAIStudio() {
     account.value = nextAccount
     queryFingerprint = signature
     if (!pagedHistory) moreTasks.value = nextTasks.length === 100
-    if (
-      selectedAsset.value &&
-      !nextTasks.some((t) => t.assets.some((a) => a.id === selectedAsset.value!.id))
-    )
-      selectedAsset.value = null
-    if (!selectedAsset.value)
-      selectedAsset.value = nextTasks.flatMap((t) => t.assets)[0] ?? null
+    const all = nextTasks.flatMap((t) => t.assets)
+    const current = selectedAsset.value
+    if (current) {
+      // Keep a liked-only selection alive, but sync the task-backed copy so
+      // likes and archived state match the server after every poll.
+      const fresh = all.find((a) => a.id === current.id)
+      if (fresh) selectedAsset.value = fresh
+    } else {
+      selectedAsset.value = all[0] ?? null
+    }
   }
   async function setHistoryQuery(query: Record<string, unknown>) {
     if (JSON.stringify(query) === JSON.stringify(taskQuery.value)) return
@@ -215,9 +226,10 @@ export function useAIStudio() {
   async function loadMoreTasks() {
     const before = tasks.value.at(-1)?.task.id
     if (!before) return
-    const signature = JSON.stringify(taskQuery.value)
-    const batch = await aiApi.tasks({ ...taskQuery.value, before_id: before }, controller.signal)
-    if (stopped || signature !== JSON.stringify(taskQuery.value)) return
+    const query = { ...taskQuery.value, session_id: sessionId.value, before_id: before }
+    const signature = JSON.stringify({ ...taskQuery.value, session_id: sessionId.value })
+    const batch = await aiApi.tasks(query, controller.signal)
+    if (stopped || signature !== JSON.stringify({ ...taskQuery.value, session_id: sessionId.value })) return
     const ids = new Set(tasks.value.map((t) => t.task.id))
     tasks.value.push(...batch.filter((t) => !ids.has(t.task.id)))
     moreTasks.value = batch.length === 100
@@ -231,6 +243,55 @@ export function useAIStudio() {
     const ids = new Set(assets.value.map((a) => a.id))
     assets.value.push(...batch.filter((a) => !ids.has(a.id)))
     moreAssets.value = batch.length === 100
+  }
+  async function loadLikedAssets() {
+    const rows = await aiApi.assets(controller.signal, undefined, true)
+    if (stopped) return
+    likedAssets.value = rows
+    moreLiked.value = rows.length === 100
+  }
+  async function loadMoreLikedAssets() {
+    const before = likedAssets.value.at(-1)?.id
+    if (!before) return
+    const batch = await aiApi.assets(controller.signal, before, true)
+    if (stopped) return
+    const ids = new Set(likedAssets.value.map((a) => a.id))
+    likedAssets.value.push(...batch.filter((a) => !ids.has(a.id)))
+    moreLiked.value = batch.length === 100
+  }
+  function applyLiked(id: number, liked: boolean, source?: AIAsset) {
+    tasks.value = tasks.value.map((row) =>
+      row.assets.some((a) => a.id === id)
+        ? { ...row, assets: row.assets.map((a) => (a.id === id ? { ...a, liked } : a)) }
+        : row,
+    )
+    assets.value = assets.value.map((a) => (a.id === id ? { ...a, liked } : a))
+    if (selectedAsset.value?.id === id) selectedAsset.value = { ...selectedAsset.value, liked }
+    if (liked) {
+      const existing = likedAssets.value.find((a) => a.id === id)
+      if (existing) likedAssets.value = likedAssets.value.map((a) => (a.id === id ? { ...a, liked } : a))
+      else {
+        const found =
+          source ??
+          selectedAsset.value ??
+          tasks.value.flatMap((row) => row.assets).find((a) => a.id === id) ??
+          assets.value.find((a) => a.id === id)
+        if (found) likedAssets.value = [{ ...found, liked: true }, ...likedAssets.value]
+      }
+    } else {
+      likedAssets.value = likedAssets.value.filter((a) => a.id !== id)
+    }
+  }
+  async function toggleLike(asset: AIAsset) {
+    const next = !asset.liked
+    applyLiked(asset.id, next, asset)
+    try {
+      const row = await aiApi.setLiked(asset.id, next)
+      applyLiked(row.id, row.liked, row)
+    } catch (e) {
+      applyLiked(asset.id, !next, asset)
+      throw e
+    }
   }
   async function poll() {
     if (stopped) return
@@ -287,6 +348,7 @@ export function useAIStudio() {
     await aiApi.archive(id)
     const before = references.value.map((reference) => reference.asset_id)
     assets.value = assets.value.filter((asset) => asset.id !== id)
+    likedAssets.value = likedAssets.value.filter((asset) => asset.id !== id)
     references.value = references.value.filter((reference) => reference.asset_id !== id)
     prompt.value = remapReferenceMentions(prompt.value, before, references.value.map((reference) => reference.asset_id))
     tasks.value = tasks.value.map((row) => ({ ...row, assets: row.assets.filter((asset) => asset.id !== id) }))
@@ -328,6 +390,44 @@ export function useAIStudio() {
       providers.value = cfg.providers
       promptEnhancement.value = cfg.prompt_enhancement
     }
+  }
+  /** Persist the current draft, then open another workspace. */
+  async function switchSession(id: number) {
+    if (id === sessionId.value || switching.value || !ready.value) return
+    switching.value = true
+    try {
+      await save()
+      const row = await aiApi.session(id, controller.signal)
+      if (stopped) return
+      const index = sessions.value.findIndex((s) => s.id === id)
+      if (index >= 0) sessions.value[index] = row
+      restore(row)
+      await refresh()
+    } finally {
+      switching.value = false
+    }
+  }
+  /** Create a workspace and switch to its empty draft. */
+  async function createWorkspace(workspaceName = '新工作区') {
+    if (switching.value || !ready.value) return
+    switching.value = true
+    try {
+      await save()
+      const row = await aiApi.createSession(workspaceName.trim().slice(0, 100) || '新工作区', true)
+      if (stopped) return
+      sessions.value.unshift(row)
+      restore(row)
+      await refresh()
+    } finally {
+      switching.value = false
+    }
+  }
+  /** Rename in place; save() carries the new name with the current draft. */
+  async function renameWorkspace(next: string) {
+    const trimmed = next.trim().slice(0, 100)
+    if (!trimmed || trimmed === name.value) return
+    name.value = trimmed
+    await save()
   }
   watch(
     [prompt, name, references, providerId, size, quality, count, parentAssetId, characterIds, enhancePrompt],
@@ -371,18 +471,18 @@ export function useAIStudio() {
         if (stopped) return
         providers.value = cfg.providers
         promptEnhancement.value = cfg.prompt_enhancement
-        sessions.value = rows.slice(0, 1)
+        sessions.value = rows
         assets.value = library
         moreAssets.value = library.length === 100
         const row = rows[0]
         if (row) restore(row)
         else {
-          const fresh = await aiApi.createSession('第一次创作')
+          const fresh = await aiApi.createSession('创作工作台')
           if (stopped) return
           sessions.value.unshift(fresh)
           restore(fresh)
         }
-        await refresh()
+        await Promise.all([refresh(), loadLikedAssets()])
         ready.value = true
         pollTimer = setTimeout(poll, 3000)
         document.addEventListener('visibilitychange', visibility)
@@ -398,8 +498,10 @@ export function useAIStudio() {
   return {
     isQuotaExempt,
     providers,
+    sessions,
     tasks,
     assets,
+    likedAssets,
     account,
     sessionId,
     name,
@@ -421,23 +523,31 @@ export function useAIStudio() {
     saveState,
     busy,
     ready,
+    switching,
     pending,
     selectedAsset,
     moreTasks,
     moreAssets,
+    moreLiked,
     setHistoryQuery,
     loadMoreTasks,
     loadMoreAssets,
+    loadMoreLikedAssets,
+    loadLikedAssets,
     run,
     save,
     generate,
     upload,
     archiveAsset,
+    toggleLike,
     addReference,
     removeReference,
     moveReference,
     continueFrom,
     refresh,
     loadProviders,
+    switchSession,
+    createWorkspace,
+    renameWorkspace,
   }
 }

@@ -61,6 +61,7 @@ func Register(api *gin.RouterGroup, deps app.Deps, contentHandler *content.Handl
 	g.GET("/assets", h.assets)
 	g.POST("/assets", h.upload)
 	g.GET("/assets/:id", h.image)
+	g.PATCH("/assets/:id", h.updateAsset)
 	g.DELETE("/assets/:id", h.archiveAsset)
 	g.POST("/assets/:id/publish", h.publish)
 	g.POST("/ideas", h.createIdea)
@@ -226,7 +227,9 @@ func (h *Handler) listLedger(c *gin.Context, user uint64) {
 }
 func (h *Handler) sessions(c *gin.Context) {
 	rows := []core.Session{}
-	if err := h.db(c).Where("user_id = ? AND name <> ?", uid(c), "供应商连通测试").Order("updated_at desc, id desc").Limit(1).Find(&rows).Error; err != nil {
+	// Workspaces are listed newest first. The old single-workspace contract only
+	// returned one row; clients that need the active draft still select sessions[0].
+	if err := h.db(c).Where("user_id = ? AND name <> ?", uid(c), "供应商连通测试").Order("updated_at desc, id desc").Limit(100).Find(&rows).Error; err != nil {
 		fail(c, err)
 		return
 	}
@@ -243,29 +246,39 @@ func (h *Handler) getSession(c *gin.Context) {
 func (h *Handler) createSession(c *gin.Context) {
 	var req struct {
 		Name string `json:"name"`
+		// New creates another workspace. Omitting it keeps the historical
+		// coalescing behavior relied on by first-load and multi-tab entry.
+		New bool `json:"new"`
 	}
 	if bind(c, &req) != nil || len([]rune(req.Name)) > 100 {
 		fail(c, core.ErrInvalid)
 		return
 	}
 	if req.Name == "" {
-		req.Name = "未命名创作"
+		if req.New {
+			req.Name = "新工作区"
+		} else {
+			req.Name = "创作工作台"
+		}
 	}
 	var row core.Session
 	err := h.db(c).Transaction(func(tx *gorm.DB) error {
-		// Serialize first-use requests per user so two tabs reuse one workspace.
+		// Serialize workspace allocation per user so two first-use tabs cannot
+		// create duplicate starter drafts.
 		var user store.User
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&user, uid(c)).Error; err != nil {
 			return err
 		}
-		err := tx.Where("user_id = ? AND name <> ?", uid(c), "供应商连通测试").Order("updated_at desc, id desc").First(&row).Error
-		if err == nil {
-			return nil
+		if !req.New {
+			err := tx.Where("user_id = ? AND name <> ?", uid(c), "供应商连通测试").Order("updated_at desc, id desc").First(&row).Error
+			if err == nil {
+				return nil
+			}
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
 		}
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
-		}
-		row = core.Session{UserID: uid(c), Name: "创作工作台", Draft: `{}`, Version: 1}
+		row = core.Session{UserID: uid(c), Name: req.Name, Draft: `{}`, Version: 1}
 		return tx.Create(&row).Error
 	})
 	if err != nil {
@@ -443,6 +456,9 @@ func (h *Handler) assets(c *gin.Context) {
 	rows := []core.Asset{}
 	q := h.db(c).Where("user_id = ? AND archived = ?", uid(c), false).
 		Where("task_id = 0 OR task_id NOT IN (?)", h.db(c).Model(&core.Task{}).Select("id").Where("mode = ?", "test"))
+	if c.Query("liked") == "1" {
+		q = q.Where("liked = ?", true)
+	}
 	if before, _ := strconv.ParseUint(c.Query("before_id"), 10, 64); before != 0 {
 		q = q.Where("id < ?", before)
 	}
@@ -451,6 +467,32 @@ func (h *Handler) assets(c *gin.Context) {
 		return
 	}
 	ok(c, rows)
+}
+func (h *Handler) updateAsset(c *gin.Context) {
+	var req struct {
+		Liked *bool `json:"liked"`
+	}
+	if bind(c, &req) != nil || req.Liked == nil {
+		fail(c, core.ErrInvalid)
+		return
+	}
+	result := h.db(c).Model(&core.Asset{}).
+		Where("id = ? AND user_id = ? AND archived = ?", pathID(c), uid(c), false).
+		Update("liked", *req.Liked)
+	if result.Error != nil {
+		fail(c, result.Error)
+		return
+	}
+	if result.RowsAffected != 1 {
+		fail(c, gorm.ErrRecordNotFound)
+		return
+	}
+	var row core.Asset
+	if err := h.db(c).First(&row, pathID(c)).Error; err != nil {
+		fail(c, err)
+		return
+	}
+	ok(c, row)
 }
 func (h *Handler) publicAssets(c *gin.Context) {
 	rows := []core.Asset{}
@@ -470,6 +512,10 @@ func (h *Handler) publicAssets(c *gin.Context) {
 	if err := q.Order("id desc").Limit(200).Find(&rows).Error; err != nil {
 		fail(c, err)
 		return
+	}
+	// Liked is the owner's private bookmark; public views must not disclose it.
+	for i := range rows {
+		rows[i].Liked = false
 	}
 	ok(c, rows)
 }
