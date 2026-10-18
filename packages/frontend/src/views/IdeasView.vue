@@ -134,7 +134,7 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <div class="creative-page creative-theme">
+  <div class="creative-page ideas-gallery-page creative-theme">
     <header class="creative-page-head">
       <div>
         <span class="creative-eyebrow">✧ 灵感接力 / IDEAS</span>
@@ -306,6 +306,141 @@ onBeforeUnmount(() => {
     flex: 1;
     min-width: 120px;
     width: auto;
+  }
+}
+
+/* Ideas are presented like an editorial index: the prompt is the headline,
+   references are supporting material, and controls stay in a quiet toolbar. */
+.ideas-gallery-page {
+  max-width: 1440px;
+  margin-top: clamp(24px, 5vw, 60px);
+  padding-inline: clamp(20px, 5vw, 64px);
+}
+.ideas-gallery-page .creative-page-head {
+  padding-top: 26px;
+  padding-bottom: 34px;
+  margin-bottom: 28px;
+}
+.ideas-gallery-page .creative-page-head h1 {
+  max-width: 760px;
+  font-family: var(--creative-title-font);
+  font-size: clamp(34px, 5vw, 58px);
+  font-weight: 500;
+  letter-spacing: -.02em;
+  line-height: 1.22;
+}
+.ideas-gallery-page .creative-page-head p {
+  max-width: 560px;
+  font-size: 14px;
+}
+.ideas-gallery-page .creative-page-head .creative-actions {
+  gap: 8px;
+}
+.ideas-gallery-page .creative-page-head .creative-actions > a {
+  border-radius: 3px;
+  padding-inline: 14px;
+  background: transparent;
+}
+.ideas-gallery-page .idea-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0 20px;
+  margin-bottom: 24px;
+  border-width: 0 0 1px;
+  border-radius: 0;
+  background: transparent;
+}
+.ideas-gallery-page .idea-filters .arco-input-wrapper,
+.ideas-gallery-page .idea-filters :deep(.arco-select-view-single) {
+  border-radius: 3px;
+  background: var(--creative-paper);
+}
+.ideas-gallery-page .idea-filters .arco-input-wrapper {
+  max-width: 360px;
+}
+.ideas-gallery-page .idea-filters .arco-btn {
+  min-height: 34px;
+  border-radius: 3px;
+}
+.ideas-gallery-page .idea-list.creative-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 22px;
+}
+.ideas-gallery-page .idea-card.creative-card {
+  min-height: 248px;
+  padding: 22px 0;
+  border-width: 1px 0 0;
+  border-radius: 0;
+  background: transparent;
+  transition: border-color .18s ease, transform .18s ease;
+}
+.ideas-gallery-page .idea-card.creative-card:hover {
+  border-color: var(--creative-accent);
+  background: color-mix(in srgb, var(--creative-soft) 24%, transparent);
+  transform: translateY(-2px);
+}
+.ideas-gallery-page .idea-card-heading h2 {
+  font-family: var(--creative-title-font);
+  font-size: 22px;
+  font-weight: 500;
+}
+.ideas-gallery-page .idea-card-heading .arco-tag {
+  border-radius: 2px;
+  background: var(--creative-soft);
+}
+.ideas-gallery-page .idea-card-prompt {
+  margin-top: 18px;
+  font-size: 14px;
+  line-height: 1.9;
+}
+.ideas-gallery-page .idea-card-reference,
+.ideas-gallery-page .idea-card-no-references {
+  border-radius: 2px;
+}
+.ideas-gallery-page .idea-card-reference .creative-image {
+  border-radius: 2px;
+}
+.ideas-gallery-page .idea-cost {
+  border-top-style: dashed;
+}
+.ideas-gallery-page .idea-authors {
+  align-items: center;
+  padding: 10px 0 20px;
+  border-bottom: 1px solid var(--creative-line);
+  color: var(--creative-muted);
+  font-size: 12px;
+}
+.ideas-gallery-page .idea-authors .arco-tag {
+  border-radius: 2px;
+}
+.ideas-gallery-page .creative-box {
+  border-radius: 4px;
+  box-shadow: none;
+}
+.ideas-gallery-page .idea-prompt {
+  padding: 22px;
+  border-radius: 2px;
+  border-left: 2px solid var(--creative-accent);
+  background: color-mix(in srgb, var(--creative-soft) 35%, var(--creative-paper));
+}
+.ideas-gallery-page .idea-results {
+  gap: 12px;
+}
+.ideas-gallery-page .idea-results .creative-box {
+  padding: 10px;
+}
+@media (max-width: 760px) {
+  .ideas-gallery-page .idea-filters {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+  .ideas-gallery-page .idea-filters .arco-input-wrapper {
+    flex-basis: 100%;
+    max-width: none;
+  }
+  .ideas-gallery-page .idea-list.creative-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

@@ -94,7 +94,7 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <div class="creative-page creative-theme">
+  <div class="creative-page characters-gallery-page creative-theme">
     <header class="creative-page-head">
       <div>
         <span class="creative-eyebrow">✧ 角色手册 / CHARACTERS</span>
@@ -228,5 +228,151 @@ onBeforeUnmount(() => {
 }
 .character-large {
   height: 60vh;
+}
+
+/* The character index keeps the gallery language: images lead, metadata is
+   quiet, and the detail view reads as a single reference sheet. */
+.characters-gallery-page {
+  max-width: 1440px;
+  margin-top: clamp(24px, 5vw, 60px);
+  padding-inline: clamp(20px, 5vw, 64px);
+}
+.characters-gallery-page .creative-page-head {
+  padding-top: 26px;
+  padding-bottom: 34px;
+  margin-bottom: 26px;
+}
+.characters-gallery-page .creative-page-head h1 {
+  font-family: var(--creative-title-font);
+  font-size: clamp(34px, 5vw, 58px);
+  font-weight: 500;
+  letter-spacing: -.02em;
+  line-height: 1.22;
+}
+.characters-gallery-page .creative-page-head p {
+  max-width: 560px;
+}
+.characters-gallery-page .catalog-search {
+  width: min(100%, 420px);
+  margin-bottom: 26px;
+}
+.characters-gallery-page .catalog-search :deep(.arco-input-wrapper) {
+  min-height: 42px;
+  border-radius: 3px;
+  background: var(--creative-paper);
+}
+.characters-gallery-page .creative-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px 16px;
+}
+.characters-gallery-page .character-card.creative-card {
+  display: block;
+  padding: 0 0 16px;
+  border-width: 0 0 1px;
+  border-radius: 0;
+  background: transparent;
+  transition: transform .18s ease, border-color .18s ease;
+}
+.characters-gallery-page .character-card.creative-card:hover {
+  border-color: var(--creative-accent);
+  transform: translateY(-3px);
+}
+.characters-gallery-page .creative-image-tile {
+  height: 280px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--creative-paper);
+}
+.characters-gallery-page .creative-image-tile .creative-image {
+  height: 100%;
+  transition: transform .35s ease;
+}
+.characters-gallery-page .character-card:hover .creative-image {
+  transform: scale(1.025);
+}
+.characters-gallery-page .character-card h2 {
+  margin: 16px 0 6px;
+  font-family: var(--creative-title-font);
+  font-size: 22px;
+  font-weight: 500;
+}
+.characters-gallery-page .character-card p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  min-height: 42px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.characters-gallery-page .character-card-footer {
+  margin-top: 12px;
+  padding-top: 0;
+  border-top: 0;
+  font-size: 11px;
+  letter-spacing: .04em;
+}
+.characters-gallery-page .character-story {
+  max-width: 940px;
+  margin: 0 auto 26px;
+  padding: clamp(24px, 5vw, 52px);
+  border-radius: 4px;
+  box-shadow: none;
+}
+.characters-gallery-page .character-story h2 {
+  margin-top: 30px;
+  font-family: var(--creative-title-font);
+  font-size: 25px;
+  font-weight: 500;
+}
+.characters-gallery-page .character-story .arco-btn {
+  margin-top: 20px;
+  border-radius: 3px;
+}
+.characters-gallery-page .creative-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(100%, 380px);
+  margin: 0 auto 24px;
+  color: var(--creative-muted);
+  font-size: 12px;
+}
+.characters-gallery-page .creative-field select {
+  flex: 1;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--creative-line);
+  border-radius: 3px;
+  background: var(--creative-paper);
+  color: var(--creative-ink);
+}
+.characters-gallery-page .creative-grid > .creative-box {
+  border-radius: 4px;
+  box-shadow: none;
+}
+.characters-gallery-page .character-preview {
+  border-radius: 2px;
+}
+.characters-gallery-page .character-large {
+  height: min(68vh, 720px);
+}
+@media (max-width: 980px) {
+  .characters-gallery-page .creative-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .characters-gallery-page .creative-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 12px;
+  }
+  .characters-gallery-page .creative-image-tile {
+    height: 220px;
+  }
+  .characters-gallery-page .character-card h2 {
+    font-size: 19px;
+  }
 }
 </style>

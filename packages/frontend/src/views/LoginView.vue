@@ -97,7 +97,7 @@ function switchMode() {
 </script>
 
 <template>
-  <div class="auth-page creative-theme">
+  <div class="auth-page auth-gallery-page creative-theme">
     <div class="auth-layout">
       <section class="auth-story" aria-labelledby="auth-story-title">
         <span class="auth-kicker">A LITTLE UNIVERSE OF OUR OWN <span aria-hidden="true">✦</span></span>
@@ -210,4 +210,115 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .auth-copy-enter-active, .auth-copy-leave-active { display: inline-block; transition: opacity .12s ease, transform .12s ease; }
 .auth-copy-enter-from { opacity: 0; transform: translateY(4px); }
 .auth-copy-leave-to { opacity: 0; transform: translateY(-4px); }
+
+/* The auth route follows the gallery's quiet editorial surface: one paper panel,
+   a warm canvas, and a restrained accent leave the form as the primary action. */
+.auth-gallery-page {
+  min-height: calc(100vh - 72px);
+  padding: clamp(36px, 7vw, 84px) clamp(20px, 6vw, 84px) 96px;
+  background:
+    radial-gradient(circle at 10% 12%, color-mix(in srgb, var(--creative-warm) 12%, transparent), transparent 34%),
+    var(--creative-canvas);
+}
+.auth-gallery-page .auth-layout {
+  max-width: 1080px;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+  gap: clamp(44px, 9vw, 124px);
+  align-items: end;
+}
+.auth-gallery-page .auth-story {
+  padding-bottom: 12px;
+}
+.auth-gallery-page .auth-kicker,
+.auth-gallery-page .auth-card-kicker {
+  letter-spacing: .22em;
+  font-size: 9px;
+}
+.auth-gallery-page .auth-story h1 {
+  max-width: 580px;
+  margin-top: 28px;
+  font-size: clamp(34px, 5vw, 60px);
+  line-height: 1.25;
+  letter-spacing: -.02em;
+  font-weight: 500;
+}
+.auth-gallery-page .auth-story > p {
+  max-width: 340px;
+  margin-top: 24px;
+  line-height: 2.1;
+}
+.auth-gallery-page .auth-art {
+  margin-top: 42px;
+  opacity: .86;
+}
+.auth-gallery-page .auth-art-card {
+  border-radius: 3px;
+  box-shadow: 8px 12px 0 color-mix(in srgb, var(--creative-ink) 5%, transparent);
+}
+.auth-gallery-page .auth-art-back {
+  background: color-mix(in srgb, var(--creative-warm) 12%, var(--creative-paper));
+}
+.auth-gallery-page .auth-art-front {
+  background: var(--creative-paper);
+}
+.auth-gallery-page .auth-home-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 22px;
+  border-top: 1px solid var(--creative-line);
+  color: var(--creative-muted);
+}
+.auth-gallery-page .auth-card {
+  padding: clamp(28px, 4vw, 40px);
+  border-radius: 4px;
+  box-shadow: 0 18px 45px color-mix(in srgb, var(--creative-ink) 7%, transparent);
+}
+.auth-gallery-page .auth-card h2 {
+  font-family: var(--creative-title-font);
+  font-size: 29px;
+  font-weight: 500;
+}
+.auth-gallery-page .auth-mode {
+  border-radius: 4px;
+  background: var(--creative-canvas);
+}
+.auth-gallery-page .auth-mode button,
+.auth-gallery-page .auth-submit {
+  border-radius: 3px;
+}
+.auth-gallery-page .auth-mode::before {
+  border-radius: 2px;
+  box-shadow: none;
+}
+.auth-gallery-page .auth-field input {
+  border-radius: 3px;
+  background: transparent;
+}
+.auth-gallery-page .auth-field input:focus {
+  background: var(--creative-paper);
+}
+.auth-gallery-page .auth-submit {
+  min-height: 48px;
+  margin-top: 10px;
+  letter-spacing: .04em;
+}
+@media (max-width: 768px) {
+  .auth-gallery-page {
+    min-height: calc(100vh - 62px);
+    padding: 34px 20px 56px;
+  }
+  .auth-gallery-page .auth-layout {
+    gap: 30px;
+  }
+  .auth-gallery-page .auth-story h1 {
+    font-size: 34px;
+  }
+  .auth-gallery-page .auth-story > p {
+    margin-top: 16px;
+  }
+  .auth-gallery-page .auth-card {
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--creative-ink) 6%, transparent);
+  }
+}
 </style>

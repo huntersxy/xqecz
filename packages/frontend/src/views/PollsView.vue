@@ -55,7 +55,7 @@ function goPage(value: number) {
 </script>
 
 <template>
-  <div class="creative-page creative-theme poll-page">
+  <div class="creative-page poll-page poll-gallery-page creative-theme">
     <header class="creative-page-head">
       <div>
         <h1>投票广场</h1>
@@ -188,3 +188,111 @@ function goPage(value: number) {
     </template>
   </div>
 </template>
+
+<style scoped>
+/* Voting remains lightweight and readable: a two-column index on paper, with
+   the ballot itself treated as a single editorial sheet. */
+.poll-gallery-page {
+  max-width: 1440px;
+  margin-top: clamp(24px, 5vw, 60px);
+  padding-inline: clamp(20px, 5vw, 64px);
+}
+.poll-gallery-page .creative-page-head {
+  padding-top: 26px;
+  padding-bottom: 34px;
+  margin-bottom: 24px;
+}
+.poll-gallery-page .creative-page-head h1 {
+  font-family: var(--creative-title-font);
+  font-size: clamp(34px, 5vw, 58px);
+  font-weight: 500;
+  letter-spacing: -.02em;
+  line-height: 1.22;
+}
+.poll-gallery-page .creative-page-head p {
+  max-width: 520px;
+}
+.poll-gallery-page .poll-back {
+  border-radius: 3px;
+  transition: color .18s ease, background .18s ease;
+}
+.poll-gallery-page .poll-back:hover {
+  background: var(--creative-soft);
+}
+.poll-gallery-page .poll-list-heading {
+  padding: 14px 0 16px;
+  border-bottom: 1px solid var(--creative-line);
+}
+.poll-gallery-page .poll-list-heading h2 {
+  font-family: var(--creative-title-font);
+  font-size: 26px;
+  font-weight: 500;
+}
+.poll-gallery-page .poll-preview-grid {
+  gap: 14px 22px;
+}
+.poll-gallery-page .poll-preview {
+  min-height: 200px;
+  padding: 20px 0;
+  border-width: 1px 0 0;
+  border-radius: 0;
+  background: transparent;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+.poll-gallery-page .poll-preview:hover {
+  border-color: var(--creative-accent);
+  background: color-mix(in srgb, var(--creative-soft) 24%, transparent);
+  transform: translateY(-2px);
+}
+.poll-gallery-page .poll-preview h3 {
+  font-family: var(--creative-title-font);
+  font-size: 22px;
+  font-weight: 500;
+}
+.poll-gallery-page .poll-preview-options > span {
+  border-radius: 2px;
+  background: var(--creative-paper);
+}
+.poll-gallery-page .poll-preview-action {
+  letter-spacing: .03em;
+}
+.poll-gallery-page .poll-ballot {
+  max-width: 860px;
+  padding: clamp(24px, 5vw, 52px);
+  border-radius: 4px;
+  box-shadow: 0 18px 45px color-mix(in srgb, var(--creative-ink) 6%, transparent);
+}
+.poll-gallery-page .poll-ballot .poll-ballot-heading h2 {
+  font-family: var(--creative-title-font);
+  font-size: clamp(26px, 4vw, 40px);
+  font-weight: 500;
+}
+.poll-gallery-page .poll-option {
+  border-radius: 3px;
+  background: transparent;
+  transition: border-color .18s ease, background .18s ease;
+}
+.poll-gallery-page .poll-option:hover,
+.poll-gallery-page .poll-option.is-selected {
+  background: color-mix(in srgb, var(--creative-soft) 38%, transparent);
+}
+.poll-gallery-page .poll-option-fill {
+  background: color-mix(in srgb, var(--creative-soft) 60%, transparent);
+}
+.poll-gallery-page .poll-submit,
+.poll-gallery-page .poll-secondary {
+  border-radius: 3px;
+}
+.poll-gallery-page .poll-participation-note {
+  padding-top: 16px;
+  border-top: 1px dashed var(--creative-line);
+}
+@media (max-width: 760px) {
+  .poll-gallery-page .poll-preview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .poll-gallery-page .poll-ballot {
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--creative-ink) 5%, transparent);
+  }
+}
+</style>
