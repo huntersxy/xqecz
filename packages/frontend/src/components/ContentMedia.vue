@@ -263,8 +263,8 @@ defineExpose({ mediaKind, mediaUrl })
   color: var(--creative-muted);
 }
 .cd-no-media-reason {
-  padding: 3rem 1rem; font-size: 0.875rem; color: var(--color-text-tertiary);
-  background: var(--color-placeholder); border-radius: 0.5rem; border: 1px dashed var(--color-border);
+  padding: 3rem 1rem; font-size: 0.875rem; color: var(--creative-muted);
+  background: var(--creative-canvas); border-radius: var(--radius-sm); border: 1px dashed var(--creative-line);
 }
 .cd-text-content {
   text-align: left;
