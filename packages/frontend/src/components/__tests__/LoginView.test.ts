@@ -2,14 +2,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import LoginView from '@/views/LoginView.vue'
 
-const mocks = vi.hoisted(() => ({ login: vi.fn(), register: vi.fn(), push: vi.fn(), error: vi.fn(), success: vi.fn(), user: { needsEmail: false } }))
-vi.mock('vue-router', () => ({ useRouter: () => ({ push: mocks.push }) }))
+const mocks = vi.hoisted(() => ({
+  login: vi.fn(),
+  register: vi.fn(),
+  push: vi.fn(),
+  error: vi.fn(),
+  success: vi.fn(),
+  user: { needsEmail: false },
+  route: { query: {} as Record<string, unknown> },
+}))
+vi.mock('vue-router', () => ({ useRouter: () => ({ push: mocks.push }), useRoute: () => mocks.route }))
 vi.mock('@/stores/user', () => ({ useUserStore: () => ({ ...mocks.user, login: mocks.login }) }))
 vi.mock('@/api', () => ({ authApi: { register: mocks.register } }))
 vi.mock('@arco-design/web-vue', async importOriginal => ({ ...await importOriginal<typeof import('@arco-design/web-vue')>(), Message: mocks }))
 const wrappers: ReturnType<typeof mount>[] = []
 function create() { const wrapper = mount(LoginView, { global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } } }); wrappers.push(wrapper); return wrapper }
-beforeEach(() => { vi.clearAllMocks(); mocks.login.mockResolvedValue(true); mocks.register.mockResolvedValue({ code: 200 }) })
+beforeEach(() => { vi.clearAllMocks(); mocks.login.mockResolvedValue(true); mocks.register.mockResolvedValue({ code: 200 }); mocks.route.query = {} })
 afterEach(() => wrappers.splice(0).forEach(wrapper => wrapper.unmount()))
 
 describe('login and register states', () => {
@@ -42,6 +50,24 @@ describe('login and register states', () => {
     await flushPromises()
     expect(mocks.error).toHaveBeenCalledWith('用户名或密码错误')
     expect(wrapper.find('#auth-username').attributes('disabled')).toBeUndefined()
+  })
+  it('returns to the route that required login', async () => {
+    mocks.route.query = { redirect: '/studio' }
+    const wrapper = create()
+    await wrapper.find('#auth-username').setValue('testuser')
+    await wrapper.find('#auth-password').setValue('password')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(mocks.push).toHaveBeenCalledWith('/studio')
+  })
+  it('does not follow an off-site redirect', async () => {
+    mocks.route.query = { redirect: '//evil.example' }
+    const wrapper = create()
+    await wrapper.find('#auth-username').setValue('testuser')
+    await wrapper.find('#auth-password').setValue('password')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(mocks.push).toHaveBeenCalledWith('/')
   })
   it('returns to login after successful registration and clears the old fields', async () => {
     const wrapper = create()

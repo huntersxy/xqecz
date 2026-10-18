@@ -10,10 +10,15 @@ interface CachedPosition {
   col?: number
 }
 
+export type FeedMode = 'recommended' | 'latest' | 'popular'
+
 export const useHomeStore = defineStore('home', () => {
   // 搜索和筛选状态
   const searchKeyword = ref('')
   const selectedTags = ref<string[]>([])
+  // 当前列表模式：推荐流与最新/热门的时间/浏览量排序不是同一种请求，
+  // 放在 store 里才能在 KeepAlive 往返时保持 tab 与列表一致。
+  const feedMode = ref<FeedMode>('latest')
   const page = ref(1)
   
   // 推荐内容页码
@@ -29,6 +34,9 @@ export const useHomeStore = defineStore('home', () => {
   const cachedContents = ref<Content[]>([])
   const cachedTotal = ref(0)
   const cachedTotalPages = ref(1)
+
+  // 站点作品总数：只在未筛选的响应里更新，标题区统计不跟着标签/搜索缩小。
+  const catalogTotal = ref(0)
 
   // 缓存瀑布流布局（避免返回时重新计算）
   const cachedPositions = ref<Map<string | number, CachedPosition>>(new Map())
@@ -70,6 +78,7 @@ export const useHomeStore = defineStore('home', () => {
   function clearState() {
     searchKeyword.value = ''
     selectedTags.value = []
+    feedMode.value = 'latest'
     page.value = 1
     recommendPage.value = 1
     scrollPosition.value = 0
@@ -77,6 +86,7 @@ export const useHomeStore = defineStore('home', () => {
     cachedContents.value = []
     cachedTotal.value = 0
     cachedTotalPages.value = 1
+    catalogTotal.value = 0
     cachedPositions.value = new Map()
     cachedContainerHeight.value = 0
   }
@@ -91,6 +101,7 @@ export const useHomeStore = defineStore('home', () => {
   return {
     searchKeyword,
     selectedTags,
+    feedMode,
     page,
     recommendPage,
     scrollPosition,
@@ -98,6 +109,7 @@ export const useHomeStore = defineStore('home', () => {
     cachedContents,
     cachedTotal,
     cachedTotalPages,
+    catalogTotal,
     cachedPositions,
     cachedContainerHeight,
     searchTrigger,

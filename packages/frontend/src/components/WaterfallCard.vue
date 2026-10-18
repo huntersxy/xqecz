@@ -204,7 +204,7 @@ onBeforeUnmount(() => ro?.disconnect())
   overflow: hidden;
   margin-bottom: 8px;
   color: var(--card-ink);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -224,7 +224,7 @@ onBeforeUnmount(() => ro?.disconnect())
   gap: 6px;
   min-width: 0;
   color: var(--card-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 .wf-card-user-mark { --avatar-size: 19px; flex: 0 0 auto; }
 .wf-card-user-name {
@@ -238,7 +238,7 @@ onBeforeUnmount(() => ro?.disconnect())
   gap: 9px;
   flex: 0 0 auto;
   color: var(--card-muted);
-  font-size: 10px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
 .wf-card-views,
@@ -260,7 +260,7 @@ onBeforeUnmount(() => ro?.disconnect())
   color: var(--card-muted);
   cursor: pointer;
   font: inherit;
-  font-size: 10px;
+  font-size: 11px;
   transition: color .18s ease, opacity .18s ease, transform .18s ease;
 }
 .wf-card-like:hover,
@@ -335,7 +335,7 @@ onBeforeUnmount(() => ro?.disconnect())
   .wf-card-title { font-size: 11px; }
   .wf-card-user,
   .wf-card-stats,
-  .wf-card-like { font-size: 9px; }
+  .wf-card-like { font-size: 10px; }
   .wf-card-user-mark { --avatar-size: 17px; }
   .wf-card-stats { gap: 5px; }
   .wf-card-text-body { min-height: 148px; padding: 15px 12px 12px; }
@@ -343,7 +343,7 @@ onBeforeUnmount(() => ro?.disconnect())
   .wf-card-tags { margin-top: 7px; padding-top: 6px; }
 }
 @container wfc (min-width: 280px) {
-  .wf-card-title { font-size: 13px; }
+  .wf-card-title { font-size: 14px; }
   .wf-card-info { padding-top: 11px; }
   .wf-card-text-body { min-height: 205px; padding: 22px 19px 17px; }
   .wf-card-text-excerpt { font-size: 13px; }

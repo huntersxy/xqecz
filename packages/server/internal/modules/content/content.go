@@ -418,9 +418,11 @@ func (h *Handler) tags(c *gin.Context) {
 	web.OK(c, list, "ok")
 }
 
-// decorateRows 批量装饰：批量取作者与点赞数，消除 N+1。
+// decorateRows 批量装饰公开列表：批量取作者与点赞数，消除 N+1。
+// 公开卡片自身展示浏览量（首页/推荐条的眼睛图标），因此公开路径也带上
+// view_count；管理员等需要区分口径的调用继续走 decorateRowsWith 显式传参。
 func (h *Handler) decorateRows(ctx context.Context, rows []store.Content) ([]Item, error) {
-	return h.decorateRowsWith(ctx, rows, false)
+	return h.decorateRowsWith(ctx, rows, true)
 }
 
 // decorateRowsWith 在一次作者查询和一次点赞聚合中装饰整批内容。

@@ -1,11 +1,21 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import { useUserStore } from '@/stores/user'
 import { authApi } from '@/api'
 
+const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+
+// 路由守卫会把触发登录的页面放进 ?redirect=；登录后要回到那里，
+// 例如从顶栏「工作台」进入时直接回到 /studio。只接受站内绝对路径。
+function nextPath() {
+  const redirect = route.query.redirect
+  return typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
+    ? redirect
+    : '/'
+}
 
 const isLoginMode = ref(true)
 const username = ref('')
@@ -31,7 +41,7 @@ async function handleSubmit() {
         if (userStore.needsEmail) {
           showEmailModal.value = true
         } else {
-          router.push('/')
+          router.push(nextPath())
         }
       } else {
         Message.error('用户名或密码错误')
@@ -72,7 +82,7 @@ async function submitEmail(): Promise<boolean> {
     const ok = await userStore.updateEmail(newEmail.value.trim())
     if (ok) {
       showEmailModal.value = false
-      router.push('/')
+      router.push(nextPath())
       return true
     } else {
       emailModalError.value = '更新失败，请重试'
@@ -101,7 +111,11 @@ function switchMode() {
     <div class="auth-layout">
       <section class="auth-story" aria-labelledby="auth-story-title">
         <span class="auth-kicker">A LITTLE UNIVERSE OF OUR OWN <span aria-hidden="true">✦</span></span>
-        <h1 id="auth-story-title">在小泉宇宙，<br>写下你的第一颗星球<span>。</span></h1>
+        <h1 id="auth-story-title">
+          <span>在小泉宇宙，</span>
+          <span>写下你的</span>
+          <span>第一颗星球<i>。</i></span>
+        </h1>
         <p>上传你的作品，点亮你的星球。<br>和第一批造物主，在这里相遇。</p>
         <div class="auth-art" aria-hidden="true">
           <div class="auth-orbit"></div>
@@ -145,7 +159,9 @@ function switchMode() {
 .auth-kicker, .auth-card-kicker { display: block; font-size: 9px; letter-spacing: .16em; color: var(--creative-muted); }
 .auth-kicker > span, .auth-card-kicker > span { margin-left: 8px; color: var(--creative-accent); }
 .auth-story h1 { margin: 22px 0 18px; font-size: clamp(28px, 3.2vw, 39px); line-height: 1.6; letter-spacing: .025em; font-family: var(--creative-title-font); font-weight: 600; color: var(--creative-ink); }
-.auth-story h1 > span, .auth-card h2 i { color: var(--creative-accent); }
+.auth-story h1 i, .auth-card h2 i { color: var(--creative-accent); font-style: normal; }
+/* 标题按行组织：三行各自 nowrap，字号跟随故事栏宽度，避免在“宇宙”中间断行。 */
+.auth-story h1 > span { display: block; white-space: nowrap; }
 .auth-story > p { font-size: 13px; color: var(--creative-muted); line-height: 2; }
 .auth-art { position: relative; height: 240px; margin: 30px 0 22px; max-width: 360px; }
 .auth-art::before { content: ''; position: absolute; inset: 8px 0 0; border-radius: 50%; pointer-events: none; background: radial-gradient(ellipse at center, color-mix(in srgb, var(--creative-warm) 12%, transparent), transparent 68%); }
@@ -226,10 +242,12 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .auth-gallery-page .auth-layout {
   max-width: 1080px;
   grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
-  gap: clamp(44px, 9vw, 124px);
+  gap: clamp(40px, 6vw, 88px);
   align-items: end;
 }
 .auth-gallery-page .auth-story {
+  /* 故事栏宽度由外层栅格决定，标题字号必须跟它走而不是跟视口走。 */
+  container-type: inline-size;
   padding-bottom: 12px;
 }
 .auth-gallery-page .auth-kicker,
@@ -240,8 +258,8 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .auth-gallery-page .auth-story h1 {
   max-width: 580px;
   margin-top: 28px;
-  font-size: clamp(34px, 5vw, 60px);
-  line-height: 1.25;
+  font-size: clamp(26px, 12cqi, 56px);
+  line-height: 1.3;
   letter-spacing: -.02em;
   font-weight: 500;
 }
@@ -306,6 +324,25 @@ button:disabled { cursor: not-allowed; opacity: .6; }
   margin-top: 10px;
   letter-spacing: .04em;
 }
+/* 侧栏占掉 280px 后，两栏在笔记本宽度已经把故事栏挤到放不下标题；
+   在 1280 以下改成单栏，故事在上、表单在下。 */
+@media (max-width: 1280px) {
+  .auth-gallery-page {
+    padding-top: 34px;
+  }
+  .auth-gallery-page .auth-layout {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 460px;
+    gap: 30px;
+  }
+  .auth-gallery-page .auth-story h1 {
+    font-size: clamp(30px, 10cqi, 44px);
+  }
+  /* 单栏时装饰卡片在表单上方只会把表单推到首屏之外，收起来。 */
+  .auth-gallery-page .auth-art {
+    display: none;
+  }
+}
 @media (max-width: 768px) {
   .auth-gallery-page {
     min-height: 100%;
@@ -313,9 +350,6 @@ button:disabled { cursor: not-allowed; opacity: .6; }
   }
   .auth-gallery-page .auth-layout {
     gap: 30px;
-  }
-  .auth-gallery-page .auth-story h1 {
-    font-size: 34px;
   }
   .auth-gallery-page .auth-story > p {
     margin-top: 16px;

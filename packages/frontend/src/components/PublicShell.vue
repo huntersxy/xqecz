@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { IconArrowRight, IconBarChart, IconHome, IconMenu, IconMoon, IconPlus, IconSettings, IconSun, IconUpload, IconClose } from '@arco-design/web-vue/es/icon'
+import { IconArrowRight, IconBarChart, IconMenu, IconMoon, IconPlus, IconSettings, IconSun, IconUpload, IconUser, IconClose } from '@arco-design/web-vue/es/icon'
 import { useThemeStore } from '@/stores/theme'
 import { useUserStore } from '@/stores/user'
 import { useGlobalSearch } from '@/composables/useGlobalSearch'
@@ -14,16 +14,19 @@ const themeStore = useThemeStore()
 const userStore = useUserStore()
 const mobileOpen = ref(false)
 const searchDraft = ref('')
+const searchInput = ref<HTMLInputElement | null>(null)
 const { searchKeyword, triggerSearch } = useGlobalSearch()
 watch(searchKeyword, (value) => {
   searchDraft.value = value
 })
 
-const pageTab = computed(() =>
-  ['/ideas', '/characters', '/polls'].some((path) => route.path === path || route.path.startsWith(`${path}/`))
-    ? 'discover'
-    : 'home',
-)
+// 顶栏只切换「创作 / 浏览」两种模式；发现类页面是浏览模式下的子页面，
+// 不在这里再放一份目的地。这样 /studio 与 / 各自只有一个入口。
+const pageTab = computed(() => {
+  if (route.path === '/studio' || route.path.startsWith('/studio/')) return 'studio'
+  if (route.path === '/login' || route.path.startsWith('/quick-upload')) return 'none'
+  return 'browse'
+})
 
 function closeMobile() {
   mobileOpen.value = false
@@ -45,11 +48,46 @@ function submitSearch() {
   closeMobile()
   if (route.path !== '/') void router.push('/')
 }
+
+/**
+ * 顶栏的 "/" 提示必须真的可用：输入框旁的 kbd 是承诺，不是装饰。
+ * 只在焦点不在可编辑控件时接管，避免用户在搜索框或正文里打字时被抢走斜杠。
+ */
+function isEditableTarget(target: EventTarget | null) {
+  const el = target as HTMLElement | null
+  if (!el) return false
+  const tag = el.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable
+}
+
+function onGlobalKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && mobileOpen.value) {
+    closeMobile()
+    return
+  }
+  if (event.key !== '/' || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
+  if (isEditableTarget(event.target)) return
+  event.preventDefault()
+  searchInput.value?.focus()
+  searchInput.value?.select()
+}
+
+onMounted(() => window.addEventListener('keydown', onGlobalKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKeydown))
 </script>
 
 <template>
   <div class="public-shell creative-theme" :class="{ 'is-mobile-open': mobileOpen }">
     <aside class="public-shell-sidebar" aria-label="作品广场导航">
+      <button
+        v-if="mobileOpen"
+        class="public-shell-drawer-close"
+        type="button"
+        aria-label="关闭导航"
+        @click="closeMobile"
+      >
+        <IconClose />
+      </button>
       <div class="public-shell-brand-row">
         <button
           class="public-shell-theme"
@@ -66,23 +104,8 @@ function submitSearch() {
         </RouterLink>
       </div>
 
-      <div class="public-shell-primary" aria-label="主要入口">
-        <RouterLink to="/studio" active-class="is-active" exact-active-class="is-active" @click="closeMobile">
-          <IconUpload />
-          <span>工作台</span>
-        </RouterLink>
-        <RouterLink to="/" active-class="is-active" exact-active-class="is-active" @click="closeMobile">
-          <IconHome />
-          <span>作品广场</span>
-        </RouterLink>
-      </div>
-
       <nav class="public-shell-nav" aria-label="发现">
         <p>发现</p>
-        <RouterLink to="/" exact-active-class="is-active" @click="closeMobile">
-          <IconHome />
-          <span>作品首页</span>
-        </RouterLink>
         <RouterLink to="/ideas" active-class="is-active" @click="closeMobile">
           <IconPlus />
           <span>创意广场</span>
@@ -115,7 +138,7 @@ function submitSearch() {
           <span>发布作品</span>
         </button>
         <RouterLink v-if="!userStore.isLoggedIn" to="/login" class="public-shell-user" @click="closeMobile">
-          <span class="public-shell-user-mark"><IconSettings /></span>
+          <span class="public-shell-user-mark"><IconUser /></span>
           <span><strong>登录 / 注册</strong><small>保存你的创作</small></span>
         </RouterLink>
         <RouterLink v-else to="/admin" class="public-shell-user" @click="closeMobile">
@@ -133,16 +156,24 @@ function submitSearch() {
           <IconClose v-if="mobileOpen" />
           <IconMenu v-else />
         </button>
-        <nav class="public-shell-tabs" aria-label="页面视图">
-          <RouterLink to="/" :class="{ 'is-active': pageTab === 'home' }">作品</RouterLink>
-          <RouterLink to="/ideas" :class="{ 'is-active': pageTab === 'discover' }">发现</RouterLink>
+        <nav class="public-shell-tabs" aria-label="主要入口">
+          <RouterLink to="/studio" :class="{ 'is-active': pageTab === 'studio' }">工作台</RouterLink>
+          <RouterLink to="/" :class="{ 'is-active': pageTab === 'browse' }">作品广场</RouterLink>
         </nav>
+        <label class="public-shell-search">
+          <span aria-hidden="true">⌕</span>
+          <input
+            ref="searchInput"
+            v-model="searchDraft"
+            type="search"
+            aria-label="搜索作品、提示词、标签或用户"
+            placeholder="搜索作品、提示词、标签或用户"
+            @keydown.enter.prevent="submitSearch"
+            @keydown.esc.prevent="searchInput?.blur()"
+          />
+          <kbd aria-hidden="true">/</kbd>
+        </label>
         <div class="public-shell-actions">
-          <label class="public-shell-search">
-            <span aria-hidden="true">⌕</span>
-            <input v-model="searchDraft" type="search" placeholder="搜索作品、提示词、标签或用户" @keydown.enter.prevent="submitSearch" />
-            <kbd>/</kbd>
-          </label>
           <button class="public-shell-theme public-shell-theme-main" type="button" :aria-label="themeStore.mode === 'dark' ? '切换到日间模式' : '切换到暗色模式'" @click="toggleTheme">
             <IconSun v-if="themeStore.mode === 'dark'" />
             <IconMoon v-else />
@@ -198,7 +229,6 @@ body[arco-theme='dark'] .public-shell {
   border-right: 1px solid var(--shell-line);
 }
 .public-shell-brand-row,
-.public-shell-primary,
 .public-shell-nav,
 .public-shell-library,
 .public-shell-bottom { display: grid; }
@@ -221,37 +251,12 @@ body[arco-theme='dark'] .public-shell {
 .public-shell-brand { display: flex; flex-direction: column; color: var(--shell-ink); text-decoration: none; }
 .public-shell-brand strong { font: 600 20px/1.1 var(--creative-title-font); letter-spacing: .04em; }
 .public-shell-brand span { margin-top: 4px; color: var(--shell-muted); font-size: 10px; letter-spacing: .14em; }
-.public-shell-primary {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 3px;
-  margin-top: 32px;
-  padding: 3px;
-  border: 1px solid var(--shell-line);
-  border-radius: 11px;
-  background: var(--shell-soft);
-}
-.public-shell-primary a,
 .public-shell-nav a,
 .public-shell-library a,
 .public-shell-user,
 .public-shell-publish { text-decoration: none; }
-.public-shell-primary a {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 0;
-  min-height: 38px;
-  border-radius: 8px;
-  color: var(--shell-muted);
-  font-size: 11px;
-  transition: background .18s ease, color .18s ease, transform .18s ease;
-}
-.public-shell-primary a:hover { color: var(--shell-ink); }
-.public-shell-primary a.is-active { background: var(--shell-ink); color: var(--shell-paper); }
-.public-shell-primary a:active { transform: scale(.98); }
 .public-shell-nav,
-.public-shell-library { gap: 4px; margin-top: 34px; }
+.public-shell-library { gap: 4px; margin-top: 28px; }
 .public-shell-library { margin-top: 28px; }
 .public-shell-nav p,
 .public-shell-library p { margin: 0 0 7px 10px; color: var(--shell-muted); font-size: 10px; letter-spacing: .14em; }
@@ -298,12 +303,31 @@ body[arco-theme='dark'] .public-shell {
 .public-shell-main { flex: 1; min-width: 0; background: var(--shell-canvas); }
 .public-shell-topbar { display: flex; align-items: center; gap: 24px; min-height: 76px; padding: 0 44px; border-bottom: 1px solid var(--shell-line); background: color-mix(in srgb, var(--shell-canvas) 94%, transparent); }
 .public-shell-tabs { display: flex; align-items: center; gap: 24px; }
-.public-shell-tabs a { position: relative; padding: 7px 0; color: var(--shell-muted); font: 500 22px/1 var(--creative-title-font); text-decoration: none; }
+.public-shell-tabs a { position: relative; padding: 7px 0; color: var(--shell-muted); font: 500 22px/1 var(--creative-title-font); text-decoration: none; white-space: nowrap; }
 .public-shell-tabs a::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 2px; background: var(--shell-accent); transform: scaleX(0); transition: transform .2s ease; }
 .public-shell-tabs a.is-active { color: var(--shell-ink); }
 .public-shell-tabs a.is-active::after { transform: scaleX(1); }
-.public-shell-actions { display: flex; align-items: center; gap: 12px; min-width: 0; margin-left: auto; }
-.public-shell-search { display: flex; align-items: center; gap: 8px; width: min(330px, 32vw); min-height: 40px; padding: 0 12px; border: 1px solid var(--shell-line); border-radius: 999px; background: var(--shell-paper); color: var(--shell-muted); }
+.public-shell-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 12px; min-width: 0; }
+.public-shell-search {
+  display: flex;
+  flex: 0 1 330px;
+  align-items: center;
+  gap: 8px;
+  width: 330px;
+  min-width: 120px;
+  min-height: 40px;
+  /* 搜索是顶栏唯一的自适应项：窄屏挤压它而不是把标签与操作挤出视口。 */
+  margin-left: auto;
+  padding: 0 12px;
+  border: 1px solid var(--shell-line);
+  border-radius: 999px;
+  background: var(--shell-paper);
+  color: var(--shell-muted);
+}
+/* 桌面端主题开关已在侧栏品牌行；顶栏再放一个会重复同一操作。 */
+@media (min-width: 821px) {
+  .public-shell-theme-main { display: none; }
+}
 .public-shell-search input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--shell-ink); font: inherit; font-size: 11px; }
 .public-shell-search kbd { padding: 2px 5px; border: 1px solid var(--shell-line); border-radius: 4px; color: var(--shell-muted); font-size: 10px; }
 .public-shell-theme-main { flex: 0 0 auto; border: 1px solid var(--shell-line); }
@@ -312,20 +336,39 @@ body[arco-theme='dark'] .public-shell {
 .public-shell-avatar:hover { transform: translateY(-2px); }
 .public-shell-content { max-width: 1480px; min-height: calc(100dvh - 76px); margin: 0 auto; padding: 28px 44px 64px; }
 .public-shell-menu,
-.public-shell-scrim { display: none; }
+.public-shell-scrim,
+.public-shell-drawer-close { display: none; }
 @media (max-width: 820px) {
-  .public-shell-sidebar { position: fixed; inset: 0 auto 0 0; width: min(82vw, 300px); transform: translateX(-104%); transition: transform .24s cubic-bezier(.22,1,.36,1); box-shadow: 12px 0 32px rgba(31,24,27,.14); }
+  .public-shell-sidebar { position: fixed; inset: 0 auto 0 0; width: min(82vw, 300px); overflow-y: auto; overscroll-behavior: contain; transform: translateX(-104%); transition: transform .24s cubic-bezier(.22,1,.36,1); box-shadow: 12px 0 32px rgba(31,24,27,.14); }
   .public-shell.is-mobile-open .public-shell-sidebar { transform: translateX(0); }
   .public-shell-scrim { position: fixed; inset: 0; z-index: 25; display: block; border: 0; background: rgba(32,25,27,.32); }
-  .public-shell-topbar { position: sticky; top: 0; z-index: 20; gap: 12px; min-height: 60px; padding: 0 16px; background: var(--shell-canvas); }
-  .public-shell-menu { display: grid; place-items: center; flex: 0 0 auto; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--shell-muted); }
-  .public-shell-tabs { gap: 16px; }
-  .public-shell-tabs a { font-size: 19px; }
-  .public-shell-actions { gap: 8px; }
-  .public-shell-search { width: min(42vw, 240px); min-height: 36px; }
+  /* 手机顶栏分两行：第一行导航与账号，第二行搜索。早先单行里搜索、主题和登录
+     会把 "作品 / 发现" 挤成竖排并溢出视口。 */
+  .public-shell-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    grid-template-areas:
+      'menu tabs actions'
+      'search search search';
+    align-items: center;
+    gap: 8px 12px;
+    min-height: 0;
+    padding: 8px 16px 10px;
+    background: var(--shell-canvas);
+  }
+  .public-shell-menu { display: grid; grid-area: menu; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--shell-muted); }
+  /* 抽屉盖住了顶栏的菜单按钮，抽屉内必须有可见的关闭入口。 */
+  .public-shell-drawer-close { position: absolute; top: 18px; right: 16px; z-index: 1; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid var(--shell-line); border-radius: 50%; background: var(--shell-paper); color: var(--shell-muted); cursor: pointer; }
+  .public-shell-tabs { grid-area: tabs; gap: 16px; }
+  .public-shell-tabs a { font-size: 18px; }
+  .public-shell-actions { grid-area: actions; gap: 8px; }
+  .public-shell-search { grid-area: search; width: 100%; max-width: none; min-width: 0; min-height: 36px; margin-left: 0; }
   .public-shell-search input { font-size: 10px; }
   .public-shell-search kbd { display: none; }
-  .public-shell-content { min-height: calc(100dvh - 60px); padding: 22px 18px 48px; }
+  .public-shell-content { min-height: calc(100dvh - 104px); padding: 22px 18px 48px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .public-shell *, .public-shell *::before, .public-shell *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }

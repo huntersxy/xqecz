@@ -7,13 +7,12 @@ import { ref, computed, onMounted, onActivated, onDeactivated, onBeforeUnmount, 
 import { useIntersectionObserver } from '@vueuse/core'
 import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { contentApi } from '@/api'
-import { useHomeStore } from '@/stores/home'
+import { useHomeStore, type FeedMode } from '@/stores/home'
 import { useRecommendLoader } from '@/composables/useRecommendLoader'
 import { useSearchFilter } from '@/composables/useSearchFilter'
 import { watchGlobalSearch } from '@/composables/useGlobalSearch'
 import { useWaterfallLayout } from '@/composables/useWaterfallLayout'
 import { useListCache, diffLists } from '@/composables/useListCache'
-import { scrollBehavior } from '@/utils'
 import { ContentSchema } from '@/types/schemas'
 import WaterfallCard from '@/components/WaterfallCard.vue'
 import MediaImage from '@/components/MediaImage.vue'
@@ -32,32 +31,28 @@ const recommendLoader = useRecommendLoader()
 const searchFilter = useSearchFilter()
 const listCache = useListCache()
 const showUploadSheet = ref(false)
-const searchDraft = ref('')
-const feedMode = ref<'recommended' | 'latest' | 'popular'>('latest')
-const feedRef = ref<HTMLElement | null>(null)
-const featuredRef = ref<HTMLElement | null>(null)
+// 列表模式放 store：KeepAlive 往返时 tab 不能和列表内容脱节。
+const feedMode = computed<FeedMode>({
+  get: () => homeStore.feedMode,
+  set: (mode) => { homeStore.feedMode = mode },
+})
 
 const feedSort = computed(() => (feedMode.value === 'popular' ? 'view_count' : 'created_at'))
 const featuredWorks = computed(() => {
-  const start = recommendLoader.displayStart.value
-  return recommendLoader.recommendContents.value.slice(start, start + 8)
+  const pool = recommendLoader.recommendContents.value.filter((item) => item.thumb)
+  if (!pool.length) return []
+  const start = recommendLoader.displayStart.value % pool.length
+  return pool.slice(start, start + 8)
 })
 
-function submitSearch() {
-  homeStore.searchKeyword = searchDraft.value.trim()
-  resetAndLoad(false)
-}
-
-function selectFeedMode(mode: 'recommended' | 'latest' | 'popular') {
-  const previousMode = feedMode.value
+function selectFeedMode(mode: FeedMode) {
+  if (feedMode.value === mode) return
   feedMode.value = mode
-  if (mode === 'recommended') {
-    if (previousMode === 'popular') resetAndLoad(false)
-    featuredRef.value?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
-    return
-  }
+  // 推荐流走 /content/recommend，不接受标签；搜索也只在普通列表里成立。
+  // 切换模式时清掉这些筛选，避免 tab 显示推荐、列表却还是搜索/标签结果。
+  if (mode === 'recommended') searchFilter.selectedTags.value = []
+  if (homeStore.searchKeyword) homeStore.searchKeyword = ''
   resetAndLoad(false)
-  nextTick(() => scrollToFeed())
 }
 
 function goToUpload() {
@@ -71,9 +66,6 @@ const swapSections = computed(
 )
 
 const allContents = ref<Content[]>([])
-function scrollToFeed() {
-  feedRef.value?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
-}
 const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
@@ -167,12 +159,44 @@ onBeforeRouteLeave(() => {
     positions: new Map(waterfall.positions.value),
     containerHeight: waterfall.containerHeight.value,
   })
-  // localStorage 缓存统一在离开时写一次（搜索模式不缓存），
-  // 运行时加载/diff 不再频繁写，避免每轮全量拉取都序列化几百 KB。
-  if (!homeStore.searchKeyword) {
+  // localStorage 只缓存"最新"顺序：推荐/热门列表写入同一份缓存后，
+  // 下次以最新模式打开会把别人的顺序当成最新列表恢复。
+  if (!homeStore.searchKeyword && feedMode.value === 'latest') {
     listCache.save(allContents.value, total.value, totalPages.value)
   }
 })
+
+interface FeedPageData {
+  list: unknown[]
+  total: number
+  totalPages: number
+}
+
+// 三种列表模式的统一取数入口：搜索、推荐、普通列表只在请求与字段名上不同，
+// 分页、去重、布局仍走下面的 fetchPage，避免三套分页各自漂移。
+async function requestFeedPage(page: number): Promise<FeedPageData | null> {
+  if (homeStore.searchKeyword) {
+    const res = await contentApi.search(homeStore.searchKeyword, {
+      page, page_size: pageSize.value,
+      tag: searchFilter.selectedTags.value.length > 0 ? searchFilter.selectedTags.value.join(',') : undefined,
+    })
+    if (res.code !== 200) return null
+    return { list: res.data.list, total: res.data.total, totalPages: res.data.total_page }
+  }
+  if (feedMode.value === 'recommended') {
+    const res = await contentApi.recommend(pageSize.value, page)
+    if (res.code !== 200) return null
+    // 推荐接口用 count 而不是 total/total_page，按同一 pageSize 折算分页，
+    // 保证 hasMore 与滚动加载和普通列表一致。
+    const totalPages = Math.max(1, Math.ceil(res.data.count / pageSize.value))
+    return { list: res.data.list, total: res.data.count, totalPages }
+  }
+  const params: ListParams = { page, page_size: pageSize.value, sort_by: feedSort.value, order: 'desc' }
+  if (searchFilter.selectedTags.value.length > 0) params.tag = searchFilter.selectedTags.value.join(',')
+  const res = await contentApi.list(params)
+  if (res.code !== 200) return null
+  return { list: res.data.list, total: res.data.total, totalPages: res.data.total_page }
+}
 
 async function fetchPage(page: number, append = false, force = false) {
   // 非强制请求沿用"一次只发一个"防抖；强制请求（筛选/搜索重置）可打断在途请求
@@ -182,44 +206,40 @@ async function fetchPage(page: number, append = false, force = false) {
   else isLoading.value = true
 
   try {
-    let res
-    if (homeStore.searchKeyword) {
-      res = await contentApi.search(homeStore.searchKeyword, {
-        page, page_size: pageSize.value,
-        tag: searchFilter.selectedTags.value.length > 0 ? searchFilter.selectedTags.value.join(',') : undefined,
-      })
-    } else {
-      const params: ListParams = { page, page_size: pageSize.value, sort_by: feedSort.value, order: 'desc' }
-      if (searchFilter.selectedTags.value.length > 0) params.tag = searchFilter.selectedTags.value.join(',')
-      res = await contentApi.list(params)
-    }
+    const pageData = await requestFeedPage(page)
     // 过期响应：已被更新的请求取代，丢弃，避免旧列表覆盖新筛选结果
-    if (seq !== loadSeq) return
-    if (res.code === 200) {
-      const parsed = res.data.list.map((item: unknown) => ContentSchema.parse(item))
-      total.value = res.data.total
-      totalPages.value = res.data.total_page
-      if (append) {
-        // 合并去重：分页数据与现有列表可能重叠（diff / 并发刷新场景）
-        const existing = new Set(allContents.value.map((item) => item.id))
-        const fresh = parsed.filter((item) => !existing.has(item.id))
-        const oldLen = allContents.value.length
-        allContents.value.push(...fresh)
-        // 仅当实际追加了新卡片才推进页码；若本页全部重叠（fresh 空），
-        // 保持 currentPage 不变，避免 hasMore 的 currentPage<=totalPages 提前耗尽。
-        if (fresh.length > 0) {
-          currentPage.value = page
-          nextTick(() => waterfall.appendNewItems(allContents.value.slice(oldLen)))
-        }
-      } else {
-        currentPage.value = page
-        allContents.value = parsed
-        // 列表整体替换（同长度/变多时 length watch 不会触发）也要重排，
-        // 否则新卡片没有位置、旧位置残留，产生空白/重叠。full 重排重新平衡各列。
-        nextTick(() => waterfall.relayout({ full: true }))
+    if (seq !== loadSeq || !pageData) return
+    const parsed = pageData.list.map((item: unknown) => ContentSchema.parse(item))
+    total.value = pageData.total
+    totalPages.value = pageData.totalPages
+    // 标题区展示的是站点总量，不能被标签/搜索的当前结果数覆盖。
+    // 推荐接口只统计已通过内容，普通列表还包含审核中；已有列表口径时
+    // 不要用推荐流的 count 覆盖它，避免切换 tab 时总数跳动。
+    if (!homeStore.searchKeyword && searchFilter.selectedTags.value.length === 0) {
+      if (feedMode.value !== 'recommended' || homeStore.catalogTotal === 0) {
+        homeStore.catalogTotal = pageData.total
       }
-      // 缓存统一在 onBeforeRouteLeave 离开时写入，运行时不再频繁写 localStorage
     }
+    if (append) {
+      // 合并去重：分页数据与现有列表可能重叠（diff / 并发刷新场景）
+      const existing = new Set(allContents.value.map((item) => item.id))
+      const fresh = parsed.filter((item) => !existing.has(item.id))
+      const oldLen = allContents.value.length
+      allContents.value.push(...fresh)
+      // 仅当实际追加了新卡片才推进页码；若本页全部重叠（fresh 空），
+      // 保持 currentPage 不变，避免 hasMore 的 currentPage<=totalPages 提前耗尽。
+      if (fresh.length > 0) {
+        currentPage.value = page
+        nextTick(() => waterfall.appendNewItems(allContents.value.slice(oldLen)))
+      }
+    } else {
+      currentPage.value = page
+      allContents.value = parsed
+      // 列表整体替换（同长度/变多时 length watch 不会触发）也要重排，
+      // 否则新卡片没有位置、旧位置残留，产生空白/重叠。full 重排重新平衡各列。
+      nextTick(() => waterfall.relayout({ full: true }))
+    }
+    // 缓存统一在 onBeforeRouteLeave 离开时写入，运行时不再频繁写 localStorage
   } catch (e) { console.error('加载失败:', e) }
   finally {
     // 仅最新请求复位加载态；过期请求的复位交给更新的一批
@@ -228,6 +248,8 @@ async function fetchPage(page: number, append = false, force = false) {
 }
 
 function onTagSelect(tag: string) {
+  // 推荐接口没有标签参数；在推荐流里点标签等于改用普通列表。
+  if (feedMode.value === 'recommended') feedMode.value = 'latest'
   searchFilter.selectTag(tag, () => resetAndLoad(false))
 }
 
@@ -249,20 +271,20 @@ function resetAndLoad(clearTags = true) {
   void fetchPage(1, false, true)
 }
 
-watchGlobalSearch(() => resetAndLoad(false))
-
-watch(
-  () => homeStore.searchKeyword,
-  (keyword) => {
-    if (keyword !== searchDraft.value) searchDraft.value = keyword
-  },
-  { immediate: true },
-)
+watchGlobalSearch(() => {
+  // 搜索是普通列表的一种；从推荐流发起搜索时先把 tab 切回最新，
+  // 否则会在"推荐"高亮下展示搜索结果。顶栏是全局搜索，新搜索不继承
+  // 上一次的标签筛选，否则会出现"搜到了但 0 条"的错觉；搜索结果上
+  // 仍可继续点标签缩小范围。
+  feedMode.value = 'latest'
+  resetAndLoad(true)
+})
 
 // 首次加载：自动连续拉取所有页（1-100 → 101-200 → …），不依赖滚动触发。
 // 图片仍由卡片自身的 loading="lazy" 懒加载，数据量小（每页 100 条）可一次拉满。
 async function loadAllPages() {
-  if (isLoading.value) return
+  // 推荐流分页字段与列表不同，由 fetchPage 的推荐分支负责；这里只处理列表排序。
+  if (isLoading.value || feedMode.value === 'recommended') return
   isLoading.value = true
   const seq = ++loadSeq
   try {
@@ -277,6 +299,7 @@ async function loadAllPages() {
       if (res.code !== 200) break
       const parsed = res.data.list.map((item: unknown) => ContentSchema.parse(item))
       total.value = res.data.total
+      homeStore.catalogTotal = res.data.total
       // totalPages 统一按滚动分页的 page_size（pageSize.value=20）计算，
       // 与 hasMore / fetchMore 的页码基准一致（本函数每页要 100 条，但不能改基准）。
       totalPages.value = Math.ceil(res.data.total / pageSize.value)
@@ -340,6 +363,7 @@ function captureViewAnchor(): { id: string | number; y: number; scrollY: number 
  * 3. 首次激活（keep-alive 首次挂载）由 onActivated 的 isFirstActivation 跳过。
  */
 async function syncLatestOnActivated() {
+  if (feedMode.value === 'recommended') return
   if (swapSections.value || allContents.value.length === 0) return
   try {
     // 第一步：增量探测 —— 只拉最新一页，对比本地头部
@@ -395,8 +419,21 @@ async function syncLatestOnActivated() {
   }
 }
 
-// 首页悬浮按钮上传成功后：同样拉取最新列表 diff（新作品插入顶部，锚定当前阅读位置）
+// 首页悬浮按钮上传成功后：新作品只保证出现在"最新"顺序里。
+// 推荐流不接收 pending 新作、热门按浏览量排序、筛选态也可能把它过滤掉，
+// 所以先回到未筛选的最新列表，而不是在原模式里做一次看不见的 sync。
 function onUploaded() {
+  if (
+    feedMode.value !== 'latest' ||
+    homeStore.searchKeyword ||
+    searchFilter.selectedTags.value.length > 0
+  ) {
+    feedMode.value = 'latest'
+    homeStore.searchKeyword = ''
+    searchFilter.selectedTags.value = []
+    resetAndLoad(false)
+    return
+  }
   void syncLatestOnActivated()
 }
 
@@ -408,7 +445,6 @@ useIntersectionObserver(sentinelRef, ([{ isIntersecting }]) => {
 }, { rootMargin: '1000px' })
 
 onMounted(() => {
-  searchDraft.value = homeStore.searchKeyword
   const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[]
   if (navEntries.length > 0 && navEntries[0].type === 'reload') {
     homeStore.clearState()
@@ -417,6 +453,9 @@ onMounted(() => {
 
   // 缓存恢复与搜索入口也需准备标签；展示顺序在本次浏览中保持稳定。
   void searchFilter.loadTags()
+  // 精选条不依赖列表缓存/搜索状态，任何分支都应加载；
+  // 否则从其他路由重新挂载时列表恢复了、推荐条却只剩空壳。
+  void recommendLoader.loadRecommendContents()
 
   // 搜索模式不使用缓存
   if (homeStore.searchKeyword) {
@@ -430,7 +469,6 @@ onMounted(() => {
     currentPage.value = homeStore.page
     total.value = homeStore.cachedTotal
     totalPages.value = homeStore.cachedTotalPages
-    recommendLoader.loadedPage.value = homeStore.recommendPage
     // 恢复瀑布流布局缓存
     if (homeStore.cachedPositions.size > 0) {
       waterfall.restore(homeStore.cachedPositions, homeStore.cachedContainerHeight)
@@ -441,22 +479,25 @@ onMounted(() => {
     return
   }
 
-  // 尝试从 localStorage 加载缓存（先渲染缓存再异步补齐最新数据，不阻塞首屏）
-  const cached = listCache.load()
+  // 尝试从 localStorage 加载缓存（先渲染缓存再异步补齐最新数据，不阻塞首屏）。
+  // 缓存只有"最新"顺序，热门/推荐模式不能拿它冒充自己的列表。
+  const cached = feedMode.value === 'latest' ? listCache.load() : null
   if (cached && cached.list.length > 0) {
     allContents.value = cached.list
     total.value = cached.total
     totalPages.value = cached.totalPages
+    homeStore.catalogTotal = cached.total
     currentPage.value = 1
     // 全量加载：基于缓存补齐剩余页（图片仍懒加载），不依赖滚动触发。
     // 首次 onActivated 由 isFirstActivation 跳过重复 sync。
     void loadAllPages()
+  } else if (feedMode.value === 'recommended') {
+    // 推荐流第一页由统一入口取，后续页交给底部 sentinel。
+    void fetchPage(1, false, true)
   } else {
     // 无缓存：直接自动拉取全部页（1-100 → 101-200 → …）
     void loadAllPages()
   }
-
-  recommendLoader.loadRecommendContents()
 })
 
 // keep-alive 激活时恢复滚动位置
@@ -494,19 +535,19 @@ onActivated(() => {
             <p>把喜欢的角色、画面和灵感，留在一个可以被再次发现的地方。</p>
           </div>
           <div class="gallery-intro-stats" aria-label="作品统计">
-            <span><strong>{{ total > 0 ? total : '—' }}</strong> 作品</span>
+            <span><strong>{{ homeStore.catalogTotal > 0 ? homeStore.catalogTotal : '—' }}</strong> 作品</span>
             <span><strong>{{ searchFilter.allTags.value.length || '—' }}</strong> 标签</span>
             <span><strong>{{ homeStore.searchKeyword ? '筛选中' : '持续更新' }}</strong></span>
           </div>
         </section>
 
-        <section ref="featuredRef" class="gallery-featured" aria-labelledby="featured-title">
+        <section class="gallery-featured" aria-labelledby="featured-title">
           <div class="gallery-section-heading">
             <div>
               <span class="gallery-section-label">CURATED WORKS</span>
               <h2 id="featured-title">正在被看见</h2>
             </div>
-            <button class="gallery-icon-action" type="button" :disabled="recommendLoader.isRecommendLoading.value" aria-label="换一批推荐作品" title="换一批" @click="recommendLoader.refreshRecommend()">
+            <button class="gallery-icon-action" type="button" :disabled="recommendLoader.isRecommendLoading.value" aria-label="换一批推荐作品" title="换一批" @click="recommendLoader.refreshRecommend(8)">
               <IconRefresh :spin="recommendLoader.isRecommendLoading.value" />
             </button>
           </div>
@@ -532,11 +573,12 @@ onActivated(() => {
           </div>
         </section>
 
-        <section ref="feedRef" class="gallery-feed" aria-labelledby="gallery-feed-title">
+        <section class="gallery-feed" aria-labelledby="gallery-feed-title">
           <div class="gallery-feed-heading">
             <div>
-              <h2 id="gallery-feed-title">{{ homeStore.searchKeyword ? '搜索结果' : searchFilter.selectedTags.value[0] || (feedMode === 'popular' ? '热门作品' : '最新作品') }}</h2>
+              <h2 id="gallery-feed-title">{{ homeStore.searchKeyword ? '搜索结果' : searchFilter.selectedTags.value[0] || (feedMode === 'recommended' ? '推荐作品' : feedMode === 'popular' ? '热门作品' : '最新作品') }}</h2>
               <p v-if="homeStore.searchKeyword || searchFilter.selectedTags.value.length">{{ homeStore.searchKeyword ? `正在查找“${homeStore.searchKeyword}”` : '按标签筛选' }} · {{ total }} 件作品</p>
+              <p v-else-if="feedMode === 'recommended'">{{ total > 0 ? `为你挑选 ${total} 件作品` : '推荐作品正在整理' }}</p>
               <p v-else>{{ total > 0 ? `${total} 件作品，持续更新中` : '作品正在加载' }}</p>
             </div>
             <button v-if="swapSections" class="gallery-clear-filter" type="button" @click="clearFilters">清除筛选</button>
@@ -781,6 +823,7 @@ body[arco-theme='dark'] .gallery-home-content {
 .gallery-filter-tab.is-active::after { transform: scaleX(1); }
 .gallery-tag-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
@@ -939,7 +982,8 @@ body[arco-theme='dark'] .gallery-home-content {
     flex-direction: column;
     gap: 12px;
   }
-  .gallery-tag-row { justify-content: flex-start; width: 100%; }
+  /* 手机上标签保持单行横向滚动，换行会把筛选区撑成一堵墙。 */
+  .gallery-tag-row { flex-wrap: nowrap; justify-content: flex-start; width: 100%; }
   .gallery-feed-heading { align-items: flex-start; }
   .gallery-mobile-publish {
     position: fixed;

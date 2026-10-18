@@ -56,13 +56,20 @@ export function useRecommendLoader() {
     }
   }
 
-  // 刷新：展示窗口前进一整批（16 张好图）。
-  // 窗口进入"剩余的"池内容；剩余不足时由 RecommendSection 的 ensureFilled
-  // 自动拉"更下一页"垫补；池耗尽且窗口越界时由 ensureFilled 回卷到 0。
+  // 刷新：展示窗口前进一整批（默认 16 张，首页精选条传 8）。
+  // 窗口逼近池尾时先拉下一页，避免"换一批"只把窗口推过末尾后显示空条；
+  // 池耗尽且窗口越界时回卷到 0。只统计有封面的条目，与调用方的可见口径一致。
   // 不滚动页面。
-  async function refreshRecommend() {
+  async function refreshRecommend(batch = PER_PAGE) {
     if (isRecommendLoading.value) return
-    displayStart.value += PER_PAGE
+    const visibleCount = () =>
+      recommendContents.value.filter((item) => item.thumb).length
+    const next = displayStart.value + batch
+    if (next + batch > visibleCount() && loadedPage.value < TOTAL_PAGES) {
+      await loadNextPageIntoPool()
+    }
+    const count = visibleCount()
+    displayStart.value = count === 0 || next >= count ? 0 : next
   }
 
   return {

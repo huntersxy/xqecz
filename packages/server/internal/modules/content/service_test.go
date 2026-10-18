@@ -13,6 +13,38 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// 公开列表卡片展示眼睛图标与浏览量，接口必须把 view_count 带出去；
+// 这是测试"默认装饰不含 view_count"之外的另一条口径。
+func TestPublicListIncludesViewCount(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&store.User{}, &store.Content{}, &store.ContentLike{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	now := time.Now().UTC()
+	row := store.Content{ID: 21, Title: "viewed", Tags: "[]", AuditStatus: "approved", ViewCount: 5, CreatedAt: now, UpdatedAt: now}
+	if err := db.Create(&row).Error; err != nil {
+		t.Fatalf("create content: %v", err)
+	}
+
+	h := &Handler{deps: app.Deps{DB: db}}
+	page, err := h.queryDB(context.Background(), listOpts{
+		Page: 1, PageSize: 20, SortBy: "created_at", Order: "desc",
+		AuditStatuses: []string{"approved"},
+	})
+	if err != nil {
+		t.Fatalf("query public list: %v", err)
+	}
+	if len(page.List) != 1 {
+		t.Fatalf("got %d items, want 1", len(page.List))
+	}
+	if page.List[0].ViewCount == nil || *page.List[0].ViewCount != 5 {
+		t.Fatalf("public list view_count = %v, want 5", page.List[0].ViewCount)
+	}
+}
+
 func TestDecorateManyBatchesRelatedData(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	if err != nil {

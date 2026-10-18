@@ -359,8 +359,15 @@ onBeforeUnmount(() => {
 .ideas-gallery-page .idea-filters .arco-input-wrapper {
   max-width: 360px;
 }
+/* 搜索框、下拉与按钮必须同高，否则一行筛选看起来像三个不同组件拼在一起。 */
+.ideas-gallery-page .idea-filters .arco-input-wrapper,
+.ideas-gallery-page .idea-filters :deep(.arco-select-view-single),
 .ideas-gallery-page .idea-filters .arco-btn {
-  min-height: 34px;
+  height: 38px;
+  min-height: 38px;
+}
+.ideas-gallery-page .idea-filters .arco-btn {
+  padding-inline: 16px;
   border-radius: 3px;
 }
 .ideas-gallery-page .idea-list.creative-grid {

@@ -229,19 +229,22 @@ function goPage(value: number) {
   font-weight: 500;
 }
 .poll-gallery-page .poll-preview-grid {
-  gap: 14px 22px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 14px;
 }
+/* autofit 让只有一两条投票时也铺成一整行，不再留下半页空白；
+   卡片用纸面 + 细边替代此前的无边界列表，与画廊卡片同一种质感。 */
 .poll-gallery-page .poll-preview {
-  min-height: 200px;
-  padding: 20px 0;
-  border-width: 1px 0 0;
-  border-radius: 0;
-  background: transparent;
+  min-height: 0;
+  padding: 20px 22px;
+  border: 1px solid var(--creative-line);
+  border-radius: 12px;
+  background: var(--creative-paper);
   transition: border-color .18s ease, background .18s ease, transform .18s ease;
 }
 .poll-gallery-page .poll-preview:hover {
   border-color: var(--creative-accent);
-  background: color-mix(in srgb, var(--creative-soft) 24%, transparent);
+  background: var(--creative-soft);
   transform: translateY(-2px);
 }
 .poll-gallery-page .poll-preview h3 {
