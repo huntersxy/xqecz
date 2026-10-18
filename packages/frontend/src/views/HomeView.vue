@@ -451,18 +451,35 @@ onActivated(() => {
       @click="openContent"
     />
     <section v-if="!swapSections" class="wf-hero" aria-labelledby="home-title">
-      <div class="wf-hero-copy">
-        <span class="wf-kicker"><span class="wf-kicker-dot"></span> XQECZ / UNIVERSE OF CREATORS</span>
-        <h1 id="home-title">小泉宇宙——<em>每个人都是造物主</em></h1>
-        <p>动漫二创内容分享平台 · 上传你的作品，点亮属于你的那颗星球。</p>
-        <div class="wf-hero-actions">
-          <button class="wf-primary-action" type="button" @click="showUploadSheet = true">
-            <SketchPlanet /> 点亮一颗新星球
-          </button>
-          <span class="wf-hero-note">灵感落笔，星球亮起。</span>
+      <div class="wf-hero-grid">
+        <div class="wf-hero-rail" aria-hidden="true">
+          <span>FIELD NOTE / 01</span>
+          <span>OPEN FOR CREATORS</span>
+        </div>
+        <div class="wf-hero-copy">
+          <div class="wf-hero-intro">
+            <span class="wf-kicker"><span class="wf-kicker-dot"></span> XQECZ / UNIVERSE OF CREATORS</span>
+            <span class="wf-hero-index">LIVE / {{ total > 0 ? total : '—' }} WORLDS</span>
+          </div>
+          <h1 id="home-title">小泉宇宙<em>每个人都是造物主</em></h1>
+          <p>动漫二创内容分享平台 · 上传你的作品，点亮属于你的那颗星球。</p>
+          <div class="wf-hero-actions">
+            <button class="wf-primary-action" type="button" @click="showUploadSheet = true">
+              <SketchPlanet /> 点亮一颗新星球
+            </button>
+            <span class="wf-hero-note">灵感落笔，星球亮起。</span>
+          </div>
+          <div class="wf-hero-meta" aria-label="创作空间概览">
+            <span class="wf-hero-meta-item"><strong>{{ total > 0 ? total : '—' }}</strong>颗星球已点亮</span>
+            <span class="wf-hero-meta-item"><strong>{{ recommendLoader.recommendContents.value.length || '—' }}</strong>个灵感坐标</span>
+          </div>
+        </div>
+        <div class="wf-hero-visual">
+          <span class="wf-visual-label" aria-hidden="true">ORBIT / 01</span>
+          <span class="wf-visual-note" aria-hidden="true">drag to explore</span>
+          <UniverseSketch class="wf-hero-mark" :artworks="planetArtworks" @select="router.push(`/content/${$event}`)" />
         </div>
       </div>
-      <UniverseSketch class="wf-hero-mark" :artworks="planetArtworks" @select="router.push(`/content/${$event}`)" />
     </section>
 
     <section v-if="!swapSections" class="wf-discovery" aria-label="发现内容">
@@ -574,24 +591,37 @@ onActivated(() => {
 .wf-hero, .wf-discovery, .wf-masonry-wrap, .wf-ideas, .wf-recommend-top { max-width: 1440px; margin-inline: auto; }
 .wf-recommend-top { border-bottom: 1px solid var(--home-line); }
 .wf-hero {
-  display: flex; align-items: center; justify-content: space-between; gap: 30px;
-  position: relative; isolation: isolate; padding: 28px 0 26px; border-bottom: 1px solid var(--home-line);
+  position: relative; isolation: isolate; padding: 48px 0 44px; border-bottom: 1px solid var(--home-line);
 }
-.wf-hero::before { content: ''; position: absolute; inset: 0 -28px; z-index: -1; pointer-events: none; background-image: var(--creative-grain), radial-gradient(ellipse at 80% 35%, color-mix(in srgb, var(--creative-warm) 14%, transparent), transparent 55%); background-size: 5px 5px, 100% 100%; }
-.wf-hero-copy { min-width: 0; }
-.wf-hero-copy::after { content: ''; display: block; width: 44px; height: 3px; margin-top: 24px; border-bottom: 1px solid var(--creative-warm); border-radius: 50%; transform: rotate(-4deg); }
+.wf-hero::before { content: ''; position: absolute; inset: 0 -28px; z-index: -1; pointer-events: none; background-image: var(--creative-grain), radial-gradient(ellipse at 78% 42%, color-mix(in srgb, var(--creative-warm) 16%, transparent), transparent 58%); background-size: 5px 5px, 100% 100%; opacity: .72; }
+.wf-hero::after { content: ''; position: absolute; right: 14%; bottom: 24px; width: 92px; height: 1px; background: var(--creative-warm); transform: rotate(-7deg); opacity: .65; }
+.wf-hero-grid { display: grid; grid-template-columns: 28px minmax(0, 1fr) minmax(320px, .9fr); align-items: center; gap: clamp(24px, 4vw, 70px); }
+.wf-hero-rail { display: flex; align-self: stretch; justify-content: space-between; align-items: center; writing-mode: vertical-rl; color: var(--home-muted); font-size: 9px; letter-spacing: .16em; text-transform: uppercase; }
+.wf-hero-rail span:last-child { color: var(--home-accent); }
+.wf-hero-copy { min-width: 0; max-width: 640px; }
+.wf-hero-intro { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .wf-kicker, .wf-section-kicker { font-size: 10px; font-weight: 600; letter-spacing: .13em; color: var(--home-muted); }
 .wf-kicker { display: flex; align-items: center; gap: 8px; }
 .wf-kicker-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--home-accent); }
-.wf-hero h1 { margin: 10px 0 10px; font-family: var(--creative-title-font); font-size: clamp(29px, 2.7vw, 38px); font-weight: 600; line-height: 1.45; letter-spacing: .015em; }
-.wf-hero h1 em { position: relative; display: inline-block; font-style: normal; color: var(--home-accent); }
+.wf-hero-index { flex-shrink: 0; color: var(--home-accent); font: 10px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .08em; }
+.wf-hero h1 { max-width: 680px; margin: 22px 0 16px; font-family: var(--creative-title-font); font-size: clamp(42px, 5.3vw, 76px); font-weight: 600; line-height: 1.08; letter-spacing: .01em; }
+.wf-hero h1 em { position: relative; display: block; width: fit-content; margin-top: 6px; font-style: normal; color: var(--home-accent); }
 .wf-hero h1 em::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 5px; border-bottom: 2px solid color-mix(in srgb, var(--creative-warm) 80%, transparent); border-radius: 50%; transform: rotate(-1.5deg); pointer-events: none; }
-.wf-hero p { margin: 0; color: var(--home-muted); font-size: 13px; line-height: 1.8; }
-.wf-hero-actions { display: flex; align-items: center; gap: 20px; margin-top: 16px; }
+.wf-hero p { max-width: 520px; margin: 0; color: var(--home-muted); font-size: 14px; line-height: 1.85; }
+.wf-hero-actions { display: flex; align-items: center; gap: 20px; margin-top: 28px; }
 .wf-primary-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 18px; background: var(--home-accent); color: var(--color-on-primary); border: 0; border-radius: 999px; cursor: pointer; font-size: 12px; font-weight: 600; box-shadow: 0 5px 14px color-mix(in srgb, var(--home-accent) 16%, transparent); transition: background .2s, box-shadow .2s; }
 .wf-primary-action:hover { background: var(--creative-accent-hover); box-shadow: 0 6px 18px color-mix(in srgb, var(--home-accent) 24%, transparent); }
 .wf-hero-note { color: var(--home-muted); font-size: 11px; }
-.wf-hero-mark { flex: 0 0 300px; }
+.wf-hero-meta { display: flex; align-items: stretch; gap: 24px; max-width: 520px; margin-top: 32px; padding-top: 15px; border-top: 1px solid var(--home-line); }
+.wf-hero-meta-item { display: grid; gap: 2px; color: var(--home-muted); font-size: 10px; line-height: 1.4; }
+.wf-hero-meta-item strong { color: var(--home-ink); font: 600 20px/1 var(--creative-title-font); }
+.wf-hero-visual { position: relative; display: grid; place-items: center; min-height: 318px; }
+.wf-hero-visual::before { content: ''; position: absolute; inset: 12px 0 6px 24px; border: 1px solid var(--home-line); border-radius: 50% 46% 52% 42%; transform: rotate(-8deg); pointer-events: none; }
+.wf-hero-visual::after { content: ''; position: absolute; inset: 30px 30px 24px 50px; border: 1px dashed color-mix(in srgb, var(--home-accent) 30%, transparent); border-radius: 48% 54% 42% 50%; transform: rotate(6deg); pointer-events: none; }
+.wf-visual-label, .wf-visual-note { position: absolute; z-index: 2; color: var(--home-muted); font: 9px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .12em; text-transform: uppercase; }
+.wf-visual-label { top: 18px; left: 34px; color: var(--home-accent); }
+.wf-visual-note { right: 18px; bottom: 10px; transform: rotate(-5deg); }
+.wf-hero-mark { position: relative; z-index: 1; }
 .wf-discovery { padding: 15px 0 12px; }
 .wf-discovery-heading, .wf-feed-heading { display: flex; justify-content: space-between; align-items: end; gap: 16px; }
 .wf-discovery h2, .wf-feed-heading h2 { font-size: 18px; font-weight: 600; margin: 3px 0 0; line-height: 1.4; overflow-wrap: anywhere; }
@@ -633,13 +663,22 @@ onActivated(() => {
 button:focus-visible { outline: 2px solid var(--home-accent); outline-offset: 4px; }
 @media (max-width: 768px) {
   .wf-root { padding: 0 16px; }
-  .wf-hero { padding: 28px 0; }
-  .wf-hero h1 { font-size: 27px; }
+  .wf-hero { padding: 32px 0 30px; }
   .wf-hero::before { inset-inline: -16px; }
-  .wf-hero-copy::after { margin-top: 18px; }
-  .wf-hero h1 em { display: table; }
+  .wf-hero-grid { grid-template-columns: 1fr; gap: 18px; }
+  .wf-hero-rail { display: none; }
+  .wf-hero-intro { align-items: flex-start; }
+  .wf-hero-index { font-size: 9px; }
+  .wf-hero h1 { margin: 18px 0 12px; font-size: clamp(34px, 10vw, 52px); }
+  .wf-hero h1 em { margin-top: 4px; }
   .wf-hero p { max-width: 300px; font-size: 12px; }
-  .wf-hero-mark { display: none; }
+  .wf-hero-actions { align-items: flex-start; flex-direction: column; gap: 10px; margin-top: 22px; }
+  .wf-hero-meta { gap: 18px; margin-top: 24px; }
+  .wf-hero-visual { min-height: 258px; margin-top: 4px; }
+  .wf-hero-visual::before { inset: 4px 12px 4px 20px; }
+  .wf-hero-visual::after { inset: 18px 24px 16px 36px; }
+  .wf-visual-label { top: 8px; left: 18px; }
+  .wf-visual-note { right: 12px; bottom: 0; }
   .wf-hero-note { font-size: 10px; }
   .wf-discovery { padding: 18px 0 12px; }
   .wf-tag-toolbar { gap: 8px; }
