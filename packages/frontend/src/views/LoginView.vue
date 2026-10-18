@@ -148,7 +148,7 @@ function switchMode() {
 .auth-story h1 > span, .auth-card h2 i { color: var(--creative-accent); }
 .auth-story > p { font-size: 13px; color: var(--creative-muted); line-height: 2; }
 .auth-art { position: relative; height: 240px; margin: 30px 0 22px; max-width: 360px; }
-.auth-art::before { content: ''; position: absolute; inset: 8px 0 0; border-radius: 50%; pointer-events: none; background-image: linear-gradient(color-mix(in srgb, var(--creative-muted) 8%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--creative-muted) 8%, transparent) 1px, transparent 1px); background-size: 24px 24px; mask-image: radial-gradient(ellipse, #000 25%, transparent 70%); }
+.auth-art::before { content: ''; position: absolute; inset: 8px 0 0; border-radius: 50%; pointer-events: none; background: radial-gradient(ellipse at center, color-mix(in srgb, var(--creative-warm) 12%, transparent), transparent 68%); }
 .auth-orbit { position: absolute; width: 260px; height: 180px; top: 32px; left: 28px; border: 1px solid var(--creative-line); border-radius: 50%; transform: rotate(-24deg); }
 .auth-art-card { position: absolute; width: 168px; height: 192px; padding: 18px; border: 1px solid var(--creative-line); border-radius: 12px; box-shadow: var(--creative-shadow); }
 .auth-art-card > span { font-size: 7px; letter-spacing: .07em; }
@@ -214,7 +214,7 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 /* The auth route follows the gallery's quiet editorial surface: one paper panel,
    a warm canvas, and a restrained accent leave the form as the primary action. */
 .auth-gallery-page {
-  min-height: calc(100vh - 72px);
+  min-height: calc(100vh - 64px);
   padding: clamp(36px, 7vw, 84px) clamp(20px, 6vw, 84px) 96px;
   background:
     radial-gradient(circle at 10% 12%, color-mix(in srgb, var(--creative-warm) 12%, transparent), transparent 34%),
@@ -305,7 +305,7 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 }
 @media (max-width: 768px) {
   .auth-gallery-page {
-    min-height: calc(100vh - 62px);
+    min-height: calc(100vh - 60px);
     padding: 34px 20px 56px;
   }
   .auth-gallery-page .auth-layout {
