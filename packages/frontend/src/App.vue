@@ -151,7 +151,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <Layout :class="['app-layout', { 'creative-theme app-public-theme': !route.path.startsWith('/admin') }]">
+  <Layout :class="['app-layout', { 'creative-theme app-public-theme': !route.path.startsWith('/admin'), 'home-gallery-mode': route.path === '/' }]">
       <LayoutHeader class="app-header creative-theme">
         <div class="app-header-inner">
           <RouterLink
@@ -370,6 +370,13 @@ onBeforeUnmount(() => {
 .app-layout > main {
   flex: 1 0 auto;
   background: transparent;
+}
+.app-layout.home-gallery-mode > .app-header,
+.app-layout.home-gallery-mode > .app-footer {
+  display: none;
+}
+.app-layout.home-gallery-mode > main {
+  padding-top: 0;
 }
 
 .app-header {
@@ -691,6 +698,7 @@ body[arco-theme='dark'] .app-header {
 .app-footer-legal .app-footer-badge { padding: 3px 9px; border: 1px solid var(--creative-line); border-radius: 999px; background: var(--creative-canvas); color: var(--creative-muted); font-size: 9px; }
 @media (max-width: 768px) {
   .app-layout > main, .app-layout > main.admin-main { padding-top: 62px; }
+  .app-layout.home-gallery-mode > main { padding-top: 0; }
   .app-footer { margin-top: 0; padding: 24px 20px; }
   .app-footer-inner { padding: 0; align-items: flex-start; flex-direction: column; text-align: left; gap: 20px; }
   .app-footer-info { align-items: flex-start; gap: 10px; }

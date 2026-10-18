@@ -99,18 +99,24 @@ onBeforeUnmount(() => ro?.disconnect())
           <UserAvatar class="wf-card-user-mark" :src="props.item.avatar_url" :email="props.item.user?.email" :username="props.item.user?.username" />
           <span class="wf-card-user-name">{{ props.item.user?.username }}</span>
         </span>
-        <button
-          class="wf-card-like"
-          :class="{ liked: isLiked, pending: isLikePending }"
-          type="button"
-          :aria-label="isLiked ? '取消点赞' : '点赞'"
-          :aria-pressed="isLiked"
-          :title="isLiked ? '取消点赞' : '点赞'"
-          @click="toggleLike"
-        >
-          <svg viewBox="0 0 24 24" :fill="isLiked ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.8"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-          <span>{{ likeCount }}</span>
-        </button>
+        <span class="wf-card-stats">
+          <span class="wf-card-views" :aria-label="`${props.item.view_count || 0} 次浏览`">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M2.2 12s3.4-6 9.8-6 9.8 6 9.8 6-3.4 6-9.8 6-9.8-6-9.8-6Z"/><circle cx="12" cy="12" r="2.5" /></svg>
+            <span>{{ props.item.view_count || 0 }}</span>
+          </span>
+          <button
+            class="wf-card-like"
+            :class="{ liked: isLiked, pending: isLikePending }"
+            type="button"
+            :aria-label="isLiked ? '取消点赞' : '点赞'"
+            :aria-pressed="isLiked"
+            :title="isLiked ? '取消点赞' : '点赞'"
+            @click="toggleLike"
+          >
+            <svg viewBox="0 0 24 24" :fill="isLiked ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.8"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            <span>{{ likeCount }}</span>
+          </button>
+        </span>
       </div>
       <div v-if="props.item.tags?.length" class="wf-card-tags">
         <span v-for="tag in props.item.tags.slice(0, 3)" :key="tag" class="wf-mini-tag">{{ tag }}</span>
@@ -121,91 +127,224 @@ onBeforeUnmount(() => ro?.disconnect())
 
 <style scoped>
 .wf-card {
-  --card-paper: var(--creative-paper);
-  --card-ink: var(--creative-ink);
-  --card-muted: var(--creative-muted);
-  --card-line: var(--creative-line);
-  --card-soft: var(--creative-soft);
-  --card-accent: var(--creative-accent);
-  margin-bottom: 12px;
-  padding: 7px;
-  border-radius: 13px 15px 12px 16px;
-  background: var(--card-paper);
-  border: 1px solid var(--card-line);
-  box-shadow: var(--shadow-sm);
+  --card-ink: var(--gallery-ink, var(--creative-ink));
+  --card-muted: var(--gallery-muted, var(--creative-muted));
+  --card-line: var(--gallery-line, var(--creative-line));
+  --card-soft: var(--gallery-soft, var(--creative-soft));
+  --card-accent: var(--gallery-accent, var(--creative-accent));
+  position: relative;
+  margin-bottom: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--card-ink);
   cursor: pointer;
   box-sizing: border-box;
   container: wfc / inline-size;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+  transition: transform .2s ease;
 }
-.wf-card:focus-visible { outline: 2px solid var(--card-accent); outline-offset: 4px; }
-.wf-card:hover {
-  border-color: color-mix(in srgb, var(--card-accent) 50%, var(--card-line));
-  box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
+.wf-card:focus-visible {
+  outline: 2px solid var(--card-accent);
+  outline-offset: 5px;
+  border-radius: 10px;
 }
-.wf-card:active {
-  transform: translateY(0) scale(0.99);
+.wf-card:hover { transform: translateY(-2px); }
+.wf-card:active { transform: translateY(0) scale(.995); }
+.wf-card-media {
+  position: relative;
+  overflow: hidden;
+  min-height: 80px;
+  border-radius: 10px;
+  background: var(--card-soft);
+  line-height: 0;
 }
-@media (hover: hover) and (pointer: fine) {
-  .wf-card:hover .wf-card-title { color: var(--card-accent); }
+.wf-card-media :deep(.arco-image) {
+  display: block;
+  width: 100%;
+  min-height: 80px;
+  border-radius: 0;
 }
-@media (prefers-reduced-motion: reduce) {
-  .wf-card { transition: none; }
+.wf-card-media :deep(.arco-image-img) {
+  display: block;
+  width: 100%;
+  height: auto;
+  vertical-align: top;
+  transition: transform .35s cubic-bezier(.22, 1, .36, 1);
 }
-.wf-card-media { position: relative; overflow: hidden; border-radius: 10px; min-height: 80px; background: var(--color-placeholder); line-height: 0; }
-.wf-card-media :deep(.arco-image) { display: block; width: 100%; min-height: 80px; border-radius: 0; }
-.wf-card-media :deep(.arco-image-img) { display: block; width: 100%; height: auto; vertical-align: top; }
 .wf-card-media :deep(.arco-image-footer) { display: none !important; }
-:global(body[arco-theme='dark'] .wf-card-media::after) { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.15); pointer-events: none; }
-.wf-badge-ai { position: absolute; top: 10px; left: 10px; z-index: 2; padding: 5px 8px; border: 1px solid rgba(255,255,255,.8); border-radius: 7px; background: rgba(255, 244, 248, 0.95); backdrop-filter: blur(4px); color: #b03d5a; font-size: 9px; font-weight: 700; line-height: 1; letter-spacing: .05em; box-shadow: 0 2px 8px rgba(176, 61, 90, 0.15); }
-.wf-card-info { padding: 14px 10px 10px; }
-.wf-card-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; margin-bottom: 11px; font-size: 14.5px; font-weight: 600; line-height: 1.5; color: var(--card-ink); transition: color var(--transition-fast); }
-.wf-card-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.wf-card-user { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 11.5px; color: var(--card-muted); font-weight: 500; }
-.wf-card-user-mark { --avatar-size: 23px; }
-.wf-card-user-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wf-card-like { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; padding: 4px 1px; border: 0; background: transparent; color: var(--card-muted); cursor: pointer; font: inherit; font-size: 11.5px; font-weight: 500; font-variant-numeric: tabular-nums; transition: color var(--transition-fast), opacity var(--transition-fast); }
-.wf-card-like svg { width: 14px; height: 14px; color: var(--card-accent); transition: transform var(--transition-fast); }
-.wf-card-like:hover { color: var(--card-accent); }
-.wf-card-like:hover svg { transform: scale(1.15); }
+.wf-card:hover .wf-card-media :deep(.arco-image-img) { transform: scale(1.025); }
+:global(body[arco-theme='dark'] .wf-card-media::after) {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, .12);
+  pointer-events: none;
+}
+.wf-badge-ai {
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  z-index: 2;
+  padding: 4px 7px;
+  border: 1px solid rgba(255, 255, 255, .65);
+  border-radius: 5px;
+  background: rgba(32, 27, 28, .78);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: .12em;
+}
+.wf-card-info { padding: 10px 3px 4px; }
+.wf-card-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin-bottom: 8px;
+  color: var(--card-ink);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  transition: color .18s ease;
+}
+.wf-card:hover .wf-card-title { color: var(--card-accent); }
+.wf-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+  min-width: 0;
+}
+.wf-card-user {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--card-muted);
+  font-size: 10px;
+}
+.wf-card-user-mark { --avatar-size: 19px; flex: 0 0 auto; }
+.wf-card-user-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-card-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  flex: 0 0 auto;
+  color: var(--card-muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.wf-card-views,
+.wf-card-like {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.wf-card-views svg,
+.wf-card-like svg {
+  width: 13px;
+  height: 13px;
+  color: currentColor;
+}
+.wf-card-like {
+  padding: 3px 0;
+  border: 0;
+  background: transparent;
+  color: var(--card-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  transition: color .18s ease, opacity .18s ease;
+}
+.wf-card-like:hover,
 .wf-card-like.liked { color: var(--card-accent); }
-.wf-card-like.liked svg { animation: like-bounce 0.4s var(--ease-gentle); }
-@keyframes like-bounce {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.25); }
+.wf-card-like:hover svg { transform: scale(1.12); }
+.wf-card-like svg { transition: transform .18s ease; }
+.wf-card-like.liked svg { transform: scale(1.08); }
+.wf-card-like.pending { opacity: .45; cursor: wait; }
+.wf-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid var(--card-line);
+}
+.wf-mini-tag {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: var(--card-soft);
+  color: var(--card-muted);
+  font-size: 9px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-card-text-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 178px;
+  padding: 19px 16px 15px;
+  border: 1px solid var(--card-line);
+  border-radius: 10px;
+  background: var(--card-soft);
+}
+.wf-card-text-mark {
+  height: 25px;
+  color: var(--card-accent);
+  font: 38px/1 Georgia, serif;
+  opacity: .45;
+  pointer-events: none;
+}
+.wf-card-text-excerpt {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  margin: 10px 0 18px;
+  color: var(--card-ink);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.wf-card-text-more {
+  margin-top: auto;
+  align-self: flex-end;
+  color: var(--card-accent);
+  font-size: 10px;
 }
 @media (prefers-reduced-motion: reduce) {
-  .wf-card-like.liked svg { animation: none; }
-}
-.wf-card-like.pending { opacity: .5; cursor: wait; }
-.wf-card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--card-line); }
-.wf-mini-tag { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px 8px; border-radius: 6px; font-size: 10.5px; line-height: 1.4; font-weight: 500; color: var(--card-muted); background: var(--card-soft); transition: background var(--transition-fast), color var(--transition-fast); }
-.wf-mini-tag:hover { background: color-mix(in srgb, var(--card-soft) 80%, var(--card-accent)); color: var(--card-accent); }
-.wf-card-text-body { position: relative; display: flex; flex-direction: column; min-height: 195px; padding: 22px 18px 16px; border-radius: 10px; background-color: var(--card-paper); background-image: var(--creative-grain), linear-gradient(145deg, color-mix(in srgb, var(--creative-warm) 14%, var(--card-paper)), var(--card-paper)); background-size: 5px 5px, 100% 100%; }
-.wf-card-text-mark { font: 46px/1 Georgia, serif; color: var(--card-accent); opacity: .4; height: 30px; pointer-events: none; }
-.wf-card-text-excerpt { display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; margin: 12px 0 20px; color: var(--card-ink); font-size: 13.5px; line-height: 1.85; }
-.wf-card-text-more { margin-top: auto; align-self: flex-end; font-size: 11.5px; font-weight: 500; color: var(--card-accent); transition: transform var(--transition-fast); }
-.wf-card:hover .wf-card-text-more { transform: translateX(2px); }
-@media (prefers-reduced-motion: reduce) {
-  .wf-card-text-more { transition: none; }
-  .wf-card:hover .wf-card-text-more { transform: none; }
+  .wf-card,
+  .wf-card-title,
+  .wf-card-media :deep(.arco-image-img),
+  .wf-card-like svg { transition: none; }
 }
 @container wfc (max-width: 190px) {
-  .wf-card-info { padding: 11px 6px 7px; }
-  .wf-card-title { font-size: 12.5px; margin-bottom: 9px; }
-  .wf-card-user { gap: 5px; font-size: 10.5px; }
-  .wf-card-user-mark { --avatar-size: 19px; }
-  .wf-card-like { font-size: 10.5px; gap: 3px; }
-  .wf-mini-tag { font-size: 9.5px; padding: 3px 6px; }
-  .wf-card-tags { gap: 5px; margin-top: 9px; padding-top: 9px; }
-  .wf-card-text-body { padding: 16px 12px 13px; min-height: 160px; }
-  .wf-card-text-excerpt { font-size: 12.5px; -webkit-line-clamp: 4; }
+  .wf-card-info { padding-inline: 1px; }
+  .wf-card-title { font-size: 11px; }
+  .wf-card-user,
+  .wf-card-stats,
+  .wf-card-like { font-size: 9px; }
+  .wf-card-user-mark { --avatar-size: 17px; }
+  .wf-card-stats { gap: 5px; }
+  .wf-card-text-body { min-height: 148px; padding: 15px 12px 12px; }
+  .wf-card-text-excerpt { font-size: 11px; -webkit-line-clamp: 4; }
+  .wf-card-tags { margin-top: 7px; padding-top: 6px; }
 }
-@container wfc (min-width: 260px) {
-  .wf-card-info { padding: 16px 12px 12px; }
-  .wf-card-title { font-size: 15.5px; }
-  .wf-card-text-body { padding: 25px 20px 19px; min-height: 220px; }
-  .wf-card-text-excerpt { font-size: 14.5px; -webkit-line-clamp: 6; }
+@container wfc (min-width: 280px) {
+  .wf-card-title { font-size: 13px; }
+  .wf-card-info { padding-top: 11px; }
+  .wf-card-text-body { min-height: 205px; padding: 22px 19px 17px; }
+  .wf-card-text-excerpt { font-size: 13px; }
 }
 </style>
