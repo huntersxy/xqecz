@@ -606,8 +606,22 @@ onActivated(() => {
     <main class="gallery-main" role="main">
       <header class="gallery-topbar">
         <div class="gallery-page-tabs" role="tablist" aria-label="页面视图">
-          <button class="gallery-page-tab is-active" type="button" role="tab" aria-selected="true" @click="scrollToFeed">首页</button>
-          <button class="gallery-page-tab" type="button" role="tab" aria-selected="false" @click="selectFeedMode('popular')">发现</button>
+          <button
+            class="gallery-page-tab"
+            :class="{ 'is-active': feedMode !== 'popular' }"
+            type="button"
+            role="tab"
+            :aria-selected="feedMode !== 'popular'"
+            @click="feedMode === 'popular' ? selectFeedMode('latest') : scrollToFeed()"
+          >首页</button>
+          <button
+            class="gallery-page-tab"
+            :class="{ 'is-active': feedMode === 'popular' }"
+            type="button"
+            role="tab"
+            :aria-selected="feedMode === 'popular'"
+            @click="selectFeedMode('popular')"
+          >发现</button>
         </div>
         <div class="gallery-top-actions">
           <label class="gallery-search">
