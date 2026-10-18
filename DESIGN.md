@@ -16,7 +16,7 @@
 
 - Direction: editorial field notes over a warm orbital canvas.
 - Defining trait: horizontal recommendation strip leads into an asymmetric two-column Hero, then a compact coordinate filter and the content field.
-- Signature move: the recommendation strip acts as a visual launch rail into the orbital Hero stage instead of a separate card section.
+- Signature move: the recommendation strip acts as a visual launch rail into the high-contrast orbital Hero stage instead of a separate card section.
 
 ## Typography
 
@@ -57,8 +57,9 @@
 
 ## Imagery and illustration
 
-- Use the existing `UniverseSketch` and live artwork pool as the Hero visual.
+- Use the existing `UniverseSketch` and live artwork pool as the Hero visual, backed by `HeroOrbitCanvas.vue` for a deterministic looping particle field.
 - Keep the hand-drawn orbit lines, grain, and coordinate language; avoid adding generic gradients, stock images, or decorative card grids.
+- Canvas owns its animation frame, ResizeObserver, visibility pause, reduced-motion fallback, and teardown; CSS owns the slow orbit and scan-line loops.
 
 ## Accessibility
 
@@ -74,3 +75,4 @@
 ## Changelog
 
 - 2026-10-18: replaced the centered Hero treatment with an asymmetric editorial orbit composition while preserving existing creative tokens and content contracts.
+- 2026-10-18: added a high-contrast orbital stage with a looping canvas particle field and CSS scan motion.
