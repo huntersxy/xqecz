@@ -16,6 +16,7 @@ import { watchGlobalSearch } from '@/composables/useGlobalSearch'
 import { useWaterfallLayout } from '@/composables/useWaterfallLayout'
 import { useListCache, diffLists } from '@/composables/useListCache'
 import { scrollBehavior } from '@/utils'
+import { revealOriginFrom, withRevealTransition } from '@/utils/viewTransition'
 import { ContentSchema } from '@/types/schemas'
 import WaterfallCard from '@/components/WaterfallCard.vue'
 import MediaImage from '@/components/MediaImage.vue'
@@ -59,6 +60,11 @@ const featuredWorks = computed(() => {
 
 function closeMobileSidebar() {
   mobileSidebarOpen.value = false
+}
+
+function toggleGalleryTheme(event: MouseEvent) {
+  const button = ((event.target as Element | null)?.closest?.('.gallery-theme-toggle') as Element | null) ?? null
+  withRevealTransition(() => themeStore.toggleMode(), revealOriginFrom(event, button))
 }
 
 function submitSearch() {
@@ -525,7 +531,7 @@ onActivated(() => {
           class="gallery-theme-toggle"
           type="button"
           :aria-label="themeStore.mode === 'dark' ? '切换到日间模式' : '切换到暗色模式'"
-          @click="themeStore.toggleMode()"
+          @click="toggleGalleryTheme"
         >
           <IconSun v-if="themeStore.mode === 'dark'" />
           <IconMoon v-else />
@@ -609,7 +615,7 @@ onActivated(() => {
             <input v-model="searchDraft" type="search" placeholder="搜索作品、提示词、标签或用户" @keydown.enter.prevent="submitSearch" />
             <kbd>/</kbd>
           </label>
-          <button class="gallery-theme-toggle gallery-theme-toggle-main" type="button" :aria-label="themeStore.mode === 'dark' ? '切换到日间模式' : '切换到暗色模式'" @click="themeStore.toggleMode()">
+          <button class="gallery-theme-toggle gallery-theme-toggle-main" type="button" :aria-label="themeStore.mode === 'dark' ? '切换到日间模式' : '切换到暗色模式'" @click="toggleGalleryTheme">
             <IconSun v-if="themeStore.mode === 'dark'" />
             <IconMoon v-else />
           </button>
@@ -788,6 +794,7 @@ body[arco-theme='dark'] .gallery-home {
   background: var(--gallery-accent-soft);
   transform: rotate(-12deg);
 }
+.gallery-theme-toggle:active { transform: rotate(-12deg) scale(.93); }
 .gallery-theme-toggle :deep(svg) { width: 17px; height: 17px; }
 .gallery-primary-switch {
   display: grid;
@@ -810,10 +817,11 @@ body[arco-theme='dark'] .gallery-home {
   color: var(--gallery-muted);
   text-decoration: none;
   font-size: 11px;
-  transition: background .18s ease, color .18s ease, transform .18s ease;
+  transition: background .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease;
 }
 .gallery-primary-link :deep(svg) { width: 15px; height: 15px; }
 .gallery-primary-link:hover { color: var(--gallery-ink); }
+.gallery-primary-link:active { transform: scale(.98); }
 .gallery-primary-link.is-active {
   color: #fff;
   background: var(--gallery-ink);
@@ -866,6 +874,7 @@ body[arco-theme='dark'] .gallery-primary-link.is-active {
   background: var(--gallery-soft);
   transform: translateX(2px);
 }
+.gallery-side-link:active { transform: translateX(1px) scale(.98); }
 .gallery-side-link.is-active {
   color: var(--gallery-accent);
   background: var(--gallery-accent-soft);
@@ -881,8 +890,10 @@ body[arco-theme='dark'] .gallery-primary-link.is-active {
   font-size: 11px;
   line-height: 1.6;
   text-decoration: none;
+  transition: color .18s ease, transform .18s ease;
 }
 .gallery-library-note:hover { color: var(--gallery-accent); }
+.gallery-library-note:active { transform: translateX(1px) scale(.99); }
 .gallery-library-note :deep(svg) { width: 14px; height: 14px; flex: 0 0 auto; }
 .gallery-sidebar-bottom {
   display: grid;
@@ -909,6 +920,7 @@ body[arco-theme='dark'] .gallery-primary-link.is-active {
   transform: translateY(-2px);
   box-shadow: 0 9px 22px rgba(32, 27, 28, .16);
 }
+.gallery-publish-button:active { transform: translateY(0) scale(.98); }
 .gallery-publish-button :deep(svg) { width: 16px; height: 16px; }
 .gallery-user-row {
   display: flex;
@@ -917,6 +929,7 @@ body[arco-theme='dark'] .gallery-primary-link.is-active {
   min-width: 0;
   color: var(--gallery-ink);
   text-decoration: none;
+  transition: color .18s ease;
 }
 .gallery-user-row:hover { color: var(--gallery-accent); }
 .gallery-user-avatar {
@@ -971,9 +984,11 @@ body[arco-theme='dark'] .gallery-primary-link.is-active {
   color: var(--gallery-muted);
   font: 600 25px/1 var(--gallery-title-font);
   cursor: pointer;
+  transition: color .18s ease, transform .18s ease;
 }
-.gallery-page-tab.is-active { color: var(--gallery-ink); }
-.gallery-page-tab.is-active::after {
+.gallery-page-tab:hover { color: var(--gallery-ink); }
+.gallery-page-tab:active { transform: scale(.98); }
+.gallery-page-tab::after {
   content: '';
   position: absolute;
   right: 0;
@@ -982,7 +997,12 @@ body[arco-theme='dark'] .gallery-primary-link.is-active {
   height: 2px;
   border-radius: 2px;
   background: var(--gallery-accent);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform .2s ease;
 }
+.gallery-page-tab.is-active { color: var(--gallery-ink); }
+.gallery-page-tab.is-active::after { transform: scaleX(1); }
 .gallery-top-actions {
   display: flex;
   align-items: center;
@@ -1044,11 +1064,13 @@ body[arco-theme='dark'] .gallery-primary-link.is-active {
   border: 1px solid var(--gallery-line);
   border-radius: 10px;
   font-size: 11px;
+  transition: color .18s ease, border-color .18s ease, transform .18s ease;
 }
 .gallery-login-link:hover {
   border-color: var(--gallery-accent);
   color: var(--gallery-accent);
 }
+.gallery-login-link:active { transform: scale(.98); }
 .gallery-top-avatar {
   border-radius: 50%;
   transition: transform .18s ease;
@@ -1181,6 +1203,7 @@ body[arco-theme='dark'] .gallery-primary-link.is-active {
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color .18s ease;
 }
 .gallery-featured-item:hover > span { color: var(--gallery-accent); }
 .gallery-featured-empty {
@@ -1211,12 +1234,15 @@ body[arco-theme='dark'] .gallery-primary-link.is-active {
   font: inherit;
   font-size: 12px;
   cursor: pointer;
+  transition: color .18s ease, transform .18s ease;
 }
+.gallery-filter-tab:hover { color: var(--gallery-ink); }
+.gallery-filter-tab:active { transform: scale(.98); }
 .gallery-filter-tab.is-active {
   color: var(--gallery-ink);
   font-weight: 600;
 }
-.gallery-filter-tab.is-active::after {
+.gallery-filter-tab::after {
   content: '';
   position: absolute;
   right: 0;
@@ -1225,7 +1251,11 @@ body[arco-theme='dark'] .gallery-primary-link.is-active {
   height: 2px;
   border-radius: 2px;
   background: var(--gallery-accent);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform .2s ease;
 }
+.gallery-filter-tab.is-active::after { transform: scaleX(1); }
 .gallery-tag-row {
   display: flex;
   align-items: center;
@@ -1281,7 +1311,10 @@ body[arco-theme='dark'] .gallery-primary-link.is-active {
   font: inherit;
   font-size: 11px;
   cursor: pointer;
+  transition: color .18s ease, transform .18s ease;
 }
+.gallery-clear-filter:hover { color: var(--gallery-ink); }
+.gallery-clear-filter:active { transform: scale(.98); }
 .gallery-masonry {
   width: 100%;
 }
@@ -1308,7 +1341,10 @@ body[arco-theme='dark'] .gallery-primary-link.is-active {
   font: inherit;
   font-size: 11px;
   cursor: pointer;
+  transition: color .18s ease, transform .18s ease;
 }
+.gallery-state button:hover { color: var(--gallery-ink); }
+.gallery-state button:active { transform: scale(.98); }
 .gallery-state button :deep(svg) { width: 14px; height: 14px; }
 .gallery-state-mark {
   display: grid;
@@ -1429,7 +1465,12 @@ body[arco-theme='dark'] .gallery-primary-link.is-active {
     background: transparent;
     color: var(--gallery-accent);
     cursor: pointer;
+    transition: color .18s ease, background .18s ease, transform .18s ease;
   }
+  .gallery-mobile-menu:hover,
+  .gallery-mobile-upload:hover { background: var(--gallery-accent-soft); }
+  .gallery-mobile-menu:active,
+  .gallery-mobile-upload:active { transform: scale(.92); }
   .gallery-mobile-menu :deep(svg),
   .gallery-mobile-upload :deep(svg) { width: 18px; height: 18px; }
   .gallery-topbar {
@@ -1476,7 +1517,10 @@ body[arco-theme='dark'] .gallery-primary-link.is-active {
     color: var(--gallery-paper);
     box-shadow: 0 10px 22px rgba(31, 24, 27, .22);
     cursor: pointer;
+    transition: transform .18s ease, box-shadow .18s ease;
   }
+  .gallery-mobile-publish:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(31, 24, 27, .26); }
+  .gallery-mobile-publish:active { transform: scale(.94); }
   .gallery-mobile-publish :deep(svg) { width: 20px; height: 20px; }
 }
 @media (max-width: 520px) {
