@@ -188,8 +188,8 @@ onBeforeUnmount(() => ro?.disconnect())
   z-index: 2;
   padding: 4px 7px;
   border: 1px solid rgba(255, 255, 255, .65);
-  border-radius: 5px;
-  background: rgba(32, 27, 28, .78);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--card-ink) 78%, transparent);
   color: #fff;
   font-size: 8px;
   font-weight: 700;
