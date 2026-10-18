@@ -155,44 +155,51 @@ body[arco-theme='dark'] {
 }
 
 /* 创作界面的共享调色板：仅 .creative-theme 使用，工作台保留独立布局与状态色。
-   抽屉通过 Teleport 挂到 body，必须在抽屉根节点显式携带此类。 */
+   抽屉通过 Teleport 挂到 body，必须在抽屉根节点显式携带此类。
+
+   --creative-* 是 --site-* 的语义别名，两者值完全一致（以首页 gallery 调色板为准）。
+   好处：创意广场/角色设定/投票/登录/详情等页面继续使用 --creative-* 命名，
+   无需改任何组件代码，视觉自动与首页/后台统一。
+   如需将来在局部范围（某一页面 scope）覆盖某个 creative 值，仍可在该作用域内声明。 */
 body {
-  --creative-paper: #fffefe;
-  --creative-canvas: #f8f5f6;
-  --creative-soft: #fce8ee;
-  --creative-ink: #2d2428;
-  --creative-muted: #75676f;
-  --creative-line: #ede4e8;
-  --creative-accent: #c24d6b;
-  --creative-accent-hover: #b03d5a;
-  --creative-warm: #e8c590;
+  --creative-paper:        var(--site-paper);
+  --creative-canvas:       var(--site-canvas);
+  --creative-soft:         var(--site-soft);
+  --creative-ink:          var(--site-ink);
+  --creative-muted:        var(--site-muted);
+  --creative-line:         var(--site-line);
+  --creative-accent:       var(--site-accent);
+  --creative-accent-hover: var(--site-accent-hover);
+  --creative-warm:         #e8c590;
   --creative-grain: radial-gradient(circle, color-mix(in srgb, var(--creative-muted) 8%, transparent) .7px, transparent .9px);
-  --creative-title-font: 'Kaiti SC', 'STKaiti', 'KaiTi', 'LXGW WenKai', 'Noto Serif CJK SC', serif;
-  --creative-shadow: 0 12px 36px rgba(83, 57, 35, .12);
+  --creative-title-font:   var(--site-title-font);
+  --creative-shadow:       var(--shadow-lg);
+
+  /* 全站共享语义 alias（供各区块不引入额外变量名直接使用） */
+  --site-chip-bg:      color-mix(in srgb, var(--site-paper) 84%, transparent);
+  --site-input-bg:     var(--site-paper);
+  --site-input-border: var(--site-line);
+  --site-card-bg:      var(--site-paper);
+  --site-tag-bg:       var(--site-soft);
 }
 body[arco-theme='dark'] {
-  --creative-paper: #221e20;
-  --creative-canvas: #1a1618;
-  --creative-soft: #3a2d31;
-  --creative-ink: #f5ede8;
-  --creative-muted: #c0b4ae;
-  --creative-line: #3d3437;
-  --creative-accent: #f5a3b5;
-  --creative-accent-hover: #ffbdcd;
   --creative-warm: #b89260;
-  --creative-shadow: 0 12px 40px rgba(0, 0, 0, .24);
+  /* 其余 --creative-* 随 body 上的 --site-* 暗色定义自动更新，无需重复声明 */
 }
 .creative-theme {
-  --primary-1: 249, 234, 232;
-  --primary-2: 245, 218, 218;
-  --primary-3: 235, 188, 193;
-  --primary-4: 220, 151, 165;
-  --primary-5: 200, 114, 138;
-  --primary-6: 173, 76, 99;
-  --primary-7: 157, 61, 84;
-  --primary-8: 131, 44, 68;
-  --primary-9: 106, 31, 54;
-  --primary-10: 81, 21, 41;
+  /* Arco primary ramp — 以 --site-accent 酒红为基准重算，与首页/后台保持一致。
+     原 ramp 是玫瑰粉(#c24d6b)，统一后改为酒红(#6b173b)，暗色用淡粉(#f0a8bb)。
+     rgb 值对应 oklch 等感知步长，可用 oklch() 工具链重算；这里手工取近似值。 */
+  --primary-1: 248, 232, 235;   /* 极淡玫红底 */
+  --primary-2: 240, 212, 218;
+  --primary-3: 225, 178, 190;
+  --primary-4: 204, 137, 157;
+  --primary-5: 175, 96, 120;
+  --primary-6: 107, 23, 59;    /* --site-accent 酒红 */
+  --primary-7: 84, 16, 46;
+  --primary-8: 63, 10, 34;
+  --primary-9: 45, 6, 24;
+  --primary-10: 30, 3, 15;
   --color-primary: var(--creative-accent);
   --color-primary-hover: var(--creative-accent-hover);
   /* Arco 的浅主色别名在 body 上已计算，局部替换 primary-* 后需同步覆盖。 */
@@ -200,7 +207,7 @@ body[arco-theme='dark'] {
   --color-primary-light-2: color-mix(in srgb, var(--creative-accent) 16%, var(--creative-paper));
   --color-primary-light-3: color-mix(in srgb, var(--creative-accent) 24%, var(--creative-paper));
   --color-primary-light-4: color-mix(in srgb, var(--creative-accent) 32%, var(--creative-paper));
-  --color-on-primary: #fff;
+  --color-on-primary: var(--site-on-action);
   --color-text: var(--creative-ink);
   --color-text-secondary: var(--creative-muted);
   --color-text-tertiary: var(--creative-muted);
@@ -212,17 +219,18 @@ body[arco-theme='dark'] {
   color: var(--creative-ink);
 }
 body[arco-theme='dark'] .creative-theme {
+  /* 暗色 ramp — 基准为 --site-accent 暗色淡粉 #f0a8bb */
   --primary-1: 60, 43, 46;
   --primary-2: 82, 49, 58;
   --primary-3: 113, 64, 80;
   --primary-4: 155, 88, 110;
   --primary-5: 199, 124, 146;
-  --primary-6: 239, 163, 178;
+  --primary-6: 240, 168, 187;  /* --site-accent 暗色淡粉 */
   --primary-7: 246, 188, 198;
   --primary-8: 250, 210, 215;
   --primary-9: 253, 229, 231;
   --primary-10: 255, 242, 241;
-  --color-on-primary: #30202a;
+  --color-on-primary: var(--site-on-action);
 }
 /* Arco 的 primary 按钮默认白字，夜间浅粉按钮需使用深色前景。 */
 .creative-theme .arco-btn-primary:not(.arco-btn-disabled) {

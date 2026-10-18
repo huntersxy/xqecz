@@ -167,7 +167,7 @@ onBeforeUnmount(() => {
   margin: 0; font-size: 0.9rem; font-weight: 600; color: var(--creative-ink);
 }
 
-:global(body[arco-theme='dark'] .wf-recommend-head h2) { color: var(--color-text-1); }
+:global(body[arco-theme='dark'] .wf-recommend-head h2) { color: var(--creative-ink); }
 
 .wf-rec-refresh {
   display: inline-flex; align-items: center; justify-content: center;
@@ -179,7 +179,7 @@ onBeforeUnmount(() => {
   transition: color 0.2s, background 0.2s, border-color 0.2s;
 }
 .wf-rec-refresh:hover:not(:disabled) {
-  color: rgb(var(--primary-6)); border-color: rgb(var(--primary-6));
+  color: var(--creative-accent); border-color: var(--creative-accent);
 }
 .wf-rec-refresh:disabled { opacity: 0.6; cursor: default; }
 .wf-rec-refresh :deep(svg) { width: 16px; height: 16px; }
@@ -193,7 +193,7 @@ onBeforeUnmount(() => {
 .wf-recommend-card {
   flex-shrink: 0; width: 140px; height: 180px; border-radius: 12px;
   overflow: hidden; position: relative; cursor: pointer;
-  background: var(--color-fill-2);
+  background: var(--creative-canvas);
 }
 /* 暗色下给推荐缩略图叠一层灰色半透明遮罩，与壁纸/瀑布流卡片压暗保持一致 */
 :global(body[arco-theme='dark'] .wf-recommend-card::after) {
@@ -204,9 +204,7 @@ onBeforeUnmount(() => {
   background: rgba(0, 0, 0, 0.35);
   pointer-events: none;
 }
-/* 暗色下 --color-fill-2 为 rgba(255,255,255,0.08) 半透明，卡片会透出壁纸 → 改用实色深色 token */
-:global(body[arco-theme='dark'] .wf-recommend-card) { background: var(--color-bg-3); }
-/* Arco <Image> 包裹层需填满卡片，内层 .arco-image-img 的 cover 才生效 */
+/* 暗色下 canvas 已是实色深暗背景，无需再额外覆盖 */
 .wf-recommend-card :deep(.arco-image) { display: block; width: 100%; height: 100%; }
 .wf-recommend-card :deep(.arco-image-img) {
   display: block;

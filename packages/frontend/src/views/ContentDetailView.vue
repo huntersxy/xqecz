@@ -184,16 +184,9 @@ onMounted(() => {
 <style scoped>
 /* The detail view is a quiet reading surface over the gallery canvas. Keep the
    overlay mounted for keyboard/backdrop behaviour, but let the content panel
-   carry the paper, line and serif hierarchy used by the home gallery. */
+   carry the paper, line and serif hierarchy used by the home gallery.
+   --creative-* 已统一为 --site-* 别名，无需在此重声明。 */
 .cd-root {
-  --creative-paper: var(--gallery-paper, #fffdf9);
-  --creative-canvas: var(--gallery-canvas, #ebe4e1);
-  --creative-soft: var(--gallery-soft, #f1e9e6);
-  --creative-ink: var(--gallery-ink, #201b1c);
-  --creative-muted: var(--gallery-muted, #817779);
-  --creative-line: var(--gallery-line, rgba(52, 40, 42, .14));
-  --creative-accent: var(--gallery-accent, #6b173b);
-  --creative-title-font: Georgia, 'Songti SC', 'SimSun', serif;
   position: fixed;
   inset: 0;
   z-index: 1000;
@@ -203,15 +196,6 @@ onMounted(() => {
   padding: clamp(10px, 2vw, 28px);
   color: var(--creative-ink);
   background: var(--creative-canvas);
-}
-body[arco-theme='dark'] .cd-root {
-  --creative-paper: #2b2427;
-  --creative-canvas: #211b1e;
-  --creative-soft: #342b2f;
-  --creative-ink: #f8f0ed;
-  --creative-muted: #c0b1b4;
-  --creative-line: rgba(250, 240, 237, .16);
-  --creative-accent: #f0a8bb;
 }
 .cd-backdrop { position: absolute; inset: 0; background: color-mix(in srgb, var(--creative-ink) 5%, transparent); }
 .cd-shell {

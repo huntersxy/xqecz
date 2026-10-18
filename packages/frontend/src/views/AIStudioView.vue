@@ -53,10 +53,7 @@ const {
   enhancePrompt,
   promptEnhancement,
 } = studio
-const libraryOpen = ref(false),
-  historyOpen = ref(false),
-  ideaOpen = ref(false),
-  publishOpen = ref(false),
+const publishOpen = ref(false),
   resultOpen = ref(false),
   sizePickerOpen = ref(false),
   promptExpanded = ref(false),
@@ -68,6 +65,21 @@ const libraryOpen = ref(false),
   zoom = ref(1),
   search = ref(''),
   status = ref('')
+// 资源侧抽屉：合并 library / history / idea 三个独立 modal
+const sideDrawerOpen = ref(false)
+const sideDrawerTab = ref<'library' | 'history' | 'idea'>('library')
+const sideDrawerTabs = [
+  { key: 'library' as const, label: '角色/模板', icon: IconFile },
+  { key: 'history' as const, label: '图片库', icon: IconImage },
+  { key: 'idea' as const, label: '投稿创意', icon: IconPlus },
+]
+const sideDrawerTitle = computed(() =>
+  sideDrawerTabs.find((t) => t.key === sideDrawerTab.value)?.label ?? '资源',
+)
+function openSideDrawer(tab: typeof sideDrawerTab.value) {
+  sideDrawerTab.value = tab
+  sideDrawerOpen.value = true
+}
 const promptArea = ref<HTMLTextAreaElement>(),
   fileInput = ref<HTMLInputElement>()
 const composerElement = ref<HTMLElement>()
@@ -414,7 +426,7 @@ async function applyResource(value: {
       provider.value?.qualities.includes(value.parameters.quality)
     )
       quality.value = value.parameters.quality
-    libraryOpen.value = false
+    sideDrawerOpen.value = false
   })
 }
 async function submitIdea() {
@@ -426,7 +438,7 @@ async function submitIdea() {
       input: studio.input(),
       character_ids: studio.characterIds.value,
     })
-    ideaOpen.value = false
+    sideDrawerOpen.value = false
     await router.push(`/ideas/${row.id}`)
   })
 }
@@ -803,10 +815,10 @@ watch(ready, (value) => {
                 >{{ references.length }}/{{ provider?.max_references ?? 0 }}</span
               ></a-button
             >
-            <a-button size="small" :disabled="!provider?.max_references" @click="historyOpen = true"
+            <a-button size="small" :disabled="!provider?.max_references" @click="openSideDrawer('history')"
               ><IconImage />图片库</a-button
             >
-            <a-button size="small" @click="libraryOpen = true"><IconFile />角色 / 模板</a-button>
+            <a-button size="small" @click="openSideDrawer('library')"><IconFile />角色 / 模板</a-button>
             <span class="attachment-hint creative-note">{{
               uploading
                 ? '正在上传参考图…'
@@ -889,7 +901,7 @@ watch(ready, (value) => {
           </div>
           <div class="composer-quick-actions">
             <a-button size="small" :disabled="composerLocked" @click="studio.run(studio.save)">保存草稿</a-button>
-            <a-button size="small" :disabled="composerLocked || !prompt.trim()" @click="ideaOpen = true">投稿创意</a-button>
+            <a-button size="small" :disabled="composerLocked || !prompt.trim()" @click="openSideDrawer('idea')">投稿创意</a-button>
           <a-button
             type="primary"
             class="composer-submit"
@@ -909,6 +921,94 @@ watch(ready, (value) => {
       :model-value="size"
       @select="size = $event"
     />
+    <!-- 资源侧抽屉：合并 library / idea / history 三个独立 modal，顶部 tab 切换。
+         sizePicker 与 publish 保持独立 modal（功能单一，不属于资源浏览）。 -->
+    <a-drawer
+      v-model:visible="sideDrawerOpen"
+      class="creative-theme creative-dialog ai-dialog studio-side-drawer"
+      :width="440"
+      :footer="false"
+      placement="right"
+      :title="sideDrawerTitle"
+    >
+      <div class="side-drawer-tabs" role="tablist" aria-label="资源抽屉切换">
+        <button
+          v-for="tab in sideDrawerTabs"
+          :key="tab.key"
+          type="button"
+          role="tab"
+          :aria-selected="sideDrawerTab === tab.key"
+          :class="['side-drawer-tab', { 'is-active': sideDrawerTab === tab.key }]"
+          @click="sideDrawerTab = tab.key"
+        >
+          <component :is="tab.icon" aria-hidden="true" />
+          <span>{{ tab.label }}</span>
+        </button>
+      </div>
+      <div class="side-drawer-body">
+        <!-- 角色与模板资源 -->
+        <CreativeLibrary
+          v-if="sideDrawerOpen && sideDrawerTab === 'library'"
+          @apply="applyResource"
+        />
+        <!-- 个人常用参考图 -->
+        <div v-else-if="sideDrawerTab === 'history'" class="creative-grid">
+          <div v-for="asset in assets" :key="asset.id" class="library-asset">
+            <button
+              type="button"
+              class="library-asset-select"
+              @click="
+                studio.run(async () => {
+                  studio.addReference(asset.id)
+                  sideDrawerOpen = false
+                })
+              "
+            >
+              <CreativeImage :id="asset.id" /><span>{{ asset.title || `图片 ${asset.id}` }}</span>
+            </button>
+            <button
+              type="button"
+              class="library-asset-delete"
+              :disabled="composerLocked"
+              @click="removeLibraryAsset(asset)"
+            >
+              删除
+            </button>
+          </div>
+          <a-button v-if="studio.moreAssets.value" @click="studio.run(studio.loadMoreAssets)">
+            加载更早的图片
+          </a-button>
+          <p v-if="!assets.length" class="creative-note">上传的参考图与生成结果会保存在这里。</p>
+        </div>
+        <!-- 投稿创意 -->
+        <div v-else-if="sideDrawerTab === 'idea'" class="side-drawer-idea">
+          <p class="creative-note">
+            投稿将公开标题、描述、完整提示词、选中的参考图、模型与生成参数。赞助成功的结果会公开展示。投稿本身不消耗额度。
+          </p>
+          <label class="creative-field">标题<a-input v-model="proposal.title" :max-length="150" /></label>
+          <label class="creative-field">描述<a-textarea v-model="proposal.description" /></label>
+          <a-checkbox v-model="proposal.public_consent">我同意上述公开范围和成果展示规则</a-checkbox>
+          <a-checkbox v-model="proposal.reference_rights">我确认选中参考图有公开展示授权</a-checkbox>
+          <p class="creative-note">赞助额度不代表取得作品著作权。</p>
+          <a-button
+            type="primary"
+            :disabled="!proposal.public_consent || !proposal.reference_rights"
+            @click="submitIdea"
+          >公开投稿</a-button>
+        </div>
+      </div>
+    </a-drawer>
+    <!-- 参考图预览（单图查看，保持独立） -->
+    <a-modal
+      :visible="!!previewReference"
+      class="creative-theme creative-dialog ai-dialog"
+      title="参考图预览"
+      :footer="false"
+      @cancel="previewReference = 0"
+      ><div class="reference-large">
+        <CreativeImage v-if="previewReference" :id="previewReference" full /></div
+    ></a-modal>
+    <!-- 生成结果查看（保持独立 modal） -->
     <a-modal
       v-model:visible="resultOpen"
       class="creative-theme creative-dialog ai-dialog studio-result-dialog"
@@ -926,16 +1026,15 @@ watch(ready, (value) => {
               zoom === 1 ? '适应画布' : `${Math.round(zoom * 100)}%`
             }}</a-button
             ><a-button aria-label="放大结果" @click="zoom = Math.min(3, zoom + 0.25)"
-              ><IconPlus
-            /></a-button>
+              ><IconPlus /></a-button>
           </div>
         </div>
         <div class="result-preview-scroll">
           <div
             class="result-preview-image"
             :style="{
+              '--result-zoom': zoom,
               width: `${zoom * 100}%`,
-              height: `${zoom * 50}dvh`,
               marginInline: zoom < 1 ? 'auto' : '0',
             }"
           >
@@ -958,75 +1057,7 @@ watch(ready, (value) => {
         </div>
       </template>
     </a-modal>
-    <a-modal
-      :visible="!!previewReference"
-      class="creative-theme creative-dialog ai-dialog"
-      title="参考图预览"
-      :footer="false"
-      @cancel="previewReference = 0"
-      ><div class="reference-large">
-        <CreativeImage v-if="previewReference" :id="previewReference" full /></div
-    ></a-modal>
-    <a-modal
-      v-model:visible="libraryOpen"
-      class="creative-theme creative-dialog ai-dialog"
-      title="创作资源"
-      :width="900"
-      :footer="false"
-      ><CreativeLibrary v-if="libraryOpen" @apply="applyResource"
-    /></a-modal>
-    <a-modal
-      v-model:visible="historyOpen"
-      class="creative-theme creative-dialog ai-dialog"
-      title="个人常用参考图"
-      :footer="false"
-      ><div class="creative-grid">
-        <div v-for="asset in assets" :key="asset.id" class="library-asset">
-          <button
-            type="button"
-            class="library-asset-select"
-            @click="
-              studio.run(async () => {
-                studio.addReference(asset.id)
-                historyOpen = false
-              })
-            "
-          >
-            <CreativeImage :id="asset.id" /><span>{{ asset.title || `图片 ${asset.id}` }}</span>
-          </button>
-          <button type="button" class="library-asset-delete" :disabled="composerLocked" @click="removeLibraryAsset(asset)">
-            删除
-          </button>
-        </div>
-      </div>
-      <a-button v-if="studio.moreAssets.value" @click="studio.run(studio.loadMoreAssets)"
-        >加载更早的图片</a-button
-      >
-      <p v-if="!assets.length">上传的参考图与生成结果会保存在这里。</p></a-modal
-    >
-    <a-modal
-      v-model:visible="ideaOpen"
-      class="creative-theme creative-dialog ai-dialog"
-      title="投稿到创意广场"
-      :footer="false"
-      ><p>
-        投稿将公开标题、描述、完整提示词、选中的参考图、模型与生成参数。赞助成功的结果会公开展示。投稿本身不消耗额度。
-      </p>
-      <label class="creative-field"
-        >标题<a-input v-model="proposal.title" :max-length="150" /></label
-      ><label class="creative-field">描述<a-textarea v-model="proposal.description" /></label
-      ><a-checkbox v-model="proposal.public_consent">我同意上述公开范围和成果展示规则</a-checkbox
-      ><br /><a-checkbox v-model="proposal.reference_rights"
-        >我确认选中参考图有公开展示授权</a-checkbox
-      >
-      <p class="creative-note">赞助额度不代表取得作品著作权。</p>
-      <a-button
-        type="primary"
-        :disabled="!proposal.public_consent || !proposal.reference_rights"
-        @click="submitIdea"
-        >公开投稿</a-button
-      ></a-modal
-    >
+    <!-- 发布弹窗（保持独立） -->
     <a-modal
       v-model:visible="publishOpen"
       class="creative-theme creative-dialog ai-dialog"
@@ -1052,20 +1083,10 @@ watch(ready, (value) => {
 
 <style scoped>
 /*
- * The studio keeps the same warm editorial language as the gallery home:
- * a quiet canvas, cream paper surfaces and restrained wine accents. The
- * rules live with this view so the generation contract and other creative
- * pages keep their existing layout and interaction affordances.
+ * AI Studio — 样式使用全站 --site-* token，与首页/后台共享暖纸质编辑风。
+ * --studio-* 已废弃，不再重复声明；各属性直接引用 --site-* 或 --creative-*。
  */
 .ai-studio {
-  --studio-canvas: #ebe4e1;
-  --studio-paper: #fffdf9;
-  --studio-ink: #201b1c;
-  --studio-muted: #817779;
-  --studio-line: rgba(52, 40, 42, 0.14);
-  --studio-soft: #f1e9e6;
-  --studio-accent: #6b173b;
-  --studio-accent-soft: #efe1e5;
   position: relative;
   isolation: isolate;
   width: 100%;
@@ -1074,10 +1095,10 @@ watch(ready, (value) => {
   margin: 0;
   padding: clamp(28px, 4vw, 58px) clamp(20px, 5vw, 76px) 64px;
   overflow: hidden;
-  color: var(--studio-ink);
+  color: var(--site-ink);
   background:
-    radial-gradient(circle at 80% -10%, color-mix(in srgb, var(--studio-paper) 72%, transparent), transparent 35rem),
-    var(--studio-canvas);
+    radial-gradient(circle at 80% -10%, color-mix(in srgb, var(--site-paper) 72%, transparent), transparent 35rem),
+    var(--site-canvas);
 }
 .ai-studio::before {
   position: absolute;
@@ -1086,19 +1107,9 @@ watch(ready, (value) => {
   pointer-events: none;
   content: '';
   opacity: 0.28;
-  background-image: radial-gradient(circle, color-mix(in srgb, var(--studio-muted) 20%, transparent) 0.6px, transparent 0.8px);
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--site-muted) 20%, transparent) 0.6px, transparent 0.8px);
   background-size: 7px 7px;
   mask-image: linear-gradient(to bottom, black, transparent 76%);
-}
-body[arco-theme='dark'] .ai-studio {
-  --studio-canvas: #211b1e;
-  --studio-paper: #2b2427;
-  --studio-ink: #f8f0ed;
-  --studio-muted: #c0b1b4;
-  --studio-line: rgba(250, 240, 237, 0.16);
-  --studio-soft: #342b2f;
-  --studio-accent: #f0a8bb;
-  --studio-accent-soft: #4a303a;
 }
 .studio-head,
 .studio-workspace {
@@ -1113,7 +1124,7 @@ body[arco-theme='dark'] .ai-studio {
   justify-content: space-between;
   gap: 28px;
   padding-bottom: 24px;
-  border-bottom: 1px solid var(--studio-line);
+  border-bottom: 1px solid var(--site-line);
 }
 .studio-identity {
   display: flex;
@@ -1128,7 +1139,7 @@ body[arco-theme='dark'] .ai-studio {
 .studio-kicker,
 .studio-section-kicker {
   display: block;
-  color: var(--studio-muted);
+  color: var(--site-muted);
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.17em;
@@ -1136,14 +1147,14 @@ body[arco-theme='dark'] .ai-studio {
 }
 .ai-studio .studio-head h1 {
   margin: 8px 0 0;
-  color: var(--studio-ink);
-  font: 600 clamp(28px, 4vw, 43px)/1.05 Georgia, 'Songti SC', 'SimSun', serif;
+  color: var(--site-ink);
+  font: 600 clamp(28px, 4vw, 43px)/1.05 var(--site-title-font);
   letter-spacing: -0.04em;
 }
 .studio-lede {
   max-width: 42em;
   margin: 12px 0 0;
-  color: var(--studio-muted);
+  color: var(--site-muted);
   font-size: 12px;
   line-height: 1.7;
 }
@@ -1151,13 +1162,13 @@ body[arco-theme='dark'] .ai-studio {
   gap: 7px;
 }
 .studio-credit-item {
-  border-color: var(--studio-line);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--studio-paper) 84%, transparent);
-  color: var(--studio-muted);
+  border-color: var(--site-line);
+  border-radius: var(--radius-sm);
+  background: var(--site-chip-bg);
+  color: var(--site-muted);
 }
 .studio-credit-item strong {
-  color: var(--studio-ink);
+  color: var(--site-ink);
 }
 .studio-workspace {
   display: grid;
@@ -1177,7 +1188,7 @@ body[arco-theme='dark'] .ai-studio {
   justify-content: space-between;
   gap: 18px;
   padding: 0 0 15px;
-  border-bottom: 1px solid var(--studio-line);
+  border-bottom: 1px solid var(--site-line);
 }
 .studio-gallery-heading {
   align-items: flex-end;
@@ -1185,8 +1196,8 @@ body[arco-theme='dark'] .ai-studio {
 }
 .ai-studio .studio-gallery-toolbar h2 {
   margin: 5px 0 0;
-  color: var(--studio-ink);
-  font: 600 21px/1.2 Georgia, 'Songti SC', 'SimSun', serif;
+  color: var(--site-ink);
+  font: 600 21px/1.2 var(--site-title-font);
   letter-spacing: -0.025em;
 }
 .studio-gallery-filters {
@@ -1196,21 +1207,23 @@ body[arco-theme='dark'] .ai-studio {
 }
 .studio-gallery-filters .arco-input-wrapper {
   width: 210px;
-  border-color: var(--studio-line);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--studio-paper) 72%, transparent);
+  border-color: var(--site-line);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--site-paper) 72%, transparent);
 }
 .ai-studio select {
-  border-color: var(--studio-line);
-  border-radius: 4px;
-  background: var(--studio-paper);
-  color: var(--studio-ink);
+  border-color: var(--site-line);
+  border-radius: var(--radius-sm);
+  background: var(--site-paper);
+  color: var(--site-ink);
 }
+/* 画廊区域随页面整体滚动，内容自然伸展 */
 .studio-gallery-scroll {
   overflow: visible;
   padding: 22px 2px 18px;
 }
 .studio-task-grid {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-rows: auto;
   gap: 20px;
@@ -1220,20 +1233,27 @@ body[arco-theme='dark'] .ai-studio {
   flex-direction: column;
   height: auto;
   min-height: 0;
-  border: 1px solid var(--studio-line);
-  border-radius: 5px;
-  background: var(--studio-paper);
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--studio-ink) 5%, transparent);
+  border: 1px solid var(--site-line);
+  border-radius: var(--radius-md);
+  background: var(--site-paper);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+.ai-studio .studio-task-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 .ai-studio .studio-task-card.is-selected {
-  border-color: var(--studio-accent);
-  box-shadow: 0 0 0 1px var(--studio-accent), 0 8px 22px color-mix(in srgb, var(--studio-accent) 12%, transparent);
+  border-color: var(--site-accent);
+  box-shadow: 0 0 0 1px var(--site-accent), var(--shadow-md);
 }
 .task-images {
-  aspect-ratio: 1.18;
+  aspect-ratio: 1;
   min-height: 0;
   flex: none;
-  background: var(--studio-soft);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  overflow: hidden;
+  background: var(--site-soft);
 }
 .task-images button,
 .task-images.has-multiple button {
@@ -1243,75 +1263,104 @@ body[arco-theme='dark'] .ai-studio {
   object-fit: cover;
 }
 .task-image-open {
-  right: 10px;
-  bottom: 10px;
-  width: 27px;
-  height: 27px;
+  right: 8px;
+  bottom: 8px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--studio-paper) 90%, transparent);
-  color: var(--studio-ink);
+  background: color-mix(in srgb, var(--site-paper) 90%, transparent);
+  color: var(--site-ink);
 }
 .task-placeholder {
-  aspect-ratio: 1.18;
+  aspect-ratio: 1;
   flex: none;
   padding: 20px;
-  background: var(--studio-soft);
-  color: var(--studio-muted);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--site-soft);
+  color: var(--site-muted);
 }
 .task-placeholder[data-status='running'] {
-  background: var(--studio-accent-soft);
-  color: var(--studio-accent);
+  background: var(--site-accent-soft);
+  color: var(--site-accent);
 }
 .task-body {
-  min-height: 154px;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  padding: 15px 16px 16px;
+  padding: 14px 16px 16px;
 }
 .task-meta {
-  font-size: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--site-muted);
 }
 .task-status {
-  color: var(--studio-accent);
+  color: var(--site-accent);
 }
+.task-status[data-status='succeeded'] { color: rgb(var(--success-6)); }
+.task-status[data-status='failed'],
+.task-status[data-status='cancelled'] { color: rgb(var(--danger-6)); }
 .ai-studio .task-prompt {
   font-size: 13px;
   line-height: 1.55;
+  color: var(--site-ink);
 }
 .task-parameters {
-  color: var(--studio-muted);
-  font-size: 10px;
+  color: var(--site-muted);
+  font-size: 11px;
+}
+.task-error {
+  font-size: 11px;
+  color: rgb(var(--danger-6));
 }
 .task-actions {
-  gap: 5px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
   padding-top: 6px;
+  border-top: 1px solid var(--site-line);
+  margin-top: auto;
 }
 .task-actions .arco-btn {
-  border-radius: 3px;
-  color: var(--studio-muted);
+  border-radius: var(--radius-sm);
+  color: var(--site-muted);
   font-size: 11px;
 }
 .task-actions .arco-btn:hover {
-  color: var(--studio-accent);
+  color: var(--site-accent);
 }
 .studio-load-more {
+  display: block;
+  width: 100%;
   margin-top: 24px;
+  padding: 10px;
   border: 0;
   border-radius: 0;
-  color: var(--studio-accent);
+  color: var(--site-accent);
   background: transparent;
   font-size: 11px;
+  text-align: center;
+  cursor: pointer;
 }
 .studio-gallery-empty,
 .studio-gallery-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
   min-height: 360px;
-  color: var(--studio-muted);
+  color: var(--site-muted);
+  text-align: center;
 }
 .ai-studio .studio-gallery-empty h2 {
-  color: var(--studio-ink);
-  font: 600 23px/1.2 Georgia, 'Songti SC', 'SimSun', serif;
+  color: var(--site-ink);
+  font: 600 22px/1.3 var(--site-title-font);
 }
 .studio-gallery-empty > .arco-btn {
-  border-radius: 4px;
+  border-radius: var(--radius-full);
 }
 .studio-composer {
   position: sticky;
@@ -1321,110 +1370,201 @@ body[arco-theme='dark'] .ai-studio {
   margin: 0;
   padding: 24px;
   overflow: visible;
-  border: 1px solid var(--studio-line);
-  border-radius: 5px;
-  background: var(--studio-paper);
-  box-shadow: 0 12px 30px color-mix(in srgb, var(--studio-ink) 6%, transparent);
+  border: 1px solid var(--site-line);
+  border-radius: var(--radius-md);
+  background: var(--site-paper);
+  box-shadow: var(--shadow-md);
 }
 .studio-composer.is-dragging {
-  background: var(--studio-accent-soft);
+  background: var(--site-accent-soft);
+  border-color: var(--site-accent);
 }
 .composer-heading {
   margin-bottom: 18px;
   padding-bottom: 17px;
-  border-bottom: 1px solid var(--studio-line);
+  border-bottom: 1px solid var(--site-line);
 }
 .composer-heading h2 {
   margin: 6px 0 0;
-  color: var(--studio-ink);
-  font: 600 20px/1.2 Georgia, 'Songti SC', 'SimSun', serif;
+  color: var(--site-ink);
+  font: 600 20px/1.2 var(--site-title-font);
   letter-spacing: -0.02em;
 }
 .composer-heading p {
   margin: 8px 0 0;
-  color: var(--studio-muted);
+  color: var(--site-muted);
   font-size: 11px;
   line-height: 1.6;
 }
 .composer-prompt textarea {
   min-height: 112px;
   padding: 2px 36px 8px 0;
-  color: var(--studio-ink);
+  color: var(--site-ink);
   font-size: 14px;
   line-height: 1.7;
 }
 .composer-prompt:focus-within {
-  box-shadow: 0 1px 0 var(--studio-accent);
+  box-shadow: 0 1px 0 var(--site-accent);
 }
 .composer-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
   margin-block: 8px 18px;
 }
 .composer-attachments .arco-btn {
-  border-radius: 3px;
-  color: var(--studio-muted);
+  border-radius: var(--radius-sm);
+  color: var(--site-muted);
+  font-size: 11px;
+}
+.attachment-hint {
+  color: var(--site-muted);
   font-size: 11px;
 }
 .composer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 7px;
   padding-top: 15px;
-  border-top-color: var(--studio-line);
+  border-top: 1px solid var(--site-line);
 }
 .composer-control {
-  border-radius: 3px;
-  background: var(--studio-canvas);
+  border-radius: var(--radius-sm);
+  background: var(--site-canvas);
   font-size: 11px;
 }
 .studio-size-trigger {
   font-size: 11px;
 }
 .composer-footer {
+  display: flex;
   align-items: flex-end;
   gap: 12px;
   margin-top: 18px;
 }
 .composer-feedback .creative-note {
-  color: var(--studio-muted);
+  color: var(--site-muted);
   font-size: 10px;
   line-height: 1.5;
 }
 .composer-quick-actions {
+  display: flex;
   gap: 6px;
 }
 .composer-quick-actions .arco-btn {
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   font-size: 11px;
 }
 .composer-submit.arco-btn {
   min-width: 126px;
   height: 40px;
-  border-radius: 3px;
-  background: var(--studio-ink);
-  border-color: var(--studio-ink);
-  color: var(--studio-paper);
+  border-radius: var(--radius-sm);
+  background: var(--site-action);
+  border-color: var(--site-action);
+  color: var(--site-on-action);
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 .composer-submit.arco-btn:hover {
-  background: var(--studio-accent);
-  border-color: var(--studio-accent);
+  background: var(--site-accent);
+  border-color: var(--site-accent);
 }
 .composer-submit.arco-btn:disabled {
   opacity: 0.45;
 }
 .reference-mentions {
-  border-color: var(--studio-line);
-  border-radius: 4px;
-  background: var(--studio-paper);
+  border: 1px solid var(--site-line);
+  border-radius: var(--radius-sm);
+  background: var(--site-paper);
+  box-shadow: var(--shadow-md);
 }
 .reference-mentions button {
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
 }
+
+/* ── 资源侧抽屉 ── */
+.studio-side-drawer :deep(.arco-drawer-body) {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.side-drawer-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--site-line);
+  background: var(--site-paper);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.side-drawer-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--site-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+.side-drawer-tab:hover {
+  color: var(--site-ink);
+  background: var(--site-soft);
+}
+.side-drawer-tab.is-active {
+  color: var(--site-accent);
+  background: var(--site-accent-soft);
+  border-color: color-mix(in srgb, var(--site-accent) 22%, transparent);
+  font-weight: 600;
+}
+.side-drawer-tab svg {
+  width: 14px;
+  height: 14px;
+}
+.side-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 16px 24px;
+}
+.side-drawer-idea {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.side-drawer-idea .creative-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.side-drawer-idea .arco-checkbox {
+  margin-top: 4px;
+}
+@media (max-width: 768px) {
+  .studio-side-drawer :deep(.arco-drawer) {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
 .ai-studio button:focus-visible,
 .ai-studio select:focus-visible,
 .ai-studio textarea:focus-visible,
 .studio-gallery-scroll:focus-visible {
-  outline-color: var(--studio-accent);
+  outline: 2px solid var(--site-accent);
+  outline-offset: 2px;
 }
 
-@media (max-width: 980px) {
+/* ── 响应式断点（统一 4 个标准值）─────────────────────── */
+
+/* md: ≤1100px — 窄双栏 */
+@media (max-width: 1100px) {
   .ai-studio {
     padding-inline: clamp(18px, 4vw, 40px);
   }
@@ -1435,11 +1575,10 @@ body[arco-theme='dark'] .ai-studio {
   .studio-credit-summary {
     gap: 4px;
   }
-  .studio-credit-item {
-    padding-inline: 7px;
-  }
 }
-@media (max-width: 800px) {
+
+/* sm: ≤768px — 单列，合成器固定底部 */
+@media (max-width: 768px) {
   .ai-studio {
     min-height: 100dvh;
     padding: 22px 16px calc(var(--studio-dock-height, 280px) + 28px);
@@ -1479,8 +1618,8 @@ body[arco-theme='dark'] .ai-studio {
     width: auto;
     max-height: min(60dvh, calc(var(--studio-visible-height, 100dvh) - 16px));
     padding: 8px 16px max(12px, env(safe-area-inset-bottom));
-    border-radius: 5px 5px 0 0;
-    box-shadow: 0 -8px 30px color-mix(in srgb, var(--studio-ink) 13%, transparent);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    box-shadow: 0 -8px 30px color-mix(in srgb, var(--site-ink) 13%, transparent);
   }
   .composer-heading {
     display: none;
@@ -1490,12 +1629,14 @@ body[arco-theme='dark'] .ai-studio {
     gap: 12px;
   }
 }
-@media (max-width: 540px) {
+
+/* xs: ≤480px — 最小屏 */
+@media (max-width: 480px) {
   .ai-studio {
     padding-inline: 12px;
   }
   .ai-studio .studio-head h1 {
-    font-size: 31px;
+    font-size: 28px;
   }
   .studio-lede {
     font-size: 11px;
@@ -1515,11 +1656,8 @@ body[arco-theme='dark'] .ai-studio {
     width: auto;
   }
   .studio-task-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .studio-task-card .task-images,
-  .studio-task-card .task-placeholder {
-    aspect-ratio: 1.35;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
   .studio-composer {
     padding-inline: 12px;
