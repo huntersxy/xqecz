@@ -5,13 +5,13 @@
 }
 
 /* ── 基础配色：Arco 语义别名 + 公开创作界面的局部调色板 ──
-   默认 --color-* 指向 Arco token，随 <body arco-theme="dark"> 切换日/夜。
+   默认 --color-* 指向 Arco token，随 <body arco-theme=”dark”> 切换日/夜。
    下方 .creative-theme 局部覆盖为纸白与柔粉创作风格；工作台显式复用该主题。 */
 
 body {
   /* 语义别名 → Arco token（直接挂在 body 作用域，与 Arco 的 token 同层。
      之前写在 :root 时，子组件解析 var(--color-bg-2) 等 Arco token 会因不在该层而失败、
-     背景计算为透明——这是“很多组件背景变透明”的根因） */
+     背景计算为透明——这是”很多组件背景变透明”的根因） */
   --color-primary: rgb(var(--primary-6));
   --color-primary-hover: rgb(var(--primary-5));
   --color-on-primary: var(--color-white);
@@ -35,11 +35,47 @@ body {
   --color-header-bg: var(--color-bg-2);
   --color-overlay-bg: rgba(255, 255, 255, 0.5);
 
+  /* Enhanced Design System Tokens */
+  --shadow-sm: 0 2px 8px rgba(83, 57, 35, 0.04);
+  --shadow-md: 0 4px 16px rgba(83, 57, 35, 0.08);
+  --shadow-lg: 0 12px 36px rgba(83, 57, 35, 0.12);
+  --shadow-xl: 0 20px 48px rgba(83, 57, 35, 0.16);
+  --shadow-accent: 0 6px 20px rgba(194, 77, 107, 0.24);
+
+  /* Spacing System (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Border Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 999px;
+
+  /* Transitions */
+  --ease-smooth: cubic-bezier(0.4, 0.0, 0.2, 1);
+  --ease-gentle: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --transition-fast: 150ms var(--ease-smooth);
+  --transition-base: 250ms var(--ease-smooth);
+  --transition-slow: 350ms var(--ease-smooth);
 }
 
 /* 暗色背景跟随 Arco token 切换。 */
 body[arco-theme='dark'] {
   --color-overlay-bg: rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.18);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.24);
+  --shadow-xl: 0 20px 48px rgba(0, 0, 0, 0.32);
 }
 
 @layer base {
@@ -88,30 +124,30 @@ body[arco-theme='dark'] {
 /* 创作界面的共享调色板：仅 .creative-theme 使用，工作台保留独立布局与状态色。
    抽屉通过 Teleport 挂到 body，必须在抽屉根节点显式携带此类。 */
 body {
-  --creative-paper: #fffdfd;
-  --creative-canvas: #faf7f8;
-  --creative-soft: #fbeef2;
-  --creative-ink: #40363c;
-  --creative-muted: #806f78;
-  --creative-line: #eee1e7;
-  --creative-accent: #ad4c63;
-  --creative-accent-hover: #9d3d54;
-  --creative-warm: #e6c48d;
-  --creative-grain: radial-gradient(circle, color-mix(in srgb, var(--creative-muted) 9%, transparent) .65px, transparent .8px);
+  --creative-paper: #fffefe;
+  --creative-canvas: #f8f5f6;
+  --creative-soft: #fce8ee;
+  --creative-ink: #2d2428;
+  --creative-muted: #75676f;
+  --creative-line: #ede4e8;
+  --creative-accent: #c24d6b;
+  --creative-accent-hover: #b03d5a;
+  --creative-warm: #e8c590;
+  --creative-grain: radial-gradient(circle, color-mix(in srgb, var(--creative-muted) 8%, transparent) .7px, transparent .9px);
   --creative-title-font: 'Kaiti SC', 'STKaiti', 'KaiTi', 'LXGW WenKai', 'Noto Serif CJK SC', serif;
-  --creative-shadow: 0 12px 36px rgba(83, 57, 35, .065);
+  --creative-shadow: 0 12px 36px rgba(83, 57, 35, .12);
 }
 body[arco-theme='dark'] {
-  --creative-paper: #2b2525;
-  --creative-canvas: #211d1d;
-  --creative-soft: #3c2b2e;
-  --creative-ink: #f3e9df;
-  --creative-muted: #bdafa4;
-  --creative-line: #4a3d39;
-  --creative-accent: #efa3b2;
-  --creative-accent-hover: #f6bcc6;
+  --creative-paper: #221e20;
+  --creative-canvas: #1a1618;
+  --creative-soft: #3a2d31;
+  --creative-ink: #f5ede8;
+  --creative-muted: #c0b4ae;
+  --creative-line: #3d3437;
+  --creative-accent: #f5a3b5;
+  --creative-accent-hover: #ffbdcd;
   --creative-warm: #b89260;
-  --creative-shadow: 0 12px 40px rgba(0, 0, 0, .16);
+  --creative-shadow: 0 12px 40px rgba(0, 0, 0, .24);
 }
 .creative-theme {
   --primary-1: 249, 234, 232;

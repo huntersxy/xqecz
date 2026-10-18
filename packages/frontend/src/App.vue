@@ -379,8 +379,15 @@ onBeforeUnmount(() => {
   height: 72px;
   padding: 0;
   line-height: normal;
-  background: var(--color-bg-2);
+  background: rgba(255, 254, 254, 0.88);
+  backdrop-filter: blur(12px) saturate(1.8);
   border-bottom: 1px solid var(--color-border-2);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8), 0 4px 16px rgba(83, 57, 35, 0.04);
+  transition: background var(--transition-base), box-shadow var(--transition-base);
+}
+body[arco-theme='dark'] .app-header {
+  background: rgba(34, 30, 32, 0.88);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
 .app-header-inner {
@@ -401,15 +408,19 @@ onBeforeUnmount(() => {
   padding: 6px 10px;
   border-radius: 12px;
   text-decoration: none;
-  transition: background-color 160ms ease, box-shadow 160ms ease;
+  transition: background-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
 }
 .app-logo:hover {
   background: var(--creative-soft);
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--creative-accent) 10%, transparent);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--creative-accent) 12%, transparent);
+  transform: translateY(-1px);
+}
+.app-logo:active {
+  transform: translateY(0) scale(0.98);
 }
 .app-logo:focus-visible {
   outline: 2px solid var(--creative-accent);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
 .app-logo-img {
@@ -424,8 +435,9 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.app-nav-item { color: var(--creative-muted) !important; white-space: nowrap; border-radius: 999px; height: 36px; padding-inline: 14px; font-size: 12px; }
-.app-nav-item:hover { color: var(--creative-accent) !important; background: var(--creative-soft) !important; }
+.app-nav-item { color: var(--creative-muted) !important; white-space: nowrap; border-radius: 999px; height: 36px; padding-inline: 14px; font-size: 12px; font-weight: 500; letter-spacing: 0.01em; transition: color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast); }
+.app-nav-item:hover { color: var(--creative-accent) !important; background: var(--creative-soft) !important; transform: translateY(-1px); }
+.app-nav-item:active { transform: translateY(0) scale(0.98); }
 .app-nav-item.app-nav-item-active, .app-nav-item.app-nav-item-active:hover { color: var(--creative-accent) !important; background: var(--creative-soft) !important; font-weight: 600; }
 
 .app-header-right {
@@ -467,11 +479,18 @@ onBeforeUnmount(() => {
   padding: 0;
   color: var(--color-text-1);
   font-size: 18px;
+  border-radius: 50%;
+  transition: color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast);
 }
 
 .app-theme-btn:hover {
   color: rgb(var(--primary-6));
   background: var(--color-fill-2);
+  transform: scale(1.05);
+}
+
+.app-theme-btn:active {
+  transform: scale(0.95);
 }
 
 :deep(.app-theme-btn .arco-icon),
@@ -490,11 +509,16 @@ onBeforeUnmount(() => {
   border-radius: 20px;
   background: var(--color-fill-2);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background var(--transition-fast), transform var(--transition-fast);
 }
 
 .app-user-trigger:hover {
   background: var(--color-border-2);
+  transform: translateY(-1px);
+}
+
+.app-user-trigger:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .app-username {
@@ -564,16 +588,17 @@ onBeforeUnmount(() => {
   background: transparent;
 }
 
-.app-footer { margin-top: 0; padding: 28px 0; background: var(--creative-paper); border-top: 1px solid var(--creative-line); }
-.app-footer-inner { max-width: 1400px; margin: 0 auto; padding: 0 28px; display: flex; justify-content: space-between; align-items: center; gap: 24px; }
-.app-footer-brand { display: flex; align-items: center; gap: 13px; }
-.app-footer-mark { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; font-size: 31px; color: var(--creative-accent); border: 1px solid var(--creative-line); border-radius: 50%; background: var(--creative-canvas); }
-.app-footer-name { color: var(--creative-ink); text-decoration: none; font-size: 12px; font-weight: 600; letter-spacing: .04em; }
+.app-footer { margin-top: 0; padding: 36px 0; background: var(--creative-paper); border-top: 1px solid var(--creative-line); }
+.app-footer-inner { max-width: 1440px; margin: 0 auto; padding: 0 28px; display: flex; justify-content: space-between; align-items: center; gap: 32px; }
+.app-footer-brand { display: flex; align-items: center; gap: 16px; }
+.app-footer-mark { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; font-size: 28px; color: var(--creative-accent); border: 1.5px solid var(--creative-line); border-radius: 50%; background: var(--creative-canvas); transition: border-color var(--transition-fast), transform var(--transition-fast); }
+.app-footer-mark:hover { border-color: var(--creative-accent); transform: rotate(15deg); }
+.app-footer-name { color: var(--creative-ink); text-decoration: none; font-size: 13px; font-weight: 600; letter-spacing: .03em; transition: color var(--transition-fast); }
 .app-footer-name:hover { color: var(--creative-accent); }
-.app-footer-brand p { margin: 5px 0 0; color: var(--creative-muted); font-size: 10px; line-height: 1.7; }
-.app-footer-info { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
-.app-footer-legal { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 12px; color: var(--creative-muted); font-size: 11px; line-height: 1.8; }
-.app-footer-build { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 9px; color: var(--creative-muted); font-size: 9px; letter-spacing: .06em; }
+.app-footer-brand p { margin: 6px 0 0; color: var(--creative-muted); font-size: 11px; line-height: 1.6; }
+.app-footer-info { display: flex; flex-direction: column; align-items: flex-end; gap: 14px; }
+.app-footer-legal { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 14px; color: var(--creative-muted); font-size: 11px; line-height: 1.7; }
+.app-footer-build { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 10px; color: var(--creative-muted); font-size: 9px; letter-spacing: .07em; font-weight: 500; }
 .app-footer-build > span[aria-hidden] { color: var(--creative-accent); }
 .app-footer-build > span:last-child { font-size: 9px; letter-spacing: 0; }
 .app-avatar-primary { background-color: rgb(var(--primary-6)); }
