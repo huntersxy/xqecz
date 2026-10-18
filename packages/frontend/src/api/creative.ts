@@ -125,6 +125,7 @@ export const aiApi = {
     }),
   adminTasks: (query: Record<string, unknown> = {}, signal?: AbortSignal) =>
     checked('/admin/ai/tasks', z.array(AITaskViewSchema), { query, signal }),
+  deleteAdminTask: (id: number) => checked(`/admin/ai/tasks/${id}`, nil, { method: 'DELETE' }),
   resolve: (id: number, consumed: boolean, note: string) =>
     checked(`/admin/ai/tasks/${id}/resolve`, nil, { method: 'POST', body: { consumed, note } }),
   grant: (userId: number, amount: number, note: string, key: string) =>
@@ -153,9 +154,11 @@ export const aiApi = {
     ),
   hideIdea: (id: number, note: string) =>
     checked(`/admin/ai/ideas/${id}/hide`, nil, { method: 'POST', body: { note } }),
+  deleteIdea: (id: number) => checked(`/admin/ai/ideas/${id}`, nil, { method: 'DELETE' }),
   adminAssets: () => checked('/admin/ai/assets', z.array(AIAssetSchema)),
   metadata: (id: number, data: Record<string, unknown>) =>
     checked(`/admin/ai/assets/${id}`, nil, { method: 'PATCH', body: data }),
+  deleteAdminAsset: (id: number) => checked(`/admin/ai/assets/${id}`, nil, { method: 'DELETE' }),
 }
 export const creativeApi = {
   resources: (kind?: string, search?: string, signal?: AbortSignal) =>
@@ -186,4 +189,5 @@ export const creativeApi = {
       CreativeResourceSchema,
       { method: data.id ? 'PUT' : 'POST', body: data },
     ),
+  delete: (id: number) => checked(`/admin/creative/resources/${id}`, nil, { method: 'DELETE' }),
 }

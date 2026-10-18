@@ -262,6 +262,65 @@ func TestArchiveTaskOnlyTerminalFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestAdminArchiveTaskHidesTerminalResultsAndProtectsReservedWork(t *testing.T) {
+	s, _, p, session := testService(t)
+	ctx := context.Background()
+	grant(t, s, 1, 10)
+	task, err := s.Submit(ctx, 1, inputFor(p, session, "admin-delete-success-0001"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.runOne(ctx)
+	var asset Asset
+	if err = s.db.Where("task_id = ?", task.ID).First(&asset).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err = s.ArchiveTaskAsAdmin(ctx, task.ID); err != nil {
+		t.Fatal(err)
+	}
+	var archived Task
+	if err = s.db.First(&archived, task.ID).Error; err != nil || !archived.Archived {
+		t.Fatal(archived, err)
+	}
+	if err = s.db.First(&asset, asset.ID).Error; err != nil || !asset.Archived {
+		t.Fatal(asset, err)
+	}
+
+	pending, err := s.Submit(ctx, 1, inputFor(p, session, "admin-delete-pending-0001"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.ArchiveTaskAsAdmin(ctx, pending.ID); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("queued task deletion error = %v", err)
+	}
+	s.db.Model(&pending).Update("status", "unknown")
+	if err = s.ArchiveTaskAsAdmin(ctx, pending.ID); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("unknown task deletion error = %v", err)
+	}
+}
+
+func TestDeleteIdeaRemovesProposalButRetainsCompletedTask(t *testing.T) {
+	s, _, p, session := testService(t)
+	ctx := context.Background()
+	idea, err := s.CreateIdea(ctx, 1, IdeaInput{
+		Title: "待删除投稿", Input: inputFor(p, session, ""), PublicConsent: true, ReferenceRights: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.DeleteIdea(ctx, idea.ID); err != nil {
+		t.Fatal(err)
+	}
+	var deleted Idea
+	if err = s.db.First(&deleted, idea.ID).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("idea still exists: %v", err)
+	}
+	var events int64
+	if err = s.db.Model(&IdeaEvent{}).Where("idea_id = ?", idea.ID).Count(&events).Error; err != nil || events != 0 {
+		t.Fatalf("idea events remain: %d, %v", events, err)
+	}
+}
 func TestQuotaOwnershipAndReferenceRetention(t *testing.T) {
 	s, fake, p, session := testService(t)
 	ctx := context.Background()

@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -27,6 +28,7 @@ func Register(api *gin.RouterGroup, deps app.Deps) {
 	a.GET("/resources", h.adminList)
 	a.POST("/resources", h.save)
 	a.PUT("/resources/:id", h.save)
+	a.DELETE("/resources/:id", h.delete)
 }
 func (h *Handler) db(c *gin.Context) *gorm.DB { return h.deps.DB.WithContext(c.Request.Context()) }
 func id(c *gin.Context) uint64                { v, _ := strconv.ParseUint(c.Param("id"), 10, 64); return v }
@@ -141,6 +143,62 @@ func (h *Handler) save(c *gin.Context) {
 	}
 	web.OK(c, dto(row), "已保存")
 }
+
+var resourceInUse = errors.New("资源仍被其他资源引用")
+
+func resourceReferences(row core.Resource, target uint64) bool {
+	var payload core.Payload
+	if json.Unmarshal([]byte(row.Payload), &payload) != nil {
+		return false
+	}
+	if payload.PresetID == target {
+		return true
+	}
+	for _, id := range payload.CharacterIDs {
+		if id == target {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *Handler) delete(c *gin.Context) {
+	rid := id(c)
+	if rid == 0 {
+		web.SoftFail(c, 400, "资源编号无效")
+		return
+	}
+	err := h.db(c).Transaction(func(tx *gorm.DB) error {
+		var row core.Resource
+		if err := tx.First(&row, rid).Error; err != nil {
+			return err
+		}
+		var rows []core.Resource
+		if err := tx.Where("id <> ?", rid).Find(&rows).Error; err != nil {
+			return err
+		}
+		for _, other := range rows {
+			if resourceReferences(other, rid) {
+				return resourceInUse
+			}
+		}
+		return tx.Delete(&row).Error
+	})
+	if errors.Is(err, resourceInUse) {
+		web.SoftFail(c, 400, "资源仍被其他角色、组合或模板引用，请先解除关联")
+		return
+	}
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			web.Fail(c, 404, "资源不存在或已删除")
+		} else {
+			web.Fail(c, 500, "资源删除失败")
+		}
+		return
+	}
+	web.OK(c, nil, "已删除")
+}
+
 func (h *Handler) expand(c *gin.Context) {
 	var row core.Resource
 	if h.db(c).Where("id = ? AND kind = ? AND status = ?", id(c), "template", "published").First(&row).Error != nil {

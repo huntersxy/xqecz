@@ -90,6 +90,13 @@ func (h *Handler) deleteProvider(c *gin.Context) {
 	ok(c, nil)
 }
 func (h *Handler) adminTasks(c *gin.Context) { h.listTasks(c, true) }
+func (h *Handler) deleteAdminTask(c *gin.Context) {
+	if err := h.s.ArchiveTaskAsAdmin(c.Request.Context(), pathID(c)); err != nil {
+		fail(c, err)
+		return
+	}
+	ok(c, nil)
+}
 func (h *Handler) resolve(c *gin.Context) {
 	var req struct {
 		Consumed bool   `json:"consumed"`
@@ -221,6 +228,18 @@ func (h *Handler) assetMetadata(c *gin.Context) {
 	}
 	// MySQL may report zero affected rows for unchanged metadata; the asset
 	// existence was checked above, so this remains a successful idempotent save.
+	ok(c, nil)
+}
+func (h *Handler) deleteAdminAsset(c *gin.Context) {
+	result := h.db(c).Model(&core.Asset{}).Where("id = ? AND archived = ?", pathID(c), false).Update("archived", true)
+	if result.Error != nil {
+		fail(c, result.Error)
+		return
+	}
+	if result.RowsAffected == 0 {
+		web.Fail(c, 404, "图片不存在或已删除")
+		return
+	}
 	ok(c, nil)
 }
 func (h *Handler) testSite(c *gin.Context) { h.queueTest(c, true) }

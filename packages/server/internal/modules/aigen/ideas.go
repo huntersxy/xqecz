@@ -157,6 +157,13 @@ func (h *Handler) hide(c *gin.Context) {
 	}
 	ok(c, nil)
 }
+func (h *Handler) deleteAdminIdea(c *gin.Context) {
+	if err := h.s.DeleteIdea(c.Request.Context(), pathID(c)); err != nil {
+		fail(c, err)
+		return
+	}
+	ok(c, nil)
+}
 func (h *Handler) events(c *gin.Context) {
 	rows := []core.IdeaEvent{}
 	if err := h.db(c).Where("idea_id = ?", pathID(c)).Order("id asc").Find(&rows).Error; err != nil {

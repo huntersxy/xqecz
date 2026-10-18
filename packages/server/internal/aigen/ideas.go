@@ -177,6 +177,38 @@ func (s *Service) HideIdea(ctx context.Context, uid, id uint64, admin bool, note
 	return nil
 }
 
+// DeleteIdea permanently removes a proposal and its moderation events. Any
+// completed task is retained as an independent generation audit record; an
+// in-flight task is rejected so the worker cannot write a result back to a
+// deleted proposal.
+func (s *Service) DeleteIdea(ctx context.Context, id uint64) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var idea Idea
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&idea, id).Error; err != nil {
+			return err
+		}
+		if idea.TaskID != 0 {
+			var task Task
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&task, idea.TaskID).Error; err != nil {
+				return err
+			}
+			switch task.Status {
+			case "queued", "running":
+				return invalidInput("创意仍有执行中的生成任务，不能删除")
+			case "unknown":
+				return invalidInput("创意仍有待核查的生成任务，请先完成额度核查")
+			}
+			if err := tx.Model(&Task{}).Where("id = ? AND idea_id = ?", task.ID, idea.ID).Update("idea_id", 0).Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Where("idea_id = ?", idea.ID).Delete(&IdeaEvent{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&idea).Error
+	})
+}
+
 func (s *Service) IdeaHasAsset(ctx context.Context, ideaID, assetID uint64) bool {
 	var idea Idea
 	if s.db.WithContext(ctx).Where("id = ? AND status NOT IN ?", ideaID, []string{"hidden", "withdrawn"}).First(&idea).Error != nil {

@@ -74,14 +74,17 @@ func Register(api *gin.RouterGroup, deps app.Deps, contentHandler *content.Handl
 	a.DELETE("/providers/:id", h.deleteProvider)
 	a.POST("/providers/:id/test", h.testSite)
 	a.GET("/tasks", h.adminTasks)
+	a.DELETE("/tasks/:id", h.deleteAdminTask)
 	a.POST("/tasks/:id/resolve", h.resolve)
 	a.POST("/grants", h.grant)
 	a.GET("/ledger", h.adminLedger)
 	a.GET("/ideas", h.adminIdeas)
 	a.POST("/ideas/:id/hide", h.hide)
+	a.DELETE("/ideas/:id", h.deleteAdminIdea)
 	a.GET("/ideas/:id/events", h.events)
 	a.GET("/assets", h.adminAssets)
 	a.PATCH("/assets/:id", h.assetMetadata)
+	a.DELETE("/assets/:id", h.deleteAdminAsset)
 }
 func sessionOnly(c *gin.Context) {
 	if web.MustIdentity(c).IsAPIKey {
@@ -355,6 +358,16 @@ func (h *Handler) listTasks(c *gin.Context, admin bool) {
 	}
 	if !admin {
 		q = q.Where("user_id = ? AND archived = ? AND mode <> ?", uid(c), false, "test")
+	} else {
+		// Archived tasks remain queryable for a future audit view, but the
+		// active management list must not keep deleted records visible.
+		switch c.Query("archived") {
+		case "1":
+			q = q.Where("archived = ?", true)
+		case "all":
+		default:
+			q = q.Where("archived = ?", false)
+		}
 	}
 	if c.Query("sponsored") == "1" {
 		q = q.Where("idea_id <> 0")

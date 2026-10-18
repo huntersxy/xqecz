@@ -161,6 +161,7 @@ const shownTasks = computed(() =>
 const unassignedAssets = computed(() =>
   assets.value.filter(
     (a) =>
+      !a.archived &&
       !resources.value.some((r) => r.kind !== 'template' && r.payload.asset_ids.includes(a.id)),
   ),
 )
@@ -330,6 +331,34 @@ async function archiveSelected() {
       await creativeApi.save({ ...row, status: 'archived' })
     }
     selected.value = []
+    await load()
+  })
+}
+async function deleteTask(id: number) {
+  if (!(await confirm('删除这条任务及其生成结果？删除后仅保留后台审计记录，不能恢复。'))) return
+  await run(async () => {
+    await aiApi.deleteAdminTask(id)
+    await load()
+  })
+}
+async function deleteIdea(id: number) {
+  if (!(await confirm('永久删除这条创意投稿及其操作记录？关联的生成任务会保留为独立审计记录。'))) return
+  await run(async () => {
+    await aiApi.deleteIdea(id)
+    await load()
+  })
+}
+async function deleteResource(row: CreativeResource) {
+  if (!(await confirm(`删除资源“${row.title}”？历史任务快照会保留，操作不能恢复。`))) return
+  await run(async () => {
+    await creativeApi.delete(row.id)
+    await load()
+  })
+}
+async function deleteAsset(id: number) {
+  if (!(await confirm('删除这张图片？历史任务快照会保留，图片将从素材库移除。'))) return
+  await run(async () => {
+    await aiApi.deleteAdminAsset(id)
     await load()
   })
 }
@@ -595,9 +624,11 @@ onBeforeUnmount(() => {
               <p v-else class="admin-task-no-results">
                 {{ row.task.status === 'succeeded' ? '暂无可展示的结果图片' : '尚无生成结果' }}
               </p>
-              <a-button v-if="row.task.status === 'unknown'" @click="startResolve(row.task.id)"
-                >核查结算</a-button
-              >
+              <div class="creative-actions">
+                <a-button v-if="row.task.status === 'unknown'" @click="startResolve(row.task.id)"
+                  >核查结算</a-button
+                ><a-button status="danger" @click="deleteTask(row.task.id)">删除任务及结果</a-button>
+              </div>
             </div>
             <aside
               v-if="row.references?.length"
@@ -690,7 +721,7 @@ onBeforeUnmount(() => {
                 })
               "
               >下架</a-button
-            >
+            ><a-button status="danger" @click="deleteIdea(row.idea.id)">删除</a-button>
           </div>
         </div>
         <a-button v-if="moreRows" @click="run(() => queryRows(true))"
@@ -717,7 +748,10 @@ onBeforeUnmount(() => {
               <CreativeImage v-for="id in row.payload.asset_ids.slice(0, 4)" :key="id" :id="id" />
             </div>
           </div>
-          <a-button @click="editResource(row)">管理角色与图片</a-button>
+          <div class="creative-actions">
+            <a-button @click="editResource(row)">管理角色与图片</a-button
+            ><a-button status="danger" @click="deleteResource(row)">删除</a-button>
+          </div>
         </div>
         <p v-if="!shownResources.length" class="creative-empty">
           添加角色名称与图片，就可以开始建立角色资源。
@@ -743,7 +777,10 @@ onBeforeUnmount(() => {
                 {{ asset.public ? '公开' : '私人' }} · {{ asset.archived ? '已归档' : '可用' }} ·
                 {{ asset.license || '尚未填写授权' }}
               </p>
-              <a-button @click="editAsset(asset)">编辑 / 发布 / 归档</a-button>
+              <div class="creative-actions">
+                <a-button @click="editAsset(asset)">编辑 / 发布 / 归档</a-button
+                ><a-button status="danger" @click="deleteAsset(asset.id)">删除图片</a-button>
+              </div>
             </article>
           </div>
         </details></template
@@ -780,7 +817,10 @@ onBeforeUnmount(() => {
               {{ row.sort_order }}
             </p>
           </div>
-          <a-button @click="editResource(row)">编辑 / 预览</a-button>
+          <div class="creative-actions">
+            <a-button @click="editResource(row)">编辑 / 预览</a-button
+            ><a-button status="danger" @click="deleteResource(row)">删除</a-button>
+          </div>
         </div></template
       >
       <a-modal

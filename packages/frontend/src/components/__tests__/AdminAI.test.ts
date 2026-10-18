@@ -13,12 +13,17 @@ const api = vi.hoisted(() => ({
   grantBatch: vi.fn(),
   grantUsers: vi.fn(),
   resolve: vi.fn(),
+  deleteAdminTask: vi.fn(),
+  deleteIdea: vi.fn(),
+  deleteAdminAsset: vi.fn(),
+  deleteResource: vi.fn(),
+  confirm: vi.fn(),
 }))
 vi.mock('@/api/creative', () => ({
   aiApi: api,
-  creativeApi: { adminResources: api.adminResources },
+  creativeApi: { adminResources: api.adminResources, delete: api.deleteResource },
 }))
-vi.mock('@/composables/useToast', () => ({ useConfirm: () => ({ confirm: vi.fn() }) }))
+vi.mock('@/composables/useToast', () => ({ useConfirm: () => ({ confirm: api.confirm }) }))
 const asset = {
   id: 3,
   user_id: 1,
@@ -70,6 +75,7 @@ beforeEach(() => {
   api.adminAssets.mockResolvedValue([{ ...asset }])
   api.metadata.mockResolvedValue(null)
   api.resolve.mockResolvedValue(null)
+  api.confirm.mockResolvedValue(true)
   api.grantBatch.mockResolvedValue({ count: 2 })
   api.grantUsers.mockResolvedValue([
     { id: 1, username: '管理员' },
@@ -182,6 +188,32 @@ describe('AdminAI form feedback', () => {
     const image = w.get('.admin-asset-preview').getComponent({ name: 'CreativeImage' })
     expect(image.props('id')).toBe(32)
     expect(image.props('full')).toBe(true)
+  })
+  it('lets an administrator remove a terminal task and its generated results', async () => {
+    api.adminTasks.mockResolvedValue([
+      {
+        task: {
+          id: 13,
+          user_id: 1,
+          prompt: '待删除任务',
+          status: 'succeeded',
+          model: 'image-model',
+          size: '1024x1024',
+          count: 1,
+          cost: 0,
+          created_at: '2026-10-15T00:00:00.000Z',
+        },
+        assets: [{ id: 31 }],
+        references: [],
+      },
+    ])
+    const w = render()
+    await flushPromises()
+    await button(w, '生图任务').trigger('click')
+    await flushPromises()
+    await button(w, '删除任务及结果').trigger('click')
+    await flushPromises()
+    expect(api.deleteAdminTask).toHaveBeenCalledWith(13)
   })
   it('requires a license before publishing and keeps the editable metadata payload narrow', async () => {
     const w = render()

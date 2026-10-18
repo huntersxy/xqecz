@@ -682,6 +682,32 @@ func (s *Service) ArchiveTask(ctx context.Context, uid, id uint64) error {
 	return nil
 }
 
+// ArchiveTaskAsAdmin removes a terminal task and its generated images from
+// the active admin lists while keeping the task, ledger and files available
+// for audit. Tasks with reserved or in-flight work must be resolved first so
+// deletion cannot strand quota or let a late provider result reappear.
+func (s *Service) ArchiveTaskAsAdmin(ctx context.Context, id uint64) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var task Task
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&task, id).Error; err != nil {
+			return err
+		}
+		if task.Archived {
+			return gorm.ErrRecordNotFound
+		}
+		switch task.Status {
+		case "queued", "running":
+			return invalidInput("任务仍在执行，不能删除，请先等待完成或取消")
+		case "unknown":
+			return invalidInput("结果待核查的任务不能删除，请先完成额度核查")
+		}
+		if err := tx.Model(&Task{}).Where("id = ? AND archived = ?", id, false).Update("archived", true).Error; err != nil {
+			return err
+		}
+		return tx.Model(&Asset{}).Where("task_id = ? AND archived = ?", id, false).Update("archived", true).Error
+	})
+}
+
 func (s *Service) Resolve(ctx context.Context, actor, id uint64, consumed bool, note string) error {
 	// Validate the audit note separately from generation inputs: settlement does
 	// not revalidate sessions or reference images, and must retain its evidence.
