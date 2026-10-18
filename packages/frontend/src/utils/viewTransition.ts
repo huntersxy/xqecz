@@ -57,13 +57,21 @@ export function withRevealTransition(update: () => void | Promise<void>, origin?
     return
   }
 
-  const transition = start(async () => {
-    await update()
-    // update 走的是 Vue 响应式（主题的 applyMode 挂在 watch 上，默认 flush: 'pre'，
-    // 改 DOM 要等一次调度微任务）。回调一返回就拍新快照会拍到旧状态，圆形揭示
-    // 于是「铺了个寂寞」。nextTick 等的正是这次 flush。
-    await nextTick()
-  })
+  let transition: ViewTransition
+  try {
+    transition = start(async () => {
+      await update()
+      // update 走的是 Vue 响应式（主题的 applyMode 挂在 watch 上，默认 flush: 'pre'，
+      // 改 DOM 要等一次调度微任务）。回调一返回就拍新快照会拍到旧状态，圆形揭示
+      // 于是「铺了个寂寞」。nextTick 等的正是这次 flush。
+      await nextTick()
+    })
+  } catch {
+    // 浏览器可能在另一段 View Transition 尚未结束时同步拒绝 start；主题切换
+    // 不能因为装饰动画抢占失败而丢掉实际更新。
+    void update()
+    return
+  }
 
   const { x, y } = origin ?? viewportCenter()
   transition.ready

@@ -80,6 +80,18 @@ describe('withRevealTransition', () => {
     expect(update).toHaveBeenCalledTimes(1)
   })
 
+  it('startViewTransition 同步拒绝时仍执行更新', () => {
+    const update = vi.fn()
+    Object.defineProperty(document, 'startViewTransition', {
+      value: vi.fn(() => { throw new Error('transition already running') }),
+      configurable: true,
+    })
+
+    withRevealTransition(update)
+
+    expect(update).toHaveBeenCalledTimes(1)
+  })
+
   it('过渡回调返回时 DOM 必须已改完，动画排在 new(root) 伪元素上', async () => {
     const holder: { run?: () => Promise<void> } = {}
     stubStartViewTransition((fn) => {

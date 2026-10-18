@@ -2,15 +2,16 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 
 /**
- * 切换日间/暗色：只在 <body> 上增删 arco-theme="dark" 属性，Arco 按自身
- * body[arco-theme='dark'] 选择器翻日/夜；公开创作界面的 --creative-* 调色板
- * （assets/main.css）同样挂在 body[arco-theme='dark'] 下，因此随之切换。
+ * 切换日间/暗色：body 上的 arco-theme 属性供 Arco 和公开调色板使用，
+ * html.dark 同步给 Tailwind/首屏脚本使用，两个状态必须一起增删，避免视觉已变浅色
+ * 但根节点仍残留 dark class。
  * 工作台与管理端通过 admin-theme 复用这组语义色，状态色仍走 Arco token。
  */
 function applyMode(mode: 'light' | 'dark') {
   if (typeof document !== 'undefined' && document.body) {
     if (mode === 'dark') document.body.setAttribute('arco-theme', 'dark')
     else document.body.removeAttribute('arco-theme')
+    document.documentElement.classList.toggle('dark', mode === 'dark')
   }
 }
 

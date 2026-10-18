@@ -47,8 +47,27 @@ const themeStore = useThemeStore()
 const isMobileMenuOpen = ref(false)
 // 详情层负责自身入场；公开整页之间使用轻量过渡，不延迟覆盖层挂载。
 const pageTransition = ref(false)
-watch(() => route.name, (to, from) => {
-  pageTransition.value = to !== 'content-detail' && from !== 'content-detail' && !route.path.startsWith('/admin')
+let pageTransitionFrame: number | null = null
+let pageTransitionToken = 0
+watch(() => route.fullPath, (to, from) => {
+  const token = ++pageTransitionToken
+  if (pageTransitionFrame !== null) {
+    cancelAnimationFrame(pageTransitionFrame)
+    pageTransitionFrame = null
+  }
+  pageTransition.value = false
+  const toName = router.resolve(to).name
+  const fromName = router.resolve(from).name
+  const shouldAnimate = toName !== 'content-detail' && fromName !== 'content-detail' && !to.startsWith('/admin')
+  if (!shouldAnimate) return
+  if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+    pageTransition.value = true
+    return
+  }
+  pageTransitionFrame = window.requestAnimationFrame(() => {
+    pageTransitionFrame = null
+    if (token === pageTransitionToken) pageTransition.value = true
+  })
 })
 
 /**
@@ -145,6 +164,7 @@ onMounted(() => {
   document.addEventListener('visibilitychange', onVisibilityChange)
 })
 onBeforeUnmount(() => {
+  if (pageTransitionFrame !== null) cancelAnimationFrame(pageTransitionFrame)
   window.removeEventListener('resize', updateBreakpoint)
   document.removeEventListener('visibilitychange', onVisibilityChange)
 })
@@ -281,8 +301,8 @@ onBeforeUnmount(() => {
       <main :class="route.path.startsWith('/admin') ? 'admin-main' : ''" role="main">
         <ErrorBoundary>
           <RouterView v-slot="{ Component }">
-            <KeepAlive :include="['HomeView']">
-              <component :is="Component" :class="{ 'public-page-motion': pageTransition }" />
+            <KeepAlive v-if="Component" :include="['HomeView']">
+              <component :is="Component" :key="route.fullPath" :class="{ 'public-page-motion': pageTransition }" />
             </KeepAlive>
           </RouterView>
         </ErrorBoundary>
@@ -678,9 +698,15 @@ body[arco-theme='dark'] .app-header {
 .app-theme-btn, .app-mobile-menu-btn { border-radius: 50%; color: var(--creative-muted); }
 .app-theme-btn:hover, .app-mobile-menu-btn:hover { color: var(--creative-accent); background: var(--creative-soft); }
 .app-header .app-login-link { min-height: 36px; gap: 6px; padding-inline: 14px; border: 1px solid var(--creative-line); border-radius: 999px; color: var(--creative-accent); font-size: 12px; background: var(--creative-paper); }
+.app-header .app-login-link { transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast); }
 .app-header .app-login-link:hover { border-color: var(--creative-accent); background: var(--creative-soft); }
+.app-header .app-login-link:active { transform: scale(.98); }
 .app-header .app-user-trigger { background: var(--creative-canvas); border: 1px solid var(--creative-line); }
 .app-header .app-user-trigger:hover { background: var(--creative-soft); }
+.app-mobile-menu-btn { transition: color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast); }
+.app-mobile-menu-btn:active { transform: scale(.94); }
+.app-mobile-brand { transition: color var(--transition-fast); }
+.app-mobile-brand:hover { color: var(--creative-accent); }
 .app-header :deep(.app-search-input), .app-header :deep(.app-search-input-mobile) { border-radius: 999px; background: var(--creative-canvas); border: 1px solid var(--creative-line); }
 .app-header :deep(.arco-input-focus) { border-color: var(--creative-accent); }
 .app-header :deep(.arco-input-search-btn) { color: var(--creative-accent); }

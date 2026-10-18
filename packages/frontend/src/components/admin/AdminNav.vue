@@ -168,7 +168,7 @@ const emit = defineEmits<{
   color: var(--admin-text-2);
   cursor: pointer;
   text-align: left;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
 
   &:hover {
     background: var(--admin-fill);
@@ -179,6 +179,10 @@ const emit = defineEmits<{
     background: var(--creative-ink);
     color: var(--creative-paper);
     font-weight: 500;
+  }
+
+  &:active {
+    transform: scale(.98);
   }
 }
 

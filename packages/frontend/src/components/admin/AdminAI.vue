@@ -1036,6 +1036,14 @@ onBeforeUnmount(() => {
   background: var(--creative-paper);
   color: var(--creative-muted);
   cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
+}
+.admin-ai-tabs button:hover:not(:disabled) {
+  border-color: var(--creative-accent);
+  color: var(--creative-accent);
+}
+.admin-ai-tabs button:active:not(:disabled) {
+  transform: scale(.98);
 }
 .admin-ai-tabs button.active {
   background: var(--creative-soft);

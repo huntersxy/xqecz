@@ -178,13 +178,16 @@ function switchMode() {
 .auth-field input { width: 100%; min-height: 44px; padding: 11px 13px; border: 1px solid var(--creative-line); border-radius: 10px; background: var(--creative-canvas); color: var(--creative-ink); font-size: 12px; outline: none; transition: border-color .18s, box-shadow .18s; }
 .auth-field input::placeholder { color: var(--creative-muted); }
 .auth-field input:focus { background: var(--creative-paper); border-color: var(--creative-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--creative-accent) 9%, transparent); }
-.auth-submit { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; margin-top: 4px; min-height: 44px; padding: 12px 15px; border: 0; border-radius: 999px; background: var(--creative-accent); color: var(--color-on-primary); font-size: 12px; font-weight: 600; cursor: pointer; transition: background .18s, box-shadow .18s; }
+.auth-submit { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; margin-top: 4px; min-height: 44px; padding: 12px 15px; border: 0; border-radius: 999px; background: var(--creative-accent); color: var(--color-on-primary); font-size: 12px; font-weight: 600; cursor: pointer; transition: background .18s, box-shadow .18s, transform .18s ease; }
 .auth-submit:hover { background: var(--creative-accent-hover); box-shadow: 0 5px 16px color-mix(in srgb, var(--creative-accent) 18%, transparent); }
+.auth-submit:active:not(:disabled) { transform: scale(.98); }
 .auth-submit > span:last-child:not(.auth-spinner) { font-size: 17px; }
 .auth-spinner { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: auth-spin .8s linear infinite; }
 @keyframes auth-spin { to { transform: rotate(360deg); } }
 .auth-switch { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin: 24px 0 0; color: var(--creative-muted); font-size: 11px; line-height: 1.8; }
-.auth-switch button { border: 0; padding: 0; background: transparent; color: var(--creative-accent); font-size: inherit; cursor: pointer; }
+.auth-switch button { border: 0; padding: 0; background: transparent; color: var(--creative-accent); font-size: inherit; cursor: pointer; transition: color .18s ease, transform .18s ease; }
+.auth-switch button:hover:not(:disabled) { color: var(--creative-accent-hover); }
+.auth-switch button:active:not(:disabled) { transform: scale(.98); }
 .auth-card-note { display: flex; justify-content: center; gap: 7px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--creative-line); color: var(--creative-muted); font-size: 10px; }
 .auth-card-note > span { color: var(--creative-accent); }
 button:disabled { cursor: not-allowed; opacity: .6; }
