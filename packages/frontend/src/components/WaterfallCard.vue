@@ -261,10 +261,11 @@ onBeforeUnmount(() => ro?.disconnect())
   cursor: pointer;
   font: inherit;
   font-size: 10px;
-  transition: color .18s ease, opacity .18s ease;
+  transition: color .18s ease, opacity .18s ease, transform .18s ease;
 }
 .wf-card-like:hover,
 .wf-card-like.liked { color: var(--card-accent); }
+.wf-card-like:active:not(.pending) { transform: scale(.95); }
 .wf-card-like:hover svg { transform: scale(1.12); }
 .wf-card-like svg { transition: transform .18s ease; }
 .wf-card-like.liked svg { transform: scale(1.08); }
