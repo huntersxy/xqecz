@@ -528,13 +528,6 @@ watch(ready, (value) => {
           </span>
         </div>
       </div>
-      <nav class="studio-head-nav" aria-label="主要入口">
-        <div class="studio-primary-switch">
-          <RouterLink to="/studio" active-class="is-active" exact-active-class="is-active">工作台</RouterLink>
-          <RouterLink to="/" active-class="is-active" exact-active-class="is-active">作品广场</RouterLink>
-        </div>
-        <RouterLink class="studio-ideas-link" to="/ideas">创意接力</RouterLink>
-      </nav>
     </header>
     <div class="studio-workspace">
       <section class="studio-gallery" aria-label="作品与任务记录">
@@ -1077,7 +1070,7 @@ watch(ready, (value) => {
   isolation: isolate;
   width: 100%;
   max-width: none;
-  min-height: calc(100dvh - 72px);
+  min-height: 100%;
   margin: 0;
   padding: clamp(28px, 4vw, 58px) clamp(20px, 5vw, 76px) 64px;
   overflow: hidden;
@@ -1166,49 +1159,6 @@ body[arco-theme='dark'] .ai-studio {
 .studio-credit-item strong {
   color: var(--studio-ink);
 }
-.studio-head-nav {
-  display: flex;
-  align-items: center;
-  flex: 0 0 auto;
-  gap: 10px;
-  font-size: 11px;
-}
-.studio-primary-switch {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  padding: 3px;
-  border: 1px solid var(--studio-line);
-  border-radius: 11px;
-  background: var(--studio-soft);
-}
-.studio-primary-switch a {
-  min-height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 13px;
-  border-radius: 8px;
-  color: var(--studio-muted);
-  text-decoration: none;
-  transition: color .18s ease, background .18s ease, transform .18s ease;
-}
-.studio-primary-switch a:hover,
-.studio-primary-switch a.is-active {
-  color: var(--studio-accent);
-  background: var(--studio-paper);
-}
-.studio-primary-switch a:active {
-  transform: scale(.98);
-}
-.studio-ideas-link {
-  color: var(--studio-accent);
-  text-decoration: none;
-  text-underline-offset: 4px;
-  transition: color .18s ease, transform .18s ease;
-}
-.studio-ideas-link:hover { text-decoration: underline; }
-.studio-ideas-link:active { transform: scale(.98); }
 .studio-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(330px, 420px);
@@ -1365,7 +1315,7 @@ body[arco-theme='dark'] .ai-studio {
 }
 .studio-composer {
   position: sticky;
-  top: 92px;
+  top: 16px;
   width: auto;
   max-height: none;
   margin: 0;
@@ -1510,10 +1460,6 @@ body[arco-theme='dark'] .ai-studio {
   }
   .studio-credit-summary {
     margin-top: 15px;
-  }
-  .studio-head-nav {
-    gap: 15px;
-    padding: 0;
   }
   .studio-workspace {
     display: block;

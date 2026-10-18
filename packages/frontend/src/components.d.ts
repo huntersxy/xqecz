@@ -88,6 +88,7 @@ declare module 'vue' {
     PollBattle: typeof import('./components/PollBattle.vue')['default']
     PollPreview: typeof import('./components/PollPreview.vue')['default']
     PollsSection: typeof import('./components/PollsSection.vue')['default']
+    PublicShell: typeof import('./components/PublicShell.vue')['default']
     QuickUploadSheet: typeof import('./components/QuickUploadSheet.vue')['default']
     RecommendSection: typeof import('./components/RecommendSection.vue')['default']
     ReportModal: typeof import('./components/ReportModal.vue')['default']

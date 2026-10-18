@@ -232,7 +232,7 @@ body[arco-theme='dark'] .admin-theme {
 .admin-shell {
   display: flex;
   align-items: flex-start;
-  min-height: calc(100vh - 64px);
+  min-height: 100vh;
   background: var(--admin-canvas);
   color: var(--admin-text);
 }
@@ -242,8 +242,8 @@ body[arco-theme='dark'] .admin-theme {
   width: 248px;
   flex-shrink: 0;
   position: sticky;
-  top: 64px;
-  height: calc(100vh - 64px);
+  top: 0;
+  height: 100vh;
   background: var(--admin-surface);
   border-right: 1px solid var(--admin-border-soft);
 }
@@ -258,7 +258,7 @@ body[arco-theme='dark'] .admin-theme {
 
 .admin-topbar {
   position: sticky;
-  top: 64px;
+  top: 0;
   z-index: 40;
   height: 52px;
   display: flex;
@@ -353,7 +353,7 @@ body[arco-theme='dark'] .admin-theme {
   }
 
   .admin-topbar {
-    top: 60px;
+    top: 0;
     padding: 0 16px;
   }
 
@@ -367,6 +367,6 @@ body[arco-theme='dark'] .admin-theme {
   .admin-intro { margin: 8px 4px 22px; }
   .admin-intro-art { width: 72px; }
   .admin-intro-label { font-size: 9px; letter-spacing: .1em; }
-  .admin-shell { min-height: calc(100vh - 60px); }
+  .admin-shell { min-height: 100vh; }
 }
 </style>

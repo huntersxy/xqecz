@@ -227,7 +227,7 @@ watch(() => props.open, (val) => {
   background: var(--creative-paper); box-shadow: 0 24px 100px rgba(51, 28, 43, .18);
 }
 :global(.qu-sheet .arco-drawer-body) { padding: 0; overflow: auto; }
-.qus-panel { max-height: calc(100dvh - 64px); overflow-y: auto; color: var(--creative-ink); scrollbar-width: thin; scrollbar-color: var(--creative-line) var(--creative-paper); }
+.qus-panel { max-height: calc(100dvh - 32px); overflow-y: auto; color: var(--creative-ink); scrollbar-width: thin; scrollbar-color: var(--creative-line) var(--creative-paper); }
 .qus-heading { position: relative; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 30px 36px 24px; }
 .qus-heading::after { content: ''; position: absolute; bottom: 0; left: 36px; width: 48px; height: 2px; background: var(--creative-accent); opacity: .5; }
 .qus-kicker { font-size: 10px; letter-spacing: .16em; font-weight: 600; color: var(--creative-muted); }

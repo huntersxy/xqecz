@@ -172,7 +172,7 @@ onMounted(async () => {
   --qu-line: rgba(52, 40, 42, .14);
   --qu-soft: #f1e9e6;
   --qu-accent: #6b173b;
-  min-height: calc(100vh - 72px);
+  min-height: 100%;
   background: var(--qu-canvas);
   color: var(--qu-ink);
   padding: clamp(32px, 5vw, 70px) clamp(18px, 5vw, 72px) 80px;
@@ -263,7 +263,7 @@ body[arco-theme='dark'] .qu-page {
 .qu-progress { max-width: 250px; margin-top: 9px; color: var(--qu-muted); font-size: 11px; }
 button:disabled { cursor: not-allowed; }
 @media (max-width: 900px) { .qu-body { grid-template-columns: 260px minmax(0, 1fr); gap: 28px; } .qu-guest-grid { grid-template-columns: 1fr; gap: 0; } }
-@media (max-width: 768px) { .qu-page { min-height: calc(100dvh - 62px); padding: 30px 20px 48px; } .qu-heading { align-items: flex-start; gap: 18px; } .qu-heading h1 { font-size: 37px; } .qu-heading p { max-width: 27em; font-size: 11px; } .qu-back { margin-top: 3px; font-size: 10px; } .qu-body { grid-template-columns: minmax(0, 1fr); gap: 30px; padding: 26px 22px; } .qu-section-heading { margin-bottom: 17px; } .qu-tip-card { display: none; } .qu-dropzone { min-height: 220px; } .qu-guest-grid { grid-template-columns: 1fr 1fr; gap: 12px; } .qu-footer { padding: 18px 22px; gap: 16px; } .qu-submit { min-width: 120px; } }
+@media (max-width: 768px) { .qu-page { min-height: 100%; padding: 30px 20px 48px; } .qu-heading { align-items: flex-start; gap: 18px; } .qu-heading h1 { font-size: 37px; } .qu-heading p { max-width: 27em; font-size: 11px; } .qu-back { margin-top: 3px; font-size: 10px; } .qu-body { grid-template-columns: minmax(0, 1fr); gap: 30px; padding: 26px 22px; } .qu-section-heading { margin-bottom: 17px; } .qu-tip-card { display: none; } .qu-dropzone { min-height: 220px; } .qu-guest-grid { grid-template-columns: 1fr 1fr; gap: 12px; } .qu-footer { padding: 18px 22px; gap: 16px; } .qu-submit { min-width: 120px; } }
 @media (max-width: 480px) { .qu-heading { flex-direction: column; gap: 14px; } .qu-heading h1 { font-size: 35px; } .qu-heading p { max-width: none; } .qu-card { border-radius: 11px; } .qu-body { padding: 22px 18px; } .qu-guest-grid { grid-template-columns: 1fr; gap: 0; } .qu-footer { flex-direction: column; align-items: stretch; padding: 18px; } .qu-submit { width: 100%; } }
 .qu-media-state-enter-active, .qu-media-state-leave-active { transition: opacity .16s ease, transform .16s ease; }
 .qu-media-state-enter-from { opacity: 0; transform: translateY(4px); }

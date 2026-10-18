@@ -217,7 +217,7 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 /* The auth route follows the gallery's quiet editorial surface: one paper panel,
    a warm canvas, and a restrained accent leave the form as the primary action. */
 .auth-gallery-page {
-  min-height: calc(100vh - 64px);
+  min-height: 100%;
   padding: clamp(36px, 7vw, 84px) clamp(20px, 6vw, 84px) 96px;
   background:
     radial-gradient(circle at 10% 12%, color-mix(in srgb, var(--creative-warm) 12%, transparent), transparent 34%),
@@ -308,7 +308,7 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 }
 @media (max-width: 768px) {
   .auth-gallery-page {
-    min-height: calc(100vh - 60px);
+    min-height: 100%;
     padding: 34px 20px 56px;
   }
   .auth-gallery-page .auth-layout {
