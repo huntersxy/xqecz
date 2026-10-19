@@ -1,0 +1,64 @@
+// ============================================================
+// Admin 设计令牌（§6.2）· 运行时 CSS 自定义属性
+//
+// 只由一处引入：AdminView.vue 的「非 scoped」<style> 里 @use 本文件一次。
+// 不要放进组件 scoped 样式：scoped 会给选择器加 data-v 属性，令牌落在匹配
+// 不到的元素上；也不要以 .admin-theme 作根——AdminNav 会被 Teleport 进站点
+// 侧栏、a-modal 会 Teleport 到 body，都不在 AdminView 的 DOM 内，只有 body
+// 上的令牌能同时覆盖这两处。
+//
+// 颜色一律引用 --site-*，由 main.css 的亮/暗两套 body 变量驱动，因此这里
+// 不需要重复暗色块（§6.4：暗色不得出现纯黑底/纯白字）。
+// 旧的 --admin-* 仍定义在 AdminView.vue 里，两套并存，本文件不改它。
+// ============================================================
+
+body {
+  // ── 色 ──
+  --adm-canvas: var(--site-canvas);
+  --adm-surface: var(--site-paper);
+  --adm-soft: var(--site-soft);
+  --adm-ink: var(--site-ink);
+  --adm-muted: var(--site-muted);
+  --adm-line: var(--site-line);
+  --adm-accent: var(--site-accent);
+  --adm-accent-soft: var(--site-accent-soft);
+
+  // 状态色沿用 Arco 语义色；亮/暗切换由 Arco 的 --*-6 自己负责。
+  --adm-success: rgb(var(--success-6));
+  --adm-warning: rgb(var(--warning-6));
+  --adm-danger: rgb(var(--danger-6));
+
+  // ── 圆角 ──
+  --adm-r-control: 10px;
+  --adm-r-card: 16px;
+  --adm-r-pill: 999px;
+
+  // ── 间距阶梯（沿用 _admin.scss 的 $admin-gap-*，补 32）──
+  --adm-gap-xs: 4px;
+  --adm-gap-sm: 8px;
+  --adm-gap-md: 12px;
+  --adm-gap-lg: 16px;
+  --adm-gap-xl: 24px;
+  --adm-gap-2xl: 32px;
+
+  // ── 字号（可交互文字与表格正文不得小于 12px）──
+  --adm-font-xs: 12px;
+  --adm-font-sm: 13px;
+  --adm-font-base: 14px;
+  --adm-font-md: 15px;
+  --adm-font-lg: 17px;
+  --adm-font-xl: 21px;
+
+  // ── 触控高度：桌面 ≥36px，手机 ≥44px ──
+  --adm-touch: 36px;
+
+  // ── 数字对齐：计数/时间/金额用 font-variant-numeric: var(--adm-numeric) ──
+  --adm-numeric: tabular-nums;
+}
+
+// 手机档复用现有 768 断点（§6.3 不新增断点）。
+@media (max-width: 768px) {
+  body {
+    --adm-touch: 44px;
+  }
+}

@@ -101,3 +101,74 @@ $admin-font-lg: 17px;
   padding: $admin-gap-lg;
   border-top: 1px solid $admin-border-soft;
 }
+
+// ============================================================
+// 以下为波次 2（WP3）新增：对齐 §6.2 新令牌与 §8 动效规范的编译期常量与 mixin。
+// 只新增，不删除、不改名——9 个页签的 scoped SCSS 仍按旧名 @use 本文件。
+// 注意：本文件会被多个 scoped 样式 @use，任何「顶层 CSS 规则」都会在各页签重复输出，
+// 所以这里只放变量与 mixin，实际规则一律留在组件里（或用下方 mixin 生成）。
+// ============================================================
+
+// ── 间距（补 32，对齐 --adm-gap-2xl）──
+$admin-gap-2xl: 32px;
+
+// ── 字号（补 21，对齐 --adm-font-xl）──
+$admin-font-xl: 21px;
+
+// ── 圆角（对齐 --adm-r-control / --adm-r-pill）──
+$admin-radius-control: 10px;
+$admin-radius-pill: 999px;
+
+// ── 触控高度（§6.2：桌面 36px、手机 44px；运行时优先取 --adm-touch）──
+$admin-touch: 36px;
+
+// ── 等宽数字（§6.2：计数、时间、金额一律 tabular-nums，避免跳动）──
+@mixin numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+// ── 键盘焦点环（§7.5：2px 强调色环，只在 :focus-visible 出现）──
+@mixin focus-ring($offset: 2px) {
+  &:focus-visible {
+    outline: 2px solid var(--adm-accent, var(--admin-primary));
+    outline-offset: $offset;
+  }
+}
+
+// ── 面板表面（新组件共用；老页签继续用自己的写法，不动）──
+@mixin panel-surface {
+  background: var(--adm-surface, var(--admin-surface));
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--adm-r-card, var(--admin-radius));
+}
+
+// ── 骨架块（M11）：静态底色 + 圆角。扫光由使用方叠伪元素实现，
+//    因为 §8.1 要求只动 transform / opacity，不能动 background-position。──
+@mixin skeleton-block($radius: 6px) {
+  position: relative;
+  overflow: hidden;
+  border-radius: $radius;
+  background: color-mix(in srgb, var(--adm-line, var(--admin-border)) 45%, var(--adm-soft, var(--admin-fill)));
+}
+
+// ── 行退场（M8）：只改 opacity / transform，不改高度（§8.1 第 2 条）──
+@mixin leaving($dur: 280ms) {
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition: opacity $dur var(--adm-ease-in, ease-in), transform $dur var(--adm-ease-in, ease-in);
+}
+
+// ── 错峰进场（M2）：配合 AdminPanel.vue 全局块里的 @keyframes adm-rise 使用，
+//    任何后台容器都能 @include stagger-rise() 复现同一套节奏。──
+@mixin stagger-rise($count: 8) {
+  > :nth-child(-n + #{$count}) {
+    animation: adm-rise var(--adm-dur-slow, 360ms) var(--adm-ease-out, cubic-bezier(.22, 1, .36, 1)) backwards;
+  }
+
+  @for $i from 1 through $count {
+    > :nth-child(#{$i}) {
+      animation-delay: calc(var(--adm-stagger, 40ms) * #{$i - 1});
+    }
+  }
+}

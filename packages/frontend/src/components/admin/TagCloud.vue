@@ -115,7 +115,7 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
         :key="tag"
         :class="[
           'tag-item inline-flex items-center gap-1 rounded-full cursor-pointer select-none whitespace-nowrap font-medium tracking-wide relative overflow-hidden',
-          'transition-all duration-200 ease-out hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-md',
+          'transition duration-200 ease-out hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-md',
           'active:translate-y-0 active:scale-[0.98]',
           sizeClasses[getSizeLevel(tag, index)] ?? sizeClasses[1],
           { 'is-selected': selectedTags.includes(tag) },
@@ -231,14 +231,14 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
   }
 }
 
-// TransitionGroup 动画
+// TransitionGroup 动画（§8：只过渡 opacity 与 transform，不用 all）
 .tag-fade {
   &-enter-active {
-    transition: all 0.3s ease-out;
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
   }
 
   &-leave-active {
-    transition: all 0.2s cubic-bezier(0.4, 0, 1, 1);
+    transition: opacity 0.2s cubic-bezier(0.4, 0, 1, 1), transform 0.2s cubic-bezier(0.4, 0, 1, 1);
   }
 
   &-enter-from {
@@ -264,6 +264,19 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
   }
 }
 
+// §8.4：用户要求减少动态效果时，标签进场与增删动画一律关掉
+@media (prefers-reduced-motion: reduce) {
+  .tag-item {
+    animation: none !important;
+  }
+
+  .tag-fade-enter-active,
+  .tag-fade-leave-active,
+  .tag-fade-move {
+    transition: none !important;
+  }
+}
+
 // 自定义标签输入
 .custom-tag-input-wrap {
   display: inline-flex;
@@ -279,7 +292,7 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
   background: var(--color-card);
   color: var(--color-text);
   outline: none;
-  transition: all 0.2s;
+  transition: border-color 0.2s ease-out, box-shadow 0.2s ease-out;
 
   &:focus {
     border-color: var(--admin-primary, rgb(var(--primary-6)));
@@ -304,7 +317,7 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
   border: 1.5px dashed var(--admin-primary, rgb(var(--primary-6)));
   border-radius: 20px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s ease-out, border-color 0.2s ease-out, transform 0.2s ease-out;
 
   &:hover {
     background: rgba(var(--primary-6), 0.1);

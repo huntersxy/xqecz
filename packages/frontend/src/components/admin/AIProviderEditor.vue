@@ -170,17 +170,17 @@ async function save() {
 .provider-fields {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0 16px;
+  gap: 0 var(--adm-gap-lg, 16px);
 }
 .provider-size-note {
   margin: 0;
-  color: var(--creative-muted);
-  font-size: 12px;
+  color: var(--adm-muted, var(--creative-muted));
+  font-size: var(--adm-font-xs, 12px);
   line-height: 1.6;
 }
-@media (max-width: 560px) {
+@media (max-width: 768px) {
   .provider-fields {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

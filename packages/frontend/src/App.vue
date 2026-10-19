@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { RouterView, useRoute, useRouter } from 'vue-router'
+import { RouterView, useRoute } from 'vue-router'
 import { Layout } from '@arco-design/web-vue'
 import { Toaster } from 'vue-sonner'
 import ErrorBoundary from '@/components/ErrorBoundary.vue'
@@ -9,7 +9,6 @@ import { useThemeStore } from '@/stores/theme'
 import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
-const router = useRouter()
 const userStore = useUserStore()
 
 // 主题必须在任何路由组件挂载前落到 html/body 上：详情页不经过 PublicShell，
@@ -18,6 +17,18 @@ const userStore = useUserStore()
 useThemeStore()
 
 const isPublicShellRoute = computed(() => !route.path.startsWith('/content/'))
+
+// RouterView 的 key 决定「路由变化时是否重建页面实例」。
+// 后台切换页签只改 query（?tab=users），若继续用 route.fullPath 做 key，整壳会
+// 跟着重挂载——AdminView/AdminNav 的 setup、角标、Teleport 与过渡全部重来一遍。
+// 所以 /admin 用「路由记录」做稳定 key（name 为 'admin'）：同一条路由内 query 怎么
+// 变都不换 key；离开 /admin（或进入别的后台子路由）时 name 变化，仍照常重建。
+// 其余路由原样保留 route.fullPath，行为与改动前完全一致——只有 /admin 走这条分支。
+const viewKey = computed(() =>
+  route.path === '/admin' || route.path.startsWith('/admin/')
+    ? `admin:${String(route.name ?? route.path)}`
+    : route.fullPath,
+)
 
 // 公开整页之间做「旧页淡出 → 新页上浮淡入」的串行切换（mode=out-in，旧页离场时间很短）。
 // 以下情况直接瞬时切换，不做过渡：
@@ -69,12 +80,12 @@ onBeforeUnmount(() => {
           <PublicShell v-if="isPublicShellRoute && Component">
             <Transition :name="pageTransition" mode="out-in" @after-leave="onPageLeft">
               <KeepAlive :include="['HomeView']">
-                <component :is="Component" :key="route.fullPath" />
+                <component :is="Component" :key="viewKey" />
               </KeepAlive>
             </Transition>
           </PublicShell>
           <KeepAlive v-else-if="Component" :include="['HomeView']">
-            <component :is="Component" :key="route.fullPath" />
+            <component :is="Component" :key="viewKey" />
           </KeepAlive>
         </RouterView>
       </ErrorBoundary>

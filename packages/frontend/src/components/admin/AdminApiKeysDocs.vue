@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import hljs from 'highlight.js/lib/core'
 import bash from 'highlight.js/lib/languages/bash'
 import python from 'highlight.js/lib/languages/python'
@@ -129,7 +129,7 @@ $deleted = Invoke-RestMethod -Uri ($base + '/content/' + $id) -Method Delete -He
 $deleted | ConvertTo-Json -Depth 5`,
 }
 
-// 目录即“分页”列表：一次只展示一个条目，通过侧栏或上/下页切换。
+// 目录与正文一一对应：正文连续渲染，目录只负责定位与高亮。
 const tocItems = [
   { id: 'sec-auth', label: '认证与权限' },
   { id: 'sec-response', label: '统一响应格式' },
@@ -142,9 +142,11 @@ const tocItems = [
 ]
 
 const activeToc = ref('sec-auth')
-const activeIndex = computed(() =>
-  Math.max(0, tocItems.findIndex((item) => item.id === activeToc.value)),
-)
+
+// 点击目录后短暂锁住高亮，避免平滑滚动途中被中间章节抢回去
+let lockUntil = 0
+let observer: IntersectionObserver | null = null
+const visibleSections = new Set<string>()
 
 
 interface EndpointParam { name: string; loc?: string; type: string; required: string; descHtml: string }
@@ -256,34 +258,63 @@ const endpointCards: EndpointCard[] = [
   },
 ]
 
-const currentCard = computed(() => endpointCards.find((c) => c.id === activeToc.value))
-
 function scrollToSection(id: string) {
   activeToc.value = id
+  lockUntil = Date.now() + 700
   nextTick(() => {
     document.getElementById(id)?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
   })
 }
 
-function goPrev() {
-  const prev = tocItems[activeIndex.value - 1]
-  if (prev) scrollToSection(prev.id)
+// 按目录顺序取第一个进入视口的章节作为当前高亮项
+function syncActiveFromViewport() {
+  if (Date.now() < lockUntil) return
+  const firstVisible = tocItems.find((item) => visibleSections.has(item.id))
+  if (firstVisible) activeToc.value = firstVisible.id
 }
 
-function goNext() {
-  const next = tocItems[activeIndex.value + 1]
-  if (next) scrollToSection(next.id)
+function setupObserver() {
+  // jsdom 与老浏览器没有 IntersectionObserver：保持点击切换，不抛错
+  if (typeof IntersectionObserver === 'undefined') return
+  observer?.disconnect()
+  visibleSections.clear()
+  observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) visibleSections.add(entry.target.id)
+        else visibleSections.delete(entry.target.id)
+      })
+      syncActiveFromViewport()
+    },
+    { rootMargin: '-96px 0px -55% 0px', threshold: 0 },
+  )
+  tocItems.forEach((item) => {
+    const el = document.getElementById(item.id)
+    if (el) observer?.observe(el)
+  })
 }
 
 function highlightBlocks() {
   document.querySelectorAll('.api-docs pre:not(.no-hl) code').forEach((el) => {
-    hljs.highlightElement(el as HTMLElement)
+    const node = el as HTMLElement
+    // 连续渲染下同一节点会被多次收集，已高亮过就跳过，避免 hljs 重复告警
+    if (node.dataset.highlighted) return
+    hljs.highlightElement(node)
   })
 }
 
-watch(activeToc, () => nextTick(highlightBlocks))
 watch(activeLang, () => nextTick(highlightBlocks))
-onMounted(() => nextTick(highlightBlocks))
+onMounted(() => {
+  nextTick(() => {
+    highlightBlocks()
+    setupObserver()
+  })
+})
+onBeforeUnmount(() => {
+  observer?.disconnect()
+  observer = null
+  visibleSections.clear()
+})
 
 function copyActiveExample() {
   const code = codeExamples[activeLang.value]
@@ -324,24 +355,9 @@ function copyFrame(e: MouseEvent) {
     </div>
 
     <div class="api-body">
-      <aside class="api-toc">
-        <div class="api-toc-group">目录</div>
-        <button
-          v-for="(item, index) in tocItems"
-          :key="item.id"
-          type="button"
-          class="api-toc-item"
-          :class="{ 'is-active': activeToc === item.id }"
-          @click="scrollToSection(item.id)"
-        >
-          <span class="api-toc-index">{{ index + 1 }}</span>
-          {{ item.label }}
-        </button>
-      </aside>
-
       <main class="api-main">
         <!-- 认证与权限 -->
-        <section v-if="activeToc === 'sec-auth'" id="sec-auth" class="api-section">
+        <section id="sec-auth" class="api-section">
           <h4 class="api-section-title">认证与权限</h4>
           <p class="api-desc">
             在请求头中携带密钥即可完成认证（密钥形如 <code>xq_</code> 开头，共 51 位）：
@@ -357,30 +373,30 @@ function copyFrame(e: MouseEvent) {
             <table class="api-table">
               <thead>
                 <tr><th>权限</th><th>允许的接口</th></tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><code>upload</code> 上传内容</td>
-                <td>
-                  <code>POST /api/content/upload</code>、
-                  <code>PUT /api/content/:id</code>
-                </td>
-              </tr>
-              <tr>
-                <td><code>delete</code> 删除内容</td>
-                <td><code>DELETE /api/content/:id</code>（仅能删除密钥所属账号自己的内容）</td>
-              </tr>
-              <tr>
-                <td><code>read</code> 读取内容</td>
-                <td>列表 / 详情为公开接口，无需密钥；该权限为后续私有接口预留</td>
-              </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>upload</code> 上传内容</td>
+                  <td>
+                    <code>POST /api/content/upload</code>、
+                    <code>PUT /api/content/:id</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>delete</code> 删除内容</td>
+                  <td><code>DELETE /api/content/:id</code>（仅能删除密钥所属账号自己的内容）</td>
+                </tr>
+                <tr>
+                  <td><code>read</code> 读取内容</td>
+                  <td>列表 / 详情为公开接口，无需密钥；该权限为后续私有接口预留</td>
+                </tr>
               </tbody>
             </table>
           </div>
         </section>
 
         <!-- 统一响应格式 -->
-        <section v-else-if="activeToc === 'sec-response'" id="sec-response" class="api-section">
+        <section id="sec-response" class="api-section">
           <h4 class="api-section-title">统一响应格式</h4>
           <p class="api-desc">
             所有接口返回统一结构：<code>code</code> 为状态码、<code>message</code>
@@ -401,15 +417,15 @@ function copyFrame(e: MouseEvent) {
             <table class="api-table">
               <thead>
                 <tr><th>code</th><th>含义</th></tr>
-            </thead>
-            <tbody>
-              <tr><td>400</td><td>请求参数不合法（缺 title、正文与文件均为空等）</td></tr>
-              <tr><td>401</td><td>未登录，或 X-API-Key 缺失 / 无效 / 已撤销</td></tr>
-              <tr><td>403</td><td>密钥缺少所需权限，或无权操作该内容</td></tr>
-              <tr><td>404</td><td>内容不存在</td></tr>
-              <tr><td>413</td><td>上传文件超过 20MB 限制</td></tr>
-              <tr><td>429</td><td>触发频率限制（快速上传 1 小时 20 次）</td></tr>
-              <tr><td>500</td><td>服务器内部错误</td></tr>
+              </thead>
+              <tbody>
+                <tr><td>400</td><td>请求参数不合法（缺 title、正文与文件均为空等）</td></tr>
+                <tr><td>401</td><td>未登录，或 X-API-Key 缺失 / 无效 / 已撤销</td></tr>
+                <tr><td>403</td><td>密钥缺少所需权限，或无权操作该内容</td></tr>
+                <tr><td>404</td><td>内容不存在</td></tr>
+                <tr><td>413</td><td>上传文件超过 20MB 限制</td></tr>
+                <tr><td>429</td><td>触发频率限制（快速上传 1 小时 20 次）</td></tr>
+                <tr><td>500</td><td>服务器内部错误</td></tr>
               </tbody>
             </table>
           </div>
@@ -420,26 +436,26 @@ function copyFrame(e: MouseEvent) {
           </p>
         </section>
 
-        <!-- 接口卡片：按目录当前项渲染 /content/list 等 5 个接口的说明 -->
-                <section v-else-if="currentCard" :id="currentCard.id" class="api-endpoint-card">
+        <!-- 5 个接口卡片连续排列，目录负责定位 -->
+        <section v-for="card in endpointCards" :id="card.id" :key="card.id" class="api-endpoint-card">
           <div class="api-ep-head">
-            <span class="api-method" :class="currentCard.methodCls">{{ currentCard.method }}</span>
-            <code class="api-ep-path">{{ currentCard.path }}</code>
-            <span class="api-ep-badge" :class="currentCard.badgeCls">{{ currentCard.badge }}</span>
+            <span class="api-method" :class="card.methodCls">{{ card.method }}</span>
+            <code class="api-ep-path">{{ card.path }}</code>
+            <span class="api-ep-badge" :class="card.badgeCls">{{ card.badge }}</span>
           </div>
-          <p class="api-desc" v-html="currentCard.descHtml"></p>
-          <p v-if="currentCard.noteHtml" class="api-note" v-html="currentCard.noteHtml"></p>
-          <div v-if="currentCard.params" class="api-ep-block">
-            <div class="api-ep-label">{{ currentCard.params.title }}</div>
+          <p class="api-desc" v-html="card.descHtml"></p>
+          <p v-if="card.noteHtml" class="api-note" v-html="card.noteHtml"></p>
+          <div v-if="card.params" class="api-ep-block">
+            <div class="api-ep-label">{{ card.params.title }}</div>
             <div class="api-table-wrap">
               <table class="api-table">
                 <thead>
-                  <tr><th v-for="h in currentCard.params.head" :key="h">{{ h }}</th></tr>
+                  <tr><th v-for="h in card.params.head" :key="h">{{ h }}</th></tr>
                 </thead>
                 <tbody>
-                  <tr v-for="row in currentCard.params.rows" :key="row.name">
+                  <tr v-for="row in card.params.rows" :key="row.name">
                     <td><code>{{ row.name }}</code></td>
-                    <td v-if="currentCard.params.hasLoc">{{ row.loc }}</td>
+                    <td v-if="card.params.hasLoc">{{ row.loc }}</td>
                     <td>{{ row.type }}</td>
                     <td>{{ row.required }}</td>
                     <td v-html="row.descHtml"></td>
@@ -448,21 +464,20 @@ function copyFrame(e: MouseEvent) {
               </table>
             </div>
           </div>
-          <div v-if="currentCard.response" class="api-ep-block">
-            <div class="api-ep-label">????</div>
+          <div v-if="card.response" class="api-ep-block">
+            <div class="api-ep-label">响应示例</div>
             <div class="code-frame">
               <div class="code-frame-head">
-                <span class="code-frame-label">????</span>
-                <a-button size="mini" type="text" class="code-frame-copy" @click="copyFrame">??</a-button>
+                <span class="code-frame-label">响应示例</span>
+                <a-button size="mini" type="text" class="code-frame-copy" @click="copyFrame">复制</a-button>
               </div>
-              <pre class="api-json"><code class="language-json">{{ currentCard.response }}</code></pre>
+              <pre class="api-json"><code class="language-json">{{ card.response }}</code></pre>
             </div>
           </div>
         </section>
 
-
         <!-- 语言示例 -->
-        <section v-else id="sec-examples" class="api-section">
+        <section id="sec-examples" class="api-section">
           <div class="api-examples-head">
             <h4 class="api-section-title">语言示例</h4>
             <a-button size="mini" @click="copyActiveExample">复制当前示例</a-button>
@@ -474,14 +489,24 @@ function copyFrame(e: MouseEvent) {
             </a-tab-pane>
           </a-tabs>
         </section>
-
-        <!-- 分页切换 -->
-        <div class="api-pager">
-          <a-button size="small" :disabled="activeIndex <= 0" @click="goPrev">‹ 上一步</a-button>
-          <span class="api-pager-info">{{ activeIndex + 1 }} / {{ tocItems.length }}</span>
-          <a-button size="small" :disabled="activeIndex >= tocItems.length - 1" @click="goNext">下一步 ›</a-button>
-        </div>
       </main>
+
+      <!-- 右侧吸顶目录：IntersectionObserver 高亮当前章节 -->
+      <aside class="api-toc" aria-label="文档目录">
+        <div class="api-toc-group">目录</div>
+        <button
+          v-for="(item, index) in tocItems"
+          :key="item.id"
+          type="button"
+          class="api-toc-item"
+          :class="{ 'is-active': activeToc === item.id }"
+          :aria-current="activeToc === item.id ? 'true' : undefined"
+          @click="scrollToSection(item.id)"
+        >
+          <span class="api-toc-index">{{ index + 1 }}</span>
+          {{ item.label }}
+        </button>
+      </aside>
     </div>
   </div>
 </template>
@@ -489,111 +514,55 @@ function copyFrame(e: MouseEvent) {
 <style lang="scss" scoped>
 @use './admin' as *;
 
+// 文档页只换皮肤：正文结构、接口内容与代码示例保持不变。
 .api-docs {
-  margin-top: 12px;
-  color: $admin-text;
+  padding: var(--adm-gap-xl, 24px);
+  color: var(--adm-ink, var(--admin-text));
 }
 
 .api-overview {
-  margin-bottom: 18px;
+  margin-bottom: var(--adm-gap-xl, 24px);
+  padding-bottom: var(--adm-gap-lg, 16px);
+  border-bottom: 1px solid var(--adm-line, var(--admin-border-soft));
 }
 
 .api-docs-head {
-  margin: 0 0 8px;
-  font-size: $admin-font-lg;
-  font-weight: 700;
+  margin: 0 0 var(--adm-gap-sm, 8px);
+  font-family: var(--site-title-font);
+  font-size: var(--adm-font-xl, 21px);
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--adm-ink, var(--admin-text));
 }
 
 .api-docs-intro {
-  margin: 0 0 12px;
-  font-size: $admin-font-sm;
-  line-height: 1.7;
-  color: $admin-text-2;
+  max-width: 760px;
+  margin: 0;
+  font-size: var(--adm-font-sm, 13px);
+  line-height: 1.9;
+  color: var(--adm-muted, var(--admin-text-2));
 
   code {
     padding: 1px 5px;
     border-radius: 4px;
-    background: $admin-fill;
+    background: var(--adm-soft, var(--admin-fill));
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 0.92em;
+    color: var(--adm-ink, var(--admin-text));
   }
 }
 
 .api-alert {
-  margin-bottom: 0;
+  margin-top: var(--adm-gap-md, 12px);
+  border-radius: var(--adm-r-control, 10px);
 }
 
-/* ── 双栏：左侧目录 + 右侧内容 ── */
+/* ── 双栏：正文 + 右侧吸顶目录 ── */
 .api-body {
   display: flex;
   align-items: flex-start;
-  gap: 18px;
-}
-
-.api-toc {
-  position: sticky;
-  top: 12px;
-  flex-shrink: 0;
-  width: 200px;
-  max-height: calc(100vh - 120px);
-  overflow-y: auto;
-  padding: 10px 8px;
-  border: 1px solid $admin-border-soft;
-  border-radius: 12px;
-  background: $admin-surface;
-}
-
-.api-toc-group {
-  padding: 8px 10px 4px;
-  font-size: $admin-font-xs;
-  font-weight: 600;
-  color: $admin-text-3;
-}
-
-.api-toc-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 10px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  text-align: left;
-  font-size: $admin-font-sm;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  color: $admin-text-2;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-
-  &:hover {
-    background: $admin-fill;
-    color: $admin-text;
-  }
-
-  &.is-active {
-    background: $admin-primary-soft;
-    color: $admin-primary;
-    font-weight: 600;
-  }
-}
-
-.api-toc-index {
-  flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
-  background: $admin-fill;
-  color: $admin-text-3;
-  font-size: 11px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.api-toc-item.is-active .api-toc-index {
-  background: $admin-primary;
-  color: #fff;
+  gap: var(--adm-gap-xl, 24px);
 }
 
 .api-main {
@@ -601,478 +570,451 @@ function copyFrame(e: MouseEvent) {
   min-width: 0;
 }
 
+.api-toc {
+  position: sticky;
+  top: var(--adm-gap-lg, 16px);
+  flex: none;
+  width: 212px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding: var(--adm-gap-md, 12px) var(--adm-gap-sm, 8px);
+  border: 1px solid var(--adm-line, var(--admin-border-soft));
+  border-radius: var(--adm-r-card, var(--admin-radius));
+  background: var(--adm-surface, var(--admin-surface));
+  scrollbar-width: thin;
+}
+
+.api-toc-group {
+  padding: 8px 12px 6px;
+  font-size: var(--adm-font-xs, 12px);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--adm-muted, var(--admin-text-3));
+}
+
+.api-toc-item {
+  display: flex;
+  align-items: center;
+  gap: var(--adm-gap-sm, 8px);
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--adm-font-sm, 13px);
+  line-height: 1.5;
+  text-align: left;
+  color: var(--adm-muted, var(--admin-text-2));
+  cursor: pointer;
+  transition:
+    background var(--adm-dur-fast, 120ms) var(--adm-ease-std, cubic-bezier(0.4, 0, 0.2, 1)),
+    color var(--adm-dur-fast, 120ms) var(--adm-ease-std, cubic-bezier(0.4, 0, 0.2, 1));
+
+  @include focus-ring(2px);
+
+  &:hover {
+    background: var(--adm-soft, var(--admin-fill));
+    color: var(--adm-ink, var(--admin-text));
+  }
+
+  &.is-active {
+    background: var(--adm-accent-soft, var(--admin-primary-soft));
+    font-weight: 600;
+    color: var(--adm-accent, var(--admin-primary));
+  }
+}
+
+.api-toc-index {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--adm-soft, var(--admin-fill));
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--adm-muted, var(--admin-text-3));
+  @include numeric;
+}
+
+.api-toc-item.is-active .api-toc-index {
+  background: var(--adm-accent, var(--admin-primary));
+  color: #f7f1e8;
+}
+
+/* ── 章节与接口卡片 ── */
 .api-section {
-  min-height: 60vh;
+  margin-bottom: var(--adm-gap-xl, 24px);
+  scroll-margin-top: var(--adm-gap-lg, 16px);
 }
 
 .api-section-title {
-  margin: 0 0 10px;
-  font-size: $admin-font-md;
-  font-weight: 700;
+  position: relative;
+  margin: 0 0 var(--adm-gap-md, 12px);
+  padding-left: 12px;
+  font-family: var(--site-title-font);
+  font-size: var(--adm-font-lg, 17px);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--adm-ink, var(--admin-text));
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 0;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--adm-accent, var(--admin-primary));
+  }
 }
 
 .api-desc {
-  margin: 6px 0;
-  font-size: $admin-font-sm;
-  line-height: 1.7;
-  color: $admin-text-2;
+  margin: var(--adm-gap-sm, 8px) 0;
+  font-size: var(--adm-font-sm, 13px);
+  line-height: 1.9;
+  color: var(--adm-muted, var(--admin-text-2));
 
   code {
     padding: 1px 5px;
     border-radius: 4px;
-    background: $admin-fill;
+    background: var(--adm-soft, var(--admin-fill));
+    color: var(--adm-ink, var(--admin-text));
     font-size: 0.92em;
+    word-break: break-all;
   }
 }
 
-/* ── 接口卡片（Apifox 风格）── */
 .api-endpoint-card {
-  min-height: 60vh;
-  padding: 16px 18px;
-  border: 1px solid $admin-border-soft;
-  border-radius: 12px;
-  background: $admin-surface;
+  margin-bottom: var(--adm-gap-xl, 24px);
+  padding: var(--adm-gap-lg, 16px) var(--adm-gap-xl, 24px) var(--adm-gap-xl, 24px);
+  border: 1px solid var(--adm-line, var(--admin-border-soft));
+  border-radius: var(--adm-r-card, var(--admin-radius));
+  background: var(--adm-surface, var(--admin-surface));
+  scroll-margin-top: var(--adm-gap-lg, 16px);
 }
 
 .api-ep-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid $admin-border-soft;
+  gap: var(--adm-gap-md, 12px);
+  margin-bottom: var(--adm-gap-md, 12px);
+  padding-bottom: var(--adm-gap-md, 12px);
+  border-bottom: 1px solid var(--admin-border-soft);
 }
 
 .api-ep-path {
-  font-size: $admin-font-base;
-  font-weight: 700;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--adm-font-md, 15px);
+  font-weight: 600;
+  color: var(--adm-ink, var(--admin-text));
   word-break: break-all;
+}
+
+/* 方法徽标：12% 色底 + 同色文字 + 描边，不用高饱和实心块 */
+.api-method {
+  flex: none;
+  padding: 3px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--adm-font-xs, 12px);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+
+  &.is-get {
+    color: var(--adm-success, rgb(var(--success-6)));
+    background: color-mix(in srgb, var(--adm-success, #16a34a) 12%, transparent);
+    border-color: color-mix(in srgb, var(--adm-success, #16a34a) 32%, transparent);
+  }
+
+  &.is-post {
+    color: var(--adm-accent, var(--admin-primary));
+    background: var(--adm-accent-soft, var(--admin-primary-soft));
+    border-color: color-mix(in srgb, var(--adm-accent, var(--admin-primary)) 32%, transparent);
+  }
+
+  &.is-put {
+    color: var(--adm-warning, rgb(var(--warning-6)));
+    background: color-mix(in srgb, var(--adm-warning, #d97706) 12%, transparent);
+    border-color: color-mix(in srgb, var(--adm-warning, #d97706) 32%, transparent);
+  }
+
+  &.is-delete {
+    color: var(--adm-danger, rgb(var(--danger-6)));
+    background: color-mix(in srgb, var(--adm-danger, #dc2626) 12%, transparent);
+    border-color: color-mix(in srgb, var(--adm-danger, #dc2626) 32%, transparent);
+  }
 }
 
 .api-ep-badge {
   margin-left: auto;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: $admin-font-xs;
+  padding: 3px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--adm-r-pill, 999px);
+  font-size: var(--adm-font-xs, 12px);
   font-weight: 600;
   white-space: nowrap;
 
   &.is-public {
-    background: $admin-fill;
-    color: $admin-text-2;
+    color: var(--adm-muted, var(--admin-text-2));
+    background: var(--adm-soft, var(--admin-fill));
+    border-color: var(--adm-line, var(--admin-border-soft));
   }
 
   &.is-auth {
-    background: $admin-primary-soft;
-    color: $admin-primary;
+    color: var(--adm-accent, var(--admin-primary));
+    background: var(--adm-accent-soft, var(--admin-primary-soft));
+    border-color: color-mix(in srgb, var(--adm-accent, var(--admin-primary)) 26%, transparent);
   }
 }
 
-.api-method {
-  flex-shrink: 0;
-  padding: 3px 10px;
-  border-radius: 6px;
-  font-size: $admin-font-xs;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 0.03em;
-
-  &.is-get { background: rgb(var(--success-6)); }
-  &.is-post { background: rgb(var(--primary-6)); }
-  &.is-put { background: rgb(var(--warning-6)); }
-  &.is-delete { background: rgb(var(--danger-6)); }
-}
-
 .api-ep-block {
-  margin-top: 14px;
+  margin-top: var(--adm-gap-lg, 16px);
 }
 
 .api-ep-label {
-  margin-bottom: 8px;
-  font-size: $admin-font-sm;
-  font-weight: 700;
-  color: $admin-text;
+  margin-bottom: var(--adm-gap-sm, 8px);
+  font-size: var(--adm-font-sm, 13px);
+  font-weight: 600;
+  color: var(--adm-ink, var(--admin-text));
 }
 
-/* ── 表格 / 代码（深色高亮，贴合 Apifox）── */
+/* ── 表格：圆角容器，去双线外框 ── */
+.api-table-wrap {
+  overflow: hidden;
+  border: 1px solid var(--adm-line, var(--admin-border-soft));
+  border-radius: var(--adm-r-control, 12px);
+}
+
 .api-table {
   width: 100%;
+  margin: 0;
+  border: none;
   border-collapse: collapse;
-  font-size: $admin-font-xs;
+  font-size: var(--adm-font-xs, 12px);
 
   th,
   td {
-    padding: 8px 10px;
-    border: 1px solid $admin-border-soft;
+    padding: 10px 14px;
+    border: none;
+    border-right: 1px solid var(--admin-border-soft);
+    border-bottom: 1px solid var(--admin-border-soft);
     text-align: left;
     vertical-align: top;
     line-height: 1.6;
   }
 
   th {
-    background: $admin-fill;
+    background: var(--adm-soft, var(--admin-fill));
     font-weight: 600;
     white-space: nowrap;
+    color: var(--adm-muted, var(--admin-text-2));
+  }
+
+  td {
+    color: var(--adm-ink, var(--admin-text));
+  }
+
+  th:last-child,
+  td:last-child {
+    border-right: none;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  tbody tr:hover {
+    background: var(--adm-soft, var(--admin-fill));
   }
 
   code {
     padding: 1px 4px;
     border-radius: 4px;
-    background: $admin-fill;
+    background: var(--adm-soft, var(--admin-fill));
     font-size: 0.94em;
     word-break: break-all;
   }
 }
 
-.api-code,
-.api-json {
-  margin: 8px 0 12px;
-  padding: 12px 14px;
-  border: 1px solid #30363d;
-  border-radius: 10px;
-  background: #0d1117;
-  /* 背景恒为黑色，文字固定浅色，不随 admin 主题变化 */
-  color: #e6edf3;
-  overflow: auto;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Courier New', monospace;
-  font-size: 12.5px;
-  line-height: 1.65;
-
-  code {
-    font-family: inherit;
-    background: transparent;
-    padding: 0;
-    color: inherit;
-  }
-}
-
-/* 请求地址等字符串值固定白色（github-dark 默认的浅蓝在黑色背景上对比不足） */
-.api-code :deep(.hljs-string),
-.api-json :deep(.hljs-string) {
-  color: #ffffff;
-}
-
-.api-json {
-  max-height: 340px;
-  margin-top: 0;
-}
-
-.api-note {
-  margin-top: 10px;
-  padding: 8px 12px;
-  border-left: 3px solid $admin-primary;
-  border-radius: 0 8px 8px 0;
-  background: $admin-primary-soft;
-  font-size: $admin-font-xs;
-  line-height: 1.7;
-}
-
-/* ── 语言示例 Tab ── */
-.api-examples-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.api-code-tabs {
-  margin-top: 6px;
-
-  :deep(.arco-tabs-pane) {
-    padding-top: 4px;
-  }
-}
-
-.api-code-example {
-  margin: 8px 0 0;
-  white-space: pre;
-}
-
-/* ── 分页 ── */
-.api-pager {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid $admin-border-soft;
-}
-
-.api-pager-info {
-  font-size: $admin-font-xs;
-  color: $admin-text-3;
-  font-variant-numeric: tabular-nums;
-}
-
-@media (max-width: 1100px) {
-  .api-body {
-    flex-direction: column;
-  }
-
-  .api-toc {
-    position: static;
-    width: 100%;
-    max-height: none;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2px;
-
-    .api-toc-group {
-      display: none;
-    }
-  }
-
-  .api-toc-item {
-    width: auto;
-    padding: 4px 10px;
-    font-size: $admin-font-xs;
-  }
-
-  .api-toc-index {
-    display: none;
-  }
-}
-
-/* ═══ 重新设计：整体留白、圆角与代码块质感 ═══ */
-.api-docs {
-  margin-top: 0;
-  padding: 24px 28px 32px;
-}
-
-.api-overview {
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid $admin-border-soft;
-}
-
-.api-docs-head {
-  margin-bottom: 10px;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.api-docs-intro {
-  max-width: 760px;
-  font-size: 13.5px;
-  line-height: 1.9;
-}
-
-.api-alert {
-  margin-top: 14px;
-  border-radius: 10px;
-}
-
-.api-body {
-  gap: 24px;
-}
-
-.api-toc {
-  width: 212px;
-  padding: 12px 10px;
-  border-radius: 14px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-.api-toc-group {
-  padding: 12px 12px 6px;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-}
-
-.api-toc-item {
-  padding: 8px 12px;
-  border-radius: 9px;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.api-toc-index {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  font-size: 11px;
-}
-
-.api-main {
-  padding-top: 2px;
-}
-
-.api-section {
-  margin-bottom: 28px;
-}
-
-.api-section-title {
-  position: relative;
-  margin-bottom: 14px;
-  padding-left: 12px;
-  font-size: 16px;
-
-  &::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 2px;
-    bottom: 2px;
-    width: 3px;
-    border-radius: 2px;
-    background: $admin-primary;
-  }
-}
-
-.api-desc {
-  margin: 8px 0;
-  font-size: 13px;
-  line-height: 1.9;
-}
-
-.api-endpoint-card {
-  margin-bottom: 28px;
-  padding: 20px 24px 24px;
-  border-radius: 14px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-.api-ep-head {
-  gap: 12px;
-  padding-bottom: 14px;
-  margin-bottom: 14px;
-}
-
-.api-ep-path {
-  font-size: 15px;
-}
-
-.api-method {
-  padding: 4px 12px;
-  border-radius: 7px;
-  font-size: 12px;
-}
-
-.api-ep-badge {
-  padding: 3px 10px;
-}
-
-.api-ep-block {
-  margin-top: 18px;
-}
-
-.api-ep-label {
-  margin-bottom: 10px;
-  font-size: 13px;
-}
-
-/* 表格：圆角容器，去掉双线外框 */
-.api-table-wrap {
-  border: 1px solid $admin-border-soft;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.api-table {
-  margin: 0;
-  border: none;
-}
-
-.api-table th,
-.api-table td {
-  padding: 10px 14px;
-  border: none;
-  border-right: 1px solid $admin-border-soft;
-  border-bottom: 1px solid $admin-border-soft;
-}
-
-.api-table th:last-child,
-.api-table td:last-child {
-  border-right: none;
-}
-
-.api-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.api-table tbody tr:hover {
-  background: $admin-fill;
-}
-
-/* 代码块：标题栏 + 内容体（深色恒底） */
+/* ── 代码块：暖调深色恒底，不随亮/暗主题翻转 ── */
 .code-frame {
-  margin: 10px 0 14px;
-  border: 1px solid #30363d;
-  border-radius: 12px;
+  margin: var(--adm-gap-sm, 8px) 0 var(--adm-gap-md, 12px);
   overflow: hidden;
-  background: #0d1117;
+  border: 1px solid #3a322c;
+  border-radius: var(--adm-r-control, 12px);
+  background: #1a1614;
 }
 
 .code-frame-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--adm-gap-sm, 8px);
   padding: 6px 8px 6px 14px;
-  background: #161b22;
-  border-bottom: 1px solid #30363d;
+  border-bottom: 1px solid #3a322c;
+  background: #241f1b;
 }
 
 .code-frame-label {
   font-size: 11.5px;
   font-weight: 600;
   letter-spacing: 0.05em;
-  color: #8b949e;
+  color: #a89c8c;
 }
 
 .code-frame-copy {
-  color: #8b949e;
+  flex: none;
+  min-height: var(--adm-touch, 36px);
+  color: #a89c8c;
 
   &:hover {
-    color: #e6edf3;
     background: rgba(255, 255, 255, 0.06);
+    color: #ece5da;
   }
 }
 
 .api-code,
 .api-json {
+  max-width: 100%;
   margin: 0;
   padding: 16px 18px;
-  border: none;
+  overflow: auto;
+  border: 0;
   border-radius: 0;
   background: transparent;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: #ece5da;
+
+  code {
+    padding: 0;
+    background: transparent;
+    font-family: inherit;
+    color: inherit;
+  }
+}
+
+/* 字符串值用暖白，避免 github-dark 的冷色铺在暖底上 */
+.api-code :deep(.hljs-string),
+.api-json :deep(.hljs-string) {
+  color: #f2e8d8;
 }
 
 .api-json {
   max-height: 360px;
 }
 
-/* 语言示例 Tab 内的代码块独立成框 */
-.api-code-example {
-  margin: 10px 0 4px;
-  border: 1px solid #30363d;
-  border-radius: 12px;
-  background: #0d1117;
-}
-
 .api-note {
-  margin-top: 14px;
+  margin-top: var(--adm-gap-md, 12px);
   padding: 10px 14px;
+  border-left: 3px solid var(--adm-accent, var(--admin-primary));
   border-radius: 0 10px 10px 0;
+  background: var(--adm-accent-soft, var(--admin-primary-soft));
+  font-size: var(--adm-font-xs, 12px);
+  line-height: 1.7;
+  color: var(--adm-muted, var(--admin-text-2));
+
+  code {
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--adm-surface, var(--admin-surface));
+    color: var(--adm-ink, var(--admin-text));
+  }
 }
 
+/* ── 语言示例 ── */
 .api-examples-head {
-  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--adm-gap-md, 12px);
+  margin-bottom: var(--adm-gap-xs, 4px);
 }
 
-.api-pager {
-  margin-top: 24px;
-  padding-top: 20px;
-  gap: 20px;
+.api-code-tabs {
+  margin-top: var(--adm-gap-xs, 4px);
+
+  :deep(.arco-tabs-pane) {
+    padding-top: var(--adm-gap-xs, 4px);
+  }
 }
 
-@media (max-width: 1100px) {
-  .api-docs {
-    padding: 18px 16px 24px;
+.api-code-example {
+  margin: var(--adm-gap-sm, 8px) 0 var(--adm-gap-xs, 4px);
+  border: 1px solid #3a322c;
+  border-radius: var(--adm-r-control, 12px);
+  background: #1a1614;
+  white-space: pre;
+}
+
+/* ── ≤820：目录变吸顶横向条，置顶 ── */
+@media (max-width: 820px) {
+  .api-body {
+    flex-direction: column;
+    gap: var(--adm-gap-lg, 16px);
   }
 
   .api-toc {
-    box-shadow: none;
+    order: -1;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 2px;
+    width: 100%;
+    max-height: none;
+    padding: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .api-toc-group {
+    display: none;
+  }
+
+  .api-toc-item {
+    flex: none;
+    width: auto;
+    min-height: 40px;
+    padding: 4px 10px;
+    font-size: var(--adm-font-xs, 12px);
+    white-space: nowrap;
+  }
+
+  .api-toc-index {
+    display: none;
+  }
+
+  .api-endpoint-card {
+    padding: var(--adm-gap-lg, 16px);
+  }
+
+  .api-table-wrap {
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .api-docs {
+    padding: var(--adm-gap-lg, 16px);
+  }
+
+  .api-toc-item {
+    min-height: 44px;
+  }
+
+  .api-code,
+  .api-json {
+    padding: 12px 14px;
+    font-size: 12px;
   }
 }
 </style>

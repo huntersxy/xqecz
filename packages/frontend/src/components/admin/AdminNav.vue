@@ -15,217 +15,378 @@ export interface AdminNavGroup {
 </script>
 
 <script setup lang="ts">
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { IconDown } from '@arco-design/web-vue/es/icon'
+import { closeShellSidebar } from '@/utils/shellSidebar'
+
 interface Props {
   groups: AdminNavGroup[]
   active: string
   isAdmin?: boolean
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 const emit = defineEmits<{
   select: [key: string]
 }>()
+
+// 折叠状态按「分组标题」持久化；标题即稳定标识（分组集合由角色决定，不会重排）。
+const COLLAPSE_KEY = 'admin_nav_collapsed_groups'
+
+function readCollapsed(): string[] {
+  try {
+    const raw = localStorage.getItem(COLLAPSE_KEY)
+    if (!raw) return []
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((label): label is string => typeof label === 'string')
+  } catch {
+    // 隐私模式 / 配额耗尽 / 历史脏数据：静默降级为全部展开。
+    return []
+  }
+}
+
+const collapsed = ref<string[]>(readCollapsed())
+
+function isCollapsed(label: string) {
+  return collapsed.value.includes(label)
+}
+
+function toggleGroup(label: string) {
+  const next = isCollapsed(label)
+    ? collapsed.value.filter((item) => item !== label)
+    : [...collapsed.value, label]
+  collapsed.value = next
+  try {
+    localStorage.setItem(COLLAPSE_KEY, JSON.stringify(next))
+  } catch {
+    // 写不进去也不影响本次会话，只是下次进入回到默认展开。
+  }
+}
+
+const activeGroupLabel = computed(
+  () => props.groups.find((group) => group.items.some((item) => item.key === props.active))?.label,
+)
+
+// 当前页签所在分组被折叠时，选中项不可见；这里只在「页签变化」时展开一次，
+// 不写回 localStorage——用户手动折叠的意图仍被保留。
+function revealActiveGroup() {
+  const label = activeGroupLabel.value
+  if (label && isCollapsed(label)) collapsed.value = collapsed.value.filter((item) => item !== label)
+}
+
+// ── M3 滑动指示块：绝对定位到当前项，尺寸来自实测（offsetTop/offsetHeight） ──
+const listEl = ref<HTMLElement | null>(null)
+const itemEls = new Map<string, HTMLElement>()
+const indicatorY = ref(0)
+const indicatorHeight = ref(0)
+const indicatorVisible = ref(false)
+const reduceMotion = ref(false)
+
+function setItemRef(key: string, el: unknown) {
+  if (el instanceof HTMLElement) itemEls.set(key, el)
+  else itemEls.delete(key)
+}
+
+function measureIndicator() {
+  const list = listEl.value
+  const activeEl = itemEls.get(props.active)
+  const label = activeGroupLabel.value
+  if (!list || !activeEl || (label && isCollapsed(label))) {
+    indicatorVisible.value = false
+    return
+  }
+  indicatorY.value = activeEl.offsetTop
+  indicatorHeight.value = activeEl.offsetHeight
+  indicatorVisible.value = true
+}
+
+const indicatorStyle = computed(() => ({
+  transform: `translateY(${indicatorY.value}px)`,
+  height: `${indicatorHeight.value}px`,
+}))
+
+let observer: ResizeObserver | undefined
+
+function scheduleMeasure() {
+  void nextTick(measureIndicator)
+}
+
+onMounted(() => {
+  revealActiveGroup()
+  reduceMotion.value = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+  scheduleMeasure()
+  // 侧栏宽度/字号变化会让实测值失效；不支持 ResizeObserver 时用一次挂载测量兜底。
+  if (typeof ResizeObserver !== 'undefined' && listEl.value) {
+    observer = new ResizeObserver(scheduleMeasure)
+    observer.observe(listEl.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  observer?.disconnect()
+  observer = undefined
+})
+
+watch(
+  () => props.active,
+  () => {
+    revealActiveGroup()
+    scheduleMeasure()
+  },
+)
+
+watch(
+  () => props.groups,
+  () => scheduleMeasure(),
+  { deep: true },
+)
+
+function select(key: string) {
+  emit('select', key)
+  // 站点侧栏在手机上是抽屉，选中后必须自己收起（PublicShell 持有抽屉状态）。
+  closeShellSidebar()
+}
 </script>
 
 <template>
-  <nav class="admin-nav" aria-label="工作区功能">
-    <div class="admin-nav-heading">
-      <strong>{{ isAdmin ? '管理工作台' : '创作者空间' }}</strong>
-      <span>在这里切换功能</span>
-    </div>
+  <!-- defer：PublicShell 的槽在路由内容之后才存在，等一个 tick 再解析目标。 -->
+  <Teleport defer to="#public-shell-workspace">
+    <nav class="admin-nav" aria-label="后台导航">
+      <div ref="listEl" class="admin-nav-list">
+        <span
+          v-if="indicatorVisible"
+          class="admin-nav-indicator"
+          :class="{ 'is-static': reduceMotion }"
+          aria-hidden="true"
+          :style="indicatorStyle"
+        />
 
-    <div class="admin-nav-groups">
-      <section
-        v-for="group in groups"
-        :key="group.label"
-        class="admin-nav-group"
-        :class="{ 'is-wide': group.label === '管理' }"
-        :aria-label="group.label"
-      >
-        <h2 class="admin-nav-group-label">{{ group.label }}</h2>
-        <div class="admin-nav-items">
-          <button
-            v-for="item in group.items"
-            :key="item.key"
-            type="button"
-            class="admin-nav-item"
-            :class="{ 'is-active': active === item.key }"
-            :aria-current="active === item.key ? 'page' : undefined"
-            :aria-label="item.badge ? `${item.title}，${item.badge} 项待处理` : undefined"
-            @click="emit('select', item.key)"
+        <section
+          v-for="(group, groupIndex) in props.groups"
+          :key="group.label"
+          class="admin-nav-group"
+          :aria-label="group.label"
+        >
+          <h2 class="admin-nav-group-head">
+            <button
+              type="button"
+              class="admin-nav-group-toggle"
+              :class="{ 'is-collapsed': isCollapsed(group.label) }"
+              :aria-expanded="!isCollapsed(group.label)"
+              :aria-controls="`admin-nav-group-${groupIndex}`"
+              @click="toggleGroup(group.label)"
+            >
+              <span>{{ group.label }}</span>
+              <IconDown class="admin-nav-chevron" aria-hidden="true" />
+            </button>
+          </h2>
+
+          <div
+            :id="`admin-nav-group-${groupIndex}`"
+            class="admin-nav-group-body"
+            :class="{ 'is-collapsed': isCollapsed(group.label) }"
           >
-            <component :is="item.icon" class="admin-nav-icon" aria-hidden="true" />
-            <span class="admin-nav-item-label">{{ item.title }}</span>
-            <span v-if="item.badge" class="admin-nav-badge">{{ item.badge > 99 ? '99+' : item.badge }}</span>
-          </button>
-        </div>
-      </section>
-    </div>
-  </nav>
+            <div class="admin-nav-group-inner">
+              <template v-for="item in group.items" :key="item.key">
+                <button
+                  :ref="(el) => setItemRef(item.key, el)"
+                  type="button"
+                  class="admin-nav-item"
+                  :class="{ 'is-active': props.active === item.key }"
+                  :aria-current="props.active === item.key ? 'page' : undefined"
+                  :aria-label="item.badge ? `${item.title}，${item.badge} 项待处理` : undefined"
+                  @click="select(item.key)"
+                >
+                  <component :is="item.icon" class="admin-nav-icon" aria-hidden="true" />
+                  <span class="admin-nav-item-label">{{ item.title }}</span>
+                  <span v-if="item.badge" class="admin-nav-badge">{{ item.badge > 99 ? '99+' : item.badge }}</span>
+                </button>
+              </template>
+            </div>
+          </div>
+        </section>
+      </div>
+    </nav>
+  </Teleport>
 </template>
 
 <style lang="scss" scoped>
 .admin-nav {
-  display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
-  align-items: start;
-  gap: 24px;
-  padding: 8px 0 20px;
-  border-bottom: 1px solid var(--site-line);
-}
-
-.admin-nav-heading {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-top: 2px;
-
-  strong {
-    color: var(--site-ink);
-    font: 600 17px/1.25 var(--site-title-font);
-    letter-spacing: -.02em;
-  }
-
-  span {
-    color: var(--site-muted);
-    font-size: 10px;
-  }
+  gap: 8px;
+  padding: 0 0 6px;
+  color: var(--adm-muted, var(--admin-text-2, #6b6360));
 }
 
-.admin-nav-groups {
+/* 14 个页签 + 4 个分组要挤进 280px 侧栏：桌面指针设备用更紧凑的行高，
+   触屏仍保留 36px 触控高度（§7.2 要求 ≥36px）。 */
+@media (hover: hover) and (pointer: fine) {
+  .admin-nav { --adm-nav-item-h: 32px; }
+}
+
+.admin-nav-list {
+  position: relative;
   display: flex;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 16px 24px;
-  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* M3：当前项的滑动指示块，只动 transform / height。 */
+.admin-nav-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  border-radius: var(--adm-r-pill, 999px);
+  background: var(--adm-accent, var(--site-accent));
+  pointer-events: none;
+  transition:
+    transform var(--adm-dur-base, 220ms) var(--adm-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+    height var(--adm-dur-base, 220ms) var(--adm-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.admin-nav-indicator.is-static {
+  transition: none;
 }
 
 .admin-nav-group {
   min-width: 0;
 }
 
-.admin-nav-group.is-wide {
-  flex: 1 1 420px;
+.admin-nav-group-head {
+  margin: 0;
+  font: inherit;
 }
 
-.admin-nav-group-label {
-  margin: 0 0 7px 8px;
-  color: var(--site-muted);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: .08em;
-}
-
-.admin-nav-items {
+.admin-nav-group-toggle {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 3px;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 22px;
+  padding: 1px 10px;
+  border: 0;
+  border-radius: var(--adm-r-control, 10px);
+  background: transparent;
+  color: var(--adm-muted, var(--admin-text-3, #8a8078));
+  font: inherit;
+  font-size: var(--adm-font-xs, 12px);
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+
+.admin-nav-group-toggle:hover {
+  color: var(--adm-ink, var(--admin-text, #221c1e));
+}
+
+.admin-nav-chevron {
+  flex: 0 0 auto;
+  font-size: 10px;
+  transition: transform var(--adm-dur-fast, 120ms) var(--adm-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.admin-nav-group-toggle.is-collapsed .admin-nav-chevron {
+  transform: rotate(-90deg);
+}
+
+/* M4：0fr ↔ 1fr 折叠，内层 overflow 裁剪，避免高度跳变。 */
+.admin-nav-group-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--adm-dur-base, 220ms) var(--adm-ease-std, cubic-bezier(0.4, 0, 0.2, 1));
+}
+
+.admin-nav-group-body.is-collapsed {
+  grid-template-rows: 0fr;
+}
+
+.admin-nav-group-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  padding-bottom: 2px;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity var(--adm-dur-fast, 120ms) linear;
+}
+
+.admin-nav-group-body.is-collapsed .admin-nav-group-inner {
+  opacity: 0;
 }
 
 .admin-nav-item {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 7px;
-  min-height: 34px;
-  padding: 0 9px;
-  border: 1px solid transparent;
-  border-radius: 999px;
+  gap: 10px;
+  width: 100%;
+  min-height: var(--adm-nav-item-h, var(--adm-touch, 36px));
+  padding: 5px 10px;
+  border: 0;
+  border-radius: var(--adm-r-control, 10px);
   background: transparent;
-  color: var(--site-muted);
+  color: var(--adm-ink, var(--admin-text, #221c1e));
   font: inherit;
-  font-size: 11px;
-  white-space: nowrap;
+  font-size: var(--adm-font-sm, 13px);
+  text-align: left;
   cursor: pointer;
-  transition: background-color .16s ease, color .16s ease, border-color .16s ease;
+  transition: background-color var(--adm-dur-fast, 120ms) linear, color var(--adm-dur-fast, 120ms) linear;
+}
 
-  &:hover {
-    background: var(--site-soft);
-    color: var(--site-ink);
-  }
+.admin-nav-item:hover {
+  background: var(--adm-soft, var(--admin-fill, #f4efec));
+}
 
-  &.is-active {
-    border-color: color-mix(in srgb, var(--site-accent) 18%, transparent);
-    background: var(--site-accent-soft);
-    color: var(--site-accent);
-    font-weight: 600;
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--site-accent);
-    outline-offset: 2px;
-  }
+.admin-nav-item.is-active {
+  background: var(--adm-accent-soft, var(--admin-primary-soft, #f2e7e3));
+  color: var(--adm-accent, var(--site-accent));
+  font-weight: 600;
 }
 
 .admin-nav-icon {
   flex: 0 0 auto;
-  font-size: 14px;
+  font-size: 15px;
+  color: inherit;
+}
+
+.admin-nav-item-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-nav-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 17px;
-  height: 17px;
-  padding: 0 4px;
-  border-radius: 9px;
-  background: var(--admin-danger-soft);
-  color: var(--admin-danger);
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  flex: 0 0 auto;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: var(--adm-r-pill, 999px);
+  background: var(--adm-danger, var(--admin-danger, #c0392b));
+  color: #fff;
+  font-size: var(--adm-font-xs, 12px);
+  font-variant-numeric: var(--adm-numeric, tabular-nums);
+  line-height: 18px;
+  text-align: center;
 }
 
-@media (max-width: 900px) {
-  .admin-nav {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 12px;
-    padding: 4px 0 16px;
-  }
-
-  .admin-nav-heading {
-    flex-direction: row;
-    align-items: baseline;
-    justify-content: space-between;
-  }
-
-  .admin-nav-groups {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px 14px;
-  }
-
-  .admin-nav-group.is-wide {
-    grid-column: 1 / -1;
-  }
-
-  .admin-nav-item {
-    min-height: 32px;
-    padding-inline: 8px;
-  }
-}
-
-@media (max-width: 520px) {
-  .admin-nav-groups {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .admin-nav-group.is-wide {
-    grid-column: auto;
-  }
-
-  .admin-nav-items {
-    gap: 2px;
-  }
-
-  .admin-nav-item {
-    font-size: 10px;
-  }
+.admin-nav-item:focus-visible,
+.admin-nav-group-toggle:focus-visible {
+  outline: 2px solid var(--adm-accent, var(--site-accent));
+  outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .admin-nav-item { transition: none; }
+  .admin-nav-indicator,
+  .admin-nav-chevron,
+  .admin-nav-group-body,
+  .admin-nav-group-inner,
+  .admin-nav-item {
+    transition: none !important;
+  }
 }
 </style>

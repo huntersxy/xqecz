@@ -1,0 +1,26 @@
+// ============================================================
+// Admin 动效令牌（§8.2）· 运行时 CSS 自定义属性
+//
+// 与 _adm-tokens.scss 一样，只由 AdminView.vue 的「非 scoped」<style> @use 一次，
+// 并挂在 body 上：AdminNav 会被 Teleport 进站点侧栏，a-modal 会 Teleport 到 body，
+// 只有 body 上的变量能同时覆盖这两处。
+//
+// 曲线与时长一律取自本表，任何 WP 不得自造（§8.2）。
+// 引用时仍建议带规范后备，例如 var(--adm-dur-base, 220ms)：模块未加载时
+// （独立单测、首屏极早期）令牌可能还不存在，后备值与令牌值必须一致。
+// ============================================================
+
+body {
+  // ── 曲线 ──
+  --adm-ease-out: cubic-bezier(0.22, 1, 0.36, 1); // 进场、展开（与 page-swap 一致）
+  --adm-ease-in: ease-in; // 离场
+  --adm-ease-std: cubic-bezier(0.4, 0, 0.2, 1); // 颜色/背景等状态过渡
+
+  // ── 时长 ──
+  --adm-dur-fast: 120ms; // hover、按下
+  --adm-dur-base: 220ms; // 常规过渡
+  --adm-dur-slow: 360ms; // 进场、分组折叠
+
+  // ── 错峰 ──
+  --adm-stagger: 40ms; // 子元素错峰间隔
+}

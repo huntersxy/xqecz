@@ -97,6 +97,8 @@ export const AITaskViewSchema = z.object({
   // 生成时的原始提示词（不含增强后缀）与是否启用增强。
   base_prompt: z.string().optional(),
   enhance_prompt: z.boolean().optional(),
+  // 仅管理员接口返回的失败诊断（已脱敏），用户端没有这个键。
+  diagnostic: z.string().optional(),
 })
 export const AILedgerSchema = z.object({
   id: z.number(),

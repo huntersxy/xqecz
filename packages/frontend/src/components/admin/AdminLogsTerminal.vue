@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { adminApi } from '@/api'
 import { toast } from '@/composables/useToast'
+import { prefersReducedMotion } from '@/utils'
 import type { AdminLogEntry, AdminLogLevel } from '@/types'
 import AdminPanel from './AdminPanel.vue'
 import { IconCode, IconCopy, IconPause, IconPlayArrow, IconRefresh } from '@arco-design/web-vue/es/icon'
@@ -26,6 +27,11 @@ const errorMessage = ref('')
 const lastUpdated = ref<string | null>(null)
 const terminal = ref<HTMLElement | null>(null)
 const nextCursor = ref<number | undefined>()
+// M10 呼吸点的两个刹车：页面不可见、系统要求减少动效。任一为真即暂停，
+// 样式里另有 animation-play-state 与 reduced-motion 兜底，JS 状态只负责切换类名。
+const pageHidden = ref(false)
+const reduceMotion = ref(false)
+let motionQuery: MediaQueryList | undefined
 let pollTimer: ReturnType<typeof setTimeout> | undefined
 let requestController: AbortController | undefined
 let disposed = false
@@ -42,7 +48,18 @@ const connectionState = computed(() => {
   return autoRefresh.value ? 'live' : 'paused'
 })
 
+// 只有「实时跟随」才呼吸：暂停跟随时不该继续假装在收数据（§8.3：M10 是唯一允许无限循环的动画之一）。
+const breathPaused = computed(() => pageHidden.value || reduceMotion.value)
+
 const visibleEntries = computed(() => entries.value)
+
+function syncHidden() {
+  pageHidden.value = document.visibilityState === 'hidden'
+}
+
+function syncMotion(event?: MediaQueryListEvent) {
+  reduceMotion.value = event ? event.matches : prefersReducedMotion()
+}
 
 function clearPoll() {
   if (pollTimer !== undefined) {
@@ -170,6 +187,11 @@ watch(level, () => {
 })
 
 onMounted(() => {
+  syncHidden()
+  syncMotion()
+  document.addEventListener('visibilitychange', syncHidden)
+  motionQuery = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')
+  motionQuery?.addEventListener?.('change', syncMotion)
   void load()
   schedulePoll()
 })
@@ -179,12 +201,19 @@ onBeforeUnmount(() => {
   requestController?.abort()
   requestController = undefined
   clearPoll()
+  document.removeEventListener('visibilitychange', syncHidden)
+  motionQuery?.removeEventListener?.('change', syncMotion)
+  motionQuery = undefined
 })
 </script>
 
 <template>
-  <AdminPanel title="运行日志" desc="查看服务端最近的运行记录，便于定位接口、任务与依赖状态。">
+  <AdminPanel flow title="运行日志" desc="查看服务端最近的运行记录，便于定位接口、任务与依赖状态。">
     <template #actions>
+      <span class="logs-live" :class="`is-${connectionState}`">
+        <i class="logs-live-dot" :class="{ 'is-breath': connectionState === 'live', 'is-paused': breathPaused }" aria-hidden="true" />
+        <span class="logs-live-text">{{ connectionLabel }}</span>
+      </span>
       <a-select v-model="level" size="small" class="logs-level-select" aria-label="日志级别" :options="levels" />
       <a-button
         class="admin-icon-btn"
@@ -215,11 +244,9 @@ onBeforeUnmount(() => {
 
     <div class="admin-logs-terminal">
       <div class="logs-toolbar" role="status" aria-live="polite">
-        <div class="logs-status">
-          <span class="logs-status-dot" :class="`is-${connectionState}`" aria-hidden="true" />
-          <span>{{ connectionLabel }}</span>
-          <span class="logs-count">{{ visibleEntries.length }} 条</span>
-        </div>
+        <span class="logs-count">{{ visibleEntries.length }} 条</span>
+        <span class="logs-toolbar-sep" aria-hidden="true">·</span>
+        <span class="logs-toolbar-tip">每 5 秒增量拉取，仅保留最近 {{ LOG_LIMIT }} 条</span>
         <span v-if="lastUpdated" class="logs-updated">更新于 {{ formatTime(lastUpdated) }}</span>
       </div>
 
@@ -256,57 +283,117 @@ onBeforeUnmount(() => {
 .logs-level-select { min-width: 104px; }
 
 .logs-follow-btn {
-  color: var(--admin-primary);
+  color: var(--adm-accent, var(--admin-primary));
 
-  &.is-paused { color: var(--admin-text-2); }
+  &.is-paused { color: var(--adm-muted, var(--admin-text-2)); }
 }
 
-.admin-logs-terminal {
-  padding: 20px 24px 24px;
-}
-
-.logs-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 28px;
-  margin-bottom: 12px;
-  color: var(--admin-text-2);
-  font-size: 12px;
-}
-
-.logs-status,
-.logs-updated {
+// ── M10：页头右上「实时」点 ──
+// 呼吸只改 box-shadow 与 opacity（不动 width/height，避免触发重排），
+// 且是整个后台仅有的两处无限循环之一（另一处是 M11 骨架扫光）。
+.logs-live {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: var(--adm-r-pill, 999px);
+  background: var(--adm-soft, var(--admin-fill));
+  font-size: var(--adm-font-xs, 12px);
+  line-height: 1.6;
+  color: var(--adm-muted, var(--admin-text-3));
+  white-space: nowrap;
+
+  &.is-live { color: var(--adm-success, rgb(var(--success-6))); }
+  &.is-loading { color: var(--adm-warning, rgb(var(--warning-6))); }
+  &.is-error { color: var(--adm-danger, var(--admin-danger)); }
 }
 
-.logs-count { color: var(--admin-text-3); font-variant-numeric: tabular-nums; }
-.logs-updated { color: var(--admin-text-3); font-variant-numeric: tabular-nums; }
-
-.logs-status-dot {
+.logs-live-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--admin-text-3);
-
-  &.is-live { background: rgb(var(--success-6)); box-shadow: 0 0 0 3px color-mix(in srgb, rgb(var(--success-6)) 16%, transparent); }
-  &.is-loading { background: rgb(var(--warning-6)); box-shadow: 0 0 0 3px color-mix(in srgb, rgb(var(--warning-6)) 16%, transparent); }
-  &.is-error { background: var(--admin-danger); box-shadow: 0 0 0 3px var(--admin-danger-soft); }
+  flex: none;
+  background: currentColor;
 }
 
+.logs-live-dot.is-breath {
+  animation: adm-live-breath 2s var(--adm-ease-std, cubic-bezier(.4, 0, .2, 1)) infinite;
+}
+
+// 页面隐藏（切到别的标签页）时暂停：display 之外唯一能让 CSS 动画停表的方式。
+.logs-live-dot.is-paused { animation-play-state: paused; }
+
+@keyframes adm-live-breath {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 currentColor;
+  }
+
+  50% {
+    opacity: .55;
+    box-shadow: 0 0 0 4px transparent;
+  }
+}
+
+.admin-logs-terminal {
+  padding: var(--adm-gap-lg, 16px) var(--adm-gap-xl, 24px) var(--adm-gap-xl, 24px);
+}
+
+// 工具条吸顶（§10）：跟着页面滚动时始终压住终端窗口顶部。
+// .admin-panel 默认 overflow: hidden 会吃掉 sticky，故这里给 AdminPanel 传 flow 修饰类
+// （.admin-panel.is-flow { overflow: visible }），最近滚动祖先回到 #public-shell-workspace。
+.logs-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--adm-gap-sm, 8px);
+  min-height: 28px;
+  margin-bottom: var(--adm-gap-md, 12px);
+  padding: 6px 0;
+  background: var(--adm-surface, var(--admin-surface));
+  color: var(--adm-muted, var(--admin-text-2));
+  font-size: var(--adm-font-xs, 12px);
+}
+
+.logs-count {
+  color: var(--adm-ink, var(--admin-text));
+  font-size: var(--adm-font-sm, 13px);
+  font-weight: 600;
+  font-variant-numeric: var(--adm-numeric, tabular-nums);
+}
+
+.logs-toolbar-sep { color: var(--adm-line, var(--admin-border-soft)); }
+
+.logs-toolbar-tip {
+  color: var(--adm-muted, var(--admin-text-3));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logs-updated {
+  margin-left: auto;
+  color: var(--adm-muted, var(--admin-text-3));
+  font-variant-numeric: var(--adm-numeric, tabular-nums);
+  white-space: nowrap;
+}
+
+// ── 终端窗口：保持深色拟真，等宽字体 / 行高 / 截断逻辑一律沿用 ──
 .logs-terminal-window {
   overflow: auto;
   max-height: min(620px, 62vh);
   min-height: 300px;
   border: 1px solid color-mix(in srgb, var(--creative-ink) 22%, var(--creative-line));
-  border-radius: 14px;
+  border-radius: var(--adm-r-control, 14px);
   background: color-mix(in srgb, var(--creative-ink) 96%, black);
   color: var(--creative-paper);
   box-shadow: 0 14px 32px color-mix(in srgb, var(--creative-ink) 14%, transparent);
   scrollbar-color: color-mix(in srgb, var(--creative-accent) 56%, transparent) transparent;
+
+  &:focus-visible { outline: 2px solid var(--adm-accent, var(--admin-primary)); outline-offset: 2px; }
 }
 
 .logs-terminal-head {
@@ -344,6 +431,13 @@ onBeforeUnmount(() => {
   gap: 10px;
   align-items: baseline;
   padding: 2px 0;
+  // M10 新行淡入：只有新 key 才会新建元素，增量轮询时老行不会重复闪。
+  animation: adm-line-in var(--adm-dur-base, 220ms) var(--adm-ease-out, cubic-bezier(.22, 1, .36, 1)) both;
+}
+
+@keyframes adm-line-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: none; }
 }
 
 .logs-line-marker { color: color-mix(in srgb, var(--creative-paper) 38%, transparent); font-size: 8px; }
@@ -357,28 +451,37 @@ onBeforeUnmount(() => {
   display: grid;
   min-height: 260px;
   place-items: center;
-  padding: 24px;
+  padding: var(--adm-gap-xl, 24px);
   color: color-mix(in srgb, var(--creative-paper) 62%, transparent);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
 }
 
 .logs-error {
-  margin: 12px 0 0;
-  color: var(--admin-danger);
-  font-size: 12px;
+  margin: var(--adm-gap-md, 12px) 0 0;
+  color: var(--adm-danger, var(--admin-danger));
+  font-size: var(--adm-font-xs, 12px);
 }
 
 .logs-hint {
-  margin: 12px 0 0;
-  color: var(--admin-text-3);
-  font-size: 12px;
+  margin: var(--adm-gap-md, 12px) 0 0;
+  color: var(--adm-muted, var(--admin-text-3));
+  font-size: var(--adm-font-xs, 12px);
   line-height: 1.7;
 }
 
+// 减少动效：呼吸点与行淡入都直接停掉（main.css 的全局兜底也会把它们压成 0.01ms）。
+@media (prefers-reduced-motion: reduce) {
+  .logs-live-dot.is-breath,
+  .logs-line { animation: none; }
+}
+
 @media (max-width: 768px) {
-  .admin-logs-terminal { padding: 16px; }
-  .logs-toolbar { align-items: flex-start; flex-direction: column; }
+  .admin-logs-terminal { padding: var(--adm-gap-md, 12px); }
+  .logs-toolbar { flex-wrap: wrap; }
+  .logs-toolbar-tip { display: none; }
+  .logs-updated { margin-left: 0; }
+  .logs-live { order: -1; }
   .logs-line { gap: 8px; }
   .logs-terminal-window { max-height: 58vh; }
 }

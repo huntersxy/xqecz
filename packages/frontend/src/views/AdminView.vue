@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { useAdminStore } from '@/stores/admin'
+import { useAdminTabQuery } from '@/composables/useAdminTabQuery'
 import type { AdminNavGroup } from '@/components/admin/AdminNav.vue'
 import {
   IconDashboard, IconFile, IconEye, IconHome, IconUserGroup, IconBarChart,
-  IconLink, IconExclamationCircle, IconUpload, IconLock, IconBook,
+  IconExclamationCircle, IconUpload, IconLock, IconBook,
   IconCode,
 } from '@arco-design/web-vue/es/icon'
 import AdminDashboard from '@/components/admin/AdminDashboard.vue'
@@ -15,10 +18,19 @@ import AdminLogsTerminal from '@/components/admin/AdminLogsTerminal.vue'
 
 const userStore = useUserStore()
 const admin = useAdminStore()
+const { activeTab } = storeToRefs(admin)
+const isAdmin = computed(() => !!userStore.user?.is_admin)
+
+// 页签的唯一真相走 URL：route.query.tab → activeTab → 组件，切换只经 selectTab。
+// 缺失 / 非法 / 越权由 composable 在 onMounted 里一次性 replace 规范化。
+const { isAllowed, selectTab } = useAdminTabQuery({ isAdmin, activeTab })
+
+// 合并后的角标 = 待审内容 + 待处理认领；为 0 时不显示徽标
+const reviewBadge = computed(() => admin.pendingCounts.content + admin.pendingCounts.claims || undefined)
 
 const navGroups = computed<AdminNavGroup[]>(() => {
   const groups: AdminNavGroup[] = []
-  if (userStore.user?.is_admin) {
+  if (isAdmin.value) {
     groups.push({
       label: '总览',
       items: [
@@ -27,21 +39,20 @@ const navGroups = computed<AdminNavGroup[]>(() => {
     })
   }
   groups.push({
-      label: '内容',
-      items: [
-        { key: 'my', title: '我的内容', icon: IconFile },
-        { key: 'upload', title: '上传内容', icon: IconUpload },
-      ],
-    })
-  if (userStore.user?.is_admin) {
+    label: '内容',
+    items: [
+      { key: 'my', title: '我的内容', icon: IconFile },
+      { key: 'upload', title: '上传内容', icon: IconUpload },
+    ],
+  })
+  if (isAdmin.value) {
     groups.push({
       label: '管理',
       items: [
-        { key: 'pending', title: '审核内容', icon: IconEye, badge: admin.pendingCounts.content || undefined },
+        { key: 'review', title: '审核与认领', icon: IconEye, badge: reviewBadge.value },
         { key: 'all', title: '所有内容', icon: IconHome },
         { key: 'users', title: '用户管理', icon: IconUserGroup },
         { key: 'polls', title: '投票管理', icon: IconBarChart },
-        { key: 'claims', title: '认领管理', icon: IconLink, badge: admin.pendingCounts.claims || undefined },
         { key: 'reports', title: '举报管理', icon: IconExclamationCircle, badge: admin.pendingCounts.reports || undefined },
         { key: 'vision', title: '视觉模型', icon: IconEye },
         { key: 'ai', title: 'AI 创作管理', icon: IconEye },
@@ -53,50 +64,61 @@ const navGroups = computed<AdminNavGroup[]>(() => {
     items: [
       { key: 'api-keys', title: 'API 密钥', icon: IconLock },
       { key: 'api-docs', title: 'API 文档', icon: IconBook },
-      ...(userStore.user?.is_admin ? [{ key: 'logs', title: '运行日志', icon: IconCode }] : []),
+      ...(isAdmin.value ? [{ key: 'logs', title: '运行日志', icon: IconCode }] : []),
     ],
   })
+  // 无权限的页签不进导航（权限规则的唯一来源在 composable），空组也不显示。
   return groups
+    .map((group) => ({ ...group, items: group.items.filter((item) => isAllowed(item.key)) }))
+    .filter((group) => group.items.length > 0)
 })
 
 function onMenuSelect(key: string) {
-  admin.activeTab = key
+  // 仪表盘待处理带仍在用旧 key（pending / claims），合并后统一落到「审核与认领」
+  selectTab(key === 'pending' || key === 'claims' ? 'review' : key)
 }
 
-// 切换页签后刷新角标（审批/认领/举报处理完后数字自动校正）
-watch(() => admin.activeTab, () => {
-  if (userStore.user?.is_admin) admin.loadPendingCounts()
+// 页签切换、角色异步到位后刷新角标（审批/认领/举报处理完数字自动校正）。
+watch([activeTab, isAdmin], () => {
+  if (isAdmin.value) admin.loadPendingCounts()
 })
 
 onMounted(() => {
   admin.loadTags()
-  if (userStore.user?.is_admin) {
-    admin.activeTab = 'dashboard'
-    admin.loadPendingCounts()
-  }
+  if (isAdmin.value) admin.loadPendingCounts()
 })
+
+// §7.5：页签切换后把焦点移到内容区（tabindex=-1），键盘与读屏的落点和视觉一致。
+const pageRef = ref<HTMLElement | null>(null)
+function focusPage() {
+  pageRef.value?.focus({ preventScroll: true })
+}
 </script>
 
 <template>
   <div class="admin-theme creative-theme admin-workspace">
-    <AdminNav :groups="navGroups" :active="admin.activeTab" :is-admin="!!userStore.user?.is_admin" @select="onMenuSelect" />
+    <AdminNav
+      :groups="navGroups"
+      :active="activeTab"
+      :is-admin="isAdmin"
+      @select="onMenuSelect"
+    />
     <section class="admin-workspace-content" aria-label="管理工作区">
-      <transition name="admin-page" mode="out-in">
-        <div :key="admin.activeTab" class="admin-page">
-          <AdminDashboard v-if="admin.activeTab === 'dashboard'" @select="onMenuSelect" />
-          <AdminContentTable v-else-if="admin.activeTab === 'my'" mode="my" />
-          <AdminUploadPanel v-else-if="admin.activeTab === 'upload'" />
-          <AdminContentTable v-else-if="admin.activeTab === 'pending' && userStore.user?.is_admin" mode="pending" />
-          <AdminContentTable v-else-if="admin.activeTab === 'all' && userStore.user?.is_admin" mode="all" />
-          <AdminUserTable v-else-if="admin.activeTab === 'users' && userStore.user?.is_admin" />
-          <AdminPollPanel v-else-if="admin.activeTab === 'polls' && userStore.user?.is_admin" />
-          <AdminClaimTable v-else-if="admin.activeTab === 'claims' && userStore.user?.is_admin" />
-          <AdminReportTable v-else-if="admin.activeTab === 'reports' && userStore.user?.is_admin" />
-          <AdminVisionSettings v-else-if="admin.activeTab === 'vision' && userStore.user?.is_admin" />
-          <AdminAI v-else-if="admin.activeTab === 'ai' && userStore.user?.is_admin" />
-          <AdminLogsTerminal v-else-if="admin.activeTab === 'logs' && userStore.user?.is_admin" />
-          <AdminApiKeys v-else-if="admin.activeTab === 'api-keys'" />
-          <AdminApiDocs v-else-if="admin.activeTab === 'api-docs'" />
+      <transition name="admin-page" mode="out-in" @after-enter="focusPage">
+        <div :key="activeTab" ref="pageRef" class="admin-page" tabindex="-1">
+          <AdminDashboard v-if="activeTab === 'dashboard'" @select="onMenuSelect" />
+          <AdminContentList v-else-if="activeTab === 'my'" mode="my" />
+          <AdminUploadPanel v-else-if="activeTab === 'upload'" />
+          <AdminReviewPanel v-else-if="activeTab === 'review' && isAdmin" />
+          <AdminContentList v-else-if="activeTab === 'all' && isAdmin" mode="all" />
+          <AdminUserTable v-else-if="activeTab === 'users' && isAdmin" />
+          <AdminPollPanel v-else-if="activeTab === 'polls' && isAdmin" />
+          <AdminReportList v-else-if="activeTab === 'reports' && isAdmin" />
+          <AdminVisionSettings v-else-if="activeTab === 'vision' && isAdmin" />
+          <AdminAI v-else-if="activeTab === 'ai' && isAdmin" />
+          <AdminLogsTerminal v-else-if="activeTab === 'logs' && isAdmin" />
+          <AdminApiKeys v-else-if="activeTab === 'api-keys'" />
+          <AdminApiDocs v-else-if="activeTab === 'api-docs'" />
           <a-result
             v-else
             status="403"
@@ -112,6 +134,9 @@ onMounted(() => {
 
 <!-- Admin 令牌在主题根与 Teleport 弹层上共享首页的纸感色板；业务状态色仍由 Arco 语义色提供。 -->
 <style lang="scss">
+@use '../components/admin/adm-tokens';
+@use '../components/admin/adm-motion';
+
 .admin-theme.creative-theme {
   --creative-paper: var(--site-paper);
   --creative-canvas: var(--site-canvas);
@@ -237,23 +262,33 @@ body[arco-theme='dark'] .admin-theme.creative-theme {
   padding-top: 24px;
 }
 
+// 波次 4：内容区在超宽屏不再无限拉开（1920 下原来铺满 1600+，卡片与表格都会被拉散）
 .admin-page {
   width: 100%;
+  max-width: 1500px;
   min-width: 0;
+  margin-inline: auto;
 }
 
-// ── 页签切换过渡 ──
+/* 页签容器只作为切换后的焦点落点，不显示焦点环（它不参与 Tab 顺序）。 */
+.admin-page:focus {
+  outline: none;
+}
+
+// ── M1 页签切换过渡：离场 120ms 只淡出，进场 360ms 上移 8px 淡入 ──
 .admin-page-enter-active {
-  transition: opacity 0.22s ease, transform 0.22s ease;
+  transition:
+    opacity var(--adm-dur-slow, 360ms) var(--adm-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+    transform var(--adm-dur-slow, 360ms) var(--adm-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .admin-page-leave-active {
-  transition: opacity 0.12s ease;
+  transition: opacity var(--adm-dur-fast, 120ms) var(--adm-ease-in, ease-in);
 }
 
 .admin-page-enter-from {
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(8px);
 }
 
 .admin-page-leave-to {
@@ -263,7 +298,6 @@ body[arco-theme='dark'] .admin-theme.creative-theme {
 @media (prefers-reduced-motion: reduce) {
   .admin-page-enter-active,
   .admin-page-leave-active { transition: none; }
-  .admin-page-enter-from,
-  .admin-page-leave-to { transform: none; }
+  .admin-page-enter-from { transform: none; }
 }
 </style>

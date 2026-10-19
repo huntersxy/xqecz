@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { IconArrowRight, IconBarChart, IconMenu, IconMoon, IconPlus, IconSettings, IconSun, IconUpload, IconUser, IconClose } from '@arco-design/web-vue/es/icon'
+import { IconBarChart, IconMenu, IconMoon, IconPlus, IconSettings, IconSun, IconUpload, IconUser, IconClose } from '@arco-design/web-vue/es/icon'
 import { useThemeStore } from '@/stores/theme'
 import { useUserStore } from '@/stores/user'
 import { useGlobalSearch } from '@/composables/useGlobalSearch'
@@ -27,9 +27,14 @@ const pageTab = computed(() => {
   if (route.path === '/login' || route.path.startsWith('/quick-upload')) return 'none'
   return 'browse'
 })
+// 后台复用同一个侧栏工作区槽：AdminNav Teleport 进 #public-shell-workspace，
+// 站点外壳其余的 DOM 顺序、导航项与手机抽屉逻辑全部不动。
+const adminMode = computed(
+  () => route.path === '/admin' || route.path.startsWith('/admin/'),
+)
 // 工作台是独立应用外壳：站点侧栏改成抽屉，把横向空间让给历史/舞台/详情。
 const workspaceMode = computed(
-  () => route.path === '/studio' || route.path.startsWith('/studio/'),
+  () => adminMode.value || route.path === '/studio' || route.path.startsWith('/studio/'),
 )
 
 function closeMobile() {
@@ -91,7 +96,7 @@ onBeforeUnmount(() => {
 <template>
   <div
     class="public-shell creative-theme"
-    :class="{ 'is-mobile-open': mobileOpen, 'is-workspace': workspaceMode }"
+    :class="{ 'is-mobile-open': mobileOpen, 'is-workspace': workspaceMode, 'is-admin': adminMode }"
   >
     <aside class="public-shell-sidebar" aria-label="站点导航">
       <button
@@ -126,21 +131,9 @@ onBeforeUnmount(() => {
         </RouterLink>
       </nav>
 
-      <div class="public-shell-library">
-        <p>我的库</p>
-        <RouterLink v-if="userStore.isLoggedIn" to="/admin" active-class="is-active" @click="closeMobile">
-          <IconSettings />
-          <span>我的内容</span>
-        </RouterLink>
-        <RouterLink v-else to="/login" class="public-shell-library-note" @click="closeMobile">
-          <span>登录后查看收藏和发布</span>
-          <IconArrowRight />
-        </RouterLink>
-      </div>
-
       <!-- Always in the DOM so the studio Teleport can resolve it even when the
            hash router has not committed /studio yet; hidden elsewhere by CSS.
-           It sits below the shared nav/library so switching between /studio and
+           It sits below the shared nav so switching between /studio and
            the gallery never moves the entries both pages share. -->
       <div id="public-shell-workspace" class="public-shell-workspace"></div>
 
@@ -242,7 +235,6 @@ body[arco-theme='dark'] .public-shell {
 }
 .public-shell-brand-row,
 .public-shell-nav,
-.public-shell-library,
 .public-shell-bottom { display: grid; }
 .public-shell-brand-row { grid-template-columns: 1fr; gap: 10px; align-items: center; }
 .public-shell-theme {
@@ -264,16 +256,11 @@ body[arco-theme='dark'] .public-shell {
 .public-shell-brand strong { font: 600 20px/1.1 var(--creative-title-font); letter-spacing: .04em; }
 .public-shell-brand span { margin-top: 4px; color: var(--shell-muted); font-size: 10px; letter-spacing: .14em; }
 .public-shell-nav a,
-.public-shell-library a,
 .public-shell-user,
 .public-shell-publish { text-decoration: none; }
-.public-shell-nav,
-.public-shell-library { gap: 4px; margin-top: 28px; }
-.public-shell-library { margin-top: 28px; }
-.public-shell-nav p,
-.public-shell-library p { margin: 0 0 7px 10px; color: var(--shell-muted); font-size: 10px; letter-spacing: .14em; }
-.public-shell-nav a,
-.public-shell-library a {
+.public-shell-nav { gap: 4px; margin-top: 28px; }
+.public-shell-nav p { margin: 0 0 7px 10px; color: var(--shell-muted); font-size: 10px; letter-spacing: .14em; }
+.public-shell-nav a {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -284,13 +271,9 @@ body[arco-theme='dark'] .public-shell {
   font-size: 12px;
   transition: background .18s ease, color .18s ease, transform .18s ease;
 }
-.public-shell-nav a:hover,
-.public-shell-library a:hover { color: var(--shell-ink); background: var(--shell-soft); transform: translateX(2px); }
-.public-shell-nav a.is-active,
-.public-shell-library a.is-active { color: var(--shell-accent); background: color-mix(in srgb, var(--shell-accent) 12%, var(--shell-paper)); font-weight: 600; }
-.public-shell-nav a:active,
-.public-shell-library a:active { transform: translateX(1px) scale(.98); }
-.public-shell-library-note { justify-content: space-between; line-height: 1.5; }
+.public-shell-nav a:hover { color: var(--shell-ink); background: var(--shell-soft); transform: translateX(2px); }
+.public-shell-nav a.is-active { color: var(--shell-accent); background: color-mix(in srgb, var(--shell-accent) 12%, var(--shell-paper)); font-weight: 600; }
+.public-shell-nav a:active { transform: translateX(1px) scale(.98); }
 .public-shell-bottom { gap: 16px; margin-top: auto; }
 .public-shell-publish {
   display: inline-flex;
@@ -360,9 +343,16 @@ body[arco-theme='dark'] .public-shell {
 .public-shell:not(.is-workspace) .public-shell-workspace {
   display: none;
 }
+/* 后台导航比工作台更长：只有槽自己滚动，「发现」留在原位不跟着滚。 */
+.public-shell.is-admin .public-shell-workspace {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 @media (max-width: 820px) {
   .public-shell-sidebar { position: fixed; inset: 0 auto 0 0; width: min(82vw, 300px); overflow-y: auto; overscroll-behavior: contain; transform: translateX(-104%); transition: transform .24s cubic-bezier(.22,1,.36,1); box-shadow: 12px 0 32px rgba(31,24,27,.14); }
   .public-shell.is-mobile-open .public-shell-sidebar { transform: translateX(0); }
+  /* 手机下整个侧栏已经是滚动抽屉，槽再抢滚动区会出现两层滚动条。 */
+  .public-shell.is-admin .public-shell-workspace { flex: 0 0 auto; overflow: visible; }
   .public-shell-scrim { position: fixed; inset: 0; z-index: 25; display: block; border: 0; background: rgba(32,25,27,.32); }
   /* 手机顶栏分两行：第一行导航与账号，第二行搜索。早先单行里搜索、主题和登录
      会把 "作品 / 发现" 挤成竖排并溢出视口。 */

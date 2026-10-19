@@ -175,6 +175,14 @@ async function run(fn: () => Promise<unknown>) {
     if (!stopped) error.value = (e as Error).message
   }
 }
+/** 复制管理员诊断文本，供贴进排查记录或日志检索。 */
+async function copyDiagnostic(text: string) {
+  try {
+    await navigator.clipboard?.writeText(text)
+  } catch {
+    error.value = '复制失败，请手动选择文本复制'
+  }
+}
 async function load() {
   loading.value = true
   try {
@@ -414,6 +422,7 @@ onBeforeUnmount(() => {
           v-for="menu in menus"
           :key="menu[0]"
           :class="{ 'is-active': tab === menu[0] }"
+          :aria-current="tab === menu[0] ? 'page' : undefined"
           @click="switchTab(menu[0]!)"
         >
           {{ menu[1] }}
@@ -631,6 +640,11 @@ onBeforeUnmount(() => {
                 <pre>{{ row.task.prompt }}</pre>
               </details>
               <p v-if="row.task.error" class="creative-error" role="alert">{{ row.task.error }}</p>
+              <details v-if="row.diagnostic" class="admin-task-diagnostic">
+                <summary>排查诊断 · 仅管理员可见</summary>
+                <pre>{{ row.diagnostic }}</pre>
+                <a-button size="mini" @click="copyDiagnostic(row.diagnostic)">复制诊断</a-button>
+              </details>
               <div v-if="row.assets.length" class="admin-task-results" aria-label="生成结果">
                 <button
                   v-for="(asset, index) in row.assets"
@@ -976,35 +990,39 @@ onBeforeUnmount(() => {
 </template>
 <style scoped>
 .admin-ai-body {
-  padding: 24px;
+  padding: var(--adm-gap-xl, 24px);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--adm-gap-lg, 16px);
 }
 .admin-ai-body > .creative-note {
-  margin: -8px 0 0;
+  margin: calc(var(--adm-gap-sm, 8px) * -1) 0 0;
 }
 .admin-ai-body > .arco-btn {
   align-self: flex-start;
 }
 .resource-advanced {
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid var(--creative-line);
+  margin-top: var(--adm-gap-xl, 24px);
+  padding-top: var(--adm-gap-lg, 16px);
+  border-top: 1px solid var(--adm-line, var(--creative-line));
 }
 .resource-advanced summary {
-  color: var(--creative-muted);
+  margin-bottom: var(--adm-gap-lg, 16px);
+  color: var(--adm-muted, var(--creative-muted));
   cursor: pointer;
-  margin-bottom: 16px;
+}
+.resource-advanced summary:focus-visible {
+  outline: 2px solid var(--adm-accent, var(--creative-accent));
+  outline-offset: 3px;
 }
 .grant-fields {
   display: grid;
   grid-template-columns: minmax(140px, 1fr) minmax(140px, 1fr) minmax(180px, 1.5fr) auto;
   align-items: start;
-  gap: 16px;
+  gap: var(--adm-gap-lg, 16px);
 }
 .grant-fields .creative-field {
-  margin: 12px 0 0;
+  margin: var(--adm-gap-md, 12px) 0 0;
 }
 .grant-fields > .arco-btn {
   margin-top: 36px;
@@ -1012,7 +1030,7 @@ onBeforeUnmount(() => {
 .grant-fields :deep(.arco-input-number) {
   width: 100%;
 }
-@media (max-width: 1100px) {
+@media (max-width: 820px) {
   .grant-fields {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1023,52 +1041,62 @@ onBeforeUnmount(() => {
 }
 .admin-ai-tabs {
   display: flex;
-  gap: 8px;
+  gap: var(--adm-gap-sm, 8px);
   flex-wrap: wrap;
-  margin-bottom: 0;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--creative-line);
+  padding-bottom: var(--adm-gap-md, 12px);
+  border-bottom: 1px solid var(--adm-line, var(--creative-line));
 }
 .admin-ai-tabs button {
-  padding: 9px 16px;
-  border: 1px solid var(--creative-line);
-  border-radius: 999px;
-  background: var(--creative-paper);
-  color: var(--creative-muted);
+  min-height: var(--adm-touch, 36px);
+  padding: 0 14px;
+  border: 1px solid var(--adm-line, var(--creative-line));
+  border-radius: var(--adm-r-pill, 999px);
+  background: var(--adm-surface, var(--creative-paper));
+  color: var(--adm-muted, var(--creative-muted));
+  font-size: var(--adm-font-sm, 13px);
   cursor: pointer;
-  transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
+  transition:
+    background var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease),
+    border-color var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease),
+    color var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease),
+    transform var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease);
 }
 .admin-ai-tabs button:hover:not(:disabled) {
-  border-color: var(--creative-accent);
-  color: var(--creative-accent);
+  border-color: var(--adm-accent, var(--creative-accent));
+  background: var(--adm-soft, var(--creative-soft));
+  color: var(--adm-accent, var(--creative-accent));
+}
+.admin-ai-tabs button:focus-visible {
+  outline: 2px solid var(--adm-accent, var(--creative-accent));
+  outline-offset: 2px;
 }
 .admin-ai-tabs button:active:not(:disabled) {
   transform: scale(.98);
 }
 .admin-ai-tabs button.is-active {
-  background: var(--creative-soft);
-  color: var(--creative-accent);
-  border-color: var(--creative-accent);
+  border-color: var(--adm-accent, var(--creative-accent));
+  background: var(--adm-accent-soft, var(--creative-soft));
+  color: var(--adm-accent, var(--creative-accent));
 }
 .admin-ai-row {
   display: flex;
   justify-content: space-between;
-  gap: 20px;
+  gap: var(--adm-gap-lg, 16px);
   align-items: flex-start;
-  padding: 22px;
+  padding: var(--adm-gap-lg, 16px) var(--adm-gap-xl, 24px);
   margin-top: 0;
-  border: 1px solid var(--creative-line);
-  border-radius: 16px;
-  background: var(--creative-paper);
+  border: 1px solid var(--adm-line, var(--creative-line));
+  border-radius: var(--adm-r-card, 16px);
+  background: var(--adm-surface, var(--creative-paper));
 }
 .admin-ai-row > div:first-child {
   min-width: 0;
   flex: 1;
 }
 .admin-ai-row p {
-  margin: 8px 0;
+  margin: var(--adm-gap-sm, 8px) 0;
   line-height: 1.6;
-  color: var(--creative-muted);
+  color: var(--adm-muted, var(--creative-muted));
   overflow-wrap: anywhere;
 }
 .admin-ai-row small {
@@ -1080,28 +1108,52 @@ onBeforeUnmount(() => {
 }
 .admin-ai-table {
   overflow: auto;
-  margin-top: 24px;
+  margin-top: var(--adm-gap-lg, 16px);
+  border: 1px solid var(--adm-line, var(--creative-line));
+  border-radius: var(--adm-r-card, 16px);
+  background: var(--adm-surface, var(--creative-paper));
 }
 .admin-ai-table table {
   width: 100%;
-  min-width: 650px;
+  min-width: 640px;
   text-align: left;
   border-collapse: collapse;
 }
-.admin-ai-table td,
+/* 与 AdminPanel 的 arco-table 处理保持一致：去表头底色、13px 正文、行悬浮填充 */
 .admin-ai-table th {
-  padding: 14px;
-  border-bottom: 1px solid var(--creative-line);
+  padding: var(--adm-gap-md, 12px) var(--adm-gap-lg, 16px);
+  border-bottom: 1px solid var(--adm-line, var(--creative-line));
+  color: var(--adm-muted, var(--creative-muted));
+  font-size: var(--adm-font-xs, 12px);
+  font-weight: 500;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+.admin-ai-table td {
+  padding: var(--adm-gap-md, 12px) var(--adm-gap-lg, 16px);
+  border-bottom: 1px solid var(--adm-line, var(--creative-line));
+  color: var(--adm-ink, var(--creative-ink));
+  font-size: var(--adm-font-sm, 13px);
+  font-variant-numeric: var(--adm-numeric, tabular-nums);
+  transition: background var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease);
+}
+.admin-ai-table tbody tr:hover td {
+  background: var(--adm-soft, var(--creative-soft));
+}
+.admin-ai-table tbody tr:last-child td {
+  border-bottom: 0;
 }
 .admin-result-images {
   display: flex;
-  gap: 10px;
+  gap: var(--adm-gap-md, 12px);
   flex-wrap: wrap;
-  margin-top: 12px;
+  margin-top: var(--adm-gap-md, 12px);
 }
 .admin-result-images > * {
   width: 100px;
   height: 100px;
+  border-radius: var(--adm-r-control, 10px);
+  overflow: hidden;
 }
 .creative-actions > .arco-input-wrapper {
   max-width: 280px;
@@ -1111,21 +1163,59 @@ onBeforeUnmount(() => {
   max-width: 100%;
 }
 .creative-grid {
-  margin-top: 20px;
+  margin-top: var(--adm-gap-lg, 16px);
 }
-@media (max-width: 650px) {
+@media (max-width: 768px) {
+  .admin-ai-body {
+    padding: var(--adm-gap-lg, 16px);
+  }
+  /* 手机档页签改为横向滚动，避免 7 个入口堆成三行挤压内容 */
+  .admin-ai-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 2px 0 var(--adm-gap-sm, 8px);
+    scrollbar-width: thin;
+  }
+  .admin-ai-tabs button {
+    flex: 0 0 auto;
+  }
+  .admin-ai-row {
+    flex-direction: column;
+    gap: var(--adm-gap-md, 12px);
+    padding: var(--adm-gap-lg, 16px);
+  }
   .grant-fields {
     grid-template-columns: minmax(0, 1fr);
   }
   .grant-fields > .arco-btn {
     width: 100%;
-    margin-top: 8px;
+    margin-top: var(--adm-gap-sm, 8px);
   }
-  .admin-ai-body {
-    padding: 16px;
-  }
-  .admin-ai-row {
-    flex-direction: column;
-  }
+}
+
+.admin-task-diagnostic {
+  margin-top: var(--adm-gap-sm, 8px);
+  padding: var(--adm-gap-sm, 8px) var(--adm-gap-md, 12px);
+  border: 1px solid var(--adm-border-subtle, rgba(0, 0, 0, 0.08));
+  border-radius: var(--adm-r-control, 10px);
+  background: var(--adm-surface-sunken, rgba(0, 0, 0, 0.02));
+  font-size: var(--adm-font-xs, 12px);
+}
+.admin-task-diagnostic summary {
+  cursor: pointer;
+  color: var(--adm-text-muted, #6b6b6b);
+  line-height: 1.6;
+}
+.admin-task-diagnostic pre {
+  margin: var(--adm-gap-sm, 8px) 0;
+  padding: var(--adm-gap-sm, 8px);
+  overflow-x: auto;
+  border-radius: var(--adm-r-control, 10px);
+  background: var(--adm-surface, #fff);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--adm-font-xs, 12px);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 </style>

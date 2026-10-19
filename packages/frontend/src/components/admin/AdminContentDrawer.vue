@@ -5,12 +5,17 @@ import { adminApi } from '@/api'
 import { getImageUrl, renderMarkdown } from '@/utils'
 import MediaImage from '@/components/MediaImage.vue'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
+import AdminEmpty from './AdminEmpty.vue'
 import { Tag, type FileItem } from '@arco-design/web-vue'
 import { toast, useConfirm } from '@/composables/useToast'
+import { useMediaQuery } from '@vueuse/core'
 import type { User } from '@/types'
 import { IconUpload, IconSearch } from '@arco-design/web-vue/es/icon'
 
 const admin = useAdminStore()
+// 抽屉在手机上占满整屏，避免 720px 固定宽把内容挤出视口（§6.3 820 断点）。
+const isMobile = useMediaQuery('(max-width: 820px)')
+const drawerWidth = computed(() => (isMobile.value ? '100%' : 720))
 
 const editFormModel: Record<string, unknown> = {}
 const editTitle = ref('')
@@ -44,7 +49,8 @@ watch(() => admin.drawerOpen, async (open) => {
     editTags.value = [...(admin.drawerContent.tags || [])]
     editFile.value = undefined
     editFileName.value = ''
-    tabKey.value = 'preview'
+    // 编辑入口直接从编辑页签打开，免得用户再点一次页签
+    tabKey.value = admin.drawerMode === 'edit' ? 'edit' : 'preview'
     loadUsers()
   }
 })
@@ -100,131 +106,135 @@ function onFileChange(_fileList: FileItem[], fileItem: FileItem) {
 
 <template>
   <a-drawer
-    class="content-drawer admin-theme creative-theme"
+    class="content-drawer admin-theme creative-theme creative-dialog"
     v-model:visible="admin.drawerOpen"
     :title="admin.drawerContent?.title || '内容详情'"
-    :width="720"
+    :width="drawerWidth"
     @close="admin.closeDrawer"
   >
     <template v-if="admin.drawerContent">
-      <a-tabs v-model:active-key="tabKey">
-        <a-tab-pane key="preview" title="预览">
-          <div class="preview-meta">
-            <AdminStatus
-              v-if="admin.drawerContent.audit_status"
-              :type="admin.drawerContent.audit_status === 'approved' ? 'success' : admin.drawerContent.audit_status === 'pending' ? 'warning' : 'danger'"
-              :label="{ approved: '已通过', pending: '审核中', rejected: '已拒绝' }[admin.drawerContent.audit_status]"
-            />
-            <span class="preview-meta-info">
-              {{ admin.drawerContent.like_count || 0 }} 点赞 · {{ admin.drawerContent.user?.username }}
-            </span>
-          </div>
-          <div class="preview-tags">
-            <Tag v-for="tag in admin.drawerContent.tags" :key="tag">{{ tag }}</Tag>
-          </div>
-          <div v-if="admin.drawerContent.video" class="preview-media-wrap">
-            <video controls class="preview-media">
-              <source :src="getImageUrl(admin.drawerContent.video)" />
-              <track kind="captions" />
-            </video>
-          </div>
-
-          <div v-else-if="admin.drawerContent.img || admin.drawerContent.thumb" class="preview-media-wrap">
-            <MediaImage :src="admin.drawerContent.img" class="preview-media" :preview="false" alt="" />
-          </div>
-
-          <div v-if="admin.drawerContent.text" class="preview-text" v-html="renderedContent"></div>
-        </a-tab-pane>
-
-        <a-tab-pane key="edit" title="编辑">
-          <a-form :model="editFormModel" layout="vertical" class="drawer-edit-form">
-            <a-form-item label="标题" required>
-              <a-input v-model="editTitle" :maxlength="200" show-word-limit placeholder="输入标题" />
-            </a-form-item>
-
-            <a-form-item label="描述（Markdown，可留空为纯媒体内容）">
-              <MarkdownEditor
-                v-model="editContent"
-                placeholder="支持 Markdown，可留空（纯媒体内容）"
-                :height="360"
+      <div class="drawer-body">
+        <a-tabs v-model:active-key="tabKey" class="drawer-tabs">
+          <a-tab-pane key="preview" title="预览">
+            <div class="drawer-meta">
+              <AdminStatus
+                v-if="admin.drawerContent.audit_status"
+                :type="admin.drawerContent.audit_status === 'approved' ? 'success' : admin.drawerContent.audit_status === 'pending' ? 'warning' : 'danger'"
+                :label="{ approved: '已通过', pending: '审核中', rejected: '已拒绝' }[admin.drawerContent.audit_status]"
               />
-            </a-form-item>
+              <span class="drawer-meta-info">
+                {{ admin.drawerContent.like_count || 0 }} 点赞 · {{ admin.drawerContent.user?.username }}
+              </span>
+            </div>
 
-            <a-form-item label="媒体文件">
-              <a-upload
-                :auto-upload="false"
-                :show-file-list="false"
-                :limit="1"
-                accept="image/*,video/*"
-                @change="onFileChange"
-              >
-                <template #upload-button>
-                  <a-button>
-                    <IconUpload />
-                    {{ editFileName || '选择图片 / 视频' }}
-                  </a-button>
-                </template>
-              </a-upload>
-              <a-typography-text
-                v-if="editFileName"
-                type="secondary"
-                class="drawer-file-name"
-              >
-                {{ editFileName }}
-              </a-typography-text>
-              <a-typography-text
-                v-else-if="admin.drawerContent.img || admin.drawerContent.video || admin.drawerContent.thumb"
-                type="secondary"
-                class="drawer-file-name"
-              >
-                当前已有媒体文件，可在预览页查看；选择新文件可替换
-              </a-typography-text>
-            </a-form-item>
+            <div v-if="(admin.drawerContent.tags || []).length" class="drawer-tags">
+              <Tag v-for="tag in admin.drawerContent.tags" :key="tag" size="small" :bordered="false">{{ tag }}</Tag>
+            </div>
 
-            <a-form-item label="标签">
-              <div class="drawer-field-stack">
-                <a-input-tag v-model="editTags" placeholder="输入标签后回车" allow-clear class="drawer-tags-input" />
-                <div v-if="admin.tags.length" class="tag-pool">
-                  <a-tag
-                    v-for="tag in admin.tags"
-                    :key="tag"
-                    checkable
-                    :checked="editTags.includes(tag)"
-                    :bordered="false"
-                    size="small"
-                    class="tag-pool-item"
-                    @check="setTagChecked(tag, $event)"
-                  >
-                    {{ tag }}
-                  </a-tag>
+            <div v-if="admin.drawerContent.video" class="drawer-media-wrap">
+              <video controls class="drawer-media">
+                <source :src="getImageUrl(admin.drawerContent.video)" />
+                <track kind="captions" />
+              </video>
+            </div>
+
+            <div v-else-if="admin.drawerContent.img || admin.drawerContent.thumb" class="drawer-media-wrap">
+              <MediaImage :src="admin.drawerContent.img" class="drawer-media" :preview="false" alt="" />
+            </div>
+
+            <div v-if="admin.drawerContent.text" class="drawer-markdown" v-html="renderedContent"></div>
+          </a-tab-pane>
+
+          <a-tab-pane key="edit" title="编辑">
+            <a-form :model="editFormModel" layout="vertical" class="drawer-form">
+              <a-form-item label="标题" required>
+                <a-input v-model="editTitle" :maxlength="200" show-word-limit placeholder="输入标题" />
+              </a-form-item>
+
+              <a-form-item label="描述（Markdown，可留空为纯媒体内容）">
+                <MarkdownEditor
+                  v-model="editContent"
+                  placeholder="支持 Markdown，可留空（纯媒体内容）"
+                  :height="360"
+                />
+              </a-form-item>
+
+              <a-form-item label="媒体文件">
+                <a-upload
+                  :auto-upload="false"
+                  :show-file-list="false"
+                  :limit="1"
+                  accept="image/*,video/*"
+                  @change="onFileChange"
+                >
+                  <template #upload-button>
+                    <a-button>
+                      <IconUpload />
+                      {{ editFileName || '选择图片 / 视频' }}
+                    </a-button>
+                  </template>
+                </a-upload>
+                <a-typography-text
+                  v-if="editFileName"
+                  type="secondary"
+                  class="drawer-file-name"
+                >
+                  {{ editFileName }}
+                </a-typography-text>
+                <a-typography-text
+                  v-else-if="admin.drawerContent.img || admin.drawerContent.video || admin.drawerContent.thumb"
+                  type="secondary"
+                  class="drawer-file-name"
+                >
+                  当前已有媒体文件，可在预览页查看；选择新文件可替换
+                </a-typography-text>
+              </a-form-item>
+
+              <a-form-item label="标签">
+                <div class="drawer-field-stack">
+                  <a-input-tag v-model="editTags" placeholder="输入标签后回车" allow-clear class="drawer-tags-input" />
+                  <div v-if="admin.tags.length" class="tag-pool">
+                    <a-tag
+                      v-for="tag in admin.tags"
+                      :key="tag"
+                      checkable
+                      :checked="editTags.includes(tag)"
+                      :bordered="false"
+                      size="small"
+                      class="tag-pool-item"
+                      @check="setTagChecked(tag, $event)"
+                    >
+                      {{ tag }}
+                    </a-tag>
+                  </div>
                 </div>
-              </div>
-            </a-form-item>
-          </a-form>
-        </a-tab-pane>
+              </a-form-item>
+            </a-form>
+          </a-tab-pane>
 
-        <a-tab-pane key="author" title="修改作者">
-          <div class="author-current">
-            <span class="author-current-label">当前作者：</span>
+          <a-tab-pane key="author" title="修改作者">
+            <div class="author-current">
+              <span class="author-current-label">当前作者：</span>
               <Tag :bordered="false" class="drawer-tag-inline admin-tag-accent">{{ admin.drawerContent.user?.username }}</Tag>
-          </div>
-          <a-input v-model="authorKeyword" placeholder="搜索用户名..." allow-clear class="author-search">
-            <template #prefix><IconSearch /></template>
-          </a-input>
-          <a-spin :loading="usersLoading">
-            <a-list v-if="filteredUsers.length" :data="filteredUsers" :bordered="false" :split="false" class="user-list">
-              <template #item="{ item }">
-                <a-list-item class="user-item" @click="handleChangeAuthor(item.id, item.username)">
-                  <UserAvatar :size="24" :email="item.email" :username="item.username" />
-                  <span class="admin-cell-title">{{ item.username }}</span>
-                  <Tag v-if="item.is_admin" size="small" :bordered="false" class="drawer-tag-inline admin-tag-accent">管理员</Tag>
-                </a-list-item>
-              </template>
-            </a-list>
-            <a-empty v-else description="无匹配用户" />
-          </a-spin>
-        </a-tab-pane>
-      </a-tabs>
+            </div>
+            <a-input v-model="authorKeyword" placeholder="搜索用户名..." allow-clear class="author-search">
+              <template #prefix><IconSearch /></template>
+            </a-input>
+            <a-spin :loading="usersLoading">
+              <a-list v-if="filteredUsers.length" :data="filteredUsers" :bordered="false" :split="false" class="user-list">
+                <template #item="{ item }">
+                  <a-list-item class="user-item" @click="handleChangeAuthor(item.id, item.username)">
+                    <UserAvatar :size="24" :email="item.email" :username="item.username" />
+                    <span class="admin-cell-title">{{ item.username }}</span>
+                    <Tag v-if="item.is_admin" size="small" :bordered="false" class="drawer-tag-inline admin-tag-accent">管理员</Tag>
+                  </a-list-item>
+                </template>
+              </a-list>
+              <AdminEmpty v-else compact title="无匹配用户" />
+            </a-spin>
+          </a-tab-pane>
+        </a-tabs>
+      </div>
     </template>
 
     <template #footer>
@@ -246,61 +256,185 @@ function onFileChange(_fileList: FileItem[], fileItem: FileItem) {
 <style lang="scss" scoped>
 @use './admin' as *;
 
-.content-drawer :deep(.arco-drawer-body) { padding: 16px 24px; }
-.preview-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.preview-meta-info { font-size: 13px; color: $admin-text-3; font-variant-numeric: tabular-nums; }
-.preview-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; }
-.preview-media-wrap { display: flex; justify-content: center; margin-bottom: 16px; }
-.preview-media { display: block; max-width: 100%; border-radius: 10px; }
-.preview-media :deep(.arco-image-img) { max-width: 100%; height: auto; display: block; }
-.link-box { padding: 16px; background: $admin-fill; border-radius: 10px; text-align: center; color: $admin-text-3; }
-.preview-text { line-height: 1.8; }
-.preview-text :deep(h1), .preview-text :deep(h2), .preview-text :deep(h3) { margin: 16px 0 8px; color: $admin-text; }
-.preview-text :deep(h1) { font-size: 24px; }
-.preview-text :deep(h2) { font-size: 20px; }
-.preview-text :deep(h3) { font-size: 16px; }
-.preview-text :deep(p) { margin-bottom: 12px; color: $admin-text-2; }
-.preview-text :deep(ul), .preview-text :deep(ol) { margin-bottom: 12px; padding-left: 24px; }
-.preview-text :deep(blockquote) { border-left: 1px solid $admin-border; padding-left: 12px; margin: 12px 0; color: $admin-text-3; font-style: italic; }
-.preview-text :deep(code) { background: $admin-fill; padding: 2px 6px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-.preview-text :deep(pre) {
-  background: #1a1a1a;
-  color: #e0e0e0;
-  padding: 12px;
-  border-radius: 10px;
-  overflow-x: auto;
-  margin: 12px 0;
+// 头部与底栏由 Arco 固定，正文区独立滚动；页签栏在滚动区内吸顶（§10 内容抽屉）。
+.content-drawer {
+  :deep(.arco-drawer-header) {
+    padding: 16px var(--adm-gap-xl, 24px);
+    border-bottom: 1px solid var(--adm-line, var(--admin-border-soft));
+  }
+
+  :deep(.arco-drawer-title) {
+    font-family: var(--site-title-font);
+    font-size: var(--adm-font-lg, 17px);
+    font-weight: 600;
+    letter-spacing: -.01em;
+    color: var(--adm-ink, var(--admin-text));
+  }
+
+  :deep(.arco-drawer-content) {
+    padding: 0;
+    overflow-y: auto;
+  }
+
+  :deep(.arco-drawer-body) {
+    padding: 0;
+  }
+
+  :deep(.arco-drawer-footer) {
+    padding: 12px var(--adm-gap-xl, 24px);
+    border-top: 1px solid var(--adm-line, var(--admin-border-soft));
+  }
 }
 
-body[arco-theme='dark'] .preview-text :deep(pre) {
-  background: var(--color-bg-3);
-  color: var(--color-text-1);
-  border: 1px solid var(--color-border);
+.drawer-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
 }
-.preview-text :deep(pre code) { background: none; padding: 0; color: inherit; }
-.tag-pool {
+
+.drawer-tabs {
+  :deep(.arco-tabs-header) {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    padding: 8px var(--adm-gap-xl, 24px) 0;
+    background: var(--adm-surface, var(--admin-surface));
+    border-bottom: 1px solid var(--adm-line, var(--admin-border-soft));
+  }
+
+  :deep(.arco-tabs-content) {
+    padding: var(--adm-gap-xl, 24px);
+  }
+}
+
+.drawer-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--adm-gap-md, 12px);
+  flex-wrap: wrap;
+  margin-bottom: var(--adm-gap-md, 12px);
+}
+
+.drawer-meta-info {
+  @include numeric;
+  font-size: var(--adm-font-sm, 13px);
+  color: var(--adm-muted, var(--admin-text-3));
+}
+
+.drawer-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 12px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: $admin-fill;
+  gap: var(--adm-gap-xs, 4px);
+  margin-bottom: var(--adm-gap-lg, 16px);
+}
+
+.drawer-media-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--adm-gap-lg, 16px);
+}
+
+.drawer-media {
+  display: block;
+  max-width: 100%;
+  max-height: 460px;
+  border-radius: var(--adm-r-card, 12px);
+
+  :deep(.arco-image-img) {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+}
+
+.drawer-markdown {
+  font-size: var(--adm-font-base, 14px);
+  line-height: 1.8;
+  color: var(--adm-text-2, var(--admin-text-2));
+
+  :deep(h1), :deep(h2), :deep(h3) {
+    margin: var(--adm-gap-lg, 16px) 0 var(--adm-gap-sm, 8px);
+    font-family: var(--site-title-font);
+    font-weight: 600;
+    letter-spacing: -.01em;
+    color: var(--adm-ink, var(--admin-text));
+  }
+
+  :deep(h1) { font-size: var(--adm-font-xl, 21px); }
+  :deep(h2) { font-size: var(--adm-font-lg, 17px); }
+  :deep(h3) { font-size: var(--adm-font-md, 15px); }
+
+  :deep(p) { margin-bottom: var(--adm-gap-md, 12px); }
+  :deep(ul), :deep(ol) { margin-bottom: var(--adm-gap-md, 12px); padding-left: 24px; }
+  :deep(blockquote) {
+    margin: var(--adm-gap-md, 12px) 0;
+    padding-left: var(--adm-gap-md, 12px);
+    border-left: 2px solid var(--adm-line, var(--admin-border));
+    color: var(--adm-muted, var(--admin-text-3));
+    font-style: italic;
+  }
+
+  :deep(code) {
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: var(--adm-soft, var(--admin-fill));
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: var(--adm-font-xs, 12px);
+  }
+
+  :deep(pre) {
+    margin: var(--adm-gap-md, 12px) 0;
+    padding: var(--adm-gap-md, 12px) var(--adm-gap-lg, 16px);
+    overflow-x: auto;
+    border: 1px solid var(--adm-line, var(--admin-border-soft));
+    border-radius: var(--adm-r-card, 12px);
+    background: var(--adm-soft, var(--admin-fill));
+    color: var(--adm-ink, var(--admin-text));
+  }
+
+  :deep(pre code) {
+    padding: 0;
+    background: none;
+    color: inherit;
+    font-size: var(--adm-font-sm, 13px);
+  }
+}
+
+.drawer-form {
+  :deep(.arco-form-item) {
+    margin-bottom: var(--adm-gap-lg, 16px);
+  }
+
+  :deep(.arco-form-item-label) {
+    font-size: var(--adm-font-sm, 13px);
+    color: var(--adm-muted, var(--admin-text-2));
+  }
+
+  :deep(.arco-form-item-content),
+  .drawer-field-stack {
+    display: block;
+    width: 100%;
+  }
 }
 
 .drawer-file-name {
   display: block;
-  margin-top: 8px;
-}
-
-.drawer-edit-form :deep(.arco-form-item-content),
-.drawer-field-stack {
-  display: block;
-  width: 100%;
+  margin-top: var(--adm-gap-sm, 8px);
+  font-size: var(--adm-font-xs, 12px);
 }
 
 .drawer-tags-input {
   width: 100%;
+}
+
+.tag-pool {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--adm-gap-xs, 4px);
+  margin-top: var(--adm-gap-md, 12px);
+  padding: var(--adm-gap-md, 12px);
+  border-radius: var(--adm-r-control, 10px);
+  background: var(--adm-soft, var(--admin-fill));
 }
 
 .tag-pool-item,
@@ -311,23 +445,23 @@ body[arco-theme='dark'] .preview-text :deep(pre) {
 .drawer-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--adm-gap-sm, 8px);
 }
 
 .author-current {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 12px;
+  gap: var(--adm-gap-xs, 4px);
+  margin-bottom: var(--adm-gap-md, 12px);
 }
 
 .author-current-label {
-  font-size: 13px;
-  color: $admin-text-3;
+  font-size: var(--adm-font-sm, 13px);
+  color: var(--adm-muted, var(--admin-text-3));
 }
 
 .author-search {
-  margin-bottom: 12px;
+  margin-bottom: var(--adm-gap-md, 12px);
 }
 
 .user-list {
@@ -338,14 +472,14 @@ body[arco-theme='dark'] .preview-text :deep(pre) {
 .user-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: 8px;
+  gap: var(--adm-gap-sm, 8px);
+  padding: var(--adm-gap-sm, 8px) var(--adm-gap-md, 12px);
+  border-radius: var(--adm-r-control, 10px);
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background var(--adm-dur-fast, 120ms) var(--adm-ease-std, cubic-bezier(.4, 0, .2, 1));
 
   &:hover {
-    background: $admin-fill;
+    background: var(--adm-soft, var(--admin-fill));
   }
 }
 </style>

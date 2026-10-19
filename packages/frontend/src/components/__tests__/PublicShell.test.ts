@@ -19,12 +19,11 @@ async function render(path: string) {
 }
 
 describe('public shell sidebar', () => {
-  it('keeps the shared nav and library above the studio workspace slot', async () => {
+  it('keeps the shared nav above the studio workspace slot', async () => {
     const wrapper = await render('/studio')
     const order = [
       '.public-shell-brand-row',
       '.public-shell-nav',
-      '.public-shell-library',
       '#public-shell-workspace',
       '.public-shell-bottom',
     ]

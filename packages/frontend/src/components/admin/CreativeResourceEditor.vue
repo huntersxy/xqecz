@@ -272,17 +272,17 @@ function addVariable() {
 </template>
 <style scoped>
 .resource-upload {
-  padding: 18px;
-  margin-bottom: 20px;
-  border: 1px solid var(--creative-line);
-  border-radius: 14px;
-  background: var(--creative-canvas);
+  padding: var(--adm-gap-lg, 16px);
+  margin-bottom: var(--adm-gap-lg, 16px);
+  border: 1px solid var(--adm-line, var(--creative-line));
+  border-radius: var(--adm-r-card, 16px);
+  background: var(--adm-canvas, var(--creative-canvas));
 }
 .resource-previews {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: var(--adm-gap-lg, 16px);
+  margin-bottom: var(--adm-gap-xl, 24px);
 }
 .resource-previews figure {
   margin: 0;
@@ -295,42 +295,46 @@ function addVariable() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-top: 8px;
-  color: var(--creative-muted);
-  font-size: 12px;
+  gap: var(--adm-gap-sm, 8px);
+  margin-top: var(--adm-gap-sm, 8px);
+  color: var(--adm-muted, var(--creative-muted));
+  font-size: var(--adm-font-xs, 12px);
 }
 .resource-advanced {
-  margin: 20px 0;
-  color: var(--creative-muted);
+  margin: var(--adm-gap-lg, 16px) 0;
+  color: var(--adm-muted, var(--creative-muted));
 }
 .resource-advanced summary {
   cursor: pointer;
-  margin-bottom: 16px;
+  margin-bottom: var(--adm-gap-lg, 16px);
+}
+.resource-advanced summary:focus-visible {
+  outline: 2px solid var(--adm-accent, var(--creative-accent));
+  outline-offset: 3px;
 }
 .variable-editor {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  padding: 16px;
-  background: var(--creative-canvas);
-  border-radius: 10px;
-  margin: 12px 0;
+  gap: var(--adm-gap-sm, 8px);
+  padding: var(--adm-gap-lg, 16px);
+  background: var(--adm-canvas, var(--creative-canvas));
+  border-radius: var(--adm-r-control, 10px);
+  margin: var(--adm-gap-md, 12px) 0;
 }
 .template-preview {
   white-space: pre-wrap;
-  background: var(--creative-canvas);
-  padding: 16px;
-  border-radius: 8px;
+  background: var(--adm-canvas, var(--creative-canvas));
+  padding: var(--adm-gap-lg, 16px);
+  border-radius: var(--adm-r-control, 10px);
   line-height: 1.7;
 }
 .creative-actions > .arco-form-item {
   flex: 1;
   min-width: 130px;
 }
-@media (max-width: 560px) {
+@media (max-width: 768px) {
   .variable-editor {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>
