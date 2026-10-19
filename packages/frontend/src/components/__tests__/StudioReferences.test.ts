@@ -103,7 +103,7 @@ describe('studio reference sorting', () => {
   })
   it('auto-scrolls to a hidden destination and releases the frame loop after dropping', () => {
     const w = render(300)
-    const handle = w.get('.reference-sort-handle').element
+    const handle = w.get('.reference-preview').element
     pointer(handle, 'pointerdown', 40)
     pointer(handle, 'pointermove', 292)
     for (let i = 0; i < 20; i++) {
@@ -118,7 +118,7 @@ describe('studio reference sorting', () => {
   })
   it('cancels capture and scrolling when a submission locks the draft', async () => {
     const w = render(300)
-    const handle = w.get('.reference-sort-handle').element as HTMLElement
+    const handle = w.get('.reference-preview').element as HTMLElement
     const release = vi.fn()
     Object.assign(handle, {
       setPointerCapture: vi.fn(),
@@ -136,7 +136,7 @@ describe('studio reference sorting', () => {
   })
   it('stops edge scrolling at the original extent even while the drag remains active', () => {
     const w = render(300)
-    const handle = w.get('.reference-sort-handle').element
+    const handle = w.get('.reference-preview').element
     pointer(handle, 'pointerdown', 40)
     pointer(handle, 'pointermove', 292)
     for (let i = 0; i < 100 && frames.size; i++) {
@@ -151,7 +151,7 @@ describe('studio reference sorting', () => {
   })
   it('clears a cancelled gesture and keeps keyboard sorting available without arrow buttons', async () => {
     const w = render()
-    const handle = w.get('.reference-sort-handle')
+    const handle = w.get('.reference-preview')
     pointer(handle.element, 'pointerdown', 40)
     pointer(handle.element, 'pointermove', 450)
     pointer(handle.element, 'pointercancel', 450)

@@ -262,7 +262,7 @@ describe('studio workspace and composer', () => {
     ).toBe(true)
     await flushPromises()
     expect(api.upload).toHaveBeenCalledWith(expect.any(File), expect.any(AbortSignal))
-    expect(w.get('.reference-label').text()).toBe('@图片1')
+    expect(w.get('.reference-label').text()).toBe('@1')
     await w.get('.reference-label').trigger('click')
     expect((w.get('textarea').element as HTMLTextAreaElement).value).toBe('@图片1 ')
   })
@@ -291,7 +291,7 @@ describe('studio workspace and composer', () => {
       ),
     ])
     const w = await render()
-    await w.get('[aria-label="拖动图片1排序"]').trigger('keydown', { key: 'ArrowRight' })
+    await w.get('[aria-label="预览参考图 1"]').trigger('keydown', { key: 'ArrowRight' })
     expect((w.get('textarea').element as HTMLTextAreaElement).value).toBe('@图片2 与 @图片1')
     await w.get('[aria-label="移除图片1"]').trigger('click')
     await flushPromises()

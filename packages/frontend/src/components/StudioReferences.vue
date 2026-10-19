@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onBeforeUnmount, useId } from 'vue'
-import { IconDragDotVertical, IconClose } from '@arco-design/web-vue/es/icon'
+import { IconClose } from '@arco-design/web-vue/es/icon'
 import CreativeImage from './CreativeImage.vue'
 import type { GenerationInput } from '@/api/creative'
 
@@ -136,7 +136,7 @@ function reorder(from: number, to: number) {
   announcement.value = `图片${from + 1}已移至第${to + 1}位，提示词引用已同步更新。`
   void nextTick(() =>
     rail.value
-      ?.querySelector<HTMLButtonElement>(`[data-reference-id="${id}"] .reference-sort-handle`)
+      ?.querySelector<HTMLButtonElement>(`[data-reference-id="${id}"] .reference-preview`)
       ?.focus({ preventScroll: true }),
   )
 }
@@ -192,7 +192,7 @@ onBeforeUnmount(resetGesture)
     aria-label="已选参考图"
   >
     <span :id="helpId" class="sr-only"
-      >拖动图片或排序手柄改变顺序；聚焦排序手柄后可用左右方向键、Home 和 End 移动。</span
+      >拖动图片改变顺序；聚焦图片后可用左右方向键、Home 和 End 移动。点击角标可插入提示词引用。</span
     >
     <div
       v-for="(reference, index) in references"
@@ -213,52 +213,156 @@ onBeforeUnmount(resetGesture)
         type="button"
         :disabled="disabled"
         :aria-label="`预览参考图 ${index + 1}`"
+        :aria-describedby="helpId"
+        :title="`图片 ${index + 1}：点击预览，拖动排序`"
         @click="preview(reference.asset_id)"
         @pointerdown="start($event, index)"
         @pointermove="move"
         @pointerup="finish"
         @pointercancel="resetGesture"
         @lostpointercapture="resetGesture"
+        @keydown="keyboard($event, index)"
         @dragstart.prevent
       >
         <CreativeImage :id="reference.asset_id" />
       </button>
       <button
         type="button"
-        class="reference-label"
+        class="reference-label reference-index"
         :disabled="disabled"
         :aria-label="`插入 @图片${index + 1} 到提示词`"
+        title="插入提示词引用"
         @click="emit('mention', index)"
       >
-        @图片{{ index + 1 }}
+        @{{ index + 1 }}
       </button>
-      <div class="reference-tools">
-        <button
-          type="button"
-          class="reference-sort-handle"
-          :disabled="disabled || references.length < 2"
-          :aria-label="`拖动图片${index + 1}排序`"
-          :aria-describedby="helpId"
-          title="拖动排序，也可使用左右方向键"
-          @pointerdown="start($event, index)"
-          @pointermove="move"
-          @pointerup="finish"
-          @pointercancel="resetGesture"
-          @lostpointercapture="resetGesture"
-          @keydown="keyboard($event, index)"
-        >
-          <IconDragDotVertical />
-        </button>
-        <button
-          type="button"
-          :disabled="disabled"
-          :aria-label="`移除图片${index + 1}`"
-          @click="emit('remove', index)"
-        >
-          <IconClose />
-        </button>
-      </div>
+      <button
+        type="button"
+        class="reference-remove"
+        :disabled="disabled"
+        :aria-label="`移除图片${index + 1}`"
+        title="移除参考图"
+        @click="emit('remove', index)"
+      >
+        <IconClose />
+      </button>
     </div>
   </div>
   <span class="sr-only" role="status" aria-live="polite">{{ announcement }}</span>
 </template>
+
+<style scoped>
+/* Compact thumbnail rail: the image itself is the drag target, the numeric
+   badge inserts a mention, and the remove control sits in the corner. */
+.composer-references {
+  gap: 8px;
+  padding-bottom: 4px;
+}
+.composer-reference {
+  display: block;
+  width: 56px;
+  height: 56px;
+}
+.reference-preview {
+  position: relative;
+  display: block;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--creative-line);
+  border-radius: 10px;
+  background: var(--creative-canvas);
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+}
+.reference-preview:active {
+  cursor: grabbing;
+}
+.reference-preview .creative-image {
+  height: 100%;
+  min-height: 0;
+}
+.reference-preview :deep(.creative-image img) {
+  object-fit: cover;
+}
+.reference-index {
+  position: absolute;
+  z-index: 2;
+  bottom: 3px;
+  left: 3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--creative-paper) 88%, transparent);
+  color: var(--creative-accent);
+  font-size: 9px;
+  font-weight: 650;
+  line-height: 18px;
+  text-align: center;
+  cursor: pointer;
+}
+.reference-remove {
+  position: absolute;
+  z-index: 2;
+  top: 2px;
+  right: 2px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--creative-paper) 88%, transparent);
+  color: var(--creative-muted);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+.reference-remove svg {
+  width: 10px;
+  height: 10px;
+}
+.composer-reference:hover .reference-remove,
+.reference-remove:focus-visible {
+  opacity: 1;
+}
+.reference-remove:hover {
+  color: var(--creative-accent);
+}
+.reference-index:disabled,
+.reference-remove:disabled {
+  opacity: 0;
+  cursor: not-allowed;
+}
+@media (hover: none) {
+  .reference-remove {
+    opacity: 1;
+  }
+}
+@media (max-width: 820px) {
+  .reference-index,
+  .reference-remove {
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+  }
+  .reference-index {
+    bottom: 2px;
+    left: 2px;
+    font-size: 9px;
+  }
+  .reference-remove {
+    top: 2px;
+    right: 2px;
+  }
+  .reference-remove svg {
+    width: 11px;
+    height: 11px;
+  }
+}
+</style>
