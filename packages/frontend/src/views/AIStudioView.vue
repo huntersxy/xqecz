@@ -3010,6 +3010,15 @@ watch(ready, (value) => {
     max-height: none;
     overflow: visible;
   }
+  .ws-canvas-grid.is-single {
+    max-width: min(
+      100%,
+      max(
+        160px,
+        calc(var(--studio-visible-height, 100dvh) - var(--studio-dock-height, 0px) - 300px)
+      )
+    );
+  }
   .ws-actions {
     justify-content: space-around;
     gap: 2px;
