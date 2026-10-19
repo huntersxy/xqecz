@@ -1,71 +1,15 @@
-import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-
-declare module 'vue-router' {
-  interface RouteMeta {
-    requiresAuth?: boolean
-  }
-}
-
-const routes: RouteRecordRaw[] = [
-  {
-    path: '/',
-    name: 'home',
-    component: () => import('../views/HomeView.vue'),
-  },
-  {
-    path: '/quick-upload',
-    name: 'quick-upload',
-    component: () => import('../views/QuickUploadView.vue'),
-  },
-  {
-    path: '/studio',
-    name: 'ai-studio',
-    component: () => import('../views/AIStudioView.vue'),
-    meta: { requiresAuth: true },
-  },
-  { path: '/characters', name: 'characters', component: () => import('../views/CreativeCatalogView.vue') },
-  { path: '/characters/:id', name: 'character-detail', component: () => import('../views/CreativeCatalogView.vue') },
-  { path: '/ideas', name: 'ideas', component: () => import('../views/IdeasView.vue') },
-  { path: '/ideas/:id', name: 'idea-detail', component: () => import('../views/IdeasView.vue') },
-  { path: '/polls', name: 'polls', component: () => import('../views/PollsView.vue') },
-  { path: '/polls/:id', name: 'poll-detail', component: () => import('../views/PollsView.vue') },
-  {
-    path: '/login',
-    name: 'login',
-    component: () => import('../views/LoginView.vue'),
-  },
-  {
-    path: '/content/:id',
-    name: 'content-detail',
-    component: () => import('../views/ContentDetailView.vue'),
-  },
-  {
-    path: '/admin',
-    name: 'admin',
-    component: () => import('../views/AdminView.vue'),
-    meta: { requiresAuth: true },
-  },
-]
+import { createRoutePreloader, scheduleIdlePreloads } from './preload'
+import { routes } from './routes'
 
 const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
   routes,
 })
 
-const preloading = new Map<string, Promise<unknown>>()
-// Start the same lazy loader used by navigation on pointer/focus intent. This
-// warms code only: it does not mount pages, fetch private data, or start timers.
-export function preloadRoute(path: string) {
-  const record = router.resolve(path).matched.at(-1)
-  const loader = record?.components?.default
-  if (!record || typeof loader !== 'function' || preloading.has(record.path)) return
-  const loading = Promise.resolve((loader as () => Promise<unknown>)()).catch((error) => {
-    preloading.delete(record.path)
-    console.warn('页面预加载失败，将在打开时重试', error)
-  })
-  preloading.set(record.path, loading)
-}
+/** 供导航意图（hover/focus）预热页面代码；真正打开页面仍走路由懒加载。 */
+export const preloadRoute = createRoutePreloader(router)
 
 router.beforeEach(async (to) => {
   const userStore = useUserStore()
@@ -83,35 +27,6 @@ router.beforeEach(async (to) => {
   // 否则会误伤非管理员的正常功能。
 })
 
-interface PreloadTask {
-  loader: () => Promise<unknown>
-  priority: number
-  delay: number
-}
-
-const preloadQueue: PreloadTask[] = [
-  { loader: () => import('../views/ContentDetailView.vue'), priority: 1, delay: 2000 },
-  { loader: () => import('../views/LoginView.vue'), priority: 2, delay: 4000 },
-  { loader: () => import('../views/AdminView.vue'), priority: 3, delay: 6000 },
-]
-
-function schedulePreload(task: PreloadTask) {
-  const run = () => {
-    task.loader().catch(() => {})
-  }
-
-  if ('requestIdleCallback' in globalThis) {
-    globalThis.requestIdleCallback(() => {
-      setTimeout(run, task.delay)
-    })
-  } else {
-    setTimeout(run, task.delay + 2000)
-  }
-}
-
-if (typeof globalThis !== 'undefined') {
-  preloadQueue.sort((a, b) => a.priority - b.priority)
-  preloadQueue.forEach(schedulePreload)
-}
+scheduleIdlePreloads()
 
 export default router
