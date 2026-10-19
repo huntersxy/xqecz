@@ -3,7 +3,6 @@ import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useAIStudio } from '@/composables/useAIStudio'
 import { useStudioDock } from '@/composables/useStudioDock'
-import { useUserStore } from '@/stores/user'
 import { aiApi } from '@/api/creative'
 import { contentApi } from '@/api'
 import type { AIAsset, AITaskView } from '@/types/schemas'
@@ -19,7 +18,6 @@ import {
   IconDownload,
   IconShareExternal,
   IconMore,
-  IconMenu,
   IconClose,
   IconEdit,
   IconCheck,
@@ -31,15 +29,14 @@ import CreativeLibrary from '@/components/CreativeLibrary.vue'
 import StudioReferences from '@/components/StudioReferences.vue'
 import StudioSizePicker from '@/components/StudioSizePicker.vue'
 import AutoMetadataOption from '@/components/AutoMetadataOption.vue'
-import UserAvatar from '@/components/UserAvatar.vue'
 import '@/assets/creative-pages.css'
 import { referenceMentionAt, remapReferenceMentions } from '@/utils/creativeMentions'
+import { closeShellSidebar } from '@/utils/shellSidebar'
 import { formatImageSize, normalizeImageSize, parseImageSize, AUTO_IMAGE_SIZE } from '@/utils/imageSize'
 
 const studio = useAIStudio(),
   router = useRouter(),
   route = useRoute(),
-  userStore = useUserStore(),
   { confirm } = useConfirm()
 const {
   tasks,
@@ -72,7 +69,6 @@ const {
 } = studio
 
 // ── Layout state ─────────────────────────────────────────────────────────────
-const sidebarOpen = ref(false)
 const sidebarTab = ref<'workspace' | 'liked'>('workspace')
 const viewMode = ref<'single' | 'all'>('single')
 const promptExpanded = ref(false)
@@ -117,7 +113,6 @@ const labels: Record<string, string> = {
   cancelled: '已取消',
   unknown: '待核查',
 }
-const username = computed(() => userStore.user?.username || '创作者')
 const composerLocked = computed(
   () => !ready.value || !!pending.value || busy.value || uploading.value || confirming.value,
 )
@@ -219,12 +214,6 @@ function statusClass(value: string) {
 }
 
 // ── Workspace navigation ────────────────────────────────────────────────────
-function closeSidebar() {
-  sidebarOpen.value = false
-}
-function openSidebar() {
-  sidebarOpen.value = true
-}
 function setSidebarTab(tab: 'workspace' | 'liked') {
   sidebarTab.value = tab
 }
@@ -235,7 +224,7 @@ function selectTask(row: AITaskView) {
   promptExpanded.value = false
   resultOpen.value = false
   awaitingTask.value = 0
-  closeSidebar()
+  closeShellSidebar()
 }
 function selectAsset(asset: AIAsset) {
   selectedAsset.value = asset
@@ -253,7 +242,7 @@ function selectLiked(asset: AIAsset) {
   selectedAsset.value = asset
   viewMode.value = 'single'
   promptExpanded.value = false
-  closeSidebar()
+  closeShellSidebar()
 }
 function isActiveRow(row: AITaskView) {
   if (row.task.id === activeTaskId.value) return true
@@ -261,12 +250,12 @@ function isActiveRow(row: AITaskView) {
 }
 function chooseSession(id: number) {
   workspaceMenuOpen.value = false
-  closeSidebar()
+  closeShellSidebar()
   void studio.run(() => studio.switchSession(id))
 }
 async function newWorkspace() {
   workspaceMenuOpen.value = false
-  closeSidebar()
+  closeShellSidebar()
   await studio.run(() =>
     studio.createWorkspace(`新工作区 ${Math.max(1, sessions.value.length + 1)}`),
   )
@@ -713,7 +702,7 @@ watch([ready, search, status], () => {
 })
 watch(
   () => route.fullPath,
-  () => closeSidebar(),
+  () => closeShellSidebar(),
 )
 onBeforeUnmount(() => {
   if (historyTimer) clearTimeout(historyTimer)
@@ -753,33 +742,14 @@ watch(ready, (value) => {
   <div
     class="creative-page creative-theme ai-studio ws-shell"
     :style="dockStyle"
-    :class="{ 'is-switching': switching, 'is-sidebar-open': sidebarOpen }"
+    :class="{ 'is-switching': switching }"
   >
-    <button
-      v-if="sidebarOpen"
-      type="button"
-      class="ws-scrim"
-      aria-label="关闭工作区侧栏"
-      @click="closeSidebar"
-    ></button>
-
-    <aside class="ws-sidebar" :class="{ 'is-open': sidebarOpen }" aria-label="工作区导航">
-      <header class="ws-sidebar-head">
-        <div class="ws-user">
-          <UserAvatar
-            :size="34"
-            :email="userStore.user?.email"
-            :username="userStore.user?.username"
-          />
-          <span class="ws-user-copy">
-            <strong>{{ username }}</strong>
-            <small>{{ studio.saveState.value || '创作工作台' }}</small>
-          </span>
+    <Teleport defer to="#public-shell-workspace">
+      <div class="ws-sidebar-content" aria-label="工作区导航">
+        <div class="ws-sidebar-top">
+          <span class="ws-sidebar-kicker">创作工作台</span>
+          <small>{{ studio.saveState.value || '已同步' }}</small>
         </div>
-        <button class="ws-icon-btn ws-sidebar-close" type="button" aria-label="关闭工作区侧栏" @click="closeSidebar">
-          <IconClose />
-        </button>
-      </header>
 
       <nav class="ws-tabs" aria-label="工作区栏目">
         <button
@@ -947,13 +917,11 @@ watch(ready, (value) => {
           清理失败 {{ failedTaskRows.length }}
         </button>
       </footer>
-    </aside>
+      </div>
+    </Teleport>
 
     <section class="ws-main" aria-label="创作舞台">
       <header class="ws-stage-head">
-        <button class="ws-icon-btn ws-menu-btn" type="button" aria-label="打开工作区" @click="openSidebar">
-          <IconMenu />
-        </button>
         <div v-if="stageTask" class="ws-stage-meta">
           <strong>{{ clockOf(stageTask.task.created_at) }}</strong>
           <span class="ws-stage-sep" aria-hidden="true">·</span>
@@ -1356,7 +1324,6 @@ watch(ready, (value) => {
         <p>选择一个任务，查看提示词、参考图与生成参数。</p>
       </div>
     </aside>
-  </div>
 
   <StudioSizePicker v-model:visible="sizePickerOpen" :model-value="size" @select="size = $event" />
 
@@ -1496,20 +1463,20 @@ watch(ready, (value) => {
     <p class="creative-note">同一结果只关联一条站内内容。</p>
     <a-button type="primary" :disabled="!publishForm.public_consent" @click="publish">确认发布</a-button></a-modal
   >
+  </div>
 </template>
 
 <style scoped>
 /*
- * Workspace shell — 参考工作台的「左历史 / 中舞台 / 右详情 + 吸底输入」结构。
- * 颜色只用全站 --site-* 与 --creative-*，保证与首页暖纸视觉同源。
+ * Workspace shell — 任务历史在 PublicShell 的真实侧栏里，页面只保留
+ * 舞台与详情两列；颜色只用全站 --site-* 与 --creative-*。
  */
 .ai-studio.ws-shell {
-  --ws-sidebar: 262px;
   --ws-detail: 282px;
   position: relative;
   isolation: isolate;
   display: grid;
-  grid-template-columns: var(--ws-sidebar) minmax(0, 1fr) var(--ws-detail);
+  grid-template-columns: minmax(0, 1fr) var(--ws-detail);
   gap: clamp(10px, 1.1vw, 18px);
   width: 100%;
   max-width: 1480px;
@@ -1536,11 +1503,6 @@ watch(ready, (value) => {
 .ai-studio.is-switching .ws-detail {
   opacity: 0.55;
   pointer-events: none;
-}
-/* The shell is an isolated stacking context; while its drawer is open it must
-   paint above the global sticky topbar, not behind it. */
-.ai-studio.is-sidebar-open {
-  z-index: 101;
 }
 .ws-kicker {
   display: block;
@@ -1573,58 +1535,38 @@ watch(ready, (value) => {
   height: 16px;
 }
 
-/* ── Sidebar ─────────────────────────────────────────────────────────────── */
-.ws-sidebar {
+/* ── Sidebar (teleported into PublicShell) ──────────────────────────────── */
+.ws-sidebar-content {
   display: flex;
+  flex: 1;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--site-line);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--site-paper) 92%, transparent);
-  box-shadow: var(--shadow-sm);
 }
-.ws-sidebar-head {
+.ws-sidebar-top {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 14px 10px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
 }
-.ws-user {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-.ws-user-copy {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.ws-user-copy strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--site-ink);
-  font-size: 13px;
-}
-.ws-user-copy small {
-  margin-top: 2px;
-  overflow: hidden;
+.ws-sidebar-kicker {
   color: var(--site-muted);
   font-size: 10px;
+  letter-spacing: 0.14em;
+}
+.ws-sidebar-top small {
+  overflow: hidden;
+  color: var(--site-muted);
+  font-size: 9px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.ws-sidebar-close {
-  display: none;
-  margin-left: auto;
 }
 .ws-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4px;
-  margin: 0 12px;
+  margin: 0;
   padding: 3px;
   border-radius: 12px;
   background: var(--site-soft);
@@ -1669,7 +1611,7 @@ watch(ready, (value) => {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 10px 10px 14px;
+  padding: 8px 0 12px;
   overscroll-behavior: contain;
   scrollbar-color: var(--site-line) transparent;
 }
@@ -1984,7 +1926,7 @@ watch(ready, (value) => {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px 12px;
+  padding: 10px 0 12px;
   border-top: 1px solid var(--site-line);
 }
 .ws-credit-ring {
@@ -2037,9 +1979,6 @@ watch(ready, (value) => {
   gap: 10px;
   min-height: 44px;
   padding: 0 4px;
-}
-.ws-menu-btn {
-  display: none;
 }
 .ws-stage-meta {
   display: flex;
@@ -2765,9 +2704,6 @@ watch(ready, (value) => {
 }
 
 /* ── Drawer / modals ─────────────────────────────────────────────────────── */
-.ws-scrim {
-  display: none;
-}
 :global(.studio-side-drawer .arco-drawer-body) {
   display: flex;
   flex-direction: column;
@@ -2911,13 +2847,12 @@ watch(ready, (value) => {
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 1320px) {
   .ai-studio.ws-shell {
-    --ws-sidebar: 244px;
     --ws-detail: 252px;
   }
 }
 @media (max-width: 1100px) {
   .ai-studio.ws-shell {
-    grid-template-columns: 244px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
   .ws-detail {
     display: none;
@@ -2928,47 +2863,15 @@ watch(ready, (value) => {
     display: block;
     height: auto;
     min-height: 0;
-    padding: 0 0 calc(var(--studio-dock-height, 150px) + 18px);
+    padding: 0 0 calc(var(--studio-dock-height, 150px) + 28px);
     overflow: visible;
   }
   .ai-studio.ws-shell::before {
     inset: 0;
   }
-  .ws-sidebar {
-    position: fixed;
-    z-index: 100;
-    inset: 0 auto 0 0;
-    width: min(86vw, 340px);
-    border-radius: 0 18px 18px 0;
-    background: var(--site-paper);
-    box-shadow: 18px 0 44px color-mix(in srgb, var(--site-ink) 18%, transparent);
-    transform: translateX(-104%);
-    transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  .ws-sidebar.is-open {
-    transform: translateX(0);
-  }
-  .ws-sidebar-close {
-    display: grid;
-  }
-  .ws-scrim {
-    position: fixed;
-    inset: 0;
-    z-index: 95;
-    display: block;
-    border: 0;
-    background: color-mix(in srgb, var(--site-ink) 34%, transparent);
-  }
   .ws-main {
     display: flex;
     min-height: 0;
-  }
-  .ws-menu-btn {
-    display: grid;
-    flex: 0 0 auto;
-    margin-left: -4px;
-    border: 1px solid var(--site-line);
-    background: var(--site-paper);
   }
   .ws-stage-head {
     position: relative;
@@ -3040,7 +2943,7 @@ watch(ready, (value) => {
     position: fixed;
     z-index: 90;
     right: max(8px, env(safe-area-inset-right));
-    bottom: var(--studio-dock-bottom, 0px);
+    bottom: calc(var(--studio-dock-bottom, 0px) + 10px);
     left: max(8px, env(safe-area-inset-left));
     margin: 0;
     padding: 0 0 max(4px, env(safe-area-inset-bottom));
@@ -3079,7 +2982,7 @@ watch(ready, (value) => {
   .ws-settings {
     position: fixed;
     right: max(8px, env(safe-area-inset-right));
-    bottom: calc(var(--studio-dock-height, 150px) + var(--studio-dock-bottom, 0px) + 8px);
+    bottom: calc(var(--studio-dock-height, 150px) + var(--studio-dock-bottom, 0px) + 18px);
     left: max(8px, env(safe-area-inset-left));
     max-height: min(54dvh, calc(var(--studio-visible-height, 100dvh) - var(--studio-dock-height, 150px) - 24px));
     padding: 12px;
@@ -3101,7 +3004,6 @@ watch(ready, (value) => {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ws-sidebar,
   .ws-composer-box,
   .ws-send-btn {
     transition: none;

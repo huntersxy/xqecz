@@ -74,6 +74,7 @@ async function render() {
       stubs: {
         CreativeImage: { props: ['id'], template: '<span class="test-image" :data-id="id" />' },
         CreativeLibrary: true,
+        teleport: true,
         Modal: {
           props: ['visible'],
           template: '<section v-if="visible" class="test-modal"><slot /></section>',

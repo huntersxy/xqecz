@@ -6,6 +6,7 @@ import { useThemeStore } from '@/stores/theme'
 import { useUserStore } from '@/stores/user'
 import { useGlobalSearch } from '@/composables/useGlobalSearch'
 import { revealOriginFrom, withRevealTransition } from '@/utils/viewTransition'
+import { SHELL_SIDEBAR_CLOSE_EVENT } from '@/utils/shellSidebar'
 import UserAvatar from '@/components/UserAvatar.vue'
 
 const route = useRoute()
@@ -75,8 +76,16 @@ function onGlobalKeydown(event: KeyboardEvent) {
   searchInput.value?.select()
 }
 
-onMounted(() => window.addEventListener('keydown', onGlobalKeydown))
-onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKeydown))
+onMounted(() => {
+  window.addEventListener('keydown', onGlobalKeydown)
+  // The studio sidebar is teleported into this shell; it closes the mobile
+  // drawer through this event because it cannot inject this component's state.
+  window.addEventListener(SHELL_SIDEBAR_CLOSE_EVENT, closeMobile)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onGlobalKeydown)
+  window.removeEventListener(SHELL_SIDEBAR_CLOSE_EVENT, closeMobile)
+})
 </script>
 
 <template>
@@ -109,6 +118,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKeydown))
           <span>二创画廊</span>
         </RouterLink>
       </div>
+
+      <!-- Always in the DOM so the studio Teleport can resolve it even when the
+           hash router has not committed /studio yet; hidden elsewhere by CSS. -->
+      <div id="public-shell-workspace" class="public-shell-workspace"></div>
 
       <nav class="public-shell-nav" aria-label="发现">
         <p>发现</p>
@@ -344,54 +357,20 @@ body[arco-theme='dark'] .public-shell {
 .public-shell-menu,
 .public-shell-scrim,
 .public-shell-drawer-close { display: none; }
-/* 工作台模式：站点侧栏不占列宽，改为可用顶栏菜单唤出的抽屉。 */
-.public-shell.is-workspace .public-shell-menu {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--shell-muted);
-  cursor: pointer;
+/* 工作台路由把任务侧栏 Teleport 进真实侧栏；侧栏本身在桌面保持首页骨架。 */
+.public-shell-workspace {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 18px;
 }
-.public-shell.is-workspace .public-shell-drawer-close {
-  position: absolute;
-  top: 18px;
-  right: 16px;
-  z-index: 1;
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid var(--shell-line);
-  border-radius: 50%;
-  background: var(--shell-paper);
-  color: var(--shell-muted);
-  cursor: pointer;
+.public-shell:not(.is-workspace) .public-shell-workspace {
+  display: none;
 }
-@media (min-width: 821px) {
-  .public-shell.is-workspace .public-shell-sidebar {
-    position: fixed;
-    z-index: 30;
-    inset: 0 auto 0 0;
-    height: 100dvh;
-    transform: translateX(-104%);
-    transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
-    box-shadow: 12px 0 32px rgba(31, 24, 27, 0.14);
-  }
-  .public-shell.is-workspace.is-mobile-open .public-shell-sidebar { transform: translateX(0); }
-  .public-shell.is-workspace .public-shell-scrim {
-    position: fixed;
-    inset: 0;
-    z-index: 25;
-    display: block;
-    border: 0;
-    background: rgba(32, 25, 27, 0.32);
-  }
+.public-shell.is-workspace .public-shell-nav,
+.public-shell.is-workspace .public-shell-library {
+  margin-top: 16px;
 }
 @media (max-width: 820px) {
   .public-shell-sidebar { position: fixed; inset: 0 auto 0 0; width: min(82vw, 300px); overflow-y: auto; overscroll-behavior: contain; transform: translateX(-104%); transition: transform .24s cubic-bezier(.22,1,.36,1); box-shadow: 12px 0 32px rgba(31,24,27,.14); }
