@@ -232,6 +232,11 @@ function selectTask(row: AITaskView) {
   closeShellSidebar()
 }
 function showGallery() {
+  // 两个视图共用同一套舞台+详情骨架，切到「全部结果」时要让详情栏有任务可显示。
+  if (!stageTask.value) {
+    const row = galleryTasks.value[0]
+    if (row) selectTask(row)
+  }
   galleryOpen.value = true
   promptExpanded.value = false
   closeShellSidebar()
@@ -746,7 +751,7 @@ watch(ready, (value) => {
   <div
     class="creative-page creative-theme ai-studio ws-shell"
     :style="dockStyle"
-    :class="{ 'is-switching': switching, 'is-gallery': galleryOpen }"
+    :class="{ 'is-switching': switching }"
   >
     <Teleport defer to="#public-shell-workspace">
       <div class="ws-sidebar-content" aria-label="工作区导航">
@@ -1483,6 +1488,8 @@ watch(ready, (value) => {
 /*
  * Workspace shell — 任务历史在 PublicShell 的真实侧栏里，页面只保留
  * 舞台与详情两列；颜色只用全站 --site-* 与 --creative-*。
+ * 「全部结果 / 单个任务」是同一骨架的形态切换：只有舞台中间换掉，
+ * 顶栏、详情栏与输入区位置不变，切换时内容不横向跳动。
  */
 .ai-studio.ws-shell {
   --ws-detail: 282px;
@@ -1516,13 +1523,6 @@ watch(ready, (value) => {
 .ai-studio.is-switching .ws-detail {
   opacity: 0.55;
   pointer-events: none;
-}
-/* "全部结果" uses the full width; task details belong to the single-task view. */
-.ai-studio.ws-shell.is-gallery {
-  grid-template-columns: minmax(0, 1fr);
-}
-.ai-studio.ws-shell.is-gallery .ws-detail {
-  display: none;
 }
 .ws-kicker {
   display: block;

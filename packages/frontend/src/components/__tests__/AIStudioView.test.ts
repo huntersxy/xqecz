@@ -219,6 +219,35 @@ describe('studio workspace and composer', () => {
     expect(w.findAll('.ws-result-strip button')).toHaveLength(2)
   })
 
+  it('keeps the same stage and detail skeleton in both views instead of splitting into two layouts', async () => {
+    api.tasks.mockResolvedValue([task(1), task(2, 1)])
+    const w = await render()
+    // 同一骨架：两个视图都保留详情栏，切换时不因布局变化而横向跳动。
+    expect(w.find('.ws-gallery').exists()).toBe(true)
+    expect(w.get('.ws-detail').attributes('aria-label')).toBe('任务详情')
+    expect(w.get('.ws-shell').classes()).not.toContain('is-gallery')
+    await showTask(w)
+    expect(w.find('.ws-gallery').exists()).toBe(false)
+    expect(w.get('.ws-detail').exists()).toBe(true)
+    expect(w.get('.ws-shell').classes()).not.toContain('is-gallery')
+  })
+
+  it('selects the first visible task when opening the gallery so the detail pane has content', async () => {
+    api.tasks.mockResolvedValue([task(1), task(2, 1)])
+    const w = await render()
+    expect(w.find('.ws-gallery').exists()).toBe(true)
+    // 单个任务 → 全部结果：回到与当前任务一致的详情。
+    expect(w.get('.ws-detail').text()).toContain('时间')
+    await showTask(w)
+    expect(w.get('.ws-detail').text()).toContain('画面 1')
+    api.tasks.mockResolvedValue([])
+    const empty = await render()
+    const galleryButton = empty.findAll('button').find((item) => item.text().trim() === '全部结果')
+    await galleryButton!.trigger('click')
+    expect(empty.find('.ws-gallery').exists()).toBe(true)
+    expect(empty.get('.ws-detail').text()).toContain('选择一个任务')
+  })
+
   it('refocuses the prompt when reusing a task prompt', async () => {
     api.tasks.mockResolvedValue([task(1)])
     const w = await render()
