@@ -313,7 +313,7 @@ func (h *Handler) saveSession(c *gin.Context) {
 	}
 	ok(c, row)
 }
-func (h *Handler) taskViews(c *gin.Context, rows []core.Task) ([]any, error) {
+func (h *Handler) taskViews(c *gin.Context, rows []core.Task, includeDiagnostic bool) ([]any, error) {
 	ids := []uint64{}
 	userIDs := []uint64{}
 	for _, r := range rows {
@@ -356,6 +356,9 @@ func (h *Handler) taskViews(c *gin.Context, rows []core.Task) ([]any, error) {
 		var snapshot struct {
 			Input      core.Input   `json:"input"`
 			References []core.Asset `json:"references"`
+			// Diagnostic is an administrator-only, redacted failure report; the
+			// task owner must never receive it.
+			Diagnostic string `json:"diagnostic"`
 		}
 		if err := json.Unmarshal([]byte(row.Snapshot), &snapshot); err != nil {
 			snapshot.References = nil
@@ -371,7 +374,11 @@ func (h *Handler) taskViews(c *gin.Context, rows []core.Task) ([]any, error) {
 		if basePrompt == "" {
 			basePrompt = row.Prompt
 		}
-		out = append(out, gin.H{"task": row, "user": gin.H{"id": row.UserID, "username": name}, "assets": own, "references": snapshot.References, "base_prompt": basePrompt, "enhance_prompt": snapshot.Input.EnhancePrompt})
+		view := gin.H{"task": row, "user": gin.H{"id": row.UserID, "username": name}, "assets": own, "references": snapshot.References, "base_prompt": basePrompt, "enhance_prompt": snapshot.Input.EnhancePrompt}
+		if includeDiagnostic {
+			view["diagnostic"] = snapshot.Diagnostic
+		}
+		out = append(out, view)
 	}
 	return out, nil
 }
@@ -411,7 +418,7 @@ func (h *Handler) listTasks(c *gin.Context, admin bool) {
 		fail(c, err)
 		return
 	}
-	views, err := h.taskViews(c, rows)
+	views, err := h.taskViews(c, rows, admin)
 	if err != nil {
 		fail(c, err)
 		return

@@ -30,6 +30,34 @@ type KnownFailure struct{ Message string }
 
 func (e KnownFailure) Error() string { return e.Message }
 
+// ProviderResponseError records a non-success HTTP response whose generation
+// outcome is unknown. The response prefix stays out of Error(): providers may
+// echo prompts or credentials there, and Error() reaches logs. The admin
+// diagnostic reads Snippet and redacts it before persisting.
+type ProviderResponseError struct {
+	StatusCode int
+	Snippet    string
+}
+
+func (e *ProviderResponseError) Error() string {
+	if e == nil {
+		return "供应商结果不明"
+	}
+	return fmt.Sprintf("供应商结果不明（HTTP %d）", e.StatusCode)
+}
+
+const providerFailureSnippetLimit = 512
+
+// readResponseSnippet keeps a bounded prefix of a failed provider response.
+// Broken or empty bodies simply yield an empty diagnostic fragment.
+func readResponseSnippet(body io.Reader) string {
+	if body == nil {
+		return ""
+	}
+	raw, _ := io.ReadAll(io.LimitReader(body, providerFailureSnippetLimit))
+	return strings.TrimSpace(string(raw))
+}
+
 type OpenAIProvider struct{ Client *http.Client }
 
 func (p OpenAIProvider) Generate(ctx context.Context, cfg ProviderConfig, key string, input Input, files []string) ([]Image, error) {
@@ -175,17 +203,20 @@ func (p OpenAIProvider) Generate(ctx context.Context, cfg ProviderConfig, key st
 		if !dispatched.Load() {
 			return nil, KnownFailure{"连接供应商失败，未发送生成请求"}
 		}
-		return nil, errors.New("供应商请求结果不明")
+		return nil, fmt.Errorf("供应商请求结果不明：%w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		if resp.StatusCode >= 400 && resp.StatusCode < 500 && resp.StatusCode != 408 && resp.StatusCode != 429 {
 			return nil, KnownFailure{fmt.Sprintf("供应商拒绝请求（HTTP %d）", resp.StatusCode)}
 		}
-		return nil, fmt.Errorf("供应商结果不明（HTTP %d）", resp.StatusCode)
+		return nil, &ProviderResponseError{StatusCode: resp.StatusCode, Snippet: readResponseSnippet(resp.Body)}
 	}
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, (56<<20)+1))
-	if err != nil || len(raw) > 56<<20 {
+	if err != nil {
+		return nil, fmt.Errorf("供应商响应过大或不完整：%w", err)
+	}
+	if len(raw) > 56<<20 {
 		return nil, errors.New("供应商响应过大或不完整")
 	}
 	var wire struct {

@@ -505,7 +505,12 @@ func (s *Service) recoverStale(ctx context.Context) {
 				s.removeReceipt(row.ID)
 			}
 		} else {
-			_ = s.complete(row, "running", "unknown", "服务中断；结果不明，额度仍预留", nil, false, 0)
+			var snap taskSnapshot
+			_ = json.Unmarshal([]byte(row.Snapshot), &snap)
+			elapsed := time.Since(row.UpdatedAt)
+			s.logUnknownFailure(row.ID, snap.Provider, elapsed, err)
+			_ = s.complete(row, "running", "unknown", fmt.Sprintf("服务中断；结果不明，额度仍预留（任务 #%d）", row.ID), nil, false, 0)
+			s.persistDiagnostic(row.ID, row.Snapshot, failureDiagnostic(row.ID, snap.Provider, err, elapsed, time.Now()))
 		}
 	}
 }
@@ -580,29 +585,45 @@ func (s *Service) runOne(ctx context.Context) {
 		files = append(files, path)
 	}
 	requestCtx, cancel := context.WithTimeout(ctx, time.Duration(snap.Provider.TimeoutSeconds)*time.Second)
+	startedAt := time.Now()
 	images, err := s.provider.Generate(requestCtx, snap.Provider, key, snap.Input, files)
 	cancel()
+	elapsed := time.Since(startedAt)
 	if err != nil && len(images) == 0 {
 		var known KnownFailure
 		if errors.As(err, &known) {
 			_ = s.complete(task, "running", "failed", known.Message, nil, false, 0)
 		} else {
-			_ = s.complete(task, "running", "unknown", "供应商结果不明；额度仍预留，请联系管理员核查", nil, false, 0)
+			s.logUnknownFailure(task.ID, snap.Provider, elapsed, err)
+			_ = s.complete(task, "running", "unknown", unknownFailureMessage(task.ID, snap.Provider, err), nil, false, 0)
+			s.persistDiagnostic(task.ID, task.Snapshot, failureDiagnostic(task.ID, snap.Provider, err, elapsed, time.Now()))
 		}
 		return
 	}
 	status, message := "succeeded", ""
+	var failureErr error
 	if err != nil || len(images) != task.Count {
-		status, message = "unknown", "供应商只返回部分结果；已保存可用图片，额度仍预留"
+		status, message = "unknown", fmt.Sprintf("供应商只返回部分结果；已保存可用图片，额度仍预留（任务 #%d）", task.ID)
+		if err != nil {
+			failureErr = err
+		} else {
+			failureErr = fmt.Errorf("供应商返回 %d 张图片，预期 %d 张", len(images), task.Count)
+		}
 	}
 	assets := []Asset{}
 	for _, img := range images {
-		asset, err := s.saveImage(bytes.NewReader(img.Bytes), task.UserID, task.ID)
-		if err != nil {
-			status, message = "unknown", "供应商已完成，但部分图片保存失败；额度仍预留"
+		asset, saveErr := s.saveImage(bytes.NewReader(img.Bytes), task.UserID, task.ID)
+		if saveErr != nil {
+			slog.Error("AI image save failed", "task_id", task.ID, "provider_id", snap.Provider.ID, "model", snap.Provider.Model, "elapsed_ms", elapsed.Milliseconds(), "status", "unknown", "err", saveErr)
+			status, message = "unknown", fmt.Sprintf("供应商已完成，但部分图片保存失败；额度仍预留（任务 #%d）", task.ID)
+			failureErr = fmt.Errorf("图片保存失败：%w", saveErr)
 			break
 		}
 		assets = append(assets, asset)
+	}
+	if status == "unknown" && failureErr != nil {
+		s.logUnknownFailure(task.ID, snap.Provider, elapsed, failureErr)
+		s.persistDiagnostic(task.ID, task.Snapshot, failureDiagnostic(task.ID, snap.Provider, failureErr, elapsed, time.Now()))
 	}
 	if err := s.writeReceipt(task, status, message, assets); err != nil {
 		slog.Warn("AI result recovery receipt unavailable", "task_id", task.ID)

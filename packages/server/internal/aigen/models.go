@@ -208,4 +208,8 @@ type taskSnapshot struct {
 	CipherKey  string         `json:"key"`
 	References []Asset        `json:"references"`
 	Files      []string       `json:"files"`
+	// Diagnostic is an administrator-only, redacted report of an unknown
+	// provider failure. Task itself json:"-"s the snapshot, so this field only
+	// surfaces through the admin task list.
+	Diagnostic string `json:"diagnostic,omitempty"`
 }

@@ -259,17 +259,20 @@ func (p OpenAIChatProvider) Generate(ctx context.Context, cfg ProviderConfig, ke
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, errors.New("供应商请求结果不明")
+		return nil, fmt.Errorf("供应商请求结果不明：%w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode >= 400 && resp.StatusCode < 500 && resp.StatusCode != 408 && resp.StatusCode != 429 {
 			return nil, KnownFailure{fmt.Sprintf("供应商拒绝请求（HTTP %d）", resp.StatusCode)}
 		}
-		return nil, fmt.Errorf("供应商结果不明（HTTP %d）", resp.StatusCode)
+		return nil, &ProviderResponseError{StatusCode: resp.StatusCode, Snippet: readResponseSnippet(resp.Body)}
 	}
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, (56<<20)+1))
-	if err != nil || len(raw) > 56<<20 {
+	if err != nil {
+		return nil, fmt.Errorf("供应商响应过大或不完整：%w", err)
+	}
+	if len(raw) > 56<<20 {
 		return nil, errors.New("供应商响应过大或不完整")
 	}
 	return decodeAdapterResponse(ctx, raw, input.Count)
@@ -311,17 +314,20 @@ func (p GeminiProvider) Generate(ctx context.Context, cfg ProviderConfig, key st
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, errors.New("供应商请求结果不明")
+		return nil, fmt.Errorf("供应商请求结果不明：%w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode >= 400 && resp.StatusCode < 500 && resp.StatusCode != 408 && resp.StatusCode != 429 {
 			return nil, KnownFailure{fmt.Sprintf("供应商拒绝请求（HTTP %d）", resp.StatusCode)}
 		}
-		return nil, fmt.Errorf("供应商结果不明（HTTP %d）", resp.StatusCode)
+		return nil, &ProviderResponseError{StatusCode: resp.StatusCode, Snippet: readResponseSnippet(resp.Body)}
 	}
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, (56<<20)+1))
-	if err != nil || len(raw) > 56<<20 {
+	if err != nil {
+		return nil, fmt.Errorf("供应商响应过大或不完整：%w", err)
+	}
+	if len(raw) > 56<<20 {
 		return nil, errors.New("供应商响应过大或不完整")
 	}
 	return decodeAdapterResponse(ctx, raw, input.Count)
@@ -412,17 +418,20 @@ func (p CodexResponsesProvider) Generate(ctx context.Context, cfg ProviderConfig
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, errors.New("供应商请求结果不明")
+		return nil, fmt.Errorf("供应商请求结果不明：%w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode >= 400 && resp.StatusCode < 500 && resp.StatusCode != 408 && resp.StatusCode != 429 {
 			return nil, KnownFailure{fmt.Sprintf("供应商拒绝请求（HTTP %d）", resp.StatusCode)}
 		}
-		return nil, fmt.Errorf("供应商结果不明（HTTP %d）", resp.StatusCode)
+		return nil, &ProviderResponseError{StatusCode: resp.StatusCode, Snippet: readResponseSnippet(resp.Body)}
 	}
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, (56<<20)+1))
-	if err != nil || len(raw) > 56<<20 {
+	if err != nil {
+		return nil, fmt.Errorf("供应商响应过大或不完整：%w", err)
+	}
+	if len(raw) > 56<<20 {
 		return nil, errors.New("供应商响应过大或不完整")
 	}
 	return decodeAdapterResponse(ctx, raw, 1)
