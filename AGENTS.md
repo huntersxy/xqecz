@@ -20,7 +20,7 @@
 | 要修改的规则 | 先读/先改的位置 |
 |--------------|------------------|
 | 启动链：主题、登录态刷新、整页过渡、路由预热 | `main.ts` 只做装配挂载；应用级状态归 `App.vue`；路由表 `router/routes.ts`、守卫 `router/index.ts`、意图预热 `router/preload.ts` |
-| AI 工作室、角色设定库、创意广场的页面与控件外观 | `assets/creative-pages.css`；配色复用 `main.css` 的 `--creative-*`；弹层显式带 `creative-theme creative-dialog`。`views/AIStudioView.vue` 只保留舞台与详情，任务侧栏用 `<Teleport defer>` 注入 `PublicShell.vue` 的 `#public-shell-workspace`；手机抽屉关闭经 `utils/shellSidebar.ts`；多工作区、任务隔离与「喜欢」归 `composables/useAIStudio.ts` |
+| AI 工作室、角色设定库、创意广场的页面与控件外观 | `assets/creative-pages.css`；配色复用 `main.css` 的 `--creative-*`；弹层显式带 `creative-theme creative-dialog`。`views/AIStudioView.vue` 只保留舞台与详情，任务侧栏用 `<Teleport defer>` 注入 `PublicShell.vue` 的 `#public-shell-workspace`；手机抽屉关闭经 `utils/shellSidebar.ts`；多工作区、任务隔离与「喜欢」归 `composables/useAIStudio.ts`；尺寸/数量/提示词增强常驻输入区，模型由后端按供应商顺序自动路由，前端不再传 `provider_id` |
 | 角色/模板/旧组合关系、图片引用编号与授权预设 | `utils/creativeResources.ts` / `utils/creativeMentions.ts` / `utils/creativeLicenses.ts`；资源展开后角色与参考图一起导入，重排图片要保持提示词引用目标；`StudioReferences.vue` 只负责拖曳、键盘排序与手势清理，实际顺序归 `useAIStudio.ts` |
 | 首页灵感接力与创意广场的提示词摘要 | `utils/creativeIdeas.ts`；首页栏目宽度由 `HomeView.vue` 与其它首页区块统一约束，子组件不得扩成全屏 |
 | 公开投票入口、参与与统计 | `PollPreview.vue` / `views/PollsView.vue`；列表归 `usePollList.ts`，投票与详情统计归 `usePollBallot.ts`；首页不嵌投票，发起/管理留在后台，票数与本人选择以后端回写为准 |
@@ -32,7 +32,7 @@
 | 星图/走马灯派生小图 | `server/internal/media/atlas.go`；策略按版本目录区分，经既有 `/thumbs` 托管，字段由后端下发，前端不猜文件名 |
 | 星图随机坐标与可见候选 | `utils/artworkUniverse.ts`（纯算法）；渲染资源归 `universeScene.ts` |
 | 星球/星图交互与动画阶段 | `ArtworkPlanet.vue` / `ArtworkUniverse.vue`；组件不重新定义共享媒体规则 |
-| 公开导航、首页列表模式与推荐条 | `PublicShell.vue`（顶栏只切「工作台/作品广场」；侧栏「发现」只放创意广场/角色设定/投票广场，同一路由不在两处重复；`/studio` 保留真实侧栏）与 `HomeView.vue` + `useRecommendLoader.ts`；模式状态在 `stores/home.ts` |
+| 公开导航、首页列表模式与推荐条 | `PublicShell.vue`（顶栏只切「工作台/作品广场」，主题开关只在顶栏右侧；侧栏「发现」只放创意广场/角色设定/投票广场，同一路由不在两处重复；`/studio` 保留真实侧栏）与 `HomeView.vue` + `useRecommendLoader.ts`；模式状态在 `stores/home.ts` |
 | 前后端字段形状与请求/响应契约 | `api/index.ts` / `types/schemas.ts`，服务端对应模块 |
 
 ### 按改动选择验证
@@ -203,7 +203,7 @@ cd packages/server && go run ./cmd/dbsql "SELECT 1"
 
 - **TiDB 兼容性** — ① `TEXT`/`BLOB`/`JSON` 不允许 DEFAULT（1101）；② 不支持 `CHECKSUM TABLE`，一致性校验用「按主键有序导出后比对 md5」；③ 系统库对业务账号只读，必须建独立库；④ 自增游标别查 `information_schema.tables.auto_increment`（CLUSTERED 主键恒 0），用 `SHOW CREATE TABLE` 或 `SHOW TABLE <t> NEXT_ROW_ID`；⑤ 同一条 `ALTER TABLE` 不能给刚新增的列建索引（1072），拆成两条。
 
-- **AI 管理与资源** — 管理员站点生成/赞助不扣额度，权限判定归后端，普通用户仍要预留与结算。任务列表作者由后端批量返回 id/username，不能靠额度选择器的截断用户列表推断；创意广场预览以提示词为主、参考图为辅。额度发放按用户名或全体用户；批量余额/账本同事务提交，全体用户幂等重试复用首次快照。角色和图片统一在「角色资源」维护，旧 `preset` 保留兼容；公开资源关联图须有授权并允许生成与二创。工作台复用真实侧栏：任务侧栏经 `#public-shell-workspace` 注入，槽位固定在「发现 / 我的库」之后，公共导航在作品广场与工作台之间不移动；默认进入「全部结果」瀑布流任务画廊，可切「单个任务」看舞台；画廊与任务列表共用筛选，失败任务以状态卡穿插；结果操作条只留继续编辑、复用提示词、喜欢、下载、发布与移除（同一动作只有一个入口），保存草稿、投稿创意、一键清空常驻输入区，不重复大图弹窗；窄屏用同一个侧栏抽屉、隐藏详情，输入区吸底并留出操作间距。任务列表按 `session_id` 隔离，显式新建工作区才带 `new:true`；`ai_assets.liked` 是作者私有收藏，公开列表与创意广场响应必须清零。参考图上传的取消与会话归属由 `useAIStudio.ts` 管理，拖入/粘贴不能绕过待确认草稿的锁定；`useStudioDock.ts` 测量输入区占位并跟随可视视口避让软键盘，观察器、视口监听和帧调度随卸载清理；输入内容独立滚动，提交栏保持可达。详见 `docs/ai-creation.md`。
+- **AI 管理与资源** — 管理员站点生成/赞助不扣额度，权限判定归后端，普通用户仍要预留与结算。任务列表作者由后端批量返回 id/username，不能靠额度选择器的截断用户列表推断；创意广场预览以提示词为主、参考图为辅。额度发放按用户名或全体用户；批量余额/账本同事务提交，全体用户幂等重试复用首次快照。角色和图片统一在「角色资源」维护，旧 `preset` 保留兼容；公开资源关联图须有授权并允许生成与二创。工作台复用真实侧栏：任务侧栏经 `#public-shell-workspace` 注入，槽位固定在「发现 / 我的库」之后，公共导航在作品广场与工作台之间不移动；默认进入「全部结果」瀑布流任务画廊，可切「单个任务」看舞台；画廊与任务列表共用筛选，失败任务以状态卡穿插；结果操作条只留继续编辑、复用提示词、喜欢、下载、发布与移除（同一动作只有一个入口），保存草稿、投稿创意、一键清空常驻输入区，不重复大图弹窗；窄屏用同一个侧栏抽屉、隐藏详情，输入区吸底并留出操作间距。任务列表按 `session_id` 隔离，显式新建工作区才带 `new:true`；`ai_assets.liked` 是作者私有收藏，公开列表与创意广场响应必须清零。参考图上传的取消与会话归属由 `useAIStudio.ts` 管理，拖入/粘贴不能绕过待确认草稿的锁定；`useStudioDock.ts` 测量输入区占位并跟随可视视口避让软键盘，观察器、视口监听和帧调度随卸载清理；输入内容独立滚动，提交栏保持可达。工作台不提供模型选择：前端 `provider_id` 恒为 0，后端 `providerFor` 按 `default desc, id asc` 顺序自动路由；尺寸/数量/提示词增强常驻输入区。发布生成作品时描述默认取任务快照的 `BasePrompt`（不含增强后缀），是否启用增强写入 `contents.ai_enhanced` 并在详情页显示徽标，空描述由服务端补齐。详见 `docs/ai-creation.md`。
 
 ## 技术栈
 
