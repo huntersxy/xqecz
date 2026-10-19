@@ -165,6 +165,21 @@ describe('studio workspace and composer', () => {
     expect((w.get('textarea').element as HTMLTextAreaElement).value).toBe('画面 1')
   })
 
+  it('still switches to the all-result grid when the workspace has one image', async () => {
+    const single = task(1)
+    single.assets = [asset(2)]
+    single.task.count = 1
+    api.tasks.mockResolvedValue([single])
+    const w = await render()
+    await button(w, '全部').trigger('click')
+    const grid = w.get('.ws-canvas-grid')
+    expect(grid.classes()).toContain('is-single')
+    expect(grid.findAll('button')).toHaveLength(1)
+    await grid.get('button').trigger('click')
+    expect(w.find('.ws-canvas-grid').exists()).toBe(false)
+    expect(w.get('.ws-canvas-image .test-image').attributes('data-id')).toBe('2')
+  })
+
   it('shows every workspace result in all view and continues editing from the chosen one', async () => {
     api.tasks.mockResolvedValue([task(1), task(2, 1)])
     const w = await render()

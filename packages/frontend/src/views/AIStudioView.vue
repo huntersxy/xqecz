@@ -297,7 +297,7 @@ function resizePrompt() {
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(max-width: 820px)').matches
   const visibleHeight = window.visualViewport?.height ?? window.innerHeight
-  const max = phone ? Math.min(240, Math.round(visibleHeight * 0.38)) : 172
+  const max = phone ? Math.min(168, Math.round(visibleHeight * 0.26)) : 120
   const min = phone ? 72 : 64
   el.style.height = 'auto'
   el.style.height = `${Math.max(min, Math.min(el.scrollHeight, max))}px`
@@ -1015,7 +1015,11 @@ watch(ready, (value) => {
         :class="{ 'is-multi': viewMode === 'all' && stageAssets.length > 1, 'is-dragging': dragging }"
       >
         <template v-if="stageAssets.length">
-          <div v-if="viewMode === 'all' && stageAssets.length > 1" class="ws-canvas-grid">
+          <div
+            v-if="viewMode === 'all'"
+            class="ws-canvas-grid"
+            :class="{ 'is-single': stageAssets.length === 1 }"
+          >
             <button
               v-for="(asset, index) in stageAssets"
               :key="asset.id"
@@ -2232,6 +2236,11 @@ watch(ready, (value) => {
   overflow-y: auto;
   padding: 2px;
 }
+.ws-canvas-grid.is-single {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: min(100%, 420px);
+  margin-inline: auto;
+}
 .ws-canvas-grid button {
   overflow: hidden;
   aspect-ratio: 1;
@@ -2822,8 +2831,8 @@ watch(ready, (value) => {
 }
 @media (max-width: 820px) {
   :global(.studio-side-drawer .arco-drawer) {
-    width: 100% !important;
-    max-width: 100% !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
   }
   :global(.studio-side-drawer .arco-drawer-header) {
     padding: 14px 16px;
