@@ -1339,9 +1339,7 @@ body[arco-theme='dark'] .ai-studio {
 .studio-gallery-filters,
 .composer-attachments,
 .composer-controls,
-.composer-footer,
-.result-preview-meta,
-.result-actions {
+.composer-footer {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -2224,32 +2222,6 @@ body[arco-theme='dark'] .ai-studio select {
 .reference-large {
   height: 60dvh;
 }
-.result-preview-meta {
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-.result-zoom {
-  display: flex;
-  gap: 4px;
-  margin-left: auto;
-}
-.result-preview-scroll {
-  height: 50dvh;
-  overflow: auto;
-  background: var(--creative-canvas);
-  border-radius: 12px;
-  scrollbar-color: var(--creative-line) transparent;
-}
-.result-preview-image {
-  padding: 16px;
-}
-.result-actions {
-  flex-wrap: wrap;
-  margin-top: 16px;
-  gap: 8px;
-}
 .library-asset {
   position: relative;
   display: grid;
@@ -2290,9 +2262,6 @@ body[arco-theme='dark'] .ai-studio select {
 .library-asset-delete:hover {
   background: var(--creative-soft);
   color: var(--creative-accent);
-}
-.studio-result-dialog .arco-modal-body {
-  max-height: 80dvh;
 }
 @media (max-width: 1200px) {
   .studio-task-grid {
@@ -2545,10 +2514,6 @@ body[arco-theme='dark'] .ai-studio select {
   }
   .composer-footer {
     gap: 8px;
-  }
-  .result-zoom {
-    width: 100%;
-    margin-left: 0;
   }
 }
 @media (max-width: 540px) {

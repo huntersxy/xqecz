@@ -99,6 +99,10 @@ async function openSettings(w: ReturnType<typeof mount>) {
   await w.get('[aria-label="生成设置"]').trigger('click')
   await flushPromises()
 }
+async function showTask(w: ReturnType<typeof mount>) {
+  await button(w, '单个任务').trigger('click')
+  await flushPromises()
+}
 beforeEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
@@ -155,9 +159,71 @@ describe('studio workspace and composer', () => {
     expect(w.get('[aria-label="生成设置"]').attributes('aria-expanded')).toBe('true')
   })
 
+  it('keeps one entry for each result action and drops the overflow menu', async () => {
+    api.tasks.mockResolvedValue([task(1)])
+    const w = await render()
+    await showTask(w)
+    const actions = w.get('.ws-actions')
+    const labels = actions.findAll('button').map((item) => item.text().trim())
+    expect(labels.filter((label) => label === '继续编辑')).toHaveLength(1)
+    expect(labels.filter((label) => label === '复用提示词')).toHaveLength(1)
+    expect(labels.filter((label) => label === '发布')).toHaveLength(1)
+    expect(labels).not.toContain('加入参考图')
+    expect(labels).not.toContain('分享')
+    expect(actions.find('[aria-label="移除结果"]').exists()).toBe(true)
+    expect(w.find('.ws-more-trigger').exists()).toBe(false)
+    expect(w.findAll('button').filter((item) => item.text().trim() === '继续编辑')).toHaveLength(1)
+  })
+
+  it('keeps draft actions visible in the composer and wired to their workflows', async () => {
+    api.tasks.mockResolvedValue([task(1)])
+    const w = await render()
+    const footer = w.get('.ws-composer-footer')
+    expect(footer.text()).toContain('保存草稿')
+    expect(footer.text()).toContain('投稿创意')
+    await w.get('textarea').setValue('先改一下草稿')
+    api.saveSession.mockClear()
+    await button(w, '保存草稿').trigger('click')
+    await flushPromises()
+    expect(api.saveSession).toHaveBeenCalled()
+    await button(w, '投稿创意').trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('投稿将公开标题、描述、完整提示词')
+  })
+
+  it('clears the prompt and every reference with one action', async () => {
+    const w = await render()
+    await w.get('textarea').setValue('要清空的提示词')
+    paste(w, [new File(['png'], 'ref.png', { type: 'image/png' })])
+    await flushPromises()
+    expect(w.findAll('.composer-reference')).toHaveLength(1)
+    await button(w, '清空').trigger('click')
+    expect((w.get('textarea').element as HTMLTextAreaElement).value).toBe('')
+    expect(w.findAll('.composer-reference')).toHaveLength(0)
+  })
+
+  it('shows all task results as a gallery and opens a chosen image', async () => {
+    const failed = task(3)
+    failed.task.status = 'failed'
+    failed.task.error = 'provider rejected'
+    failed.assets = []
+    api.tasks.mockResolvedValue([task(1), task(2, 1), failed])
+    const w = await render()
+    await button(w, '全部结果').trigger('click')
+    expect(w.findAll('.ws-gallery-card')).toHaveLength(5)
+    expect(w.text()).toContain('生成失败')
+    expect(w.find('.ws-gallery-card.is-state.is-error').exists()).toBe(true)
+    expect(w.find('[aria-label="复用提示词重试"]').exists()).toBe(true)
+    await w.findAll('.ws-gallery-card')[2]!.trigger('click')
+    expect(w.find('.ws-gallery').exists()).toBe(false)
+    expect(w.get('.ws-canvas-image .test-image').attributes('data-id')).toBe('4')
+    expect(w.findAll('.ws-result-strip button')).toHaveLength(2)
+  })
+
   it('opens generation settings and refocuses the prompt when reusing a task prompt', async () => {
     api.tasks.mockResolvedValue([task(1)])
     const w = await render()
+    await showTask(w)
     await openSettings(w)
     expect(w.find('.ws-settings').exists()).toBe(true)
     await button(w, '复用提示词').trigger('click')
@@ -166,47 +232,40 @@ describe('studio workspace and composer', () => {
     expect((w.get('textarea').element as HTMLTextAreaElement).value).toBe('画面 1')
   })
 
-  it('still switches to the all-result grid when the workspace has one image', async () => {
-    const single = task(1)
-    single.assets = [asset(2)]
-    single.task.count = 1
-    api.tasks.mockResolvedValue([single])
-    const w = await render()
-    await button(w, '全部').trigger('click')
-    const grid = w.get('.ws-canvas-grid')
-    expect(grid.classes()).toContain('is-single')
-    expect(grid.findAll('button')).toHaveLength(1)
-    await grid.get('button').trigger('click')
-    expect(w.find('.ws-canvas-grid').exists()).toBe(false)
-    expect(w.get('.ws-canvas-image .test-image').attributes('data-id')).toBe('2')
-  })
-
-  it('shows every workspace result in all view and continues editing from the chosen one', async () => {
+  it('switches between the current task results from the strip and continues editing', async () => {
     api.tasks.mockResolvedValue([task(1), task(2, 1)])
     const w = await render()
     expect(w.findAll('.ws-history-item')).toHaveLength(2)
+    // The workbench opens on the all-results gallery.
+    expect(w.find('.ws-gallery').exists()).toBe(true)
+    await showTask(w)
+    expect(w.find('.ws-gallery').exists()).toBe(false)
     expect(w.get('.ws-canvas-image .test-image').attributes('data-id')).toBe('2')
-    await button(w, '全部').trigger('click')
-    expect(w.findAll('.ws-canvas-grid button')).toHaveLength(4)
-    await w.findAll('.ws-canvas-grid button')[2]!.trigger('click')
-    expect(w.findAll('.ws-canvas-grid')).toHaveLength(0)
-    expect(w.get('.ws-canvas-image .test-image').attributes('data-id')).toBe('4')
-    await w.get('.ws-canvas-image').trigger('click')
-    expect(w.get('.test-modal .test-image').attributes('data-id')).toBe('4')
+    const strip = w.get('.ws-result-strip')
+    expect(strip.findAll('button')).toHaveLength(2)
+    await strip.findAll('button')[1]!.trigger('click')
+    expect(w.get('.ws-canvas-image .test-image').attributes('data-id')).toBe('3')
+    await w.get('.ws-result-strip').findAll('button')[0]!.trigger('click')
+    expect(w.get('.ws-canvas-image .test-image').attributes('data-id')).toBe('2')
+    await w.get('.ws-result-strip').findAll('button')[1]!.trigger('click')
+    // Result actions live on the stage; selecting a result no longer opens a
+    // second copy of the same image behind a modal.
+    expect(w.get('.ws-canvas-image').element.tagName).toBe('DIV')
+    expect(w.find('.test-modal').exists()).toBe(false)
     await w
-      .get('.result-actions')
+      .get('.ws-actions')
       .findAll('button')
       .find((item) => item.text() === '继续编辑')!
       .trigger('click')
     await flushPromises()
     expect(w.find('.test-modal').exists()).toBe(false)
-    expect(w.get('.composer-references .test-image').attributes('data-id')).toBe('4')
+    expect(w.get('.composer-references .test-image').attributes('data-id')).toBe('3')
     expect(document.activeElement).toBe(w.get('textarea').element)
     await w.get('textarea').setValue('继续画这张图')
     await w.get('[aria-label="开始生成"]').trigger('click')
     await flushPromises()
     expect(api.submit).toHaveBeenCalledWith(
-      expect.objectContaining({ parent_asset_id: 4, references: [{ asset_id: 4, note: '' }] }),
+      expect.objectContaining({ parent_asset_id: 3, references: [{ asset_id: 3, note: '' }] }),
       expect.any(AbortSignal),
     )
   })
@@ -214,6 +273,7 @@ describe('studio workspace and composer', () => {
   it('likes a selected result and lists it under the liked tab', async () => {
     api.tasks.mockResolvedValue([task(1)])
     const w = await render()
+    await showTask(w)
     await button(w, '喜欢').trigger('click')
     await flushPromises()
     expect(api.setLiked).toHaveBeenCalledWith(2, true)

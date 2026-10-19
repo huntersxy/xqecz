@@ -16,8 +16,8 @@ import {
   IconHeart,
   IconHeartFill,
   IconDownload,
-  IconShareExternal,
-  IconMore,
+  IconUpload,
+  IconDelete,
   IconClose,
   IconEdit,
   IconCheck,
@@ -70,20 +70,19 @@ const {
 
 // ── Layout state ─────────────────────────────────────────────────────────────
 const sidebarTab = ref<'workspace' | 'liked'>('workspace')
-const viewMode = ref<'single' | 'all'>('single')
+// 进入工作台默认看全部结果，点任务历史或「单个任务」再回到舞台。
+const galleryOpen = ref(true)
 const promptExpanded = ref(false)
 const activeTaskId = ref(0)
 const workspaceMenuOpen = ref(false)
 const renaming = ref(false)
 const renameDraft = ref('')
 const settingsOpen = ref(false)
-const resultOpen = ref(false)
 const sizePickerOpen = ref(false)
 const publishOpen = ref(false)
 const previewReference = ref(0)
 const resourceOpen = ref(false)
 const resourceTab = ref<'library' | 'history' | 'idea'>('library')
-const zoom = ref(1)
 const search = ref('')
 const status = ref('')
 const uploading = ref(false)
@@ -115,6 +114,12 @@ const labels: Record<string, string> = {
 }
 const composerLocked = computed(
   () => !ready.value || !!pending.value || busy.value || uploading.value || confirming.value,
+)
+const hasDraftContent = computed(
+  () =>
+    !!prompt.value.trim() ||
+    references.value.length > 0 ||
+    studio.characterIds.value.length > 0,
 )
 const canGenerate = computed(
   () =>
@@ -158,33 +163,31 @@ const stageTask = computed(() => {
     null
   )
 })
-/** Every result currently visible in the history list; "全部" mirrors that set. */
-const visibleAssets = computed(() => {
-  const rows = shownTasks.value.length ? shownTasks.value : tasks.value
-  const seen = new Set<number>()
-  const out: AIAsset[] = []
-  for (const row of rows) {
-    for (const asset of row.assets) {
-      if (seen.has(asset.id)) continue
-      seen.add(asset.id)
-      out.push(asset)
-    }
-  }
-  return out
-})
-const stageAssets = computed(() => {
-  if (viewMode.value === 'all') {
-    if (visibleAssets.value.length) return visibleAssets.value
-    return selectedAsset.value ? [selectedAsset.value] : []
-  }
+/** All results of the task on stage; "全部" must not mix other history rows. */
+const stageTaskAssets = computed(() => {
+  if (stageTask.value?.assets.length) return stageTask.value.assets
   return selectedAsset.value ? [selectedAsset.value] : []
 })
+const stageAssets = computed(() => (selectedAsset.value ? [selectedAsset.value] : []))
 const stagePrompt = computed(() => stageTask.value?.task.prompt ?? '')
 const detailReferences = computed(() => stageTask.value?.references ?? [])
 const stageTaskFailed = computed(() =>
   !!stageTask.value && ['failed', 'cancelled', 'unknown'].includes(stageTask.value.task.status),
 )
 const selectedIsLiked = computed(() => !!selectedAsset.value?.liked)
+/** "全部结果" gallery mirrors the task filters but never changes the stage task. */
+const galleryTasks = computed(() => shownTasks.value)
+const galleryItems = computed<{ row: AITaskView; asset: AIAsset | null }[]>(() => {
+  const items: { row: AITaskView; asset: AIAsset | null }[] = []
+  for (const row of galleryTasks.value) {
+    if (row.assets.length) {
+      for (const asset of row.assets) items.push({ row, asset })
+    } else {
+      items.push({ row, asset: null })
+    }
+  }
+  return items
+})
 
 const mention = ref<ReturnType<typeof referenceMentionAt>>(null),
   mentionIndex = ref(0)
@@ -212,6 +215,11 @@ function dayOf(iso: string) {
 function statusClass(value: string) {
   return value === 'succeeded' ? 'is-success' : ['failed', 'cancelled'].includes(value) ? 'is-danger' : 'is-accent'
 }
+function galleryStateLabel(value: string) {
+  if (value === 'failed' || value === 'cancelled') return '生成失败'
+  if (value === 'unknown') return '结果待核查'
+  return labels[value] ?? value
+}
 
 // ── Workspace navigation ────────────────────────────────────────────────────
 function setSidebarTab(tab: 'workspace' | 'liked') {
@@ -220,27 +228,36 @@ function setSidebarTab(tab: 'workspace' | 'liked') {
 function selectTask(row: AITaskView) {
   activeTaskId.value = row.task.id
   selectedAsset.value = row.assets[0] ?? null
-  viewMode.value = 'single'
+  galleryOpen.value = false
   promptExpanded.value = false
-  resultOpen.value = false
   awaitingTask.value = 0
   closeShellSidebar()
+}
+function showGallery() {
+  galleryOpen.value = true
+  promptExpanded.value = false
+  closeShellSidebar()
+}
+function showTaskView() {
+  galleryOpen.value = false
+  if (!selectedAsset.value) {
+    const row = galleryTasks.value[0]
+    if (row) selectTask(row)
+  }
+}
+function openGalleryAsset(row: AITaskView, asset: AIAsset) {
+  selectTask(row)
+  selectAsset(asset)
 }
 function selectAsset(asset: AIAsset) {
   selectedAsset.value = asset
   const row = tasks.value.find((item) => item.assets.some((own) => own.id === asset.id))
   activeTaskId.value = row?.task.id ?? 0
-  resultOpen.value = false
-}
-/** Choosing a thumbnail from the all-results grid focuses it in the single view. */
-function selectGridAsset(asset: AIAsset) {
-  selectAsset(asset)
-  viewMode.value = 'single'
 }
 function selectLiked(asset: AIAsset) {
   activeTaskId.value = 0
   selectedAsset.value = asset
-  viewMode.value = 'single'
+  galleryOpen.value = false
   promptExpanded.value = false
   closeShellSidebar()
 }
@@ -367,6 +384,16 @@ async function focusPrompt() {
   await nextTick()
   promptArea.value?.focus()
 }
+/** One click resets the draft without touching generated history. */
+function clearDraft() {
+  if (composerLocked.value || !hasDraftContent.value) return
+  prompt.value = ''
+  references.value = []
+  studio.parentAssetId.value = 0
+  studio.characterIds.value = []
+  mention.value = null
+  void focusPrompt()
+}
 async function generate() {
   if (!canGenerate.value) return
   // One confirmation owns the submission; repeated keyboard/button input cannot
@@ -433,21 +460,10 @@ async function likeSelected() {
   if (!selectedAsset.value) return
   await studio.run(() => studio.toggleLike(selectedAsset.value!))
 }
-async function useResult(asParent: boolean) {
+async function continueFromSelected() {
   if (!selectedAsset.value || composerLocked.value) return
   await studio.run(async () => {
-    if (asParent) studio.continueFrom(selectedAsset.value!)
-    else studio.addReference(selectedAsset.value!.id)
-    resultOpen.value = false
-    await focusPrompt()
-  })
-}
-async function continueFromTask(row: AITaskView) {
-  const asset = row.assets[0]
-  if (!asset || composerLocked.value) return
-  await studio.run(async () => {
-    selectedAsset.value = asset
-    studio.continueFrom(asset)
+    studio.continueFrom(selectedAsset.value!)
     await focusPrompt()
   })
 }
@@ -457,17 +473,21 @@ async function cancelQueued(row: AITaskView) {
     await studio.refresh()
   })
 }
-async function reusePrompt(row: AITaskView) {
-  if (composerLocked.value) return
+async function reusePrompt(row: AITaskView): Promise<boolean> {
+  if (composerLocked.value) return false
   if (
     prompt.value &&
     prompt.value !== row.task.prompt &&
     !(await confirm('用此任务的提示词替换当前草稿？参考图与参数保持当前设置。'))
   )
-    return
+    return false
   prompt.value = row.task.prompt
   enhancePrompt.value = false
   await focusPrompt()
+  return true
+}
+async function retryGalleryTask(row: AITaskView) {
+  if (await reusePrompt(row)) galleryOpen.value = false
 }
 async function removeLibraryAsset(asset: AIAsset) {
   if (!(await confirm(`移除图片“${asset.title || `图片 ${asset.id}`}”？`))) return
@@ -518,22 +538,8 @@ async function removeResult() {
     const id = selectedAsset.value!.id
     await archiveAsset(id)
     selectedAsset.value = null
-    resultOpen.value = false
     await studio.refresh()
   })
-}
-function onMoreAction(value: string | number | Record<string, unknown> | undefined) {
-  const action = String(value ?? '')
-  if (action === 'publish') void openPublish()
-  else if (action === 'continue' && stageTask.value) void continueFromTask(stageTask.value)
-  else if (action === 'reference') void useResult(false)
-  else if (action === 'reuse' && stageTask.value) void reusePrompt(stageTask.value)
-  else if (action === 'idea') {
-    resourceTab.value = 'idea'
-    resourceOpen.value = true
-  } else if (action === 'save') void studio.run(studio.save)
-  else if (action === 'archive' && stageTask.value) void archiveTask(stageTask.value)
-  else if (action === 'remove') void removeResult()
 }
 
 // ── Publishing / ideas / resources ──────────────────────────────────────────
@@ -576,7 +582,6 @@ async function publish() {
       publishForm.value.auto_metadata,
     )
     publishOpen.value = false
-    resultOpen.value = false
     await router.push(`/content/${row.content_id}`)
   })
 }
@@ -653,9 +658,8 @@ watch(sessionId, () => {
   mention.value = null
   awaitingTask.value = 0
   activeTaskId.value = 0
-  resultOpen.value = false
   settingsOpen.value = false
-  viewMode.value = 'single'
+  galleryOpen.value = true
   // Filters belong to the workspace that was open when they were typed; a
   // switch must not leave an active query silently hiding the new history.
   search.value = ''
@@ -742,7 +746,7 @@ watch(ready, (value) => {
   <div
     class="creative-page creative-theme ai-studio ws-shell"
     :style="dockStyle"
-    :class="{ 'is-switching': switching }"
+    :class="{ 'is-switching': switching, 'is-gallery': galleryOpen }"
   >
     <Teleport defer to="#public-shell-workspace">
       <div class="ws-sidebar-content" aria-label="工作区导航">
@@ -922,49 +926,120 @@ watch(ready, (value) => {
 
     <section class="ws-main" aria-label="创作舞台">
       <header class="ws-stage-head">
-        <div v-if="stageTask" class="ws-stage-meta">
+        <div v-if="galleryOpen" class="ws-stage-meta">
+          <strong>{{ name }}</strong>
+          <span class="ws-stage-sep" aria-hidden="true">·</span>
+          <span>全部结果</span>
+          <span class="ws-stage-sep" aria-hidden="true">·</span>
+          <span>{{ galleryTasks.length }} 个任务</span>
+        </div>
+        <div v-else-if="stageTask" class="ws-stage-meta">
           <strong>{{ clockOf(stageTask.task.created_at) }}</strong>
           <span class="ws-stage-sep" aria-hidden="true">·</span>
           <span class="ws-stage-date">{{ dayOf(stageTask.task.created_at) }}</span>
           <span class="ws-stage-sep" aria-hidden="true">·</span>
-          <span v-if="viewMode === 'all'" class="ws-stage-all-count"
-            >全部 {{ visibleAssets.length }} 张</span
-          >
-          <template v-else>
-            <span class="ws-stage-status" :class="statusClass(stageTask.task.status)">{{
-              labels[stageTask.task.status]
-            }}</span>
-            <span class="ws-stage-sep" aria-hidden="true">·</span>
-            <span class="ws-stage-count">{{ stageTask.assets.length }} 张</span>
-          </template>
+          <span class="ws-stage-status" :class="statusClass(stageTask.task.status)">{{
+            labels[stageTask.task.status]
+          }}</span>
+          <span class="ws-stage-sep" aria-hidden="true">·</span>
+          <span class="ws-stage-count">{{ stageTask.assets.length }} 张</span>
         </div>
         <div v-else class="ws-stage-meta">
           <strong>{{ name }}</strong>
           <span>把画面写下来</span>
         </div>
-        <div class="ws-view-toggle" role="radiogroup" aria-label="查看方式">
-          <button
-            type="button"
-            role="radio"
-            :aria-checked="viewMode === 'single'"
-            :class="{ 'is-active': viewMode === 'single' }"
-            @click="viewMode = 'single'"
-          >
-            单张
-          </button>
-          <button
-            type="button"
-            role="radio"
-            :aria-checked="viewMode === 'all'"
-            :class="{ 'is-active': viewMode === 'all' }"
-            @click="viewMode = 'all'"
-          >
-            全部
-          </button>
+        <div class="ws-stage-views">
+          <div class="ws-view-toggle" role="radiogroup" aria-label="查看方式">
+            <button
+              type="button"
+              role="radio"
+              :aria-checked="galleryOpen"
+              :class="{ 'is-active': galleryOpen }"
+              @click="showGallery"
+            >
+              全部结果
+            </button>
+            <button
+              type="button"
+              role="radio"
+              :aria-checked="!galleryOpen"
+              :class="{ 'is-active': !galleryOpen }"
+              @click="showTaskView"
+            >
+              单个任务
+            </button>
+          </div>
         </div>
       </header>
 
-      <div v-if="stagePrompt" class="ws-prompt-line">
+      <div v-if="galleryOpen" class="ws-gallery" aria-label="全部结果">
+        <p v-if="!ready" class="ws-gallery-empty">正在恢复创作…</p>
+        <p v-else-if="!galleryItems.length" class="ws-gallery-empty">
+          当前筛选下还没有生成结果。
+        </p>
+        <template
+          v-for="item in galleryItems"
+          :key="item.asset ? `asset-${item.asset.id}` : `task-${item.row.task.id}`"
+        >
+          <button
+            v-if="item.asset"
+            type="button"
+            class="ws-gallery-card"
+            :aria-label="`打开图片 ${item.asset.id}`"
+            :title="item.row.task.prompt"
+            @click="openGalleryAsset(item.row, item.asset)"
+          >
+            <span
+              class="ws-gallery-media"
+              :style="{
+                aspectRatio:
+                  item.asset.width && item.asset.height
+                    ? `${item.asset.width} / ${item.asset.height}`
+                    : '3 / 4',
+              }"
+            >
+              <CreativeImage :id="item.asset.id" />
+            </span>
+          </button>
+          <div
+            v-else
+            class="ws-gallery-card is-state"
+            :class="{ 'is-error': ['failed', 'cancelled'].includes(item.row.task.status) }"
+          >
+            <IconLoading
+              v-if="['queued', 'running'].includes(item.row.task.status)"
+              class="ws-spin"
+            />
+            <IconImage v-else />
+            <strong>{{ galleryStateLabel(item.row.task.status) }}</strong>
+            <p class="ws-gallery-prompt">{{ item.row.task.prompt }}</p>
+            <p v-if="item.row.task.error" class="ws-gallery-error">{{ item.row.task.error }}</p>
+            <div
+              v-if="['failed', 'cancelled'].includes(item.row.task.status)"
+              class="ws-gallery-note-actions"
+            >
+              <button
+                type="button"
+                aria-label="复用提示词重试"
+                title="复用提示词重试"
+                @click="retryGalleryTask(item.row)"
+              >
+                <IconHistory />
+              </button>
+              <button
+                type="button"
+                aria-label="删除任务记录"
+                title="删除任务记录"
+                @click="archiveTask(item.row)"
+              >
+                <IconDelete />
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <div v-if="!galleryOpen && stagePrompt" class="ws-prompt-line">
         <p :class="{ 'is-expanded': promptExpanded }">{{ stagePrompt }}</p>
         <button type="button" @click="promptExpanded = !promptExpanded">
           {{ promptExpanded ? '收起' : '展开' }}
@@ -978,36 +1053,11 @@ watch(ready, (value) => {
         {{ activeTask.task.status === 'unknown' ? '，预留额度待管理员核查' : '，离开页面仍会继续' }}
       </div>
 
-      <div
-        class="ws-canvas"
-        :class="{ 'is-multi': viewMode === 'all' && stageAssets.length > 1, 'is-dragging': dragging }"
-      >
+      <div v-if="!galleryOpen" class="ws-canvas" :class="{ 'is-dragging': dragging }">
         <template v-if="stageAssets.length">
-          <div
-            v-if="viewMode === 'all'"
-            class="ws-canvas-grid"
-            :class="{ 'is-single': stageAssets.length === 1 }"
-          >
-            <button
-              v-for="(asset, index) in stageAssets"
-              :key="asset.id"
-              type="button"
-              :aria-label="`查看结果 ${index + 1}`"
-              :aria-pressed="selectedAsset?.id === asset.id"
-              @click="selectGridAsset(asset)"
-            >
-              <CreativeImage :id="asset.id" />
-            </button>
-          </div>
-          <button
-            v-else
-            type="button"
-            class="ws-canvas-image"
-            :aria-label="`放大查看图片 ${selectedAsset?.id ?? ''}`"
-            @click="resultOpen = true"
-          >
+          <div class="ws-canvas-image">
             <CreativeImage :id="stageAssets[0]?.id ?? 0" full />
-          </button>
+          </div>
         </template>
 
         <div v-else-if="stageTaskFailed && stageTask" class="ws-canvas-state is-error">
@@ -1016,6 +1066,14 @@ watch(ready, (value) => {
           <p v-if="stageTask.task.error">{{ stageTask.task.error }}</p>
           <p v-else-if="stageTask.task.status === 'unknown'">结果待核查，预留额度待管理员确认。</p>
           <button type="button" class="ws-text-btn" @click="reusePrompt(stageTask)">复用提示词重试</button>
+          <button
+            v-if="['failed', 'cancelled'].includes(stageTask.task.status)"
+            type="button"
+            class="ws-text-btn"
+            @click="archiveTask(stageTask)"
+          >
+            删除记录
+          </button>
         </div>
         <div v-else-if="!ready" class="ws-canvas-state">
           <IconLoading class="ws-spin" />
@@ -1034,7 +1092,41 @@ watch(ready, (value) => {
         </div>
       </div>
 
-      <div v-if="selectedAsset" class="ws-actions" aria-label="结果操作">
+      <div
+        v-if="!galleryOpen && stageTaskAssets.length > 1"
+        class="ws-result-strip"
+        aria-label="本任务结果"
+      >
+        <button
+          v-for="(asset, index) in stageTaskAssets"
+          :key="asset.id"
+          type="button"
+          :aria-label="`查看第 ${index + 1} 张`"
+          :aria-pressed="selectedAsset?.id === asset.id"
+          @click="selectAsset(asset)"
+        >
+          <CreativeImage :id="asset.id" />
+        </button>
+      </div>
+
+      <div v-if="!galleryOpen && selectedAsset" class="ws-actions" aria-label="结果操作">
+        <button
+          type="button"
+          :disabled="!provider?.max_references || composerLocked"
+          @click="continueFromSelected"
+        >
+          <IconEdit />
+          <span>继续编辑</span>
+        </button>
+        <button
+          v-if="stageTask"
+          type="button"
+          :disabled="composerLocked"
+          @click="reusePrompt(stageTask)"
+        >
+          <IconHistory />
+          <span>复用提示词</span>
+        </button>
         <button type="button" :aria-pressed="selectedIsLiked" @click="likeSelected">
           <IconHeartFill v-if="selectedIsLiked" class="is-liked" />
           <IconHeart v-else />
@@ -1045,27 +1137,18 @@ watch(ready, (value) => {
           <span>下载</span>
         </button>
         <button type="button" @click="openPublish">
-          <IconShareExternal />
-          <span>分享</span>
+          <IconUpload />
+          <span>发布</span>
         </button>
-        <a-dropdown trigger="click" position="br" @select="onMoreAction">
-          <button type="button" class="ws-more-trigger" aria-label="更多操作">
-            <IconMore />
-            <span>更多</span>
-          </button>
-          <template #content>
-            <a-doption value="continue">继续编辑</a-doption>
-            <a-doption value="reference">加入参考图</a-doption>
-            <a-doption value="reuse">复用提示词</a-doption>
-            <a-doption value="publish">发布到站内</a-doption>
-            <a-doption value="idea">投稿创意</a-doption>
-            <a-doption value="save">保存草稿</a-doption>
-            <a-doption v-if="stageTask && ['failed', 'cancelled'].includes(stageTask.task.status)" value="archive">
-              删除任务记录
-            </a-doption>
-            <a-doption value="remove">移除结果</a-doption>
-          </template>
-        </a-dropdown>
+        <button
+          type="button"
+          class="is-danger"
+          aria-label="移除结果"
+          title="移除结果"
+          @click="removeResult"
+        >
+          <IconDelete />
+        </button>
       </div>
 
       <section
@@ -1155,27 +1238,53 @@ watch(ready, (value) => {
                 {{ provider?.name || '暂无模型' }} <span>×{{ count }}</span>
               </button>
             </div>
-            <div class="ws-composer-send">
-              <span v-if="quotaVisible" class="ws-cost-note">{{ quotaNote }}</span>
+          </div>
+          <div class="ws-composer-footer">
+            <span v-if="uploading" class="ws-composer-hint" role="status">正在上传参考图…</span>
+            <span v-else-if="pending" class="ws-composer-hint" role="status">
+              上次提交结果尚未确认，草稿已锁定。请用原请求继续确认。
+            </span>
+            <span v-else class="ws-composer-tip">
+              Enter 换行 · Shift + Enter 生成
+              <span v-if="provider?.max_references">· 可拖入或粘贴 PNG / JPEG / WebP</span>
+            </span>
+            <!-- Draft-level actions stay visible; they are not result actions and
+                 must not be buried in the result overflow menu. -->
+            <span class="ws-composer-secondary">
               <button
                 type="button"
-                class="ws-send-btn"
-                :disabled="!canGenerate"
-                :aria-label="pending ? '确认上次提交' : '开始生成'"
-                @click="generate"
+                class="is-clear"
+                :disabled="composerLocked || !hasDraftContent"
+                title="清空提示词和参考图"
+                @click="clearDraft"
               >
-                <IconLoading v-if="busy || uploading" class="ws-spin" />
-                <IconSend v-else />
+                清空
               </button>
-            </div>
-          </div>
-          <div v-if="uploading" class="ws-composer-hint" role="status">正在上传参考图…</div>
-          <div v-else-if="pending" class="ws-composer-hint" role="status">
-            上次提交结果尚未确认，草稿已锁定。请用原请求继续确认。
-          </div>
-          <div v-else class="ws-composer-hint">
-            Enter 换行 · Shift + Enter 生成
-            <span v-if="provider?.max_references">· 可拖入或粘贴 PNG / JPEG / WebP</span>
+              <button type="button" :disabled="composerLocked" @click="studio.run(studio.save)">
+                保存草稿
+              </button>
+              <button
+                type="button"
+                :disabled="composerLocked || !prompt.trim()"
+                @click="openResource('idea')"
+              >
+                投稿创意
+              </button>
+            </span>
+            <button
+              type="button"
+              class="ws-send-btn"
+              :disabled="!canGenerate"
+              :aria-label="pending ? '确认上次提交' : '开始生成'"
+              :title="quotaVisible ? quotaNote : '管理员生成不消耗额度'"
+              @click="generate"
+            >
+              <IconLoading v-if="busy || uploading" class="ws-spin" />
+              <template v-else>
+                <IconSend />
+                <span>生成</span>
+              </template>
+            </button>
           </div>
         </div>
         <input
@@ -1276,30 +1385,16 @@ watch(ready, (value) => {
           </div>
         </div>
         <p v-if="stageTask.task.error" class="ws-detail-error">{{ stageTask.task.error }}</p>
-        <div class="ws-detail-actions">
-          <button
-            v-if="stageTask.assets.length"
-            type="button"
-            class="is-primary"
-            :disabled="!provider?.max_references || composerLocked"
-            @click="continueFromTask(stageTask)"
-          >
-            继续编辑
-          </button>
-          <button type="button" :disabled="composerLocked" @click="reusePrompt(stageTask)">复用提示词</button>
+        <div
+          v-if="stageTask.task.status === 'queued' || stageTask.task.idea_id"
+          class="ws-detail-actions"
+        >
           <button
             v-if="stageTask.task.status === 'queued'"
             type="button"
             @click="cancelQueued(stageTask)"
           >
             取消排队
-          </button>
-          <button
-            v-if="['failed', 'cancelled'].includes(stageTask.task.status)"
-            type="button"
-            @click="archiveTask(stageTask)"
-          >
-            删除记录
           </button>
           <RouterLink v-if="stageTask.task.idea_id" :to="`/ideas/${stageTask.task.idea_id}`">赞助创意</RouterLink>
         </div>
@@ -1313,10 +1408,6 @@ watch(ready, (value) => {
         <div class="ws-detail-block">
           <span class="ws-kicker">ASSET</span>
           <p class="ws-detail-prompt">{{ selectedAsset.title || `图片 ${selectedAsset.id}` }}</p>
-        </div>
-        <div class="ws-detail-actions">
-          <button type="button" class="is-primary" @click="openPublish">发布到站内</button>
-          <button type="button" @click="download">下载原图</button>
         </div>
       </template>
       <div v-else class="ws-detail-empty">
@@ -1395,45 +1486,6 @@ watch(ready, (value) => {
   ></a-modal>
 
   <a-modal
-    v-model:visible="resultOpen"
-    class="creative-theme creative-dialog ai-dialog studio-result-dialog"
-    title="生成结果"
-    :width="1040"
-    :footer="false"
-  >
-    <template v-if="selectedAsset">
-      <div class="result-preview-meta">
-        <span>{{ selectedAsset.width }} × {{ selectedAsset.height }}</span
-        ><span class="creative-note">默认仅自己可见</span>
-        <div class="result-zoom">
-          <a-button aria-label="缩小结果" @click="zoom = Math.max(0.25, zoom - 0.25)">−</a-button
-          ><a-button @click="zoom = 1">{{ zoom === 1 ? '适应画布' : `${Math.round(zoom * 100)}%` }}</a-button
-          ><a-button aria-label="放大结果" @click="zoom = Math.min(3, zoom + 0.25)"><IconPlus /></a-button>
-        </div>
-      </div>
-      <div class="result-preview-scroll">
-        <div
-          class="result-preview-image"
-          :style="{
-            '--result-zoom': zoom,
-            width: `${zoom * 100}%`,
-            marginInline: zoom < 1 ? 'auto' : '0',
-          }"
-        >
-          <CreativeImage :id="selectedAsset.id" full />
-        </div>
-      </div>
-      <div class="result-actions">
-        <a-button type="primary" :disabled="!provider?.max_references || composerLocked" @click="useResult(true)">继续编辑</a-button
-        ><a-button :disabled="!provider?.max_references || composerLocked" @click="useResult(false)">加入参考图</a-button
-        ><a-button @click="download">下载原图</a-button
-        ><a-button @click="openPublish">发布到站内</a-button
-        ><a-button type="text" status="danger" @click="removeResult">移除结果</a-button>
-      </div>
-    </template>
-  </a-modal>
-
-  <a-modal
     v-model:visible="publishOpen"
     class="creative-theme creative-dialog ai-dialog"
     title="发布生成作品"
@@ -1503,6 +1555,13 @@ watch(ready, (value) => {
 .ai-studio.is-switching .ws-detail {
   opacity: 0.55;
   pointer-events: none;
+}
+/* "全部结果" uses the full width; task details belong to the single-task view. */
+.ai-studio.ws-shell.is-gallery {
+  grid-template-columns: minmax(0, 1fr);
+}
+.ai-studio.ws-shell.is-gallery .ws-detail {
+  display: none;
 }
 .ws-kicker {
   display: block;
@@ -2039,18 +2098,15 @@ watch(ready, (value) => {
 .ws-stage-meta .is-accent {
   color: var(--site-accent);
 }
-.ws-stage-all-count {
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--site-accent-soft);
-  color: var(--site-accent);
-  font-size: 10px;
-  font-weight: 600;
+.ws-stage-views {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
 }
 .ws-view-toggle {
   display: flex;
   gap: 2px;
-  margin-left: auto;
   padding: 3px;
   border: 1px solid var(--site-line);
   border-radius: 9px;
@@ -2151,11 +2207,7 @@ watch(ready, (value) => {
   place-items: center;
   width: 100%;
   height: 100%;
-  padding: 0;
-  border: 0;
   border-radius: 16px;
-  background: transparent;
-  cursor: zoom-in;
 }
 .ws-canvas-image .creative-image {
   min-height: 0;
@@ -2165,39 +2217,6 @@ watch(ready, (value) => {
   border-radius: 16px;
   box-shadow: 0 18px 48px color-mix(in srgb, var(--site-ink) 13%, transparent);
   object-fit: contain;
-}
-.ws-canvas-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  width: 100%;
-  max-height: 100%;
-  overflow-y: auto;
-  padding: 2px;
-}
-.ws-canvas-grid.is-single {
-  grid-template-columns: minmax(0, 1fr);
-  max-width: min(100%, 420px);
-  margin-inline: auto;
-}
-.ws-canvas-grid button {
-  overflow: hidden;
-  aspect-ratio: 1;
-  padding: 0;
-  border: 1px solid var(--site-line);
-  border-radius: 12px;
-  background: var(--site-paper);
-  cursor: zoom-in;
-}
-.ws-canvas-grid button[aria-pressed='true'] {
-  border-color: var(--site-accent);
-  box-shadow: 0 0 0 1px var(--site-accent);
-}
-.ws-canvas-grid .creative-image {
-  min-height: 0;
-}
-.ws-canvas-grid :deep(.creative-image img) {
-  object-fit: cover;
 }
 .ws-canvas-state {
   display: flex;
@@ -2242,6 +2261,141 @@ watch(ready, (value) => {
   font-size: 11px;
   cursor: pointer;
 }
+.ws-result-strip {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 4px 0;
+}
+.ws-result-strip button {
+  overflow: hidden;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--site-line);
+  border-radius: 8px;
+  background: var(--site-paper);
+  cursor: pointer;
+}
+.ws-result-strip button[aria-pressed='true'] {
+  border-color: var(--site-accent);
+  box-shadow: 0 0 0 1px var(--site-accent);
+}
+.ws-result-strip .creative-image {
+  min-height: 0;
+}
+.ws-result-strip :deep(.creative-image img) {
+  object-fit: cover;
+}
+.ws-gallery {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 4px 16px;
+  columns: 4 220px;
+  column-gap: 12px;
+  scrollbar-color: var(--site-line) transparent;
+}
+.ws-gallery-empty {
+  margin: 48px 0;
+  color: var(--site-muted);
+  font-size: 12px;
+  text-align: center;
+}
+.ws-gallery-card {
+  position: relative;
+  display: block;
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  cursor: zoom-in;
+}
+.ws-gallery-media {
+  display: block;
+  overflow: hidden;
+  width: 100%;
+  border-radius: 12px;
+  background: var(--site-soft);
+  box-shadow: var(--shadow-sm);
+}
+.ws-gallery-media .creative-image {
+  min-height: 0;
+}
+.ws-gallery-media :deep(.creative-image img) {
+  object-fit: cover;
+}
+.ws-gallery-card.is-state {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 190px;
+  padding: 14px;
+  border: 1px solid var(--site-line);
+  border-radius: 12px;
+  background: var(--site-paper);
+  cursor: default;
+}
+.ws-gallery-card.is-state.is-error {
+  border-color: color-mix(in srgb, rgb(var(--danger-6)) 26%, var(--site-line));
+  background: color-mix(in srgb, rgb(var(--danger-6)) 5%, var(--site-paper));
+}
+.ws-gallery-card.is-state > svg {
+  width: 22px;
+  height: 22px;
+  color: var(--site-muted);
+}
+.ws-gallery-card.is-state > strong {
+  color: var(--site-ink);
+  font-size: 13px;
+}
+.ws-gallery-prompt,
+.ws-gallery-error {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.ws-gallery-prompt {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--site-muted);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+.ws-gallery-error {
+  color: rgb(var(--danger-6));
+}
+.ws-gallery-note-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+}
+.ws-gallery-note-actions button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--site-line);
+  border-radius: 8px;
+  background: var(--site-paper);
+  color: var(--site-muted);
+  cursor: pointer;
+}
+.ws-gallery-note-actions button:hover {
+  border-color: var(--site-accent);
+  color: var(--site-accent);
+}
+.ws-gallery-note-actions svg {
+  width: 15px;
+  height: 15px;
+}
 .ws-actions {
   display: flex;
   align-items: center;
@@ -2250,8 +2404,7 @@ watch(ready, (value) => {
   padding: 8px 4px 6px;
   color: var(--site-muted);
 }
-.ws-actions > button,
-.ws-more-trigger {
+.ws-actions > button {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -2263,10 +2416,21 @@ watch(ready, (value) => {
   font-size: 11px;
   cursor: pointer;
 }
-.ws-actions > button:hover,
-.ws-more-trigger:hover {
+.ws-actions > button:hover {
   color: var(--site-ink);
   background: var(--site-soft);
+}
+.ws-actions > button.is-danger:hover {
+  color: rgb(var(--danger-6));
+  background: color-mix(in srgb, rgb(var(--danger-6)) 8%, transparent);
+}
+.ws-actions > button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ws-actions > button:disabled:hover {
+  color: inherit;
+  background: transparent;
 }
 .ws-actions svg {
   width: 15px;
@@ -2387,46 +2551,87 @@ watch(ready, (value) => {
 .ws-model-chip span {
   color: var(--site-muted);
 }
-.ws-composer-send {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 7px;
-}
-.ws-cost-note {
-  color: var(--site-muted);
-  font-size: 9.5px;
-  white-space: nowrap;
-}
 .ws-send-btn {
-  display: grid;
-  place-items: center;
-  width: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 86px;
   height: 38px;
-  padding: 0;
+  padding: 0 16px;
   border: 0;
-  border-radius: 50%;
-  background: var(--site-action);
-  color: var(--site-on-action);
+  border-radius: 999px;
+  background: var(--site-accent);
+  color: var(--site-paper);
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
-  transition: background var(--transition-fast), opacity var(--transition-fast);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--site-accent) 20%, transparent);
+  transition: background var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 .ws-send-btn:hover:not(:disabled) {
-  background: var(--site-accent);
+  background: color-mix(in srgb, var(--site-accent) 86%, var(--site-ink));
+}
+.ws-send-btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 .ws-send-btn:disabled {
   opacity: 0.38;
   cursor: not-allowed;
+  box-shadow: none;
 }
 .ws-send-btn svg {
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
 }
-.ws-composer-hint {
+.ws-composer-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
   padding: 5px 6px 0;
+}
+.ws-composer-tip,
+.ws-composer-hint {
+  flex: 1 1 auto;
+  min-width: 0;
   color: var(--site-muted);
   font-size: 9.5px;
   line-height: 1.4;
+}
+.ws-composer-secondary {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  margin-left: auto;
+}
+.ws-composer-secondary button {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--site-line);
+  border-radius: 999px;
+  background: var(--site-paper);
+  color: var(--site-ink);
+  font-size: 10.5px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+}
+.ws-composer-secondary button:hover:not(:disabled) {
+  border-color: var(--site-accent);
+  background: var(--site-accent-soft);
+  color: var(--site-accent);
+}
+.ws-composer-secondary button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.ws-composer-secondary button.is-clear {
+  color: var(--site-muted);
+}
+.ws-composer-secondary button.is-clear:hover:not(:disabled) {
+  border-color: color-mix(in srgb, rgb(var(--danger-6)) 35%, var(--site-line));
+  background: color-mix(in srgb, rgb(var(--danger-6)) 8%, transparent);
+  color: rgb(var(--danger-6));
 }
 .ws-settings {
   position: absolute;
@@ -2672,11 +2877,6 @@ watch(ready, (value) => {
   text-decoration: none;
   cursor: pointer;
 }
-.ws-detail-actions button.is-primary {
-  border-color: var(--site-action);
-  background: var(--site-action);
-  color: var(--site-on-action);
-}
 .ws-detail-actions button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -2887,6 +3087,22 @@ watch(ready, (value) => {
   .ws-stage-meta strong {
     font-size: 15px;
   }
+  .ws-stage-views {
+    gap: 4px;
+  }
+  .ws-gallery {
+    columns: 2;
+    column-gap: 8px;
+    overflow: visible;
+    padding: 4px 0 8px;
+  }
+  .ws-gallery-card {
+    margin-bottom: 8px;
+  }
+  .ws-gallery-card.is-state {
+    min-height: 150px;
+    padding: 12px;
+  }
   .ws-prompt-line {
     padding-bottom: 6px;
   }
@@ -2909,26 +3125,12 @@ watch(ready, (value) => {
     border-radius: 14px;
     box-shadow: none;
   }
-  .ws-canvas-grid {
-    max-height: none;
-    overflow: visible;
-  }
-  .ws-canvas-grid.is-single {
-    max-width: min(
-      100%,
-      max(
-        160px,
-        calc(var(--studio-visible-height, 100dvh) - var(--studio-dock-height, 0px) - 300px)
-      )
-    );
-  }
   .ws-actions {
     justify-content: space-around;
     gap: 2px;
     padding: 8px 0 10px;
   }
-  .ws-actions > button,
-  .ws-more-trigger {
+  .ws-actions > button {
     flex-direction: column;
     gap: 3px;
     min-width: 52px;
@@ -2969,15 +3171,33 @@ watch(ready, (value) => {
     height: 30px;
   }
   .ws-send-btn {
-    width: 40px;
-    height: 40px;
+    width: 100%;
+    min-width: 0;
+    height: 44px;
+    padding: 0 8px;
+    font-size: 12.5px;
   }
-  .ws-cost-note {
+  .ws-composer-footer {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    padding-top: 4px;
+  }
+  .ws-composer-tip {
     display: none;
   }
   .ws-composer-hint {
-    padding-top: 4px;
+    grid-column: 1 / -1;
     font-size: 9px;
+  }
+  .ws-composer-secondary {
+    display: contents;
+  }
+  .ws-composer-secondary button {
+    min-height: 44px;
+    padding: 0 8px;
+    border-radius: 10px;
+    font-size: 12px;
   }
   .ws-settings {
     position: fixed;

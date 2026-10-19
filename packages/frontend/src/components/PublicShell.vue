@@ -119,10 +119,6 @@ onBeforeUnmount(() => {
         </RouterLink>
       </div>
 
-      <!-- Always in the DOM so the studio Teleport can resolve it even when the
-           hash router has not committed /studio yet; hidden elsewhere by CSS. -->
-      <div id="public-shell-workspace" class="public-shell-workspace"></div>
-
       <nav class="public-shell-nav" aria-label="发现">
         <p>发现</p>
         <RouterLink to="/ideas" active-class="is-active" @click="closeMobile">
@@ -150,6 +146,12 @@ onBeforeUnmount(() => {
           <IconArrowRight />
         </RouterLink>
       </div>
+
+      <!-- Always in the DOM so the studio Teleport can resolve it even when the
+           hash router has not committed /studio yet; hidden elsewhere by CSS.
+           It sits below the shared nav/library so switching between /studio and
+           the gallery never moves the entries both pages share. -->
+      <div id="public-shell-workspace" class="public-shell-workspace"></div>
 
       <div class="public-shell-bottom">
         <button class="public-shell-publish" type="button" @click="handlePublish">
@@ -364,13 +366,11 @@ body[arco-theme='dark'] .public-shell {
   flex-direction: column;
   min-height: 0;
   margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--shell-line);
 }
 .public-shell:not(.is-workspace) .public-shell-workspace {
   display: none;
-}
-.public-shell.is-workspace .public-shell-nav,
-.public-shell.is-workspace .public-shell-library {
-  margin-top: 16px;
 }
 @media (max-width: 820px) {
   .public-shell-sidebar { position: fixed; inset: 0 auto 0 0; width: min(82vw, 300px); overflow-y: auto; overscroll-behavior: contain; transform: translateX(-104%); transition: transform .24s cubic-bezier(.22,1,.36,1); box-shadow: 12px 0 32px rgba(31,24,27,.14); }
