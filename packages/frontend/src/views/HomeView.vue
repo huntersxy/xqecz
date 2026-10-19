@@ -529,17 +529,8 @@ onActivated(() => {
 <template>
   <div class="gallery-home-content">
       <div class="gallery-content">
-        <section class="gallery-intro" aria-labelledby="home-title">
-          <div>
-            <h1 id="home-title">作品广场</h1>
-            <p>把喜欢的角色、画面和灵感，留在一个可以被再次发现的地方。</p>
-          </div>
-          <div class="gallery-intro-stats" aria-label="作品统计">
-            <span><strong>{{ homeStore.catalogTotal > 0 ? homeStore.catalogTotal : '—' }}</strong> 作品</span>
-            <span><strong>{{ searchFilter.allTags.value.length || '—' }}</strong> 标签</span>
-            <span><strong>{{ homeStore.searchKeyword ? '筛选中' : '持续更新' }}</strong></span>
-          </div>
-        </section>
+        <!-- 页头视觉块已移除（顶栏已标明当前页）；保留隐藏 h1 维持文档标题层级。 -->
+        <h1 class="gallery-visually-hidden">作品广场</h1>
 
         <section class="gallery-featured" aria-labelledby="featured-title">
           <div class="gallery-section-heading">
@@ -647,40 +638,14 @@ onActivated(() => {
   margin: 0;
   padding: 0 0 76px;
 }
-.gallery-intro {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 12px 0 25px;
-  border-bottom: 1px solid var(--gallery-line);
-}
-.gallery-intro h1 {
-  margin: 0;
-  font: 600 clamp(38px, 4.1vw, 58px)/1.05 var(--gallery-title-font);
-  letter-spacing: -.035em;
-}
-.gallery-intro p {
-  max-width: 42em;
-  margin: 13px 0 0;
-  color: var(--gallery-muted);
-  font-size: 12px;
-  line-height: 1.75;
-}
-.gallery-intro-stats {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px 18px;
-  padding-bottom: 4px;
-  color: var(--gallery-muted);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
+/* 页头视觉块已移除；隐藏 h1 只保留文档标题层级，不占布局。 */
+.gallery-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
   white-space: nowrap;
-}
-.gallery-intro-stats strong {
-  color: var(--gallery-ink);
-  font-weight: 600;
 }
 .gallery-featured {
   padding: 24px 0 20px;
@@ -968,15 +933,9 @@ onActivated(() => {
 }
 @media (max-width: 1100px) {
   .gallery-content { padding-inline: 0; }
-  .gallery-intro { align-items: flex-start; flex-direction: column; }
-  .gallery-intro-stats { justify-content: flex-start; }
 }
 @media (max-width: 820px) {
   .gallery-content { padding: 0 0 60px; }
-  .gallery-intro { padding-top: 9px; }
-  .gallery-intro h1 { font-size: 39px; }
-  .gallery-intro p { font-size: 11px; }
-  .gallery-intro-stats { gap: 8px 13px; font-size: 10px; }
   .gallery-featured-strip { grid-auto-columns: minmax(105px, 30vw); }
   .gallery-feed-toolbar {
     align-items: flex-start;
