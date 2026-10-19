@@ -24,7 +24,7 @@ import {
   IconHistory,
   IconMinus,
 } from '@arco-design/web-vue/es/icon'
-import { useConfirm } from '@/composables/useToast'
+import { toast, useConfirm } from '@/composables/useToast'
 import CreativeImage from '@/components/CreativeImage.vue'
 import CreativeLibrary from '@/components/CreativeLibrary.vue'
 import StudioReferences from '@/components/StudioReferences.vue'
@@ -51,7 +51,6 @@ const studio = useAIStudio(),
   { confirm } = useConfirm()
 const {
   tasks,
-  assets,
   likedAssets,
   sessions,
   account,
@@ -62,6 +61,7 @@ const {
   quality,
   count,
   references,
+  characterIds,
   provider,
   availableProviders,
   cost,
@@ -90,7 +90,8 @@ const sizePickerOpen = ref(false)
 const publishOpen = ref(false)
 const previewReference = ref(0)
 const resourceOpen = ref(false)
-const resourceTab = ref<'library' | 'history' | 'idea'>('library')
+const ideaOpen = ref(false)
+const resourceError = ref('')
 const search = ref('')
 const status = ref('')
 const uploading = ref(false)
@@ -103,24 +104,7 @@ const promptArea = ref<HTMLTextAreaElement>(),
 const composerElement = ref<HTMLElement>()
 const dockStyle = useStudioDock(composerElement)
 
-const resourceTabs = [
-  { key: 'library' as const, label: '角色 / 模板', hint: '导入外观设定与提示词', icon: IconFile },
-  { key: 'history' as const, label: '我的图片', hint: '挑选已有图片作参考', icon: IconImage },
-  { key: 'idea' as const, label: '投稿创意', hint: '公开你的提示词创意', icon: IconPlus },
-]
 const maxCount = computed(() => Math.max(1, provider.value?.max_count ?? 1))
-function referenceIndex(assetId: number) {
-  return references.value.findIndex((reference) => reference.asset_id === assetId)
-}
-/** 图片库点选即加入/取消参考图，抽屉保持打开以便连续挑选。 */
-async function toggleLibraryReference(asset: AIAsset) {
-  const index = referenceIndex(asset.id)
-  if (index >= 0) await removeReference(index)
-  else await studio.run(async () => studio.addReference(asset.id))
-}
-const resourceTitle = computed(
-  () => resourceTabs.find((tab) => tab.key === resourceTab.value)?.label ?? '资源',
-)
 
 const composerLocked = computed(
   () => !ready.value || !!pending.value || busy.value || uploading.value || confirming.value,
@@ -483,10 +467,6 @@ async function reusePrompt(row: AITaskView): Promise<boolean> {
 async function retryGalleryTask(row: AITaskView) {
   if (await reusePrompt(row)) galleryOpen.value = false
 }
-async function removeLibraryAsset(asset: AIAsset) {
-  if (!(await confirm(`移除图片“${asset.title || `图片 ${asset.id}`}”？`))) return
-  await studio.run(() => archiveAsset(asset.id))
-}
 async function archiveTask(row: AITaskView) {
   if (!['failed', 'cancelled'].includes(row.task.status)) return
   if (!(await confirm(`删除任务 #${row.task.id}？失败记录会从工作台移除，已生成的素材仍保留。`)))
@@ -560,7 +540,7 @@ async function submitIdea() {
       input: studio.input(),
       character_ids: studio.characterIds.value,
     })
-    resourceOpen.value = false
+    ideaOpen.value = false
     await router.push(`/ideas/${row.id}`)
   })
 }
@@ -604,9 +584,12 @@ async function openPublish() {
   }
   publishOpen.value = true
 }
-function openResource(tab: typeof resourceTab.value) {
-  resourceTab.value = tab
+function openResource() {
+  resourceError.value = ''
   resourceOpen.value = true
+}
+function openIdea() {
+  ideaOpen.value = true
 }
 async function applyResource(value: {
   text: string
@@ -614,7 +597,9 @@ async function applyResource(value: {
   characters: number[]
   parameters: Record<string, unknown>
   action: 'append' | 'replace' | 'insert'
+  label?: string
 }) {
+  resourceError.value = ''
   await studio.run(async () => {
     if (pending.value) throw new Error('请先确认上次提交的结果')
     if (
@@ -651,6 +636,10 @@ async function applyResource(value: {
       quality.value = value.parameters.quality
     resourceOpen.value = false
   })
+  // 弹窗已关闭，额度/参考图上限一类的失败必须在这里就地反馈，否则只剩背后看不见的红条。
+  if (error.value) resourceError.value = error.value
+  else if (value.text || value.characters.length || value.assets.length)
+    toast.success(`已导入${value.label ? `「${value.label}」` : '素材'}`)
 }
 
 // ── Reactive bridges ────────────────────────────────────────────────────────
@@ -1162,10 +1151,7 @@ watch(ready, (value) => {
               >
                 <IconPlus /><span>上传参考图</span>
               </button>
-              <button type="button" class="ws-tool-btn" aria-label="图片库" @click="openResource('history')">
-                <IconImage /><span>图片库</span>
-              </button>
-              <button type="button" class="ws-tool-btn" aria-label="角色与模板" @click="openResource('library')">
+              <button type="button" class="ws-tool-btn" aria-label="角色与模板" @click="openResource">
                 <IconFile /><span>角色与模板</span>
               </button>
             </div>
@@ -1240,7 +1226,7 @@ watch(ready, (value) => {
               <button
                 type="button"
                 :disabled="composerLocked || !prompt.trim()"
-                @click="openResource('idea')"
+                @click="openIdea"
               >
                 投稿创意
               </button>
@@ -1274,7 +1260,7 @@ watch(ready, (value) => {
 
   <StudioSizePicker v-model:visible="sizePickerOpen" :model-value="size" @select="size = $event" />
 
-  <!-- 素材选择器：居中弹窗，左侧导航 + 右侧内容；角色库、图片库、创意投稿共用一个外壳。 -->
+  <!-- 素材弹窗：只保留角色/模板，点选即导入，没有二级页。 -->
   <a-modal
     v-model:visible="resourceOpen"
     class="creative-theme creative-dialog studio-picker"
@@ -1282,106 +1268,54 @@ watch(ready, (value) => {
     :closable="false"
     hide-title
     unmount-on-close
-    :width="940"
+    :width="980"
   >
     <div class="picker">
-      <nav class="picker-rail" role="tablist" aria-label="素材切换" aria-orientation="vertical">
-        <span class="picker-rail-title">创作素材</span>
-        <button
-          v-for="tab in resourceTabs"
-          :key="tab.key"
-          type="button"
-          role="tab"
-          :aria-selected="resourceTab === tab.key"
-          :class="['picker-tab', { 'is-active': resourceTab === tab.key }]"
-          @click="resourceTab = tab.key"
-        >
-          <span class="picker-tab-icon"><component :is="tab.icon" aria-hidden="true" /></span>
-          <span class="picker-tab-copy">
-            <strong>{{ tab.label }}</strong>
-            <small>{{ tab.hint }}</small>
-          </span>
-        </button>
-      </nav>
-
       <section class="picker-main">
         <header class="picker-head">
-          <h2>{{ resourceTitle }}</h2>
+          <div class="picker-heading">
+            <h2>角色 / 模板</h2>
+            <p class="picker-note">点选即导入外观描述与参考图，无需二次确认。</p>
+          </div>
           <button type="button" class="picker-close" aria-label="关闭" @click="resourceOpen = false">
             <IconClose />
           </button>
         </header>
         <div class="picker-body">
-          <Transition name="picker-swap" mode="out-in">
-            <CreativeLibrary
-              v-if="resourceOpen && resourceTab === 'library'"
-              key="library"
-              @apply="applyResource"
-            />
-            <div v-else-if="resourceTab === 'history'" key="history" class="ws-history-pane">
-              <p class="ws-history-hint">
-                点选图片加入参考图，可多选；再点一次取消。
-                <b>已选 {{ references.length }}/{{ provider?.max_references ?? 0 }}</b>
-              </p>
-              <ul v-if="assets.length" class="ws-asset-grid">
-                <li v-for="(asset, index) in assets" :key="asset.id" :style="{ '--i': Math.min(index, 10) }">
-                  <button
-                    type="button"
-                    class="ws-asset"
-                    :class="{ 'is-picked': referenceIndex(asset.id) >= 0 }"
-                    :aria-pressed="referenceIndex(asset.id) >= 0"
-                    :aria-label="`${asset.title || `图片 ${asset.id}`}，${referenceIndex(asset.id) >= 0 ? '已选为参考图，点击取消' : '点击加入参考图'}`"
-                    :disabled="composerLocked || (referenceIndex(asset.id) < 0 && references.length >= (provider?.max_references ?? 0))"
-                    @click="toggleLibraryReference(asset)"
-                  >
-                    <CreativeImage :id="asset.id" />
-                    <span v-if="referenceIndex(asset.id) >= 0" class="ws-asset-check" aria-hidden="true">
-                      <IconCheck /><b>@{{ referenceIndex(asset.id) + 1 }}</b>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    class="ws-asset-delete"
-                    aria-label="从图片库移除"
-                    title="从图片库移除"
-                    :disabled="composerLocked"
-                    @click="removeLibraryAsset(asset)"
-                  >
-                    <IconDelete />
-                  </button>
-                </li>
-              </ul>
-              <div v-else class="ws-history-empty">
-                <span><IconImage /></span>
-                <p>上传的参考图与生成结果会保存在这里。</p>
-              </div>
-              <button
-                v-if="studio.moreAssets.value"
-                type="button"
-                class="ws-history-more"
-                @click="studio.run(studio.loadMoreAssets)"
-              >
-                加载更早的图片
-              </button>
-            </div>
-            <div v-else-if="resourceTab === 'idea'" key="idea" class="side-drawer-idea">
-              <p class="creative-note">
-                投稿将公开标题、描述、完整提示词、选中的参考图、模型与生成参数。赞助成功的结果会公开展示。投稿本身不消耗额度。
-              </p>
-              <label class="creative-field">标题<a-input v-model="proposal.title" :max-length="150" /></label>
-              <label class="creative-field">描述<a-textarea v-model="proposal.description" /></label>
-              <a-checkbox v-model="proposal.public_consent">我同意上述公开范围和成果展示规则</a-checkbox>
-              <a-checkbox v-model="proposal.reference_rights">我确认选中参考图有公开展示授权</a-checkbox>
-              <p class="creative-note">赞助额度不代表取得作品著作权。</p>
-              <a-button
-                type="primary"
-                :disabled="!proposal.public_consent || !proposal.reference_rights"
-                @click="submitIdea"
-              >公开投稿</a-button>
-            </div>
-          </Transition>
+          <CreativeLibrary
+            v-if="resourceOpen"
+            :applied-characters="characterIds"
+            :error="resourceError"
+            @apply="applyResource"
+          />
         </div>
       </section>
+    </div>
+  </a-modal>
+
+  <!-- 投稿创意单独成窗，属于草稿动作，不再占用素材弹窗的位置。 -->
+  <a-modal
+    v-model:visible="ideaOpen"
+    class="creative-theme creative-dialog"
+    title="投稿创意"
+    :footer="false"
+    :width="560"
+    unmount-on-close
+  >
+    <div class="idea-form">
+      <p class="creative-note">
+        投稿将公开标题、描述、完整提示词、选中的参考图、模型与生成参数。赞助成功的结果会公开展示。投稿本身不消耗额度。
+      </p>
+      <label class="creative-field">标题<a-input v-model="proposal.title" :max-length="150" /></label>
+      <label class="creative-field">描述<a-textarea v-model="proposal.description" /></label>
+      <a-checkbox v-model="proposal.public_consent">我同意上述公开范围和成果展示规则</a-checkbox>
+      <a-checkbox v-model="proposal.reference_rights">我确认选中参考图有公开展示授权</a-checkbox>
+      <p class="creative-note">赞助额度不代表取得作品著作权。</p>
+      <a-button
+        type="primary"
+        :disabled="!proposal.public_consent || !proposal.reference_rights"
+        @click="submitIdea"
+      >公开投稿</a-button>
     </div>
   </a-modal>
 
@@ -2633,12 +2567,12 @@ button.ws-option:hover:not(:disabled),
   border-radius: 8px;
 }
 
-/* ── 素材选择器（居中弹窗）/ modals ──────────────────────────────────────── */
-/* Teleport 弹层不在页面作用域内，外壳样式必须 :global，且整条选择器包在里面。 */
+/* ── 素材弹窗：单栏角色墙 / modals ──────────────────────────────────────── */
+/* Teleport 弹层不在页面作用域内，外壳样式必须 :global，且整条弹窗包在里面。 */
 :global(.studio-picker .arco-modal) {
   max-width: calc(100vw - 32px);
   overflow: hidden;
-  border-radius: 26px;
+  border-radius: 24px;
   background: var(--site-paper);
   box-shadow: 0 32px 80px rgba(24, 18, 20, 0.28);
 }
@@ -2646,391 +2580,119 @@ button.ws-option:hover:not(:disabled),
   padding: 0;
 }
 .picker {
-  display: grid;
-  grid-template-columns: 224px minmax(0, 1fr);
-  height: min(660px, calc(100dvh - 64px));
-}
-.picker-rail {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 24px 14px;
-  border-right: 1px solid var(--site-line);
-  background: var(--site-soft);
-}
-.picker-rail-title {
-  padding: 0 10px 12px;
-  color: var(--site-muted);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-}
-.picker-tab {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 11px 12px;
-  border: 1px solid transparent;
-  border-radius: 16px;
-  background: transparent;
-  color: var(--site-muted);
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease,
-    box-shadow 0.25s ease;
-}
-.picker-tab:hover:not(.is-active) {
-  background: color-mix(in srgb, var(--site-paper) 60%, transparent);
-  color: var(--site-ink);
-}
-.picker-tab.is-active {
-  border-color: color-mix(in srgb, var(--site-accent) 18%, transparent);
-  background: var(--site-paper);
-  color: var(--site-ink);
-  box-shadow: var(--shadow-sm);
-}
-.picker-tab-icon {
-  display: grid;
-  flex: 0 0 36px;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  background: var(--site-paper);
-  color: var(--site-muted);
-  transition: background 0.2s ease, color 0.2s ease;
-}
-.picker-tab.is-active .picker-tab-icon {
-  background: var(--site-accent);
-  color: var(--site-paper);
-}
-.picker-tab-icon svg {
-  width: 17px;
-  height: 17px;
-}
-.picker-tab-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-.picker-tab-copy strong {
-  font-size: 13px;
-  font-weight: 600;
-}
-.picker-tab-copy small {
-  color: var(--site-muted);
-  font-size: 11px;
-  line-height: 1.4;
+  height: min(680px, calc(100dvh - 64px));
 }
 .picker-main {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  min-width: 0;
   min-height: 0;
 }
 .picker-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px 14px 28px;
+  gap: 16px;
+  padding: 24px 28px 16px;
+}
+.picker-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
 }
 .picker-head h2 {
   margin: 0;
   color: var(--site-ink);
-  font: 600 20px/1.3 var(--site-title-font);
-  letter-spacing: -0.01em;
+  font: 600 25px/1.2 var(--site-title-font);
+  letter-spacing: -0.02em;
+}
+.picker-note {
+  margin: 0;
+  color: color-mix(in srgb, var(--site-ink) 62%, var(--site-paper));
+  font-size: 12px;
+  line-height: 1.6;
 }
 .picker-close {
   display: grid;
+  flex: 0 0 auto;
   place-items: center;
   width: 34px;
   height: 34px;
-  padding: 0;
-  border: 0;
+  border: 1px solid var(--site-line);
   border-radius: 50%;
-  background: transparent;
-  color: var(--site-muted);
+  background: var(--site-paper);
+  color: var(--site-ink);
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.25s var(--ease-out);
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease;
 }
 .picker-close:hover {
-  background: var(--site-soft);
-  color: var(--site-ink);
+  border-color: var(--site-accent);
+  background: var(--site-accent-soft);
   transform: rotate(90deg);
+}
+.picker-close svg {
+  width: 15px;
+  height: 15px;
 }
 .picker-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 4px 28px 24px;
+  padding: 6px 28px 26px;
   scrollbar-width: thin;
   scrollbar-color: var(--site-line) transparent;
 }
-.picker-swap-enter-active,
-.picker-swap-leave-active {
-  transition:
-    opacity 0.16s ease,
-    transform 0.26s var(--ease-out);
+.picker-body::-webkit-scrollbar {
+  width: 8px;
 }
-.picker-swap-enter-from {
-  opacity: 0;
-  transform: translateY(8px);
-}
-.picker-swap-leave-to {
-  opacity: 0;
+.picker-body::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--site-line);
 }
 .picker button:focus-visible {
   outline: 2px solid var(--site-accent);
   outline-offset: 2px;
 }
-/* 图片库：方形缩略图网格，点选即参考图；悬停才出现移除，避免误删。 */
-.ws-history-pane {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.ws-history-hint {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin: 0;
-  color: var(--site-muted);
-  font-size: 12px;
-  line-height: 1.6;
-}
-.ws-history-hint b {
-  flex: 0 0 auto;
-  color: var(--site-accent);
-  font-variant-numeric: tabular-nums;
-}
-.ws-asset-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.ws-asset-grid li {
-  position: relative;
-  animation: ws-asset-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
-  animation-delay: calc(var(--i) * 30ms);
-}
-@keyframes ws-asset-in {
-  from {
-    opacity: 0;
-    transform: scale(0.94);
-  }
-}
-.ws-asset {
-  position: relative;
-  display: block;
-  width: 100%;
-  aspect-ratio: 1;
-  padding: 0;
-  overflow: hidden;
-  border: 2px solid transparent;
-  border-radius: 14px;
-  background: var(--site-soft);
-  cursor: pointer;
-  transition:
-    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 0.2s ease,
-    box-shadow 0.25s ease,
-    opacity 0.2s ease;
-}
-.ws-asset :deep(.creative-image) {
-  min-height: 0;
-}
-.ws-asset :deep(.creative-image img) {
-  object-fit: cover;
-  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.ws-asset:hover:not(:disabled) {
-  box-shadow: 0 10px 22px color-mix(in srgb, var(--site-ink) 16%, transparent);
-  transform: translateY(-2px);
-}
-.ws-asset:hover:not(:disabled) :deep(.creative-image img) {
-  transform: scale(1.06);
-}
-.ws-asset.is-picked {
-  border-color: var(--site-accent);
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--site-accent) 26%, transparent);
-}
-.ws-asset:disabled:not(.is-picked) {
-  opacity: 0.38;
-  cursor: not-allowed;
-}
-.ws-asset-check {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 2px 8px 2px 5px;
-  border-radius: 999px;
-  background: var(--site-accent);
-  color: var(--site-paper);
-  font-size: 10px;
-  animation: ws-pop-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-.ws-asset-check svg {
-  width: 11px;
-  height: 11px;
-}
-@keyframes ws-pop-in {
-  from {
-    opacity: 0;
-    transform: scale(0.6);
-  }
-}
-.ws-asset-delete {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(24, 18, 20, 0.5);
-  color: #fff;
-  opacity: 0;
-  cursor: pointer;
-  backdrop-filter: blur(6px);
-  transition: opacity 0.2s ease, background 0.2s ease;
-}
-.ws-asset-delete svg {
-  width: 13px;
-  height: 13px;
-}
-.ws-asset-grid li:hover .ws-asset-delete,
-.ws-asset-delete:focus-visible {
-  opacity: 1;
-}
-.ws-asset-delete:hover {
-  background: rgb(var(--danger-6));
-}
-@media (hover: none) {
-  .ws-asset-delete {
-    opacity: 1;
-  }
-}
-.ws-history-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 48px 12px;
-  color: var(--site-muted);
-  text-align: center;
-}
-.ws-history-empty > span {
-  display: grid;
-  place-items: center;
-  width: 52px;
-  height: 52px;
-  border: 1px dashed var(--site-line);
-  border-radius: 16px;
-}
-.ws-history-empty svg {
-  width: 22px;
-  height: 22px;
-}
-.ws-history-empty p {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.7;
-}
-.ws-history-more {
-  align-self: center;
-  height: 36px;
-  padding: 0 18px;
-  border: 1px solid var(--site-line);
-  border-radius: 999px;
-  background: var(--site-paper);
-  color: var(--site-ink);
-  font-size: 12px;
-  cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease;
-}
-.ws-history-more:hover {
-  border-color: var(--site-accent);
-  background: var(--site-accent-soft);
-}
-.side-drawer-idea {
+
+/* 投稿创意独立弹窗的表单排版。 */
+.idea-form {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
-.side-drawer-idea .creative-field {
+.idea-form .creative-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.side-drawer-idea .arco-checkbox {
+.idea-form .arco-checkbox {
   margin-top: 4px;
 }
+
 @media (max-width: 820px) {
   :global(.studio-picker .arco-modal) {
     width: calc(100vw - 16px) !important;
-    border-radius: 22px;
+    border-radius: 20px;
   }
   .picker {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
     height: min(640px, calc(100dvh - 40px));
   }
-  /* 手机上导航收成顶部一排，说明文字隐去，只保留图标与名称。 */
-  .picker-rail {
-    flex-direction: row;
-    gap: 4px;
-    padding: 10px;
-    overflow-x: auto;
-    border-right: 0;
-    border-bottom: 1px solid var(--site-line);
-    scrollbar-width: none;
-  }
-  .picker-rail::-webkit-scrollbar {
-    display: none;
-  }
-  .picker-rail-title,
-  .picker-tab-copy small {
-    display: none;
-  }
-  .picker-tab {
-    flex: 0 0 auto;
-    width: auto;
-    padding: 6px 12px 6px 6px;
-    border-radius: 999px;
-  }
-  .picker-tab-icon {
-    flex-basis: 28px;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-  }
   .picker-head {
-    padding: 14px 14px 8px 18px;
+    padding: 16px 14px 12px 18px;
+  }
+  .picker-head h2 {
+    font-size: 21px;
   }
   .picker-body {
     padding: 4px 14px max(20px, env(safe-area-inset-bottom));
   }
-  .ws-asset-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-  }
 }
-
 .ai-studio button:focus-visible,
 .ai-studio select:focus-visible,
 .ai-studio input:focus-visible {

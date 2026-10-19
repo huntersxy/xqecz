@@ -19,12 +19,16 @@ const api = vi.hoisted(() => ({
   archiveTask: vi.fn(),
   setLiked: vi.fn(),
   confirm: vi.fn(),
+  toastSuccess: vi.fn(),
 }))
 vi.mock('@/api/creative', () => ({ aiApi: api }))
 vi.mock('@/stores/user', () => ({
   useUserStore: () => ({ user: { id: 1, username: '小泉', email: 'a@qq.com' } }),
 }))
-vi.mock('@/composables/useToast', () => ({ useConfirm: () => ({ confirm: api.confirm }) }))
+vi.mock('@/composables/useToast', () => ({
+  useConfirm: () => ({ confirm: api.confirm }),
+  toast: { success: api.toastSuccess, error: vi.fn() },
+}))
 const wrappers: ReturnType<typeof mount>[] = []
 const time = '2026-10-14T00:00:00.000Z'
 const asset = (id: number, liked = false) => ({
@@ -73,7 +77,12 @@ async function render() {
       plugins: [router],
       stubs: {
         CreativeImage: { props: ['id'], template: '<span class="test-image" :data-id="id" />' },
-        CreativeLibrary: true,
+        CreativeLibrary: {
+          name: 'CreativeLibrary',
+          props: ['appliedCharacters', 'error'],
+          emits: ['apply'],
+          template: '<div class="test-library" />',
+        },
         teleport: true,
         Modal: {
           props: ['visible'],
@@ -162,7 +171,7 @@ describe('studio workspace and composer', () => {
     const w = await render()
     const tools = w.get('.ws-composer-tools').text()
     expect(tools).toContain('上传参考图')
-    expect(tools).toContain('图片库')
+    expect(tools).not.toContain('图片库')
     expect(tools).toContain('角色与模板')
     // 数量用步进器，不再是原生下拉；范围 1..max_count（测试供应商上限为 2）。
     expect(w.find('select[aria-label="输出数量"]').exists()).toBe(false)
@@ -176,28 +185,46 @@ describe('studio workspace and composer', () => {
     expect(group.get('output').text()).toBe('1 张')
   })
 
-  it('picks and unpicks reference images from the image library without closing it', async () => {
-    api.assets.mockResolvedValue([asset(21), asset(22)])
+  it('imports a character from the picker in one click and closes it', async () => {
     const w = await render()
-    await button(w, '图片库').trigger('click')
+    await button(w, '角色与模板').trigger('click')
     await flushPromises()
-    const tiles = w.findAll('.ws-asset')
-    expect(tiles).toHaveLength(2)
-    expect(w.get('.ws-history-hint').text()).toContain('已选 0/2')
-    await tiles[0]!.trigger('click')
+    expect(w.text()).toContain('点选即导入')
+    const library = w.findComponent({ name: 'CreativeLibrary' })
+    expect(library.exists()).toBe(true)
+    expect(library.props('appliedCharacters')).toEqual([])
+    library.vm.$emit('apply', {
+      text: '白澋冰：银白长发，冷色眼瞳',
+      assets: [21],
+      characters: [7],
+      parameters: {},
+      action: 'append',
+      label: '白澋冰',
+    })
     await flushPromises()
+    expect((w.get('textarea').element as HTMLTextAreaElement).value).toBe('白澋冰：银白长发，冷色眼瞳')
     expect(w.findAll('.composer-reference')).toHaveLength(1)
-    expect(w.get('.ws-history-hint').text()).toContain('已选 1/2')
-    expect(w.findAll('.ws-asset')[0]!.attributes('aria-pressed')).toBe('true')
-    await tiles[1]!.trigger('click')
+    expect(api.toastSuccess).toHaveBeenCalledWith('已导入「白澋冰」')
+    // 导入成功即关闭，没有二次确认页。
+    expect(w.findComponent({ name: 'CreativeLibrary' }).exists()).toBe(false)
+  })
+
+  it('keeps the picker open and reports a failed import inside it', async () => {
+    const w = await render()
+    await button(w, '角色与模板').trigger('click')
     await flushPromises()
-    // 达到上限后其余图片不可再选。
-    expect(w.get('.ws-history-hint').text()).toContain('已选 2/2')
-    // 再点已选的一张即取消。
-    await w.findAll('.ws-asset')[0]!.trigger('click')
+    w.findComponent({ name: 'CreativeLibrary' }).vm.$emit('apply', {
+      text: '超量参考图',
+      assets: [21, 22, 23],
+      characters: [],
+      parameters: {},
+      action: 'append',
+    })
     await flushPromises()
-    expect(w.findAll('.composer-reference')).toHaveLength(1)
-    expect(w.get('.ws-history-hint').text()).toContain('已选 1/2')
+    const open = w.findComponent({ name: 'CreativeLibrary' })
+    expect(open.exists()).toBe(true)
+    expect(open.props('error')).toContain('参考图数量超出')
+    expect(api.toastSuccess).not.toHaveBeenCalled()
   })
 
   it('keeps one entry for each result action and drops the overflow menu', async () => {

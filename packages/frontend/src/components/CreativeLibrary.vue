@@ -1,242 +1,263 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
-import { IconLeft, IconRight, IconSearch, IconUser } from '@arco-design/web-vue/es/icon'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { IconCheck, IconClose, IconSearch, IconUser } from '@arco-design/web-vue/es/icon'
 import { creativeApi } from '@/api/creative'
 import type { CreativeResource } from '@/types/schemas'
 import CreativeImage from './CreativeImage.vue'
 import { resolveCreativeResource } from '@/utils/creativeResources'
-const emit = defineEmits<{
-  apply: [
-    value: {
-      text: string
-      assets: number[]
-      characters: number[]
-      parameters: Record<string, unknown>
-      action: 'append' | 'replace' | 'insert'
-    },
-  ]
-}>()
-const resources = ref<CreativeResource[]>([]),
-  selected = ref<CreativeResource | null>(null),
-  kind = ref('character'),
-  search = ref(''),
-  values = ref<Record<string, string>>({}),
-  preview = ref(''),
-  error = ref(''),
-  applyParameters = ref(false),
-  loading = ref(true)
+
+interface ApplyPayload {
+  text: string
+  assets: number[]
+  characters: number[]
+  parameters: Record<string, unknown>
+  action: 'append' | 'replace' | 'insert'
+  label?: string
+}
+
+// 这个弹窗只做一件事：一次点击把角色/模板导入输入区，不再有列表→详情的二级页面。
+const props = withDefaults(defineProps<{ appliedCharacters?: number[]; error?: string }>(), {
+  appliedCharacters: () => [],
+  error: '',
+})
+const emit = defineEmits<{ apply: [value: ApplyPayload] }>()
+
+const resources = ref<CreativeResource[]>([])
+const kind = ref<'character' | 'template'>('character')
+const search = ref('')
+const loading = ref(true)
+const failure = ref('')
+const busyId = ref(0)
+const fillId = ref(0)
+const fillValues = ref<Record<string, string>>({})
+const fillPanel = ref<HTMLElement>()
 const controller = new AbortController()
-const includeReferences = ref(false)
-const resolved = computed(() =>
-  selected.value
-    ? resolveCreativeResource(selected.value, resources.value)
-    : { assets: [], characters: [], text: '' },
-)
-const recommendedAssets = computed(() => resolved.value.assets)
+
+const shownError = computed(() => props.error || failure.value)
+const applied = computed(() => new Set(props.appliedCharacters))
 const list = computed(() =>
   resources.value.filter(
-    (r) =>
+    (row) =>
       (kind.value === 'character'
-        ? ['character', 'preset'].includes(r.kind)
-        : r.kind === kind.value) && `${r.title} ${r.summary}`.includes(search.value),
+        ? ['character', 'preset'].includes(row.kind)
+        : row.kind === 'template') &&
+      `${row.title} ${row.summary} ${row.payload.description}`.includes(search.value),
   ),
 )
-function select(row: CreativeResource) {
-  selected.value = row
-  error.value = ''
-  values.value = Object.fromEntries(row.payload.variables.map((v) => [v.name, v.default]))
-  preview.value = row.payload.body
-  applyParameters.value = false
-  includeReferences.value = false
+const fillRow = computed(() => resources.value.find((row) => row.id === fillId.value) ?? null)
+const fillReady = computed(
+  () =>
+    !!fillRow.value &&
+    fillRow.value.payload.variables.every(
+      (variable) => !variable.required || !!(fillValues.value[variable.name] ?? '').trim(),
+    ),
+)
+
+function isApplied(row: CreativeResource) {
+  return row.kind === 'character' && applied.value.has(row.id)
 }
-async function expand() {
-  if (!selected.value) return
-  const id = selected.value.id,
-    signature = JSON.stringify(values.value)
+function defaultsOf(row: CreativeResource) {
+  return Object.fromEntries(row.payload.variables.map((variable) => [variable.name, variable.default ?? '']))
+}
+async function activate(row: CreativeResource) {
+  if (busyId.value || isApplied(row)) return
+  failure.value = ''
+  if (row.kind !== 'template') {
+    const resolved = resolveCreativeResource(row, resources.value)
+    emit('apply', {
+      text: resolved.text,
+      assets: resolved.assets,
+      characters: resolved.characters,
+      parameters: {},
+      action: 'append',
+      label: row.title,
+    })
+    return
+  }
+  // 必填变量没有默认值时不能静默导入空占位，先在原弹窗里补齐再导入。
+  if (row.payload.variables.some((variable) => variable.required && !(variable.default ?? '').trim())) {
+    fillId.value = row.id
+    fillValues.value = defaultsOf(row)
+    await nextTick()
+    fillPanel.value?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
+    return
+  }
+  await expandAndApply(row, defaultsOf(row))
+}
+async function expandAndApply(row: CreativeResource, values: Record<string, string>) {
+  busyId.value = row.id
   try {
-    const result = await creativeApi.expand(
-      id,
-      { ...values.value },
-      selected.value.version,
-      controller.signal,
-    )
-    if (controller.signal.aborted || selected.value?.id !== id) return
-    if (signature !== JSON.stringify(values.value)) {
-      error.value = '变量已经修改，请重新预览'
-      return
-    }
-    preview.value = result.prompt
-    error.value = ''
-    return result.prompt
+    const result = await creativeApi.expand(row.id, values, row.version, controller.signal)
+    if (controller.signal.aborted) return
+    fillId.value = 0
+    emit('apply', {
+      text: result.prompt,
+      assets: [],
+      characters: [],
+      parameters: {},
+      action: 'append',
+      label: row.title,
+    })
   } catch (e) {
-    if (!controller.signal.aborted) error.value = (e as Error).message
+    if (!controller.signal.aborted) failure.value = (e as Error).message
+  } finally {
+    if (!controller.signal.aborted) busyId.value = 0
   }
 }
-async function copyPreview() {
-  try {
-    await navigator.clipboard.writeText(preview.value)
-  } catch {
-    error.value = '复制失败，请手动选择提示词复制'
-  }
+function closeFill() {
+  fillId.value = 0
+  fillValues.value = {}
 }
-async function apply(action: 'append' | 'replace' | 'insert') {
-  if (!selected.value) return
-  const id = selected.value.id
-  if (selected.value.kind === 'template') {
-    const text = await expand()
-    if (typeof text !== 'string' || error.value || selected.value?.id !== id) return
-  }
-  emit('apply', {
-    text: selected.value.kind === 'template' ? preview.value : resolved.value.text,
-    assets:
-      selected.value.kind === 'template'
-        ? includeReferences.value
-          ? recommendedAssets.value
-          : []
-        : resolved.value.assets,
-    characters: resolved.value.characters,
-    parameters: applyParameters.value ? selected.value.payload.parameters : {},
-    action,
-  })
+function applyFill() {
+  if (fillRow.value && fillReady.value) void expandAndApply(fillRow.value, { ...fillValues.value })
 }
 onMounted(async () => {
   try {
     resources.value = await creativeApi.resources(undefined, undefined, controller.signal)
   } catch (e) {
-    if (!controller.signal.aborted) error.value = (e as Error).message
+    if (!controller.signal.aborted) failure.value = (e as Error).message
   } finally {
     if (!controller.signal.aborted) loading.value = false
   }
 })
-function back() {
-  selected.value = null
-  error.value = ''
-}
 onBeforeUnmount(() => controller.abort())
 </script>
-<template>
-  <div class="creative-library" :class="{ 'is-detail': !!selected }">
-    <Transition name="lib-pane" mode="out-in">
-      <section v-if="!selected" key="list" class="lib-pane lib-list">
-        <p class="lib-intro">
-          选择角色会同时导入外观描述和参考图；提示词模板可以填写变量后追加、替换或插入到输入框。
-        </p>
-        <div class="lib-kind" role="radiogroup" aria-label="资源类型" :class="{ 'is-template': kind === 'template' }">
-          <span class="lib-kind-thumb" aria-hidden="true" />
-          <button type="button" role="radio" :aria-checked="kind === 'character'" @click="kind = 'character'">
-            角色资源
-          </button>
-          <button type="button" role="radio" :aria-checked="kind === 'template'" @click="kind = 'template'">
-            提示词
-          </button>
-        </div>
-        <label class="lib-search">
-          <IconSearch aria-hidden="true" />
-          <input v-model="search" type="search" placeholder="查找创作资源" aria-label="查找创作资源" />
-        </label>
-        <div v-if="error" class="creative-error">{{ error }}</div>
-        <div v-if="loading" class="lib-skeletons" role="status">
-          <span class="sr-only">正在读取资源…</span>
-          <i v-for="n in 4" :key="n" aria-hidden="true" />
-        </div>
-        <ul v-else-if="list.length" class="lib-cards">
-          <li v-for="(row, index) in list" :key="row.id" :style="{ '--i': Math.min(index, 8) }">
-            <button type="button" class="library-row" @click="select(row)">
-              <span class="lib-thumb">
-                <CreativeImage v-if="row.payload.asset_ids[0]" :id="row.payload.asset_ids[0]" public-asset />
-                <IconUser v-else aria-hidden="true" />
-              </span>
-              <span class="lib-copy">
-                <strong>{{ row.title }}</strong>
-                <span>{{ row.summary || row.payload.description || '暂无简介' }}</span>
-              </span>
-              <IconRight class="lib-chevron" aria-hidden="true" />
-            </button>
-          </li>
-        </ul>
-        <p v-else class="lib-empty">{{ search ? '没有匹配的资源' : '尚无已发布资源' }}</p>
-      </section>
 
-      <section v-else key="detail" class="lib-pane lib-detail">
-        <header class="lib-detail-head">
-          <button type="button" class="lib-back" @click="back"><IconLeft />返回</button>
-          <span class="lib-badge">{{ selected.kind === 'template' ? '提示词模板' : '角色资源' }}</span>
-        </header>
-        <div class="lib-detail-body">
-          <h3>{{ selected.title }}</h3>
-          <p class="lib-desc">{{ selected.payload.description || selected.summary }}</p>
-          <div v-if="recommendedAssets.length" class="library-images">
-            <CreativeImage v-for="id in recommendedAssets" :key="id" :id="id" public-asset />
-          </div>
-          <label v-for="variable in selected.payload.variables" :key="variable.name" class="lib-field">
-            <span>{{ variable.label || variable.name }}<em v-if="variable.required">*</em></span>
-            <select v-if="variable.type === 'select'" v-model="values[variable.name]">
-              <option value="">请选择</option>
-              <option v-for="option in variable.options" :key="option">{{ option }}</option>
-            </select>
-            <input v-else v-model="values[variable.name]" :placeholder="variable.help" />
-          </label>
-          <button v-if="selected.kind === 'template'" type="button" class="lib-btn" @click="expand">预览提示词</button>
-          <pre v-if="preview" class="lib-preview">{{ preview }}</pre>
-          <label v-if="selected.kind === 'template' && recommendedAssets.length" class="lib-switch">
-            <input v-model="includeReferences" type="checkbox" />
-            <span>同时导入推荐参考图（{{ recommendedAssets.length }} 张）</span>
-          </label>
-          <label v-if="Object.keys(selected.payload.parameters).length" class="lib-switch">
-            <input v-model="applyParameters" type="checkbox" />
-            <span>同时应用推荐参数</span>
-          </label>
-          <div v-if="error" class="creative-error">{{ error }}</div>
-        </div>
-        <footer class="lib-actions">
-          <button type="button" class="lib-btn is-primary" @click="apply('append')">追加 / 导入</button>
-          <template v-if="selected.kind === 'template'">
-            <button type="button" class="lib-btn" @click="apply('replace')">替换提示词</button>
-            <button type="button" class="lib-btn" @click="apply('insert')">插入光标位置</button>
-          </template>
-          <button v-if="preview" type="button" class="lib-btn" @click="copyPreview()">复制</button>
-        </footer>
-      </section>
-    </Transition>
+<template>
+  <div class="creative-library">
+    <div class="lib-toolbar">
+      <div class="lib-kind" :class="{ 'is-template': kind === 'template' }" role="radiogroup" aria-label="素材类型">
+        <span class="lib-kind-thumb" aria-hidden="true" />
+        <button
+          type="button"
+          role="radio"
+          :aria-checked="kind === 'character'"
+          @click="kind = 'character'"
+        >
+          角色资源
+        </button>
+        <button
+          type="button"
+          role="radio"
+          :aria-checked="kind === 'template'"
+          @click="kind = 'template'"
+        >
+          提示词
+        </button>
+      </div>
+      <label class="lib-search">
+        <IconSearch aria-hidden="true" />
+        <input v-model="search" type="search" placeholder="查找创作素材" aria-label="查找创作素材" />
+      </label>
+    </div>
+
+    <div v-if="shownError" class="creative-error" role="alert">{{ shownError }}</div>
+
+    <form v-if="fillRow" ref="fillPanel" class="lib-fill" @submit.prevent="applyFill">
+      <header class="lib-fill-head">
+        <span><b>{{ fillRow.title }}</b> 还需要填写变量</span>
+        <button type="button" class="lib-fill-close" aria-label="取消填写" @click="closeFill">
+          <IconClose />
+        </button>
+      </header>
+      <div class="lib-fill-fields">
+        <label v-for="variable in fillRow.payload.variables" :key="variable.name" class="lib-field">
+          <span>{{ variable.label || variable.name }}<em v-if="variable.required">*</em></span>
+          <select
+            v-if="variable.type === 'select'"
+            v-model="fillValues[variable.name]"
+            :aria-label="variable.label || variable.name"
+          >
+            <option value="">请选择</option>
+            <option v-for="option in variable.options" :key="option">{{ option }}</option>
+          </select>
+          <input
+            v-else
+            v-model="fillValues[variable.name]"
+            :placeholder="variable.help"
+            :aria-label="variable.label || variable.name"
+          />
+        </label>
+      </div>
+      <button type="submit" class="lib-fill-apply" :disabled="!fillReady || busyId === fillRow.id">
+        {{ busyId === fillRow.id ? '导入中…' : '导入提示词' }}
+      </button>
+    </form>
+
+    <div v-if="loading" class="lib-skeletons" role="status">
+      <span class="sr-only">正在读取素材…</span>
+      <i v-for="n in 8" :key="n" aria-hidden="true" />
+    </div>
+    <ul v-else-if="list.length" class="lib-grid">
+      <li v-for="(row, index) in list" :key="row.id" :style="{ '--i': Math.min(index, 11) }">
+        <button
+          type="button"
+          class="lib-card"
+          :class="{ 'is-applied': isApplied(row), 'is-template': row.kind === 'template' }"
+          :disabled="isApplied(row) || busyId === row.id"
+          :aria-label="
+            isApplied(row) ? `${row.title}，已在当前草稿中` : `${row.title}，点击导入`
+          "
+          @click="activate(row)"
+        >
+          <span class="lib-media">
+            <CreativeImage
+              v-if="row.payload.asset_ids[0]"
+              :id="row.payload.asset_ids[0]"
+              public-asset
+            />
+            <span v-else class="lib-media-empty">
+              <span v-if="row.kind === 'template'" class="lib-media-quote">
+                {{ row.payload.body }}
+              </span>
+              <IconUser v-else aria-hidden="true" />
+            </span>
+            <span v-if="row.kind === 'template'" class="lib-kind-badge">提示词</span>
+            <span class="lib-import-hint" aria-hidden="true">
+              <template v-if="isApplied(row)"><IconCheck />已导入</template>
+              <template v-else>{{ busyId === row.id ? '导入中…' : '导入' }}</template>
+            </span>
+          </span>
+          <span class="lib-caption">
+            <strong>{{ row.title }}</strong>
+            <small>{{ row.summary || row.payload.description || '暂无简介' }}</small>
+          </span>
+        </button>
+      </li>
+    </ul>
+    <div v-else class="lib-empty">
+      <p>
+        {{
+          search
+            ? '没有匹配的素材'
+            : kind === 'template'
+              ? '尚无已发布的提示词模板'
+              : '尚无已发布的角色资源'
+        }}
+      </p>
+      <button v-if="search" type="button" class="lib-reset" @click="search = ''">清除搜索</button>
+    </div>
   </div>
 </template>
+
 <style scoped>
 .creative-library {
-  position: relative;
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  gap: 16px;
 }
-.lib-pane {
+.lib-toolbar {
   display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
-.lib-pane-enter-active,
-.lib-pane-leave-active {
-  transition:
-    opacity 0.18s ease,
-    transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.lib-pane-enter-from {
-  opacity: 0;
-  transform: translateX(18px);
-}
-.lib-pane-leave-to {
-  opacity: 0;
-  transform: translateX(-12px);
-}
-.lib-intro {
-  margin: 0 0 14px;
-  color: var(--creative-muted);
-  font-size: 12px;
-  line-height: 1.75;
-}
+/* 分段控件沿用全站药丸语言，滑块跟着选中项滑动。 */
 .lib-kind {
   position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
+  min-width: 196px;
   padding: 3px;
   border-radius: 999px;
   background: var(--creative-soft);
@@ -249,7 +270,7 @@ onBeforeUnmount(() => controller.abort())
   width: calc((100% - 6px) / 2);
   border-radius: 999px;
   background: var(--creative-paper);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--creative-ink) 10%, transparent);
   transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .lib-kind.is-template .lib-kind-thumb {
@@ -261,7 +282,8 @@ onBeforeUnmount(() => controller.abort())
   min-height: 34px;
   border: 0;
   background: transparent;
-  color: var(--creative-muted);
+  color: color-mix(in srgb, var(--creative-ink) 56%, var(--creative-paper));
+  font: inherit;
   font-size: 12.5px;
   cursor: pointer;
   transition: color 0.2s ease;
@@ -272,12 +294,14 @@ onBeforeUnmount(() => controller.abort())
 }
 .lib-search {
   display: flex;
+  flex: 1 1 200px;
   align-items: center;
   gap: 8px;
-  margin: 12px 0 14px;
+  max-width: 300px;
+  margin-left: auto;
   padding: 0 14px;
   border: 1px solid var(--creative-line);
-  border-radius: 12px;
+  border-radius: 999px;
   background: var(--creative-paper);
   color: var(--creative-muted);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -289,7 +313,7 @@ onBeforeUnmount(() => controller.abort())
 .lib-search input {
   flex: 1;
   min-width: 0;
-  height: 40px;
+  height: 38px;
   border: 0;
   outline: 0;
   background: transparent;
@@ -297,114 +321,296 @@ onBeforeUnmount(() => controller.abort())
   font: inherit;
   font-size: 13px;
 }
-.lib-cards {
+.lib-search input::placeholder {
+  color: color-mix(in srgb, var(--creative-ink) 52%, var(--creative-paper));
+}
+.lib-kind button:focus-visible,
+.lib-search:focus-within {
+  outline: 2px solid var(--creative-accent);
+  outline-offset: 2px;
+}
+
+/* 角色卡：图片是主角，标题与一句简介只做索引。 */
+.lib-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 18px 14px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.lib-cards li {
-  animation: lib-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
-  animation-delay: calc(var(--i) * 36ms);
+.lib-grid li {
+  animation: lib-rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i) * 32ms);
 }
 @keyframes lib-rise {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px);
   }
 }
-.library-row {
+.lib-card {
   display: flex;
-  align-items: center;
-  gap: 14px;
+  flex-direction: column;
+  gap: 9px;
   width: 100%;
-  padding: 12px;
-  border: 1px solid var(--creative-line);
-  border-radius: 16px;
-  background: var(--creative-paper);
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--creative-ink);
   text-align: left;
   cursor: pointer;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.25s ease,
-    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.library-row:hover {
-  border-color: color-mix(in srgb, var(--creative-accent) 40%, var(--creative-line));
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--creative-ink) 10%, transparent);
-  transform: translateY(-2px);
-}
-.library-row:active {
-  transform: translateY(0) scale(0.99);
-}
-.lib-thumb {
+.lib-media {
+  position: relative;
   display: grid;
-  flex: 0 0 56px;
   place-items: center;
-  width: 56px;
-  height: 56px;
+  width: 100%;
+  /* 角色多为全身立绘，竖版画幅比正方形更能看清人物。 */
+  aspect-ratio: 4 / 5;
   overflow: hidden;
-  border-radius: 13px;
-  background: var(--creative-soft);
-  color: var(--creative-muted);
+  border: 1px solid var(--creative-line);
+  border-radius: 16px;
+  background:
+    radial-gradient(
+      120% 90% at 50% 0%,
+      color-mix(in srgb, var(--creative-paper) 90%, transparent),
+      transparent 72%
+    ),
+    var(--creative-soft);
+  transition:
+    border-color 0.24s ease,
+    box-shadow 0.32s ease,
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.lib-thumb :deep(.creative-image) {
+.lib-media :deep(.creative-image) {
   min-height: 0;
 }
-.lib-thumb :deep(.creative-image img) {
-  object-fit: cover;
+.lib-media :deep(.creative-image img) {
+  object-fit: contain;
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.lib-thumb > svg {
-  width: 22px;
-  height: 22px;
+.lib-media-empty {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: color-mix(in srgb, var(--creative-ink) 46%, var(--creative-paper));
 }
-.lib-copy {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
+.lib-media-empty > svg {
+  width: 30px;
+  height: 30px;
 }
-.lib-copy strong {
+.lib-media-quote {
+  display: -webkit-box;
+  padding: 12% 14%;
   overflow: hidden;
-  font-size: 14px;
+  color: color-mix(in srgb, var(--creative-ink) 70%, var(--creative-paper));
+  font: italic 400 12.5px/1.75 var(--creative-title-font);
+  text-align: center;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+.lib-kind-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 3px 9px;
+  border: 1px solid var(--creative-line);
+  border-radius: 999px;
+  background: var(--creative-paper);
+  color: var(--creative-ink);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+}
+.lib-import-hint {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: var(--creative-ink);
+  color: var(--creative-paper);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  opacity: 0;
+  transform: translateY(5px);
+  transition:
+    opacity 0.22s ease,
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lib-import-hint svg {
+  width: 12px;
+  height: 12px;
+}
+.lib-card.is-applied .lib-import-hint {
+  background: var(--creative-accent);
+}
+.lib-card:hover .lib-media,
+.lib-card:focus-visible .lib-media {
+  border-color: color-mix(in srgb, var(--creative-accent) 45%, var(--creative-line));
+  box-shadow: 0 20px 36px -22px color-mix(in srgb, var(--creative-ink) 55%, transparent);
+  transform: translateY(-3px);
+}
+.lib-card:hover .lib-media :deep(.creative-image img),
+.lib-card:focus-visible .lib-media :deep(.creative-image img) {
+  transform: scale(1.035);
+}
+.lib-card:active .lib-media {
+  transform: translateY(-1px) scale(0.995);
+}
+.lib-card:hover .lib-import-hint,
+.lib-card:focus-visible .lib-import-hint,
+.lib-card.is-applied .lib-import-hint {
+  opacity: 1;
+  transform: none;
+}
+.lib-card:disabled {
+  cursor: default;
+}
+.lib-card:disabled:hover .lib-media {
+  transform: none;
+}
+.lib-card.is-applied .lib-media :deep(.creative-image img) {
+  filter: saturate(0.72);
+}
+.lib-card:focus-visible {
+  outline: none;
+}
+.lib-card:focus-visible .lib-media {
+  outline: 2px solid var(--creative-accent);
+  outline-offset: 3px;
+}
+.lib-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 0 2px;
+}
+.lib-caption strong {
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.lib-copy span {
-  display: -webkit-box;
+.lib-caption small {
   overflow: hidden;
-  color: var(--creative-muted);
+  color: color-mix(in srgb, var(--creative-ink) 60%, var(--creative-paper));
+  font-size: 11.5px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 必填变量补齐：留在原弹窗内，不跳二级页。 */
+.lib-fill {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--creative-accent) 26%, var(--creative-line));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--creative-accent) 5%, var(--creative-paper));
+}
+.lib-fill-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: color-mix(in srgb, var(--creative-ink) 66%, var(--creative-paper));
   font-size: 12px;
-  line-height: 1.55;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 }
-.lib-chevron {
-  flex: 0 0 auto;
-  color: var(--creative-muted);
-  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), color 0.2s ease;
-}
-.library-row:hover .lib-chevron {
-  color: var(--creative-accent);
-  transform: translateX(3px);
-}
-.lib-empty {
-  margin: 36px 0;
-  color: var(--creative-muted);
+.lib-fill-head b {
+  color: var(--creative-ink);
   font-size: 13px;
-  text-align: center;
 }
+.lib-fill-close {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--creative-muted);
+  cursor: pointer;
+}
+.lib-fill-close:hover {
+  background: var(--creative-soft);
+  color: var(--creative-ink);
+}
+.lib-fill-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+.lib-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: color-mix(in srgb, var(--creative-ink) 62%, var(--creative-paper));
+  font-size: 11.5px;
+}
+.lib-field em {
+  margin-left: 2px;
+  color: var(--creative-accent);
+  font-style: normal;
+}
+.lib-field input,
+.lib-field select {
+  height: 36px;
+  padding: 0 11px;
+  border: 1px solid var(--creative-line);
+  border-radius: 10px;
+  outline: 0;
+  background: var(--creative-paper);
+  color: var(--creative-ink);
+  font: inherit;
+  font-size: 12.5px;
+}
+.lib-field input:focus,
+.lib-field select:focus {
+  border-color: var(--creative-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--creative-accent) 12%, transparent);
+}
+.lib-fill-apply {
+  align-self: flex-start;
+  min-height: 34px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--creative-accent);
+  color: var(--creative-paper);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+.lib-fill-apply:hover:not(:disabled) {
+  background: var(--creative-accent-hover);
+}
+.lib-fill-apply:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.lib-fill-apply:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .lib-skeletons {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 18px 14px;
 }
 .lib-skeletons i {
-  height: 80px;
+  aspect-ratio: 4 / 5;
   border-radius: 16px;
   background: linear-gradient(
       105deg,
@@ -424,221 +630,68 @@ onBeforeUnmount(() => controller.abort())
     background-position: -60% 0, 0 0;
   }
 }
-
-/* 详情：返回条 + 可滚动内容 + 吸底操作栏 */
-.lib-detail-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 14px;
-}
-.lib-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px 6px 8px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--creative-soft);
-  color: var(--creative-ink);
-  font-size: 12.5px;
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
-}
-.lib-back:hover {
-  background: var(--creative-accent-soft, var(--creative-soft));
-  transform: translateX(-2px);
-}
-.lib-badge {
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: var(--creative-accent-soft, var(--creative-soft));
-  color: var(--creative-accent);
-  font-size: 11px;
-  font-weight: 600;
-}
-.lib-detail-body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 14px;
-  max-width: 640px;
-}
-.lib-detail h3 {
-  margin: 0;
-  color: var(--creative-ink);
-  font: 600 22px/1.3 var(--site-title-font, inherit);
-  letter-spacing: -0.01em;
-}
-.lib-desc {
-  margin: -6px 0 0;
-  color: var(--creative-muted);
-  font-size: 13px;
-  line-height: 1.8;
-}
-.library-images {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-.library-images > * {
-  height: 120px;
-  overflow: hidden;
-  border-radius: 14px;
-  background: var(--creative-soft);
-}
-.library-images :deep(.creative-image) {
-  min-height: 0;
-}
-.library-images :deep(.creative-image img) {
-  object-fit: cover;
-}
-.lib-field {
+.lib-empty {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  color: var(--creative-muted);
-  font-size: 12px;
-}
-.lib-field em {
-  margin-left: 2px;
-  color: var(--creative-accent);
-  font-style: normal;
-}
-.lib-field input,
-.lib-field select {
-  height: 40px;
-  padding: 0 12px;
-  border: 1px solid var(--creative-line);
-  border-radius: 12px;
-  outline: 0;
-  background: var(--creative-paper);
-  color: var(--creative-ink);
-  font: inherit;
-  font-size: 13px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-.lib-field input:focus,
-.lib-field select:focus {
-  border-color: var(--creative-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--creative-accent) 12%, transparent);
-}
-.lib-preview {
-  margin: 0;
-  padding: 14px 16px;
-  border-radius: 14px;
-  background: var(--creative-soft);
-  color: var(--creative-ink);
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.8;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-}
-/* 开关：仍是原生 checkbox（可聚焦、可读屏），只重绘外观。 */
-.lib-switch {
-  display: flex;
   align-items: center;
-  gap: 10px;
-  color: var(--creative-ink);
-  font-size: 13px;
-  cursor: pointer;
+  gap: 12px;
+  padding: 56px 12px;
+  color: color-mix(in srgb, var(--creative-ink) 58%, var(--creative-paper));
 }
-.lib-switch input {
-  position: relative;
-  flex: 0 0 auto;
-  width: 36px;
-  height: 22px;
+.lib-empty p {
   margin: 0;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--creative-muted) 35%, transparent);
-  appearance: none;
-  cursor: pointer;
-  transition: background 0.25s ease;
+  font-size: 13px;
 }
-.lib-switch input::after {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  content: '';
-  transition: transform 0.28s cubic-bezier(0.34, 1.4, 0.64, 1);
-}
-.lib-switch input:checked {
-  background: var(--creative-accent);
-}
-.lib-switch input:checked::after {
-  transform: translateX(14px);
-}
-.lib-switch input:focus-visible {
-  outline: 2px solid var(--creative-accent);
-  outline-offset: 2px;
-}
-.lib-actions {
-  position: sticky;
-  bottom: -24px;
-  z-index: 2;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 18px -28px -24px;
-  padding: 14px 28px 18px;
-  border-top: 1px solid var(--creative-line);
-  background: color-mix(in srgb, var(--creative-paper) 92%, transparent);
-  backdrop-filter: blur(12px);
-}
-.lib-btn {
-  min-height: 38px;
+.lib-reset {
+  height: 34px;
   padding: 0 16px;
   border: 1px solid var(--creative-line);
   border-radius: 999px;
   background: var(--creative-paper);
   color: var(--creative-ink);
-  font-size: 12.5px;
+  font: inherit;
+  font-size: 12px;
   cursor: pointer;
-  transition:
-    border-color 0.2s ease,
-    background 0.2s ease,
-    transform 0.15s ease;
 }
-.lib-btn:hover {
+.lib-reset:hover {
   border-color: var(--creative-accent);
-  background: var(--creative-soft);
+  color: var(--creative-accent);
 }
-.lib-btn:active {
-  transform: scale(0.97);
-}
-.lib-btn.is-primary {
-  border-color: transparent;
-  background: var(--creative-accent);
-  color: var(--creative-paper);
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--creative-accent) 28%, transparent);
-}
-.lib-btn.is-primary:hover {
-  background: color-mix(in srgb, var(--creative-accent) 86%, var(--creative-ink));
-}
-.lib-detail-body > .lib-btn {
-  align-self: flex-start;
-}
-.creative-library button:focus-visible {
-  outline: 2px solid var(--creative-accent);
-  outline-offset: 2px;
+@media (hover: none) {
+  .lib-import-hint {
+    opacity: 1;
+    transform: none;
+  }
 }
 @media (max-width: 820px) {
-  .lib-cards,
+  .lib-search {
+    flex-basis: 100%;
+    max-width: none;
+    margin-left: 0;
+  }
+  .lib-grid,
   .lib-skeletons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 10px;
+  }
+  .lib-import-hint {
+    right: 7px;
+    bottom: 7px;
+    padding: 3px 9px;
+  }
+  .lib-fill-fields {
     grid-template-columns: minmax(0, 1fr);
   }
-  .lib-actions {
-    margin: 18px -14px -20px;
-    padding: 12px 14px max(14px, env(safe-area-inset-bottom));
+}
+@media (prefers-reduced-motion: reduce) {
+  .lib-grid li,
+  .lib-skeletons i {
+    animation: none;
   }
-  .library-images {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .lib-media,
+  .lib-import-hint,
+  .lib-media :deep(.creative-image img) {
+    transition: none;
   }
 }
 </style>
