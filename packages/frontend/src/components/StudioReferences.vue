@@ -263,7 +263,7 @@ onBeforeUnmount(resetGesture)
   width: 56px;
   height: 56px;
 }
-.reference-preview {
+.composer-reference .reference-preview {
   position: relative;
   display: block;
   width: 56px;
@@ -287,7 +287,7 @@ onBeforeUnmount(resetGesture)
 .reference-preview :deep(.creative-image img) {
   object-fit: cover;
 }
-.reference-index {
+.composer-reference .reference-index {
   position: absolute;
   z-index: 2;
   bottom: 3px;
@@ -305,7 +305,7 @@ onBeforeUnmount(resetGesture)
   text-align: center;
   cursor: pointer;
 }
-.reference-remove {
+.composer-reference .reference-remove {
   position: absolute;
   z-index: 2;
   top: 2px;
@@ -323,7 +323,7 @@ onBeforeUnmount(resetGesture)
   cursor: pointer;
   transition: opacity var(--transition-fast), color var(--transition-fast);
 }
-.reference-remove svg {
+.composer-reference .reference-remove svg {
   width: 10px;
   height: 10px;
 }
@@ -345,22 +345,22 @@ onBeforeUnmount(resetGesture)
   }
 }
 @media (max-width: 820px) {
-  .reference-index,
-  .reference-remove {
+  .composer-reference .reference-index,
+  .composer-reference .reference-remove {
     width: 20px;
     height: 20px;
     line-height: 20px;
   }
-  .reference-index {
+  .composer-reference .reference-index {
     bottom: 2px;
     left: 2px;
     font-size: 9px;
   }
-  .reference-remove {
+  .composer-reference .reference-remove {
     top: 2px;
     right: 2px;
   }
-  .reference-remove svg {
+  .composer-reference .reference-remove svg {
     width: 11px;
     height: 11px;
   }
