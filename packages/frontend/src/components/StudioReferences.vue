@@ -292,6 +292,7 @@ onBeforeUnmount(resetGesture)
   z-index: 2;
   bottom: 3px;
   left: 3px;
+  box-sizing: border-box;
   min-width: 18px;
   height: 18px;
   padding: 0 4px;
@@ -310,6 +311,7 @@ onBeforeUnmount(resetGesture)
   z-index: 2;
   top: 2px;
   right: 2px;
+  box-sizing: border-box;
   display: grid;
   place-items: center;
   width: 18px;
@@ -359,6 +361,7 @@ onBeforeUnmount(resetGesture)
   .composer-reference .reference-remove {
     top: 2px;
     right: 2px;
+    opacity: 1;
   }
   .composer-reference .reference-remove svg {
     width: 11px;
