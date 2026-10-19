@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onBeforeUnmount, nextTick } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useAIStudio } from '@/composables/useAIStudio'
 import { useStudioDock } from '@/composables/useStudioDock'
@@ -163,8 +163,25 @@ const stageTask = computed(() => {
     null
   )
 })
+/** Every result currently visible in the history list; "全部" mirrors that set. */
+const visibleAssets = computed(() => {
+  const rows = shownTasks.value.length ? shownTasks.value : tasks.value
+  const seen = new Set<number>()
+  const out: AIAsset[] = []
+  for (const row of rows) {
+    for (const asset of row.assets) {
+      if (seen.has(asset.id)) continue
+      seen.add(asset.id)
+      out.push(asset)
+    }
+  }
+  return out
+})
 const stageAssets = computed(() => {
-  if (viewMode.value === 'all' && stageTask.value?.assets.length) return stageTask.value.assets
+  if (viewMode.value === 'all') {
+    if (visibleAssets.value.length) return visibleAssets.value
+    return selectedAsset.value ? [selectedAsset.value] : []
+  }
   return selectedAsset.value ? [selectedAsset.value] : []
 })
 const stagePrompt = computed(() => stageTask.value?.task.prompt ?? '')
@@ -226,6 +243,11 @@ function selectAsset(asset: AIAsset) {
   activeTaskId.value = row?.task.id ?? 0
   resultOpen.value = false
 }
+/** Choosing a thumbnail from the all-results grid focuses it in the single view. */
+function selectGridAsset(asset: AIAsset) {
+  selectAsset(asset)
+  viewMode.value = 'single'
+}
 function selectLiked(asset: AIAsset) {
   activeTaskId.value = 0
   selectedAsset.value = asset
@@ -262,7 +284,27 @@ async function commitRename() {
 }
 
 // ── Draft editing ───────────────────────────────────────────────────────────
+/**
+ * Grow the prompt with its content (the reference dock behaves this way).
+ * Height is written inline so the fixed dock's ResizeObserver can reserve the
+ * new footprint before the phone keyboard or the last task is covered.
+ */
+function resizePrompt() {
+  const el = promptArea.value
+  if (!el) return
+  const phone =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(max-width: 820px)').matches
+  const visibleHeight = window.visualViewport?.height ?? window.innerHeight
+  const max = phone ? Math.min(240, Math.round(visibleHeight * 0.38)) : 172
+  const min = phone ? 72 : 64
+  el.style.height = 'auto'
+  el.style.height = `${Math.max(min, Math.min(el.scrollHeight, max))}px`
+  el.style.overflowY = el.scrollHeight > max ? 'auto' : 'hidden'
+}
 function onPromptInput() {
+  resizePrompt()
   mention.value = references.value.length
     ? referenceMentionAt(prompt.value, promptArea.value?.selectionStart ?? prompt.value.length)
     : null
@@ -646,6 +688,14 @@ watch(selectedAsset, (asset) => {
   const row = tasks.value.find((item) => item.assets.some((own) => own.id === asset.id))
   if (row) activeTaskId.value = row.task.id
 })
+watch(prompt, () => {
+  void nextTick(resizePrompt)
+})
+onMounted(() => {
+  void nextTick(resizePrompt)
+  window.addEventListener('resize', resizePrompt)
+  window.visualViewport?.addEventListener('resize', resizePrompt)
+})
 let historyTimer: ReturnType<typeof setTimeout> | undefined
 watch([ready, search, status], () => {
   if (!ready.value) return
@@ -667,6 +717,8 @@ watch(
 )
 onBeforeUnmount(() => {
   if (historyTimer) clearTimeout(historyTimer)
+  window.removeEventListener('resize', resizePrompt)
+  window.visualViewport?.removeEventListener('resize', resizePrompt)
 })
 onBeforeRouteLeave(async () => {
   try {
@@ -904,9 +956,19 @@ watch(ready, (value) => {
         </button>
         <div v-if="stageTask" class="ws-stage-meta">
           <strong>{{ clockOf(stageTask.task.created_at) }}</strong>
-          <span>{{ dayOf(stageTask.task.created_at) }}</span>
-          <span :class="statusClass(stageTask.task.status)">{{ labels[stageTask.task.status] }}</span>
-          <span>· {{ stageTask.assets.length }} 张</span>
+          <span class="ws-stage-sep" aria-hidden="true">·</span>
+          <span class="ws-stage-date">{{ dayOf(stageTask.task.created_at) }}</span>
+          <span class="ws-stage-sep" aria-hidden="true">·</span>
+          <span v-if="viewMode === 'all'" class="ws-stage-all-count"
+            >全部 {{ visibleAssets.length }} 张</span
+          >
+          <template v-else>
+            <span class="ws-stage-status" :class="statusClass(stageTask.task.status)">{{
+              labels[stageTask.task.status]
+            }}</span>
+            <span class="ws-stage-sep" aria-hidden="true">·</span>
+            <span class="ws-stage-count">{{ stageTask.assets.length }} 张</span>
+          </template>
         </div>
         <div v-else class="ws-stage-meta">
           <strong>{{ name }}</strong>
@@ -960,7 +1022,7 @@ watch(ready, (value) => {
               type="button"
               :aria-label="`查看结果 ${index + 1}`"
               :aria-pressed="selectedAsset?.id === asset.id"
-              @click="selectAsset(asset)"
+              @click="selectGridAsset(asset)"
             >
               <CreativeImage :id="asset.id" />
             </button>
@@ -1063,7 +1125,7 @@ watch(ready, (value) => {
               id="studio-prompt"
               ref="promptArea"
               v-model="prompt"
-              rows="2"
+              rows="3"
               maxlength="8000"
               :disabled="composerLocked"
               placeholder="描述你想生成的图片，或附加图片进行编辑……"
@@ -1318,7 +1380,7 @@ watch(ready, (value) => {
     </div>
     <div class="side-drawer-body">
       <CreativeLibrary v-if="resourceOpen && resourceTab === 'library'" @apply="applyResource" />
-      <div v-else-if="resourceTab === 'history'" class="creative-grid">
+      <div v-else-if="resourceTab === 'history'" class="creative-grid ws-library-grid">
         <div v-for="asset in assets" :key="asset.id" class="library-asset">
           <button
             type="button"
@@ -1798,7 +1860,7 @@ watch(ready, (value) => {
 .ws-history-thumb .creative-image {
   min-height: 0;
 }
-.ws-history-thumb .creative-image img {
+.ws-history-thumb :deep(.creative-image img) {
   object-fit: cover;
 }
 .ws-history-thumb > svg {
@@ -1892,7 +1954,7 @@ watch(ready, (value) => {
 .ws-liked-open .creative-image {
   min-height: 0;
 }
-.ws-liked-open .creative-image img {
+.ws-liked-open :deep(.creative-image img) {
   object-fit: cover;
 }
 .ws-liked-heart {
@@ -1978,16 +2040,52 @@ watch(ready, (value) => {
 .ws-stage-meta {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
+  overflow: hidden;
   color: var(--site-muted);
-  font-size: 11px;
+  font-size: 10.5px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ws-stage-meta > span,
+.ws-stage-meta > strong {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.ws-stage-meta > strong:first-child {
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ws-stage-meta strong {
   color: var(--site-ink);
   font-size: 14px;
   font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.ws-stage-sep {
+  color: var(--site-muted);
+  opacity: 0.55;
+}
+.ws-stage-date,
+.ws-stage-count {
+  color: var(--site-muted);
+  font-size: 10px;
+}
+.ws-stage-status {
+  color: var(--site-muted);
+  font-weight: 500;
+}
+.ws-stage-status::before {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  content: '';
+  vertical-align: 1px;
 }
 .ws-stage-meta .is-success {
   color: rgb(var(--success-6));
@@ -1997,6 +2095,14 @@ watch(ready, (value) => {
 }
 .ws-stage-meta .is-accent {
   color: var(--site-accent);
+}
+.ws-stage-all-count {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--site-accent-soft);
+  color: var(--site-accent);
+  font-size: 10px;
+  font-weight: 600;
 }
 .ws-view-toggle {
   display: flex;
@@ -2111,7 +2217,7 @@ watch(ready, (value) => {
 .ws-canvas-image .creative-image {
   min-height: 0;
 }
-.ws-canvas-image .creative-image img {
+.ws-canvas-image :deep(.creative-image img) {
   max-height: 100%;
   border-radius: 16px;
   box-shadow: 0 18px 48px color-mix(in srgb, var(--site-ink) 13%, transparent);
@@ -2142,7 +2248,7 @@ watch(ready, (value) => {
 .ws-canvas-grid .creative-image {
   min-height: 0;
 }
-.ws-canvas-grid .creative-image img {
+.ws-canvas-grid :deep(.creative-image img) {
   object-fit: cover;
 }
 .ws-canvas-state {
@@ -2252,9 +2358,9 @@ watch(ready, (value) => {
 .ws-composer-prompt textarea {
   display: block;
   width: 100%;
-  min-height: 46px;
-  max-height: 138px;
-  padding: 4px 6px 8px;
+  min-height: 64px;
+  max-height: 172px;
+  padding: 6px 6px 8px;
   border: 0;
   outline: 0;
   resize: none;
@@ -2263,6 +2369,7 @@ watch(ready, (value) => {
   font: inherit;
   font-size: 13px;
   line-height: 1.6;
+  overflow-y: hidden;
 }
 .ws-composer-prompt textarea::placeholder {
   color: var(--site-muted);
@@ -2272,6 +2379,9 @@ watch(ready, (value) => {
   align-items: center;
   gap: 8px;
   min-width: 0;
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--site-line);
 }
 .ws-composer-tools {
   display: flex;
@@ -2582,7 +2692,7 @@ watch(ready, (value) => {
 .ws-detail-refs .creative-image {
   min-height: 0;
 }
-.ws-detail-refs .creative-image img {
+.ws-detail-refs :deep(.creative-image img) {
   object-fit: cover;
 }
 .ws-detail-error {
@@ -2649,7 +2759,7 @@ watch(ready, (value) => {
 .ws-scrim {
   display: none;
 }
-.studio-side-drawer :deep(.arco-drawer-body) {
+:global(.studio-side-drawer .arco-drawer-body) {
   display: flex;
   flex-direction: column;
   padding: 0;
@@ -2709,6 +2819,76 @@ watch(ready, (value) => {
 }
 .side-drawer-idea .arco-checkbox {
   margin-top: 4px;
+}
+@media (max-width: 820px) {
+  :global(.studio-side-drawer .arco-drawer) {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  :global(.studio-side-drawer .arco-drawer-header) {
+    padding: 14px 16px;
+  }
+  :global(.studio-side-drawer .arco-drawer-body) {
+    padding: 0;
+  }
+  .side-drawer-tabs {
+    gap: 2px;
+    overflow-x: auto;
+    padding: 10px 12px;
+    scrollbar-width: none;
+  }
+  .side-drawer-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .side-drawer-tab {
+    flex: 0 0 auto;
+    padding: 7px 10px;
+    font-size: 11px;
+  }
+  .side-drawer-body {
+    padding: 14px 12px max(24px, env(safe-area-inset-bottom));
+  }
+  .ws-library-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  .ws-library-grid .library-asset {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: auto;
+    padding: 8px;
+  }
+  .ws-library-grid .library-asset-select {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 0;
+  }
+  .ws-library-grid .library-asset .creative-image {
+    flex: 0 0 58px;
+    width: 58px;
+    height: 58px;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: 8px;
+  }
+  .ws-library-grid :deep(.creative-image img) {
+    object-fit: cover;
+  }
+  .ws-library-grid .library-asset-select > span {
+    overflow: hidden;
+    color: var(--site-ink);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ws-library-grid .library-asset-delete {
+    flex: 0 0 auto;
+    margin: 0;
+  }
 }
 
 .ai-studio button:focus-visible,
@@ -2807,11 +2987,13 @@ watch(ready, (value) => {
   .ws-canvas-image {
     height: auto;
   }
-  .ws-canvas-image .creative-image img {
+  .ws-canvas-image :deep(.creative-image img) {
     width: auto;
     max-width: 100%;
-    max-height: calc(100dvh - 320px);
-    min-height: 180px;
+    max-height: max(
+      160px,
+      calc(var(--studio-visible-height, 100dvh) - var(--studio-dock-height, 0px) - 300px)
+    );
     border-radius: 14px;
     box-shadow: none;
   }
@@ -2843,24 +3025,31 @@ watch(ready, (value) => {
     bottom: var(--studio-dock-bottom, 0px);
     left: max(8px, env(safe-area-inset-left));
     margin: 0;
-    padding: 0 0 max(2px, env(safe-area-inset-bottom));
+    padding: 0 0 max(4px, env(safe-area-inset-bottom));
   }
   .ws-composer-box {
-    padding: 8px 8px 6px;
+    padding: 10px 10px 8px;
     border-radius: 16px;
     box-shadow: 0 -8px 30px color-mix(in srgb, var(--site-ink) 13%, transparent);
   }
   .ws-composer-prompt textarea {
-    min-height: 40px;
-    max-height: 104px;
-    font-size: 12.5px;
+    min-height: 72px;
+    max-height: 240px;
+    padding: 6px 4px 6px;
+    font-size: 13px;
   }
   .ws-composer-bar {
     gap: 4px;
+    margin-top: 4px;
+    padding-top: 7px;
   }
   .ws-tool-btn {
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
+  }
+  .ws-send-btn {
+    width: 40px;
+    height: 40px;
   }
   .ws-cost-note {
     display: none;
@@ -2882,9 +3071,6 @@ watch(ready, (value) => {
   }
 }
 @media (max-width: 480px) {
-  .ws-canvas-image .creative-image img {
-    max-height: calc(100dvh - 300px);
-  }
   .ws-model-chip {
     max-width: 132px;
     overflow: hidden;

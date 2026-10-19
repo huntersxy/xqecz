@@ -165,17 +165,18 @@ describe('studio workspace and composer', () => {
     expect((w.get('textarea').element as HTMLTextAreaElement).value).toBe('画面 1')
   })
 
-  it('switches between single and all results and continues editing from a completed task', async () => {
-    api.tasks.mockResolvedValue([task(1), task(2, 2)])
+  it('shows every workspace result in all view and continues editing from the chosen one', async () => {
+    api.tasks.mockResolvedValue([task(1), task(2, 1)])
     const w = await render()
     expect(w.findAll('.ws-history-item')).toHaveLength(2)
     expect(w.get('.ws-canvas-image .test-image').attributes('data-id')).toBe('2')
     await button(w, '全部').trigger('click')
-    expect(w.findAll('.ws-canvas-grid button')).toHaveLength(2)
-    await w.findAll('.ws-canvas-grid button')[1]!.trigger('click')
-    await button(w, '单张').trigger('click')
+    expect(w.findAll('.ws-canvas-grid button')).toHaveLength(4)
+    await w.findAll('.ws-canvas-grid button')[2]!.trigger('click')
+    expect(w.findAll('.ws-canvas-grid')).toHaveLength(0)
+    expect(w.get('.ws-canvas-image .test-image').attributes('data-id')).toBe('4')
     await w.get('.ws-canvas-image').trigger('click')
-    expect(w.get('.test-modal .test-image').attributes('data-id')).toBe('3')
+    expect(w.get('.test-modal .test-image').attributes('data-id')).toBe('4')
     await w
       .get('.result-actions')
       .findAll('button')
@@ -183,13 +184,13 @@ describe('studio workspace and composer', () => {
       .trigger('click')
     await flushPromises()
     expect(w.find('.test-modal').exists()).toBe(false)
-    expect(w.get('.composer-references .test-image').attributes('data-id')).toBe('3')
+    expect(w.get('.composer-references .test-image').attributes('data-id')).toBe('4')
     expect(document.activeElement).toBe(w.get('textarea').element)
     await w.get('textarea').setValue('继续画这张图')
     await w.get('[aria-label="开始生成"]').trigger('click')
     await flushPromises()
     expect(api.submit).toHaveBeenCalledWith(
-      expect.objectContaining({ parent_asset_id: 3, references: [{ asset_id: 3, note: '' }] }),
+      expect.objectContaining({ parent_asset_id: 4, references: [{ asset_id: 4, note: '' }] }),
       expect.any(AbortSignal),
     )
   })
