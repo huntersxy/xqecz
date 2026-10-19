@@ -86,7 +86,6 @@ declare module 'vue' {
     PollsSection: typeof import('./components/PollsSection.vue')['default']
     PublicShell: typeof import('./components/PublicShell.vue')['default']
     QuickUploadSheet: typeof import('./components/QuickUploadSheet.vue')['default']
-    RecommendSection: typeof import('./components/RecommendSection.vue')['default']
     ReportModal: typeof import('./components/ReportModal.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
@@ -94,8 +93,6 @@ declare module 'vue' {
     StudioReferences: typeof import('./components/StudioReferences.vue')['default']
     StudioSizePicker: typeof import('./components/StudioSizePicker.vue')['default']
     TagCloud: typeof import('./components/admin/TagCloud.vue')['default']
-    UniverseMargins: typeof import('./components/UniverseMargins.vue')['default']
-    UniverseSketch: typeof import('./components/UniverseSketch.vue')['default']
     UserAvatar: typeof import('./components/UserAvatar.vue')['default']
     WaterfallCard: typeof import('./components/WaterfallCard.vue')['default']
   }

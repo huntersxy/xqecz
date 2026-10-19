@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeLayout, type Position } from '../useWaterfallLayout'
+import { computeColumnCount, computeLayout, MAX_COLUMNS, MIN_COLUMN_WIDTH, type Position } from '../useWaterfallLayout'
 
 const GAP = 10
 
@@ -8,6 +8,35 @@ function posMap(positions: Map<string | number, Position>) {
     [...positions.entries()].map(([id, p]) => [String(id), { x: p.x, y: p.y, w: p.w, h: p.h, col: p.col }]),
   )
 }
+
+describe('computeColumnCount 自适应列数', () => {
+  it('最多 6 列、至少 2 列', () => {
+    expect(computeColumnCount(2160)).toBe(MAX_COLUMNS)
+    expect(computeColumnCount(4000)).toBe(MAX_COLUMNS)
+    expect(computeColumnCount(300)).toBe(2)
+    expect(computeColumnCount(640)).toBe(2)
+  })
+
+  it('列数随容器宽度递增，且每张卡片不窄于最小宽度', () => {
+    const widths = [640, 820, 1024, 1280, 1440, 1600, 1920, 2560]
+    let previous = 0
+    for (const width of widths) {
+      const cols = computeColumnCount(width)
+      expect(cols).toBeGreaterThanOrEqual(previous)
+      previous = cols
+      const colWidth = (width - GAP * (cols - 1)) / cols
+      expect(colWidth).toBeGreaterThanOrEqual(MIN_COLUMN_WIDTH)
+    }
+  })
+
+  it('桌面内容区典型宽度落到预期列数', () => {
+    expect(computeColumnCount(664)).toBe(2)
+    expect(computeColumnCount(920)).toBe(3)
+    expect(computeColumnCount(1080)).toBe(4)
+    expect(computeColumnCount(1240)).toBe(5)
+    expect(computeColumnCount(1560)).toBe(6)
+  })
+})
 
 describe('computeLayout 最短列分配', () => {
   it('两列时按最短列依次落位，列高推进含 gap', () => {

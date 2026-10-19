@@ -630,6 +630,17 @@ onActivated(() => {
   color: var(--gallery-ink);
   font-family: var(--font-sans);
 }
+/* 作品广场用满侧栏之外的内容区：收窄左右留白，让瀑布流在大屏上铺开。
+   列数与卡片最小宽度由 useWaterfallLayout.computeColumnCount 统一控制（最多 6 列）。
+   选择器带 .app-layout.home-gallery-mode 才有足够特异性覆盖 PublicShell 的 scoped 规则；
+   手机（≤820）沿用侧栏抽屉的既有留白。 */
+@media (min-width: 821px) {
+  :global(.app-layout.home-gallery-mode .public-shell-content) {
+    max-width: min(2240px, 100%);
+    padding-left: clamp(20px, 2.2vw, 40px);
+    padding-right: clamp(20px, 2.2vw, 40px);
+  }
+}
 .gallery-mobile-publish { display: none; }
 .gallery-content {
   width: 100%;

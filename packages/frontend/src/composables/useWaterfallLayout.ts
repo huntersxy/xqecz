@@ -68,6 +68,22 @@ export function computeLayout(
 
 const GAP = 10
 
+// 首页画廊列数上限与卡片可读下限：放不下最小宽度就少一列，不继续把卡片压窄。
+export const MAX_COLUMNS = 6
+export const MIN_COLUMN_WIDTH = 240
+const MOBILE_BREAKPOINT = 640
+
+/**
+ * 自适应列数（纯函数，便于单测）：按容器实际宽度能放下多少个「最小可读宽度」的列，
+ * 上限 MAX_COLUMNS；桌面侧栏会把内容区压窄，因此必须按容器宽度而不是视口宽度算。
+ * 窄屏固定 2 列：手机上再少就失去瀑布流的对比感，163px 左右也是既有版式。
+ */
+export function computeColumnCount(width: number, gap = GAP) {
+  if (width < MOBILE_BREAKPOINT) return 2
+  const fit = Math.floor((width + gap) / (MIN_COLUMN_WIDTH + gap))
+  return Math.max(2, Math.min(MAX_COLUMNS, fit))
+}
+
 // 列底失衡阈值：增量重排后若最长列与最短列高度差超过此值（约为 2~3 张卡片高度），
 // 触发一次全量重排重新平衡。图片高度天然有差异，过小的阈值会导致频繁全量重排（卡片换列跳动）。
 const IMBALANCE_THRESHOLD = 1000
@@ -99,13 +115,6 @@ export function useWaterfallLayout(
   let rebalanceScheduled = false
   let active = true
 
-  function getColumnCount(width: number) {
-    if (width >= 1400) return 5
-    if (width >= 1024) return 4
-    if (width >= 640) return 3
-    return 2
-  }
-
   function getColWidth(el: HTMLElement, cols: number) {
     return (el.clientWidth - GAP * (cols - 1)) / cols
   }
@@ -135,7 +144,7 @@ export function useWaterfallLayout(
 
     const heights = measureHeights(el)
     const prevCols = cols
-    const nextCols = getColumnCount(el.clientWidth)
+    const nextCols = computeColumnCount(el.clientWidth)
     const nextColW = getColWidth(el, nextCols)
     const colsChanged = nextCols !== prevCols || Math.abs(nextColW - colW) > 0.5
     cols = nextCols
