@@ -158,6 +158,48 @@ describe('studio workspace and composer', () => {
     expect(w.find('[aria-label="生成设置"]').exists()).toBe(false)
   })
 
+  it('labels the composer tools and steps the output count within the provider limit', async () => {
+    const w = await render()
+    const tools = w.get('.ws-composer-tools').text()
+    expect(tools).toContain('上传参考图')
+    expect(tools).toContain('图片库')
+    expect(tools).toContain('角色与模板')
+    // 数量用步进器，不再是原生下拉；范围 1..max_count（测试供应商上限为 2）。
+    expect(w.find('select[aria-label="输出数量"]').exists()).toBe(false)
+    const group = w.get('[aria-label="输出数量"]')
+    expect(group.get('output').text()).toBe('1 张')
+    expect(group.get('[aria-label="减少数量"]').attributes('disabled')).toBeDefined()
+    await group.get('[aria-label="增加数量"]').trigger('click')
+    expect(group.get('output').text()).toBe('2 张')
+    expect(group.get('[aria-label="增加数量"]').attributes('disabled')).toBeDefined()
+    await group.get('[aria-label="减少数量"]').trigger('click')
+    expect(group.get('output').text()).toBe('1 张')
+  })
+
+  it('picks and unpicks reference images from the image library without closing it', async () => {
+    api.assets.mockResolvedValue([asset(21), asset(22)])
+    const w = await render()
+    await button(w, '图片库').trigger('click')
+    await flushPromises()
+    const tiles = w.findAll('.ws-asset')
+    expect(tiles).toHaveLength(2)
+    expect(w.get('.ws-history-hint').text()).toContain('已选 0/2')
+    await tiles[0]!.trigger('click')
+    await flushPromises()
+    expect(w.findAll('.composer-reference')).toHaveLength(1)
+    expect(w.get('.ws-history-hint').text()).toContain('已选 1/2')
+    expect(w.findAll('.ws-asset')[0]!.attributes('aria-pressed')).toBe('true')
+    await tiles[1]!.trigger('click')
+    await flushPromises()
+    // 达到上限后其余图片不可再选。
+    expect(w.get('.ws-history-hint').text()).toContain('已选 2/2')
+    // 再点已选的一张即取消。
+    await w.findAll('.ws-asset')[0]!.trigger('click')
+    await flushPromises()
+    expect(w.findAll('.composer-reference')).toHaveLength(1)
+    expect(w.get('.ws-history-hint').text()).toContain('已选 1/2')
+  })
+
   it('keeps one entry for each result action and drops the overflow menu', async () => {
     api.tasks.mockResolvedValue([task(1)])
     const w = await render()
@@ -465,7 +507,7 @@ describe('studio workspace and composer', () => {
     expect(confirmSize).toBeTruthy()
     confirmSize!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
     await flushPromises()
-    await w.get('select[aria-label="输出数量"]').setValue(2)
+    await w.get('[aria-label="增加数量"]').trigger('click')
     await w.get('textarea').trigger('keydown', { key: 'Enter', metaKey: true })
     await w.get('textarea').trigger('keydown', { key: 'Enter', metaKey: true })
     expect(api.confirm).toHaveBeenCalledTimes(1)

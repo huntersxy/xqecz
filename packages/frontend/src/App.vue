@@ -19,37 +19,32 @@ useThemeStore()
 
 const isPublicShellRoute = computed(() => !route.path.startsWith('/content/'))
 
-// 详情层负责自身入场；公开整页之间使用轻量过渡，且不能延迟覆盖层挂载。
-const pageTransition = ref(false)
-let transitionFrame: number | null = null
-let transitionToken = 0
+// 公开整页之间做「旧页淡出 → 新页上浮淡入」的串行切换（mode=out-in，旧页离场时间很短）。
+// 以下情况直接瞬时切换，不做过渡：
+// - 详情层负责自身入场，且覆盖层挂载不能被延迟；
+// - 后台内部切换页签频繁，过渡只会拖慢；
+// - 同一路径只有 query 变化（筛选/搜索），页面骨架没变，淡出再淡入反而像闪屏。
+// 路由守卫之前就要决定好过渡名，所以用 flush: 'sync' 的 watch 在路由状态变更的同一刻更新。
+const pageTransition = ref<'page-swap' | ''>('')
+watch(
+  () => [route.path, route.name] as const,
+  ([toPath, toName], [fromPath, fromName]) => {
+    const skip =
+      toName === 'content-detail' ||
+      fromName === 'content-detail' ||
+      toPath.startsWith('/admin') ||
+      fromPath.startsWith('/admin') ||
+      toPath === fromPath
+    pageTransition.value = skip ? '' : 'page-swap'
+  },
+  { flush: 'sync' },
+)
 
-function cancelTransitionFrame() {
-  if (transitionFrame === null) return
-  cancelAnimationFrame(transitionFrame)
-  transitionFrame = null
+// 没有全局 scrollBehavior：旧页离场结束后回到顶部，避免新页沿用上一页的滚动位置。
+// 首页自己用 onActivated 恢复滚动，晚于这里，所以不会被覆盖。
+function onPageLeft() {
+  if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'instant' })
 }
-
-watch(() => route.fullPath, (to, from) => {
-  const token = ++transitionToken
-  cancelTransitionFrame()
-  pageTransition.value = false
-
-  const toName = router.resolve(to).name
-  const fromName = router.resolve(from).name
-  const shouldAnimate =
-    toName !== 'content-detail' && fromName !== 'content-detail' && !to.startsWith('/admin')
-  if (!shouldAnimate) return
-
-  if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
-    pageTransition.value = true
-    return
-  }
-  transitionFrame = window.requestAnimationFrame(() => {
-    transitionFrame = null
-    if (token === transitionToken) pageTransition.value = true
-  })
-})
 
 // 跨天回到已登录标签页时补一次签到；服务端持有真实日期与发放上限。
 function onVisibilityChange() {
@@ -62,7 +57,6 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  cancelTransitionFrame()
   document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 </script>
@@ -73,12 +67,14 @@ onBeforeUnmount(() => {
       <ErrorBoundary>
         <RouterView v-slot="{ Component }">
           <PublicShell v-if="isPublicShellRoute && Component">
-            <KeepAlive :include="['HomeView']">
-              <component :is="Component" :key="route.fullPath" :class="{ 'public-page-motion': pageTransition }" />
-            </KeepAlive>
+            <Transition :name="pageTransition" mode="out-in" @after-leave="onPageLeft">
+              <KeepAlive :include="['HomeView']">
+                <component :is="Component" :key="route.fullPath" />
+              </KeepAlive>
+            </Transition>
           </PublicShell>
           <KeepAlive v-else-if="Component" :include="['HomeView']">
-            <component :is="Component" :key="route.fullPath" :class="{ 'public-page-motion': pageTransition }" />
+            <component :is="Component" :key="route.fullPath" />
           </KeepAlive>
         </RouterView>
       </ErrorBoundary>
@@ -102,12 +98,22 @@ onBeforeUnmount(() => {
   padding-top: 0 !important;
   background: transparent;
 }
-.public-page-motion { animation: public-page-in .2s ease-out; }
-@keyframes public-page-in {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
+/* 页面切换：离场短而干脆，入场稍长并带一点上浮。只用 opacity 与小位移，
+   不用 blur/scale——整页重绘成本高，而且 transform 祖先会改变 position:fixed 后代的定位基准。 */
+.page-swap-enter-active {
+  transition:
+    opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
-@media (prefers-reduced-motion: reduce) {
-  .public-page-motion { animation: none; }
+.page-swap-leave-active {
+  transition: opacity 0.14s ease-in;
+  pointer-events: none;
+}
+.page-swap-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.page-swap-leave-to {
+  opacity: 0;
 }
 </style>

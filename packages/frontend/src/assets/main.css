@@ -67,6 +67,14 @@ body {
   --transition-fast: 150ms var(--ease-smooth);
   --transition-base: 250ms var(--ease-smooth);
   --transition-slow: 350ms var(--ease-smooth);
+
+  /* 动效 token：新增动画优先复用，保证全站节奏一致。
+     out = 元素进入/出现（先快后慢，干脆利落）；spring = 轻微回弹，只给小控件的选中反馈用。 */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --dur-press: 120ms;
+  --dur-hover: 200ms;
+  --dur-enter: 320ms;
 }
 
 /* 暗色背景跟随 Arco token 切换。 */
@@ -300,6 +308,60 @@ html:has(.au-root) {
    Arco 会给 body 写入减去滚动条宽度的内联 width；这里已预留槽位，不能再减一次。 */
 body:has(.qu-sheet) {
   width: auto !important;
+}
+
+/* ── Arco 弹层动画 ──────────────────────────────────────────────────────
+   默认弹窗从 0.5 倍缩放并带回弹曲线，抽屉遮罩与面板节奏也不一致，和站内其它过渡
+   不在一个气质上。这里统一成：弹窗轻微上浮 + 0.96 缩放、抽屉与遮罩同曲线同时长。
+   arco.css 在 main.css 之后加载，故用 :root 前缀抬高特异性，不使用 !important；
+   减少动态效果由文件末尾的全局规则把时长压到 0。 */
+:root .zoom-modal-enter-active,
+:root .zoom-modal-appear-active {
+  transition:
+    opacity var(--dur-enter) var(--ease-out),
+    transform var(--dur-enter) var(--ease-out);
+}
+:root .zoom-modal-leave-active {
+  transition:
+    opacity 0.16s ease-in,
+    transform 0.16s ease-in;
+}
+:root .zoom-modal-enter-from,
+:root .zoom-modal-appear-from,
+:root .zoom-modal-leave-to {
+  transform: translateY(10px) scale(0.96);
+  opacity: 0;
+}
+:root .fade-modal-enter-active,
+:root .fade-modal-appear-active,
+:root .fade-drawer-enter-active,
+:root .fade-drawer-appear-active {
+  transition: opacity var(--dur-enter) ease-out;
+}
+:root .fade-modal-leave-active,
+:root .fade-drawer-leave-active {
+  transition: opacity 0.2s ease-in;
+}
+:root .slide-right-drawer-enter-active,
+:root .slide-right-drawer-appear-active {
+  transition: transform 0.42s var(--ease-out);
+}
+:root .slide-right-drawer-leave-active {
+  transition: transform 0.26s cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* ── 通用按压反馈 ───────────────────────────────────────────────────────
+   Arco 按钮、站内自绘按钮在按下时有统一的轻微下沉，hover 过渡统一时长。 */
+.creative-theme .arco-btn {
+  transition:
+    background-color var(--dur-hover) ease,
+    border-color var(--dur-hover) ease,
+    color var(--dur-hover) ease,
+    box-shadow var(--dur-hover) ease,
+    transform var(--dur-press) ease;
+}
+.creative-theme .arco-btn:active:not(.arco-btn-disabled) {
+  transform: scale(0.97);
 }
 
 /* ── 跟随系统「减少动态效果」偏好 ─────────────────────────
