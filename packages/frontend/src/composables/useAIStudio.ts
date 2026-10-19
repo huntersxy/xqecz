@@ -39,7 +39,6 @@ export function useAIStudio() {
   const sessionId = ref(0),
     name = ref('未命名创作'),
     prompt = ref(''),
-    providerId = ref(0),
     size = ref(readRememberedSize()),
     quality = ref(''),
     count = ref(1),
@@ -66,7 +65,8 @@ export function useAIStudio() {
       (p) => p.enabled && p.owner === 0,
     ),
   )
-  const provider = computed(() => availableProviders.value.find((p) => p.id === providerId.value))
+  // 模型由后端按顺序自动路由：这里只用第一个可用供应商展示能力（尺寸/数量/参考图上限）。
+  const provider = computed(() => availableProviders.value[0])
   const session = computed(() => sessions.value.find((s) => s.id === sessionId.value))
   const cost = computed(() =>
     user.user?.is_admin
@@ -77,7 +77,8 @@ export function useAIStudio() {
     session_id: sessionId.value,
     idempotency_key: '',
     prompt: prompt.value,
-    provider_id: providerId.value,
+    // 0 表示交给后端按配置顺序自动路由，不再由用户选择模型。
+    provider_id: 0,
     mode: 'site',
     size: size.value,
     quality: quality.value,
@@ -85,7 +86,7 @@ export function useAIStudio() {
     references: references.value.map((r) => ({ ...r })),
     parent_asset_id: parentAssetId.value,
     expected_cost: cost.value,
-    provider_revision: provider.value?.revision ?? 0,
+    provider_revision: 0,
     character_ids: [...characterIds.value],
     enhance_prompt: enhancePrompt.value,
   })
@@ -167,7 +168,6 @@ export function useAIStudio() {
       error.value = '草稿格式不完整，已恢复会话名称'
     }
     prompt.value = draft.prompt ?? ''
-    providerId.value = draft.provider_id ?? 0
     size.value = draft.size?.trim() || readRememberedSize()
     quality.value = draft.quality ?? ''
     count.value = draft.count ?? 1
@@ -178,9 +178,6 @@ export function useAIStudio() {
     characterIds.value = draft.character_ids ?? []
     taskQuery.value = {}
     selectedAsset.value = null
-    const chosen =
-      availableProviders.value.find((p) => p.id === providerId.value) ?? availableProviders.value[0]
-    providerId.value = chosen?.id ?? 0
     saveState.value = '已恢复'
     queueMicrotask(() => {
       restoring = false
@@ -430,7 +427,7 @@ export function useAIStudio() {
     await save()
   }
   watch(
-    [prompt, name, references, providerId, size, quality, count, parentAssetId, characterIds, enhancePrompt],
+    [prompt, name, references, size, quality, count, parentAssetId, characterIds, enhancePrompt],
     () => {
       if (!ready.value || restoring || pending.value) return
       saveState.value = '未保存'
@@ -441,9 +438,6 @@ export function useAIStudio() {
   )
   watch(size, (value) => {
     if (!restoring) rememberSize(value)
-  })
-  watch(availableProviders, (rows) => {
-    if (!rows.some((p) => p.id === providerId.value)) providerId.value = rows[0]?.id ?? 0
   })
   watch(provider, (p) => {
     if (!p) return
@@ -506,7 +500,6 @@ export function useAIStudio() {
     sessionId,
     name,
     prompt,
-    providerId,
     size,
     quality,
     count,

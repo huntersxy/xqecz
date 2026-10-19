@@ -141,6 +141,8 @@ type Item struct {
 	LikeCount    int64     `json:"like_count"`
 	ViewCount    *int64    `json:"view_count,omitempty"`
 	AuditStatus  string    `json:"audit_status"`
+	// AIEnhanced 供详情页显示「提示词增强」徽标；普通内容为 false。
+	AIEnhanced   bool      `json:"ai_enhanced"`
 	CreatedAt    web.Time  `json:"created_at"`
 	UpdatedAt    web.Time  `json:"updated_at"`
 }
@@ -214,6 +216,7 @@ func decorateWith(mm app.MediaMirror, row store.Content, userMap map[uint64]stor
 		Tags:         ParseTags(row.Tags),
 		LikeCount:    likeCount,
 		AuditStatus:  row.AuditStatus,
+		AIEnhanced:   row.AIEnhanced,
 		CreatedAt:    web.TimeOf(row.CreatedAt),
 		UpdatedAt:    web.TimeOf(row.UpdatedAt),
 	}

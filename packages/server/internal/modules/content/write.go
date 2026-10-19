@@ -43,6 +43,8 @@ type createInput struct {
 	GuestEmail    string
 	AbsPath       string
 	AutoMetadata  bool
+	// AIEnhanced 标记发布生成作品时是否启用了提示词增强；普通上传恒为 false。
+	AIEnhanced bool
 	// Link runs in the same transaction as creation for imported AI assets.
 	Link func(*gorm.DB, uint64) error
 }
@@ -492,6 +494,7 @@ func (h *Handler) createContent(ctx context.Context, in createInput) (Item, erro
 		UserID:      in.UserID,
 		Tags:        marshalTags(in.Tags),
 		AuditStatus: in.AuditStatus,
+		AIEnhanced:  in.AIEnhanced,
 	}
 	if in.Content != "" {
 		row.Content = &in.Content

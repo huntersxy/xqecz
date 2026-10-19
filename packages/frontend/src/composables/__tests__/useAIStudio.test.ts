@@ -153,9 +153,12 @@ describe('AI studio persistence', () => {
     )
     wrapper.unmount()
   })
-  it('restores an empty session with the default provider and automatic sizing', async () => {
+  it('restores an empty session with automatic sizing and no user-selectable model', async () => {
     const { wrapper, studio } = await setup()
-    expect(studio.providerId.value).toBe(1)
+    // 供应商由后端按顺序自动路由：前端只展示第一个可用供应商的能力。
+    expect(studio.provider.value?.id).toBe(1)
+    expect(studio.input().provider_id).toBe(0)
+    expect(studio.input().provider_revision).toBe(0)
     expect(studio.size.value).toBe('auto')
     expect(studio.ready.value).toBe(true)
     wrapper.unmount()

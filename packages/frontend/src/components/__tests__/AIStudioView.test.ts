@@ -95,10 +95,6 @@ function paste(w: ReturnType<typeof mount>, files: File[]) {
   w.get('textarea').element.dispatchEvent(event)
   return event
 }
-async function openSettings(w: ReturnType<typeof mount>) {
-  await w.get('[aria-label="生成设置"]').trigger('click')
-  await flushPromises()
-}
 async function showTask(w: ReturnType<typeof mount>) {
   await button(w, '单个任务').trigger('click')
   await flushPromises()
@@ -145,7 +141,7 @@ beforeEach(() => {
 afterEach(() => wrappers.splice(0).forEach((w) => w.unmount()))
 
 describe('studio workspace and composer', () => {
-  it('uses the prompt and references without exposing a mode picker or BYOK controls', async () => {
+  it('keeps generation parameters inline and hides model selection', async () => {
     const w = await render()
     expect(w.find('.composer-settings').exists()).toBe(false)
     expect(w.find('.composer-mode-row').exists()).toBe(false)
@@ -153,10 +149,13 @@ describe('studio workspace and composer', () => {
     expect(w.find('[aria-label="切换会话"]').exists()).toBe(false)
     expect(w.text()).not.toContain('自备 API Key')
     expect(w.text()).not.toContain('管理员 · 生成不消耗站点额度')
-    expect(w.find('[aria-label="画面尺寸"]').exists()).toBe(false)
-    await openSettings(w)
+    // 尺寸、数量、提示词增强常驻输入区，不再藏进「生成设置」弹层。
     expect(w.get('[aria-label="画面尺寸"]').text()).toContain('自动')
-    expect(w.get('[aria-label="生成设置"]').attributes('aria-expanded')).toBe('true')
+    expect(w.get('[aria-label="输出数量"]').exists()).toBe(true)
+    expect(w.text()).toContain('提示词增强')
+    // 模型由后端按顺序自动路由：界面不再提供供应商/模型选择。
+    expect(w.find('[aria-label="供应商与模型"]').exists()).toBe(false)
+    expect(w.find('[aria-label="生成设置"]').exists()).toBe(false)
   })
 
   it('keeps one entry for each result action and drops the overflow menu', async () => {
@@ -220,12 +219,10 @@ describe('studio workspace and composer', () => {
     expect(w.findAll('.ws-result-strip button')).toHaveLength(2)
   })
 
-  it('opens generation settings and refocuses the prompt when reusing a task prompt', async () => {
+  it('refocuses the prompt when reusing a task prompt', async () => {
     api.tasks.mockResolvedValue([task(1)])
     const w = await render()
     await showTask(w)
-    await openSettings(w)
-    expect(w.find('.ws-settings').exists()).toBe(true)
     await button(w, '复用提示词').trigger('click')
     await flushPromises()
     expect(document.activeElement).toBe(w.get('textarea').element)
@@ -390,7 +387,6 @@ describe('studio workspace and composer', () => {
     )
     api.quote.mockResolvedValue({ cost: 4 })
     const w = await render()
-    await openSettings(w)
     await w.get('textarea').setValue('两幅横向画面')
     await w.get('button[aria-label="画面尺寸"]').trigger('click')
     const ratioTab = Array.from(
@@ -431,7 +427,6 @@ describe('studio workspace and composer', () => {
 
   it('submits automatic sizing without adding a concrete resolution', async () => {
     const w = await render()
-    await openSettings(w)
     await w.get('textarea').setValue('让模型自行决定构图尺寸')
     await w.get('button[aria-label="画面尺寸"]').trigger('click')
     const confirmSize = Array.from(

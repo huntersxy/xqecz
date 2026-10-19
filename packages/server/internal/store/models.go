@@ -35,6 +35,8 @@ type Content struct {
 	GuestEmail    *string        `gorm:"column:guest_email" json:"guest_email"`
 	Tags          string         `gorm:"column:tags" json:"tags"`
 	AuditStatus   string         `gorm:"column:audit_status" json:"audit_status"`
+	// AIEnhanced 记录发布时是否启用了提示词增强，仅 AI 生成作品可能为 true。
+	AIEnhanced    bool           `gorm:"column:ai_enhanced" json:"ai_enhanced"`
 	CreatedAt     time.Time      `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt     time.Time      `gorm:"column:updated_at" json:"updated_at"`
 }

@@ -104,15 +104,6 @@ onBeforeUnmount(() => {
         <IconClose />
       </button>
       <div class="public-shell-brand-row">
-        <button
-          class="public-shell-theme"
-          type="button"
-          :aria-label="themeStore.mode === 'dark' ? '切换到日间模式' : '切换到暗色模式'"
-          @click="toggleTheme"
-        >
-          <IconSun v-if="themeStore.mode === 'dark'" />
-          <IconMoon v-else />
-        </button>
         <RouterLink to="/" class="public-shell-brand" @click="closeMobile">
           <strong>小泉宇宙</strong>
           <span>二创画廊</span>
@@ -253,7 +244,7 @@ body[arco-theme='dark'] .public-shell {
 .public-shell-nav,
 .public-shell-library,
 .public-shell-bottom { display: grid; }
-.public-shell-brand-row { grid-template-columns: 32px 1fr; gap: 10px; align-items: center; }
+.public-shell-brand-row { grid-template-columns: 1fr; gap: 10px; align-items: center; }
 .public-shell-theme {
   display: grid;
   place-items: center;
@@ -345,10 +336,7 @@ body[arco-theme='dark'] .public-shell {
   background: var(--shell-paper);
   color: var(--shell-muted);
 }
-/* 桌面端主题开关已在侧栏品牌行；顶栏再放一个会重复同一操作。 */
-@media (min-width: 821px) {
-  .public-shell-theme-main { display: none; }
-}
+/* 主题开关统一放顶栏右侧，桌面与手机都只有这一个入口。 */
 .public-shell-search input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--shell-ink); font: inherit; font-size: 11px; }
 .public-shell-search kbd { padding: 2px 5px; border: 1px solid var(--shell-line); border-radius: 4px; color: var(--shell-muted); font-size: 10px; }
 .public-shell-theme-main { flex: 0 0 auto; border: 1px solid var(--shell-line); }

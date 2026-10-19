@@ -5,11 +5,11 @@ import { useAIStudio } from '@/composables/useAIStudio'
 import { useStudioDock } from '@/composables/useStudioDock'
 import { aiApi } from '@/api/creative'
 import { contentApi } from '@/api'
+import { defaultPublishDescription } from '@/utils/studioPublish'
 import type { AIAsset, AITaskView } from '@/types/schemas'
 import {
   IconImage,
   IconPlus,
-  IconSettings,
   IconSend,
   IconFile,
   IconLoading,
@@ -47,7 +47,6 @@ const {
   sessionId,
   name,
   prompt,
-  providerId,
   size,
   quality,
   count,
@@ -77,7 +76,6 @@ const activeTaskId = ref(0)
 const workspaceMenuOpen = ref(false)
 const renaming = ref(false)
 const renameDraft = ref('')
-const settingsOpen = ref(false)
 const sizePickerOpen = ref(false)
 const publishOpen = ref(false)
 const previewReference = ref(0)
@@ -409,10 +407,7 @@ async function generate() {
       )
         return
       const task = await studio.generate()
-      if (task) {
-        awaitingTask.value = task.id
-        settingsOpen.value = false
-      }
+      if (task) awaitingTask.value = task.id
     })
   } finally {
     confirming.value = false
@@ -593,6 +588,12 @@ async function openPublish() {
     auto_metadata: true,
     public_consent: false,
   }
+  // 描述默认填入生成时的原始提示词（不含提示词增强后缀），发布前仍可修改。
+  publishForm.value.description = defaultPublishDescription(
+    studio.tasks.value,
+    selectedAsset.value?.id,
+    studio.prompt.value,
+  )
   try {
     const response = await contentApi.metadataOptions()
     if (response.code === 200) {
@@ -658,7 +659,6 @@ watch(sessionId, () => {
   mention.value = null
   awaitingTask.value = 0
   activeTaskId.value = 0
-  settingsOpen.value = false
   galleryOpen.value = true
   // Filters belong to the workspace that was open when they were typed; a
   // switch must not leave an active query silently hiding the new history.
@@ -1213,15 +1213,6 @@ watch(ready, (value) => {
               <button
                 type="button"
                 class="ws-tool-btn"
-                aria-label="生成设置"
-                :aria-expanded="settingsOpen"
-                @click="settingsOpen = !settingsOpen"
-              >
-                <IconSettings />
-              </button>
-              <button
-                type="button"
-                class="ws-tool-btn"
                 aria-label="上传参考图"
                 :disabled="!provider?.max_references || references.length >= (provider?.max_references ?? 0)"
                 @click="fileInput?.click()"
@@ -1234,9 +1225,35 @@ watch(ready, (value) => {
               <button type="button" class="ws-tool-btn" aria-label="角色与模板" @click="openResource('library')">
                 <IconFile />
               </button>
-              <button type="button" class="ws-model-chip" @click="settingsOpen = !settingsOpen">
-                {{ provider?.name || '暂无模型' }} <span>×{{ count }}</span>
+            </div>
+            <!-- 模型由后端按顺序自动路由，这里只保留用户真正会调的参数。 -->
+            <div class="ws-composer-options">
+              <button
+                type="button"
+                class="ws-option"
+                aria-label="画面尺寸"
+                :disabled="composerLocked"
+                @click="sizePickerOpen = true"
+              >
+                {{ formatImageSize(size) }}
               </button>
+              <label class="ws-option">
+                <span class="sr-only">输出数量</span>
+                <select v-model.number="count" aria-label="输出数量" :disabled="composerLocked">
+                  <option v-for="n in provider?.max_count ?? 1" :key="n" :value="n">{{ n }} 张</option>
+                </select>
+              </label>
+              <label
+                class="ws-option ws-option-toggle"
+                :title="promptEnhancement.prompt || '暂无增强提示词'"
+              >
+                <input
+                  v-model="enhancePrompt"
+                  type="checkbox"
+                  :disabled="!promptEnhancement.enabled || !promptEnhancement.prompt"
+                />
+                提示词增强
+              </label>
             </div>
           </div>
           <div class="ws-composer-footer">
@@ -1295,62 +1312,6 @@ watch(ready, (value) => {
           hidden
           @change="(event) => uploadFiles((event.target as HTMLInputElement).files)"
         />
-
-        <div v-if="settingsOpen" class="ws-settings" role="dialog" aria-label="生成设置">
-          <header class="ws-settings-head">
-            <strong>生成设置</strong>
-            <button type="button" aria-label="关闭生成设置" @click="settingsOpen = false"><IconClose /></button>
-          </header>
-          <div class="ws-settings-grid">
-            <label class="ws-field">
-              <span>模型</span>
-              <select v-model="providerId" aria-label="供应商与模型">
-                <option v-if="!availableProviders.length" :value="0">暂无可用模型</option>
-                <option v-for="item in availableProviders" :key="item.id" :value="item.id">
-                  {{ item.name }} · {{ item.model }}
-                </option>
-              </select>
-            </label>
-            <div class="ws-field">
-              <span>尺寸</span>
-              <button type="button" class="ws-size-trigger" aria-label="画面尺寸" :disabled="composerLocked" @click="sizePickerOpen = true">
-                {{ formatImageSize(size) }}
-              </button>
-            </div>
-            <label v-if="provider?.qualities.length" class="ws-field">
-              <span>画质</span>
-              <select v-model="quality" aria-label="画质">
-                <option value="">默认</option>
-                <option v-for="item in provider.qualities" :key="item">{{ item }}</option>
-              </select>
-            </label>
-            <label class="ws-field">
-              <span>数量</span>
-              <select v-model.number="count" aria-label="输出数量">
-                <option v-for="n in provider?.max_count ?? 1" :key="n" :value="n">{{ n }} 张</option>
-              </select>
-            </label>
-            <label class="ws-field ws-field-toggle">
-              <span>提示词增强</span>
-              <span class="ws-toggle" :title="promptEnhancement.prompt || '暂无增强提示词'">
-                <input
-                  v-model="enhancePrompt"
-                  type="checkbox"
-                  :disabled="!promptEnhancement.enabled || !promptEnhancement.prompt"
-                />
-                <strong>{{ enhancePrompt && promptEnhancement.enabled ? '已开启' : '未开启' }}</strong>
-              </span>
-            </label>
-          </div>
-          <div class="ws-settings-actions">
-            <button type="button" :disabled="composerLocked" @click="studio.run(studio.save)">保存草稿</button>
-            <button type="button" :disabled="composerLocked || !prompt.trim()" @click="openResource('idea')">
-              投稿创意
-            </button>
-            <span v-if="!provider" class="ws-settings-note">管理员尚未启用生图供应商</span>
-            <span v-else-if="!provider.has_key" class="ws-settings-note">此模型尚未配置站点密钥</span>
-          </div>
-        </div>
       </section>
     </section>
 
@@ -2507,6 +2468,56 @@ watch(ready, (value) => {
 .ws-composer-tools::-webkit-scrollbar {
   display: none;
 }
+.ws-composer-options {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.ws-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--site-line);
+  border-radius: 8px;
+  background: var(--site-canvas);
+  color: var(--site-ink);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+.ws-option:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.ws-option select {
+  min-height: 26px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.ws-option-toggle {
+  gap: 5px;
+  cursor: pointer;
+}
+.ws-option-toggle input {
+  width: 13px;
+  height: 13px;
+  accent-color: var(--site-accent);
+}
+/* 窄屏：参数组换到单独一行，避免把工具按钮挤成滚动条。 */
+@media (max-width: 560px) {
+  .ws-composer-bar { flex-wrap: wrap; }
+  .ws-composer-options {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
 .ws-tool-btn {
   display: grid;
   flex: 0 0 auto;
@@ -2531,25 +2542,6 @@ watch(ready, (value) => {
 .ws-tool-btn svg {
   width: 16px;
   height: 16px;
-}
-.ws-model-chip {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 5px;
-  min-height: 28px;
-  margin-left: 4px;
-  padding: 0 9px;
-  border: 1px solid var(--site-line);
-  border-radius: 8px;
-  background: var(--site-canvas);
-  color: var(--site-ink);
-  font-size: 10.5px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.ws-model-chip span {
-  color: var(--site-muted);
 }
 .ws-send-btn {
   display: inline-flex;
@@ -2632,122 +2624,6 @@ watch(ready, (value) => {
   border-color: color-mix(in srgb, rgb(var(--danger-6)) 35%, var(--site-line));
   background: color-mix(in srgb, rgb(var(--danger-6)) 8%, transparent);
   color: rgb(var(--danger-6));
-}
-.ws-settings {
-  position: absolute;
-  z-index: 12;
-  right: 0;
-  bottom: calc(100% + 8px);
-  left: 0;
-  max-height: min(58dvh, 420px);
-  overflow-y: auto;
-  padding: 14px;
-  border: 1px solid var(--site-line);
-  border-radius: 14px;
-  background: var(--site-paper);
-  box-shadow: var(--shadow-md);
-  overscroll-behavior: contain;
-}
-.ws-settings-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-.ws-settings-head strong {
-  font: 600 15px/1.2 var(--site-title-font);
-  color: var(--site-ink);
-}
-.ws-settings-head button {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--site-muted);
-  cursor: pointer;
-}
-.ws-settings-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-.ws-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  color: var(--site-muted);
-  font-size: 10px;
-}
-.ws-field select,
-.ws-size-trigger {
-  width: 100%;
-  min-height: 34px;
-  padding: 0 8px;
-  border: 1px solid var(--site-line);
-  border-radius: 8px;
-  background: var(--site-canvas);
-  color: var(--site-ink);
-  font: inherit;
-  font-size: 11px;
-}
-.ws-size-trigger {
-  text-align: left;
-  cursor: pointer;
-}
-.ws-field-toggle {
-  grid-column: 1 / -1;
-}
-.ws-toggle {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 34px;
-}
-.ws-toggle input {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--site-accent);
-}
-.ws-toggle strong {
-  color: var(--site-ink);
-  font-size: 11px;
-  font-weight: 500;
-}
-.ws-settings-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--site-line);
-}
-.ws-settings-actions button {
-  min-height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--site-line);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--site-ink);
-  font-size: 10.5px;
-  cursor: pointer;
-}
-.ws-settings-actions button:hover:not(:disabled) {
-  border-color: var(--site-accent);
-  color: var(--site-accent);
-}
-.ws-settings-actions button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-.ws-settings-note {
-  color: var(--site-muted);
-  font-size: 10px;
 }
 .reference-mentions {
   border: 1px solid var(--site-line);
@@ -3038,10 +2914,14 @@ watch(ready, (value) => {
 
 .ai-studio button:focus-visible,
 .ai-studio select:focus-visible,
-.ai-studio textarea:focus-visible,
 .ai-studio input:focus-visible {
   outline: 2px solid var(--site-accent);
   outline-offset: 2px;
+}
+/* 输入区不要激活高亮：光标与输入内容本身就足够指示焦点。 */
+.ai-studio .ws-composer-prompt textarea:focus,
+.ai-studio .ws-composer-prompt textarea:focus-visible {
+  outline: none;
 }
 
 /* ── Responsive ─────────────────────────────────────────────────────────── */
@@ -3198,29 +3078,6 @@ watch(ready, (value) => {
     padding: 0 8px;
     border-radius: 10px;
     font-size: 12px;
-  }
-  .ws-settings {
-    position: fixed;
-    right: max(8px, env(safe-area-inset-right));
-    bottom: calc(var(--studio-dock-height, 150px) + var(--studio-dock-bottom, 0px) + 18px);
-    left: max(8px, env(safe-area-inset-left));
-    max-height: min(54dvh, calc(var(--studio-visible-height, 100dvh) - var(--studio-dock-height, 150px) - 24px));
-    padding: 12px;
-  }
-  .ws-settings-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (max-width: 480px) {
-  .ws-model-chip {
-    max-width: 132px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: inline-block;
-    padding-top: 6px;
-  }
-  .ws-settings {
-    max-height: 50dvh;
   }
 }
 @media (prefers-reduced-motion: reduce) {

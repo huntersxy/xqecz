@@ -94,6 +94,9 @@ export const AITaskViewSchema = z.object({
   user: z.object({ id: z.number(), username: z.string() }).optional(),
   assets: z.array(AIAssetSchema),
   references: z.array(AIAssetSchema).optional(),
+  // 生成时的原始提示词（不含增强后缀）与是否启用增强。
+  base_prompt: z.string().optional(),
+  enhance_prompt: z.boolean().optional(),
 })
 export const AILedgerSchema = z.object({
   id: z.number(),
@@ -296,6 +299,8 @@ export const ContentSchema = z.object({
   view_count: num.optional().default(0),
   like_count: num.optional().default(0),
   audit_status: z.enum(['pending', 'approved', 'rejected']).optional(),
+  // 发布生成作品时是否启用了提示词增强；普通内容与旧响应默认 false。
+  ai_enhanced: z.boolean().optional().default(false),
   created_at: dateNum,
   updated_at: dateNum.optional(),
 })

@@ -90,6 +90,14 @@ onMounted(() => {
               <IconHeart />
               {{ content.like_count || 0 }} 点赞
             </span>
+            <span
+              v-if="content.ai_enhanced"
+              class="cd-meta-item cd-meta-ai"
+              title="发布时启用了提示词增强"
+            >
+              <span class="cd-meta-ai-dot" aria-hidden="true"></span>
+              提示词增强
+            </span>
             <span v-if="currentIndex >= 0" class="cd-meta-item cd-meta-index">
               {{ currentIndex + 1 }} / {{ cachedList.length }}
             </span>
@@ -252,6 +260,19 @@ onMounted(() => {
 .cd-meta-item { display: inline-flex; align-items: center; gap: 4px; }
 .cd-meta-item svg { width: 12px; height: 12px; flex-shrink: 0; }
 .cd-meta-index { color: var(--creative-accent); font-variant-numeric: tabular-nums; }
+.cd-meta-ai {
+  gap: 5px;
+  padding: 1px 8px;
+  border: 1px solid var(--creative-line);
+  border-radius: 999px;
+  color: var(--creative-accent);
+}
+.cd-meta-ai-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
 .cd-topbar-note { flex-shrink: 0; color: var(--creative-muted); font-size: 10px; letter-spacing: .05em; }
 .cd-topbar-note > span { color: var(--creative-accent); }
 .cd-body { flex: 1; min-height: 0; display: flex; scrollbar-width: thin; scrollbar-color: var(--creative-line) transparent; }

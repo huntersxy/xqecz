@@ -351,8 +351,10 @@ func (h *Handler) taskViews(c *gin.Context, rows []core.Task) ([]any, error) {
 		if own == nil {
 			own = []core.Asset{}
 		}
-		// Decode only reference metadata; never return the encrypted provider snapshot.
+		// Decode only reference metadata and the original prompt; never return
+		// the encrypted provider snapshot.
 		var snapshot struct {
+			Input      core.Input   `json:"input"`
 			References []core.Asset `json:"references"`
 		}
 		if err := json.Unmarshal([]byte(row.Snapshot), &snapshot); err != nil {
@@ -365,7 +367,11 @@ func (h *Handler) taskViews(c *gin.Context, rows []core.Task) ([]any, error) {
 		if name == "" {
 			name = "已注销用户"
 		}
-		out = append(out, gin.H{"task": row, "user": gin.H{"id": row.UserID, "username": name}, "assets": own, "references": snapshot.References})
+		basePrompt := strings.TrimSpace(snapshot.Input.BasePrompt)
+		if basePrompt == "" {
+			basePrompt = row.Prompt
+		}
+		out = append(out, gin.H{"task": row, "user": gin.H{"id": row.UserID, "username": name}, "assets": own, "references": snapshot.References, "base_prompt": basePrompt, "enhance_prompt": snapshot.Input.EnhancePrompt})
 	}
 	return out, nil
 }
