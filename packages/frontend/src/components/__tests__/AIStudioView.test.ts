@@ -213,39 +213,64 @@ describe('studio workspace and composer', () => {
     expect(w.text()).toContain('生成失败')
     expect(w.find('.ws-gallery-card.is-state.is-error').exists()).toBe(true)
     expect(w.find('[aria-label="复用提示词重试"]').exists()).toBe(true)
-    await w.findAll('.ws-gallery-card')[2]!.trigger('click')
+    expect(w.findAll('.ws-gallery-open')).toHaveLength(4)
+    await w.findAll('.ws-gallery-open')[2]!.trigger('click')
+    await flushPromises()
     expect(w.find('.ws-gallery').exists()).toBe(false)
     expect(w.get('.ws-canvas-image .test-image').attributes('data-id')).toBe('4')
     expect(w.findAll('.ws-result-strip button')).toHaveLength(2)
   })
 
-  it('keeps the same stage and detail skeleton in both views instead of splitting into two layouts', async () => {
+  it('shows all results as a full-width waterfall without the task detail card', async () => {
     api.tasks.mockResolvedValue([task(1), task(2, 1)])
     const w = await render()
-    // 同一骨架：两个视图都保留详情栏，切换时不因布局变化而横向跳动。
+    // 全部结果：只有瀑布流，没有任务详情卡，也没有单任务舞台。
     expect(w.find('.ws-gallery').exists()).toBe(true)
-    expect(w.get('.ws-detail').attributes('aria-label')).toBe('任务详情')
-    expect(w.get('.ws-shell').classes()).not.toContain('is-gallery')
+    expect(w.find('.ws-detail').exists()).toBe(false)
+    expect(w.find('.ws-canvas').exists()).toBe(false)
+    expect(w.find('.ws-actions').exists()).toBe(false)
     await showTask(w)
+    // 单个任务：舞台 + 详情卡。
     expect(w.find('.ws-gallery').exists()).toBe(false)
-    expect(w.get('.ws-detail').exists()).toBe(true)
-    expect(w.get('.ws-shell').classes()).not.toContain('is-gallery')
+    expect(w.get('.ws-detail').attributes('aria-label')).toBe('任务详情')
+    await button(w, '全部结果').trigger('click')
+    await flushPromises()
+    expect(w.find('.ws-gallery').exists()).toBe(true)
+    expect(w.find('.ws-detail').exists()).toBe(false)
   })
 
-  it('selects the first visible task when opening the gallery so the detail pane has content', async () => {
+  it('keeps the first task selected for the task view and fills the detail card', async () => {
     api.tasks.mockResolvedValue([task(1), task(2, 1)])
     const w = await render()
-    expect(w.find('.ws-gallery').exists()).toBe(true)
-    // 单个任务 → 全部结果：回到与当前任务一致的详情。
-    expect(w.get('.ws-detail').text()).toContain('时间')
     await showTask(w)
     expect(w.get('.ws-detail').text()).toContain('画面 1')
+    expect(w.get('.ws-detail').text()).toContain('规格')
+    expect(w.get('.ws-detail').text()).toContain('模型')
+    // 切回全部结果再切到单个任务，仍然是同一个任务，不会丢选择。
+    await button(w, '全部结果').trigger('click')
+    await flushPromises()
+    await showTask(w)
+    expect(w.get('.ws-detail').text()).toContain('画面 1')
+  })
+
+  it('offers an empty state with a create action in the gallery and an empty detail card in the task view', async () => {
     api.tasks.mockResolvedValue([])
-    const empty = await render()
-    const galleryButton = empty.findAll('button').find((item) => item.text().trim() === '全部结果')
-    await galleryButton!.trigger('click')
-    expect(empty.find('.ws-gallery').exists()).toBe(true)
-    expect(empty.get('.ws-detail').text()).toContain('选择一个任务')
+    const w = await render()
+    expect(w.get('.ws-gallery').text()).toContain('这里会收纳你所有的生成结果')
+    await button(w, '开始创作').trigger('click')
+    await flushPromises()
+    expect(document.activeElement).toBe(w.get('textarea').element)
+    await showTask(w)
+    expect(w.get('.ws-detail').text()).toContain('选择一个任务')
+  })
+
+  it('likes an image straight from its gallery tile', async () => {
+    api.tasks.mockResolvedValue([task(1)])
+    const w = await render()
+    await w.get('[aria-label="喜欢图片 2"]').trigger('click')
+    await flushPromises()
+    expect(api.setLiked).toHaveBeenCalledWith(2, true)
+    expect(w.get('[aria-label="取消喜欢图片 2"]').attributes('aria-pressed')).toBe('true')
   })
 
   it('refocuses the prompt when reusing a task prompt', async () => {

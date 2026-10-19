@@ -27,12 +27,22 @@ import { useConfirm } from '@/composables/useToast'
 import CreativeImage from '@/components/CreativeImage.vue'
 import CreativeLibrary from '@/components/CreativeLibrary.vue'
 import StudioReferences from '@/components/StudioReferences.vue'
+import StudioGallery from '@/components/StudioGallery.vue'
+import StudioInspector from '@/components/StudioInspector.vue'
 import StudioSizePicker from '@/components/StudioSizePicker.vue'
 import AutoMetadataOption from '@/components/AutoMetadataOption.vue'
 import '@/assets/creative-pages.css'
 import { referenceMentionAt, remapReferenceMentions } from '@/utils/creativeMentions'
 import { closeShellSidebar } from '@/utils/shellSidebar'
 import { formatImageSize, normalizeImageSize, parseImageSize, AUTO_IMAGE_SIZE } from '@/utils/imageSize'
+import {
+  TASK_LABELS as labels,
+  clockOf,
+  dayOf,
+  isFailedStatus,
+  statusClass,
+  type GalleryItem,
+} from '@/utils/studioTask'
 
 const studio = useAIStudio(),
   router = useRouter(),
@@ -71,7 +81,6 @@ const {
 const sidebarTab = ref<'workspace' | 'liked'>('workspace')
 // 进入工作台默认看全部结果，点任务历史或「单个任务」再回到舞台。
 const galleryOpen = ref(true)
-const promptExpanded = ref(false)
 const activeTaskId = ref(0)
 const workspaceMenuOpen = ref(false)
 const renaming = ref(false)
@@ -102,14 +111,6 @@ const resourceTitle = computed(
   () => resourceTabs.find((tab) => tab.key === resourceTab.value)?.label ?? '资源',
 )
 
-const labels: Record<string, string> = {
-  queued: '排队中',
-  running: '生成中',
-  succeeded: '完成',
-  failed: '失败',
-  cancelled: '已取消',
-  unknown: '待核查',
-}
 const composerLocked = computed(
   () => !ready.value || !!pending.value || busy.value || uploading.value || confirming.value,
 )
@@ -167,25 +168,28 @@ const stageTaskAssets = computed(() => {
   return selectedAsset.value ? [selectedAsset.value] : []
 })
 const stageAssets = computed(() => (selectedAsset.value ? [selectedAsset.value] : []))
-const stagePrompt = computed(() => stageTask.value?.task.prompt ?? '')
-const detailReferences = computed(() => stageTask.value?.references ?? [])
 const stageTaskFailed = computed(() =>
   !!stageTask.value && ['failed', 'cancelled', 'unknown'].includes(stageTask.value.task.status),
 )
 const selectedIsLiked = computed(() => !!selectedAsset.value?.liked)
 /** "全部结果" gallery mirrors the task filters but never changes the stage task. */
 const galleryTasks = computed(() => shownTasks.value)
-const galleryItems = computed<{ row: AITaskView; asset: AIAsset | null }[]>(() => {
-  const items: { row: AITaskView; asset: AIAsset | null }[] = []
+const galleryItems = computed<GalleryItem[]>(() => {
+  const items: GalleryItem[] = []
   for (const row of galleryTasks.value) {
-    if (row.assets.length) {
-      for (const asset of row.assets) items.push({ row, asset })
+    const total = row.assets.length
+    if (total) {
+      row.assets.forEach((asset, index) =>
+        items.push({ key: `asset-${asset.id}`, row, asset, index, total }),
+      )
     } else {
-      items.push({ row, asset: null })
+      items.push({ key: `task-${row.task.id}`, row, asset: null, index: 0, total: 0 })
     }
   }
   return items
 })
+const galleryImageCount = computed(() => galleryItems.value.filter((item) => item.asset).length)
+const filtered = computed(() => !!search.value || !!status.value)
 
 const mention = ref<ReturnType<typeof referenceMentionAt>>(null),
   mentionIndex = ref(0)
@@ -197,29 +201,11 @@ const mentionChoices = computed(() =>
     ),
 )
 
-// ── Time / status helpers ───────────────────────────────────────────────────
-function clockOf(iso: string) {
-  const date = new Date(iso)
-  return Number.isNaN(date.getTime())
-    ? '--:--'
-    : date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
-}
-function dayOf(iso: string) {
-  const date = new Date(iso)
-  return Number.isNaN(date.getTime())
-    ? '--.--'
-    : `${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`
-}
-function statusClass(value: string) {
-  return value === 'succeeded' ? 'is-success' : ['failed', 'cancelled'].includes(value) ? 'is-danger' : 'is-accent'
-}
-function galleryStateLabel(value: string) {
-  if (value === 'failed' || value === 'cancelled') return '生成失败'
-  if (value === 'unknown') return '结果待核查'
-  return labels[value] ?? value
-}
-
 // ── Workspace navigation ────────────────────────────────────────────────────
+function clearFilters() {
+  search.value = ''
+  status.value = ''
+}
 function setSidebarTab(tab: 'workspace' | 'liked') {
   sidebarTab.value = tab
 }
@@ -227,7 +213,6 @@ function selectTask(row: AITaskView) {
   activeTaskId.value = row.task.id
   selectedAsset.value = row.assets[0] ?? null
   galleryOpen.value = false
-  promptExpanded.value = false
   awaitingTask.value = 0
   closeShellSidebar()
 }
@@ -238,7 +223,6 @@ function showGallery() {
     if (row) selectTask(row)
   }
   galleryOpen.value = true
-  promptExpanded.value = false
   closeShellSidebar()
 }
 function showTaskView() {
@@ -261,7 +245,6 @@ function selectLiked(asset: AIAsset) {
   activeTaskId.value = 0
   selectedAsset.value = asset
   galleryOpen.value = false
-  promptExpanded.value = false
   closeShellSidebar()
 }
 function isActiveRow(row: AITaskView) {
@@ -931,230 +914,174 @@ watch(ready, (value) => {
 
     <section class="ws-main" aria-label="创作舞台">
       <header class="ws-stage-head">
-        <div v-if="galleryOpen" class="ws-stage-meta">
+        <div class="ws-stage-title">
           <strong>{{ name }}</strong>
-          <span class="ws-stage-sep" aria-hidden="true">·</span>
-          <span>全部结果</span>
-          <span class="ws-stage-sep" aria-hidden="true">·</span>
-          <span>{{ galleryTasks.length }} 个任务</span>
+          <span v-if="galleryOpen" class="ws-stage-sub">
+            全部结果<i aria-hidden="true" />{{ galleryTasks.length }} 个任务<i aria-hidden="true" />{{ galleryImageCount }} 张作品
+          </span>
+          <span v-else-if="stageTask" class="ws-stage-sub">
+            {{ dayOf(stageTask.task.created_at) }} {{ clockOf(stageTask.task.created_at) }}<i aria-hidden="true" /><span
+              :class="statusClass(stageTask.task.status)"
+              >{{ labels[stageTask.task.status] }}</span
+            ><i aria-hidden="true" />{{ stageTask.assets.length }} 张
+          </span>
+          <span v-else class="ws-stage-sub">把画面写下来</span>
         </div>
-        <div v-else-if="stageTask" class="ws-stage-meta">
-          <strong>{{ clockOf(stageTask.task.created_at) }}</strong>
-          <span class="ws-stage-sep" aria-hidden="true">·</span>
-          <span class="ws-stage-date">{{ dayOf(stageTask.task.created_at) }}</span>
-          <span class="ws-stage-sep" aria-hidden="true">·</span>
-          <span class="ws-stage-status" :class="statusClass(stageTask.task.status)">{{
-            labels[stageTask.task.status]
-          }}</span>
-          <span class="ws-stage-sep" aria-hidden="true">·</span>
-          <span class="ws-stage-count">{{ stageTask.assets.length }} 张</span>
+        <div v-if="activeTask" class="ws-live" role="status">
+          <IconLoading v-if="activeTask.task.status !== 'unknown'" class="ws-spin" />
+          <span>
+            任务 #{{ activeTask.task.id }} · {{ labels[activeTask.task.status] }}{{
+              activeTask.task.status === 'unknown' ? '，预留额度待管理员核查' : '，离开页面仍会继续'
+            }}
+          </span>
         </div>
-        <div v-else class="ws-stage-meta">
-          <strong>{{ name }}</strong>
-          <span>把画面写下来</span>
-        </div>
-        <div class="ws-stage-views">
-          <div class="ws-view-toggle" role="radiogroup" aria-label="查看方式">
-            <button
-              type="button"
-              role="radio"
-              :aria-checked="galleryOpen"
-              :class="{ 'is-active': galleryOpen }"
-              @click="showGallery"
-            >
-              全部结果
-            </button>
-            <button
-              type="button"
-              role="radio"
-              :aria-checked="!galleryOpen"
-              :class="{ 'is-active': !galleryOpen }"
-              @click="showTaskView"
-            >
-              单个任务
-            </button>
-          </div>
+        <div class="ws-view-toggle" role="radiogroup" aria-label="查看方式" :class="{ 'is-task': !galleryOpen }">
+          <span class="ws-view-thumb" aria-hidden="true" />
+          <button
+            type="button"
+            role="radio"
+            :aria-checked="galleryOpen"
+            :class="{ 'is-active': galleryOpen }"
+            @click="showGallery"
+          >
+            全部结果
+          </button>
+          <button
+            type="button"
+            role="radio"
+            :aria-checked="!galleryOpen"
+            :class="{ 'is-active': !galleryOpen }"
+            @click="showTaskView"
+          >
+            单个任务
+          </button>
         </div>
       </header>
 
-      <div v-if="galleryOpen" class="ws-gallery" aria-label="全部结果">
-        <p v-if="!ready" class="ws-gallery-empty">正在恢复创作…</p>
-        <p v-else-if="!galleryItems.length" class="ws-gallery-empty">
-          当前筛选下还没有生成结果。
-        </p>
-        <template
-          v-for="item in galleryItems"
-          :key="item.asset ? `asset-${item.asset.id}` : `task-${item.row.task.id}`"
-        >
-          <button
-            v-if="item.asset"
-            type="button"
-            class="ws-gallery-card"
-            :aria-label="`打开图片 ${item.asset.id}`"
-            :title="item.row.task.prompt"
-            @click="openGalleryAsset(item.row, item.asset)"
-          >
-            <span
-              class="ws-gallery-media"
-              :style="{
-                aspectRatio:
-                  item.asset.width && item.asset.height
-                    ? `${item.asset.width} / ${item.asset.height}`
-                    : '3 / 4',
-              }"
-            >
-              <CreativeImage :id="item.asset.id" />
-            </span>
-          </button>
-          <div
-            v-else
-            class="ws-gallery-card is-state"
-            :class="{ 'is-error': ['failed', 'cancelled'].includes(item.row.task.status) }"
-          >
-            <IconLoading
-              v-if="['queued', 'running'].includes(item.row.task.status)"
-              class="ws-spin"
-            />
-            <IconImage v-else />
-            <strong>{{ galleryStateLabel(item.row.task.status) }}</strong>
-            <p class="ws-gallery-prompt">{{ item.row.task.prompt }}</p>
-            <p v-if="item.row.task.error" class="ws-gallery-error">{{ item.row.task.error }}</p>
-            <div
-              v-if="['failed', 'cancelled'].includes(item.row.task.status)"
-              class="ws-gallery-note-actions"
-            >
+      <div v-if="error" class="ws-error" role="alert">{{ error }}</div>
+
+      <!-- 全部结果是整宽瀑布流，不带任务详情；单个任务才有舞台 + 详情卡。 -->
+      <Transition name="ws-view" mode="out-in">
+        <StudioGallery
+          v-if="galleryOpen"
+          key="gallery"
+          :items="galleryItems"
+          :ready="ready"
+          :filtered="filtered"
+          @open="openGalleryAsset"
+          @retry="retryGalleryTask"
+          @remove="archiveTask"
+          @like="(asset) => studio.run(() => studio.toggleLike(asset))"
+          @create="focusPrompt"
+          @clear-filters="clearFilters"
+        />
+
+        <div v-else key="task" class="ws-task">
+          <div class="ws-task-main">
+            <div class="ws-canvas" :class="{ 'is-dragging': dragging }">
+              <div v-if="stageAssets.length" :key="stageAssets[0]?.id" class="ws-canvas-image">
+                <CreativeImage :id="stageAssets[0]?.id ?? 0" full />
+              </div>
+
+              <div v-else-if="stageTaskFailed && stageTask" class="ws-canvas-state is-error">
+                <IconImage />
+                <strong>{{ labels[stageTask.task.status] }}</strong>
+                <p v-if="stageTask.task.error">{{ stageTask.task.error }}</p>
+                <p v-else-if="stageTask.task.status === 'unknown'">结果待核查，预留额度待管理员确认。</p>
+                <div class="ws-state-actions">
+                  <button type="button" class="ws-text-btn" @click="reusePrompt(stageTask)">复用提示词重试</button>
+                  <button
+                    v-if="isFailedStatus(stageTask.task.status)"
+                    type="button"
+                    class="ws-text-btn"
+                    @click="archiveTask(stageTask)"
+                  >
+                    删除记录
+                  </button>
+                </div>
+              </div>
+              <div v-else-if="!ready" class="ws-canvas-state">
+                <IconLoading class="ws-spin" />
+                <strong>正在恢复你的创作…</strong>
+              </div>
+              <div v-else-if="activeTask" class="ws-canvas-state">
+                <IconLoading class="ws-spin" />
+                <strong>{{ labels[activeTask.task.status] }}…</strong>
+                <p>任务已提交，离开页面也会继续。</p>
+              </div>
+              <div v-else class="ws-canvas-state">
+                <IconImage />
+                <strong>你的下一幅作品，从这里开始</strong>
+                <p>写下画面，或添加一张参考图。每次尝试都会留在这里。</p>
+                <button type="button" class="ws-text-btn" @click="focusPrompt">开始创作</button>
+              </div>
+            </div>
+
+            <div v-if="stageTaskAssets.length > 1" class="ws-result-strip" aria-label="本任务结果">
+              <button
+                v-for="(asset, index) in stageTaskAssets"
+                :key="asset.id"
+                type="button"
+                :aria-label="`查看第 ${index + 1} 张`"
+                :aria-pressed="selectedAsset?.id === asset.id"
+                @click="selectAsset(asset)"
+              >
+                <CreativeImage :id="asset.id" />
+              </button>
+            </div>
+
+            <div v-if="selectedAsset" class="ws-actions" aria-label="结果操作">
               <button
                 type="button"
-                aria-label="复用提示词重试"
-                title="复用提示词重试"
-                @click="retryGalleryTask(item.row)"
+                :disabled="!provider?.max_references || composerLocked"
+                @click="continueFromSelected"
+              >
+                <IconEdit />
+                <span>继续编辑</span>
+              </button>
+              <button
+                v-if="stageTask"
+                type="button"
+                :disabled="composerLocked"
+                @click="reusePrompt(stageTask)"
               >
                 <IconHistory />
+                <span>复用提示词</span>
+              </button>
+              <button type="button" :aria-pressed="selectedIsLiked" @click="likeSelected">
+                <IconHeartFill v-if="selectedIsLiked" class="is-liked" />
+                <IconHeart v-else />
+                <span>喜欢</span>
+              </button>
+              <button type="button" @click="download">
+                <IconDownload />
+                <span>下载</span>
+              </button>
+              <button type="button" @click="openPublish">
+                <IconUpload />
+                <span>发布</span>
               </button>
               <button
                 type="button"
-                aria-label="删除任务记录"
-                title="删除任务记录"
-                @click="archiveTask(item.row)"
+                class="is-danger"
+                aria-label="移除结果"
+                title="移除结果"
+                @click="removeResult"
               >
                 <IconDelete />
               </button>
             </div>
           </div>
-        </template>
-      </div>
 
-      <div v-if="!galleryOpen && stagePrompt" class="ws-prompt-line">
-        <p :class="{ 'is-expanded': promptExpanded }">{{ stagePrompt }}</p>
-        <button type="button" @click="promptExpanded = !promptExpanded">
-          {{ promptExpanded ? '收起' : '展开' }}
-        </button>
-      </div>
-
-      <div v-if="error" class="ws-error" role="alert">{{ error }}</div>
-      <div v-if="activeTask" class="ws-task-note" role="status">
-        <IconLoading v-if="activeTask.task.status !== 'unknown'" class="ws-spin" />
-        任务 #{{ activeTask.task.id }} · {{ labels[activeTask.task.status] }}
-        {{ activeTask.task.status === 'unknown' ? '，预留额度待管理员核查' : '，离开页面仍会继续' }}
-      </div>
-
-      <div v-if="!galleryOpen" class="ws-canvas" :class="{ 'is-dragging': dragging }">
-        <template v-if="stageAssets.length">
-          <div class="ws-canvas-image">
-            <CreativeImage :id="stageAssets[0]?.id ?? 0" full />
-          </div>
-        </template>
-
-        <div v-else-if="stageTaskFailed && stageTask" class="ws-canvas-state is-error">
-          <IconImage />
-          <strong>{{ labels[stageTask.task.status] }}</strong>
-          <p v-if="stageTask.task.error">{{ stageTask.task.error }}</p>
-          <p v-else-if="stageTask.task.status === 'unknown'">结果待核查，预留额度待管理员确认。</p>
-          <button type="button" class="ws-text-btn" @click="reusePrompt(stageTask)">复用提示词重试</button>
-          <button
-            v-if="['failed', 'cancelled'].includes(stageTask.task.status)"
-            type="button"
-            class="ws-text-btn"
-            @click="archiveTask(stageTask)"
-          >
-            删除记录
-          </button>
+          <StudioInspector
+            :task="stageTask"
+            :asset="selectedAsset"
+            :liked="selectedIsLiked"
+            @preview="(id) => (previewReference = id)"
+            @cancel="cancelQueued"
+          />
         </div>
-        <div v-else-if="!ready" class="ws-canvas-state">
-          <IconLoading class="ws-spin" />
-          <strong>正在恢复你的创作…</strong>
-        </div>
-        <div v-else-if="activeTask" class="ws-canvas-state">
-          <IconLoading class="ws-spin" />
-          <strong>{{ labels[activeTask.task.status] }}…</strong>
-          <p>任务已提交，离开页面也会继续。</p>
-        </div>
-        <div v-else class="ws-canvas-state">
-          <IconImage />
-          <strong>你的下一幅作品，从这里开始</strong>
-          <p>写下画面，或添加一张参考图。每次尝试都会留在这里。</p>
-          <button type="button" class="ws-text-btn" @click="focusPrompt">开始创作</button>
-        </div>
-      </div>
-
-      <div
-        v-if="!galleryOpen && stageTaskAssets.length > 1"
-        class="ws-result-strip"
-        aria-label="本任务结果"
-      >
-        <button
-          v-for="(asset, index) in stageTaskAssets"
-          :key="asset.id"
-          type="button"
-          :aria-label="`查看第 ${index + 1} 张`"
-          :aria-pressed="selectedAsset?.id === asset.id"
-          @click="selectAsset(asset)"
-        >
-          <CreativeImage :id="asset.id" />
-        </button>
-      </div>
-
-      <div v-if="!galleryOpen && selectedAsset" class="ws-actions" aria-label="结果操作">
-        <button
-          type="button"
-          :disabled="!provider?.max_references || composerLocked"
-          @click="continueFromSelected"
-        >
-          <IconEdit />
-          <span>继续编辑</span>
-        </button>
-        <button
-          v-if="stageTask"
-          type="button"
-          :disabled="composerLocked"
-          @click="reusePrompt(stageTask)"
-        >
-          <IconHistory />
-          <span>复用提示词</span>
-        </button>
-        <button type="button" :aria-pressed="selectedIsLiked" @click="likeSelected">
-          <IconHeartFill v-if="selectedIsLiked" class="is-liked" />
-          <IconHeart v-else />
-          <span>喜欢</span>
-        </button>
-        <button type="button" @click="download">
-          <IconDownload />
-          <span>下载</span>
-        </button>
-        <button type="button" @click="openPublish">
-          <IconUpload />
-          <span>发布</span>
-        </button>
-        <button
-          type="button"
-          class="is-danger"
-          aria-label="移除结果"
-          title="移除结果"
-          @click="removeResult"
-        >
-          <IconDelete />
-        </button>
-      </div>
+      </Transition>
 
       <section
         ref="composerElement"
@@ -1320,68 +1247,6 @@ watch(ready, (value) => {
       </section>
     </section>
 
-    <aside class="ws-detail" aria-label="任务详情">
-      <header class="ws-detail-head">
-        <span class="ws-kicker">DETAIL</span>
-        <h2>任务详情</h2>
-      </header>
-      <template v-if="stageTask">
-        <dl class="ws-detail-meta">
-          <div><dt>状态</dt><dd :class="statusClass(stageTask.task.status)">{{ labels[stageTask.task.status] }}</dd></div>
-          <div><dt>时间</dt><dd>{{ clockOf(stageTask.task.created_at) }} · {{ dayOf(stageTask.task.created_at) }}</dd></div>
-          <div><dt>模型</dt><dd>{{ stageTask.task.model }}</dd></div>
-          <div><dt>规格</dt><dd>{{ formatImageSize(stageTask.task.size) }} · {{ stageTask.task.count }} 张</dd></div>
-        </dl>
-        <div class="ws-detail-block">
-          <span class="ws-kicker">PROMPT</span>
-          <p class="ws-detail-prompt">{{ stageTask.task.prompt }}</p>
-        </div>
-        <div v-if="detailReferences.length" class="ws-detail-block">
-          <span class="ws-kicker">REFERENCES</span>
-          <div class="ws-detail-refs">
-            <button
-              v-for="(asset, index) in detailReferences"
-              :key="asset.id"
-              type="button"
-              :aria-label="`预览参考图 ${index + 1}`"
-              @click="previewReference = asset.id"
-            >
-              <CreativeImage :id="asset.id" />
-            </button>
-          </div>
-        </div>
-        <p v-if="stageTask.task.error" class="ws-detail-error">{{ stageTask.task.error }}</p>
-        <div
-          v-if="stageTask.task.status === 'queued' || stageTask.task.idea_id"
-          class="ws-detail-actions"
-        >
-          <button
-            v-if="stageTask.task.status === 'queued'"
-            type="button"
-            @click="cancelQueued(stageTask)"
-          >
-            取消排队
-          </button>
-          <RouterLink v-if="stageTask.task.idea_id" :to="`/ideas/${stageTask.task.idea_id}`">赞助创意</RouterLink>
-        </div>
-      </template>
-      <template v-else-if="selectedAsset">
-        <dl class="ws-detail-meta">
-          <div><dt>类型</dt><dd>{{ selectedIsLiked ? '已喜欢' : '私人结果' }}</dd></div>
-          <div><dt>尺寸</dt><dd>{{ selectedAsset.width }} × {{ selectedAsset.height }}</dd></div>
-          <div><dt>时间</dt><dd>{{ clockOf(selectedAsset.created_at) }} · {{ dayOf(selectedAsset.created_at) }}</dd></div>
-        </dl>
-        <div class="ws-detail-block">
-          <span class="ws-kicker">ASSET</span>
-          <p class="ws-detail-prompt">{{ selectedAsset.title || `图片 ${selectedAsset.id}` }}</p>
-        </div>
-      </template>
-      <div v-else class="ws-detail-empty">
-        <IconImage />
-        <p>选择一个任务，查看提示词、参考图与生成参数。</p>
-      </div>
-    </aside>
-
   <StudioSizePicker v-model:visible="sizePickerOpen" :model-value="size" @select="size = $event" />
 
   <a-drawer
@@ -1486,21 +1351,25 @@ watch(ready, (value) => {
 
 <style scoped>
 /*
- * Workspace shell — 任务历史在 PublicShell 的真实侧栏里，页面只保留
- * 舞台与详情两列；颜色只用全站 --site-* 与 --creative-*。
- * 「全部结果 / 单个任务」是同一骨架的形态切换：只有舞台中间换掉，
- * 顶栏、详情栏与输入区位置不变，切换时内容不横向跳动。
+ * Workspace shell — 任务历史在 PublicShell 的真实侧栏里，页面只保留中间舞台与底部输入区；
+ * 颜色只用全站 --site-* 与 --creative-*。
+ * 「全部结果」是整宽瀑布流（与首页同一套布局算法），不带任务详情；
+ * 「单个任务」是舞台 + 右侧详情卡。顶栏与输入区在两种视图下位置不变，只有中间区域淡入淡出切换。
  */
+@media (min-width: 821px) {
+  /* 工作台把侧栏之外的宽度都让给画廊，与首页同宽；选择器带 .is-workspace，只在 /studio 生效。 */
+  :global(.public-shell.is-workspace .public-shell-content) {
+    max-width: min(2240px, 100%);
+    padding: 20px clamp(20px, 2.2vw, 40px) 24px;
+  }
+}
 .ai-studio.ws-shell {
-  --ws-detail: 282px;
   position: relative;
   isolation: isolate;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--ws-detail);
-  gap: clamp(10px, 1.1vw, 18px);
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  max-width: 1480px;
-  height: calc(100dvh - 76px - 92px);
+  height: calc(100dvh - 76px - 44px);
   min-height: 560px;
   margin: 0 auto;
   padding: 0;
@@ -1519,18 +1388,9 @@ watch(ready, (value) => {
   background-size: 7px 7px;
   mask-image: linear-gradient(to bottom, black, transparent 74%);
 }
-.ai-studio.is-switching .ws-main,
-.ai-studio.is-switching .ws-detail {
+.ai-studio.is-switching .ws-main {
   opacity: 0.55;
   pointer-events: none;
-}
-.ws-kicker {
-  display: block;
-  color: var(--site-muted);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  line-height: 1.2;
 }
 .ws-icon-btn {
   display: grid;
@@ -1988,7 +1848,9 @@ watch(ready, (value) => {
 
 /* ── Stage ───────────────────────────────────────────────────────────────── */
 .ws-main {
+  position: relative;
   display: flex;
+  flex: 1;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
@@ -1996,149 +1858,75 @@ watch(ready, (value) => {
 .ws-stage-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  padding: 0 4px;
+  gap: 14px;
+  min-height: 56px;
+  padding: 0 6px 6px;
 }
-.ws-stage-meta {
+.ws-stage-title {
   display: flex;
-  align-items: baseline;
-  gap: 5px;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
   min-width: 0;
+}
+.ws-stage-title strong {
+  overflow: hidden;
+  color: var(--site-ink);
+  font: 600 21px/1.2 var(--site-title-font);
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-stage-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   overflow: hidden;
   color: var(--site-muted);
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.ws-stage-meta > span,
-.ws-stage-meta > strong {
+.ws-stage-sub i {
   flex: 0 0 auto;
-  white-space: nowrap;
-}
-.ws-stage-meta > strong:first-child {
-  flex: 0 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.ws-stage-meta strong {
-  color: var(--site-ink);
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-.ws-stage-sep {
-  color: var(--site-muted);
-  opacity: 0.55;
-}
-.ws-stage-date,
-.ws-stage-count {
-  color: var(--site-muted);
-  font-size: 10px;
-}
-.ws-stage-status {
-  color: var(--site-muted);
-  font-weight: 500;
-}
-.ws-stage-status::before {
-  display: inline-block;
-  width: 4px;
-  height: 4px;
-  margin-right: 4px;
+  width: 3px;
+  height: 3px;
   border-radius: 50%;
   background: currentColor;
-  content: '';
-  vertical-align: 1px;
+  opacity: 0.5;
 }
-.ws-stage-meta .is-success {
+.ws-stage-sub .is-success {
   color: rgb(var(--success-6));
 }
-.ws-stage-meta .is-danger {
+.ws-stage-sub .is-danger {
   color: rgb(var(--danger-6));
 }
-.ws-stage-meta .is-accent {
+.ws-stage-sub .is-accent {
   color: var(--site-accent);
 }
-.ws-stage-views {
-  display: flex;
+/* 有进行中的任务时在顶栏给一枚小胶囊，不再占一整行把输入区顶下去。 */
+.ws-live {
+  display: inline-flex;
+  flex: 0 1 auto;
   align-items: center;
-  gap: 6px;
-  margin-left: auto;
-}
-.ws-view-toggle {
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--site-line);
-  border-radius: 9px;
-  background: var(--site-paper);
-}
-.ws-view-toggle button {
-  min-height: 26px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--site-muted);
-  font-size: 11px;
-  cursor: pointer;
-}
-.ws-view-toggle button.is-active {
-  background: var(--site-soft);
-  color: var(--site-ink);
-  font-weight: 600;
-}
-.ws-prompt-line {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 0 4px 8px;
-}
-.ws-prompt-line p {
-  display: -webkit-box;
-  flex: 1;
-  overflow: hidden;
-  margin: 0;
-  color: var(--site-muted);
-  font-size: 11.5px;
-  line-height: 1.6;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-.ws-prompt-line p.is-expanded {
-  display: block;
-  color: var(--site-ink);
-}
-.ws-prompt-line button {
-  flex: 0 0 auto;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--site-accent);
-  font-size: 11px;
-  cursor: pointer;
-}
-.ws-error {
-  margin: 0 4px 8px;
-  padding: 9px 11px;
-  border: 1px solid color-mix(in srgb, rgb(var(--danger-6)) 30%, transparent);
-  border-radius: 9px;
-  background: color-mix(in srgb, rgb(var(--danger-6)) 8%, transparent);
-  color: rgb(var(--danger-6));
-  font-size: 11px;
-  line-height: 1.5;
-}
-.ws-task-note {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 4px 8px;
-  padding: 9px 11px;
-  border: 1px solid color-mix(in srgb, var(--site-accent) 24%, transparent);
-  border-radius: 9px;
+  gap: 7px;
+  min-width: 0;
+  max-width: 380px;
+  padding: 6px 13px;
+  border-radius: 999px;
   background: var(--site-accent-soft);
   color: var(--site-accent);
-  font-size: 11px;
+  font-size: 11.5px;
+}
+.ws-live > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-live svg {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
 }
 .ws-spin {
   animation: ws-spin 1s linear infinite;
@@ -2148,6 +1936,98 @@ watch(ready, (value) => {
     transform: rotate(360deg);
   }
 }
+/* 分段开关：滑块在两个选项间平移，而不是各自闪一下背景。 */
+.ws-view-toggle {
+  position: relative;
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: 1fr 1fr;
+  padding: 3px;
+  border: 1px solid var(--site-line);
+  border-radius: 999px;
+  background: var(--site-paper);
+  box-shadow: var(--shadow-sm);
+}
+.ws-view-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 2);
+  border-radius: 999px;
+  background: var(--site-action);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--site-action) 28%, transparent);
+  transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ws-view-toggle.is-task .ws-view-thumb {
+  transform: translateX(100%);
+}
+.ws-view-toggle button {
+  position: relative;
+  z-index: 1;
+  min-height: 30px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--site-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.25s ease;
+}
+.ws-view-toggle button:hover:not(.is-active) {
+  color: var(--site-ink);
+}
+.ws-view-toggle button.is-active {
+  color: var(--site-on-action);
+  font-weight: 600;
+}
+.ws-error {
+  margin: 0 6px 10px;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, rgb(var(--danger-6)) 28%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, rgb(var(--danger-6)) 8%, var(--site-paper));
+  color: rgb(var(--danger-6));
+  font-size: 12px;
+  line-height: 1.5;
+}
+/* 全部结果 ⇄ 单个任务：旧视图淡出、新视图上浮淡入，位置与尺寸不变。 */
+.ws-view-enter-active,
+.ws-view-leave-active {
+  transition:
+    opacity 0.2s ease,
+    transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ws-view-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.ws-view-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* 单个任务：左侧舞台 + 右侧详情卡 */
+.ws-task {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-rows: minmax(0, 1fr);
+  gap: clamp(12px, 1.4vw, 22px);
+  min-height: 0;
+}
+.ws-task-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.ws-task > .ws-detail {
+  align-self: start;
+  max-height: 100%;
+}
 .ws-canvas {
   position: relative;
   display: flex;
@@ -2155,12 +2035,20 @@ watch(ready, (value) => {
   align-items: center;
   justify-content: center;
   min-height: 0;
+  padding: 18px;
   overflow: hidden;
-  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--site-line) 70%, transparent);
+  border-radius: 26px;
+  background: radial-gradient(
+    120% 90% at 50% 0%,
+    color-mix(in srgb, var(--site-accent) 7%, var(--site-paper)) 0%,
+    color-mix(in srgb, var(--site-paper) 55%, transparent) 72%
+  );
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 .ws-canvas.is-dragging {
-  outline: 2px dashed var(--site-accent);
-  outline-offset: -8px;
+  border-color: var(--site-accent);
+  border-style: dashed;
   background: var(--site-accent-soft);
 }
 .ws-canvas-image {
@@ -2168,79 +2056,106 @@ watch(ready, (value) => {
   place-items: center;
   width: 100%;
   height: 100%;
-  border-radius: 16px;
+  border-radius: 18px;
+  animation: ws-pop 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes ws-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
 }
 .ws-canvas-image .creative-image {
   min-height: 0;
 }
 .ws-canvas-image :deep(.creative-image img) {
   max-height: 100%;
-  border-radius: 16px;
-  box-shadow: 0 18px 48px color-mix(in srgb, var(--site-ink) 13%, transparent);
+  border-radius: 18px;
+  box-shadow: 0 24px 56px color-mix(in srgb, var(--site-ink) 18%, transparent);
   object-fit: contain;
 }
 .ws-canvas-state {
   display: flex;
+  flex: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  width: 100%;
-  min-height: 240px;
+  gap: 10px;
+  align-self: stretch;
   padding: 28px 20px;
-  border: 1px dashed var(--site-line);
-  border-radius: 16px;
   color: var(--site-muted);
   text-align: center;
 }
 .ws-canvas-state > svg {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
 }
 .ws-canvas-state strong {
   color: var(--site-ink);
-  font: 600 17px/1.3 var(--site-title-font);
+  font: 600 18px/1.3 var(--site-title-font);
 }
 .ws-canvas-state p {
   max-width: 42ch;
   margin: 0;
-  font-size: 11.5px;
-  line-height: 1.6;
+  font-size: 12px;
+  line-height: 1.7;
   overflow-wrap: anywhere;
 }
 .ws-canvas-state.is-error {
-  border-color: color-mix(in srgb, rgb(var(--danger-6)) 28%, transparent);
+  border-radius: 18px;
   background: color-mix(in srgb, rgb(var(--danger-6)) 5%, transparent);
+}
+.ws-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
 }
 .ws-text-btn {
   margin-top: 4px;
-  padding: 7px 12px;
+  padding: 8px 16px;
   border: 1px solid var(--site-line);
   border-radius: 999px;
   background: var(--site-paper);
   color: var(--site-ink);
-  font-size: 11px;
+  font-size: 12px;
   cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.ws-text-btn:hover {
+  border-color: var(--site-accent);
+  background: var(--site-accent-soft);
 }
 .ws-result-strip {
   display: flex;
   justify-content: center;
-  gap: 6px;
-  padding: 6px 4px 0;
+  gap: 8px;
+  padding: 14px 4px 0;
 }
 .ws-result-strip button {
   overflow: hidden;
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
   padding: 0;
-  border: 1px solid var(--site-line);
-  border-radius: 8px;
-  background: var(--site-paper);
+  border: 2px solid transparent;
+  border-radius: 14px;
+  background: var(--site-soft);
+  opacity: 0.68;
   cursor: pointer;
+  transition:
+    opacity 0.2s ease,
+    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.ws-result-strip button:hover {
+  opacity: 1;
 }
 .ws-result-strip button[aria-pressed='true'] {
   border-color: var(--site-accent);
-  box-shadow: 0 0 0 1px var(--site-accent);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--site-accent) 24%, transparent);
+  opacity: 1;
+  transform: translateY(-2px);
 }
 .ws-result-strip .creative-image {
   min-height: 0;
@@ -2248,150 +2163,51 @@ watch(ready, (value) => {
 .ws-result-strip :deep(.creative-image img) {
   object-fit: cover;
 }
-.ws-gallery {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 6px 4px 16px;
-  columns: 4 220px;
-  column-gap: 12px;
-  scrollbar-color: var(--site-line) transparent;
-}
-.ws-gallery-empty {
-  margin: 48px 0;
-  color: var(--site-muted);
-  font-size: 12px;
-  text-align: center;
-}
-.ws-gallery-card {
-  position: relative;
-  display: block;
-  width: 100%;
-  margin: 0 0 12px;
-  padding: 0;
-  overflow: hidden;
-  border: 0;
-  border-radius: 12px;
-  background: transparent;
-  break-inside: avoid;
-  -webkit-column-break-inside: avoid;
-  cursor: zoom-in;
-}
-.ws-gallery-media {
-  display: block;
-  overflow: hidden;
-  width: 100%;
-  border-radius: 12px;
-  background: var(--site-soft);
-  box-shadow: var(--shadow-sm);
-}
-.ws-gallery-media .creative-image {
-  min-height: 0;
-}
-.ws-gallery-media :deep(.creative-image img) {
-  object-fit: cover;
-}
-.ws-gallery-card.is-state {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 190px;
-  padding: 14px;
-  border: 1px solid var(--site-line);
-  border-radius: 12px;
-  background: var(--site-paper);
-  cursor: default;
-}
-.ws-gallery-card.is-state.is-error {
-  border-color: color-mix(in srgb, rgb(var(--danger-6)) 26%, var(--site-line));
-  background: color-mix(in srgb, rgb(var(--danger-6)) 5%, var(--site-paper));
-}
-.ws-gallery-card.is-state > svg {
-  width: 22px;
-  height: 22px;
-  color: var(--site-muted);
-}
-.ws-gallery-card.is-state > strong {
-  color: var(--site-ink);
-  font-size: 13px;
-}
-.ws-gallery-prompt,
-.ws-gallery-error {
-  margin: 0;
-  font-size: 10.5px;
-  line-height: 1.6;
-  overflow-wrap: anywhere;
-}
-.ws-gallery-prompt {
-  display: -webkit-box;
-  overflow: hidden;
-  color: var(--site-muted);
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-}
-.ws-gallery-error {
-  color: rgb(var(--danger-6));
-}
-.ws-gallery-note-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: auto;
-}
-.ws-gallery-note-actions button {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 1px solid var(--site-line);
-  border-radius: 8px;
-  background: var(--site-paper);
-  color: var(--site-muted);
-  cursor: pointer;
-}
-.ws-gallery-note-actions button:hover {
-  border-color: var(--site-accent);
-  color: var(--site-accent);
-}
-.ws-gallery-note-actions svg {
-  width: 15px;
-  height: 15px;
-}
+/* 结果操作条：一枚悬浮的胶囊，同一动作只在这里有一个入口。 */
 .ws-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: clamp(8px, 2vw, 22px);
-  padding: 8px 4px 6px;
-  color: var(--site-muted);
+  gap: 2px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 14px auto 0;
+  padding: 4px;
+  border: 1px solid var(--site-line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--site-paper) 90%, transparent);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(12px);
 }
 .ws-actions > button {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 7px;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 14px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 999px;
   background: transparent;
-  color: inherit;
-  font-size: 11px;
+  color: var(--site-muted);
+  font-size: 12px;
   cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
 }
-.ws-actions > button:hover {
-  color: var(--site-ink);
+.ws-actions > button:hover:not(:disabled) {
   background: var(--site-soft);
+  color: var(--site-ink);
 }
-.ws-actions > button.is-danger:hover {
+.ws-actions > button.is-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, rgb(var(--danger-6)) 10%, transparent);
   color: rgb(var(--danger-6));
-  background: color-mix(in srgb, rgb(var(--danger-6)) 8%, transparent);
 }
 .ws-actions > button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
-.ws-actions > button:disabled:hover {
-  color: inherit;
-  background: transparent;
+.ws-actions > button[aria-pressed='true'] {
+  color: var(--site-accent);
 }
 .ws-actions svg {
   width: 15px;
@@ -2404,8 +2220,10 @@ watch(ready, (value) => {
 /* ── Composer ────────────────────────────────────────────────────────────── */
 .ws-composer {
   position: relative;
-  margin-top: auto;
-  padding-top: 4px;
+  width: 100%;
+  max-width: 800px;
+  margin: auto auto 0;
+  padding-top: 6px;
 }
 .ws-composer.is-dragging .ws-composer-box {
   border-color: var(--site-accent);
@@ -2418,12 +2236,19 @@ watch(ready, (value) => {
 }
 .ws-composer-box {
   position: relative;
-  padding: 10px 10px 8px;
-  border: 1px solid var(--site-line);
-  border-radius: 16px;
-  background: var(--site-paper);
-  box-shadow: 0 10px 30px color-mix(in srgb, var(--site-ink) 9%, transparent);
-  transition: border-color var(--transition-fast), background var(--transition-fast);
+  padding: 12px 12px 8px;
+  border: 1px solid color-mix(in srgb, var(--site-line) 80%, transparent);
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--site-paper) 94%, transparent);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--site-ink) 6%, transparent),
+    0 20px 48px color-mix(in srgb, var(--site-ink) 12%, transparent);
+  backdrop-filter: blur(16px) saturate(1.2);
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-base);
+}
+.ws-composer-box:focus-within {
+  border-color: color-mix(in srgb, var(--site-accent) 45%, var(--site-line));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--site-accent) 11%, transparent),
+    0 20px 48px color-mix(in srgb, var(--site-ink) 14%, transparent);
 }
 .ws-composer-prompt {
   position: relative;
@@ -2454,7 +2279,7 @@ watch(ready, (value) => {
   min-width: 0;
   margin-top: 6px;
   padding-top: 8px;
-  border-top: 1px solid var(--site-line);
+  border-top: 1px solid color-mix(in srgb, var(--site-line) 70%, transparent);
 }
 .ws-composer-tools {
   display: flex;
@@ -2479,14 +2304,22 @@ watch(ready, (value) => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  min-height: 28px;
-  padding: 0 9px;
-  border: 1px solid var(--site-line);
-  border-radius: 8px;
-  background: var(--site-canvas);
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--site-soft);
   color: var(--site-ink);
-  font-size: 10.5px;
+  font-size: 11px;
   white-space: nowrap;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+button.ws-option:hover:not(:disabled),
+.ws-option:has(select:hover),
+.ws-option-toggle:hover {
+  border-color: color-mix(in srgb, var(--site-accent) 35%, transparent);
+  background: var(--site-accent-soft);
 }
 .ws-option:disabled {
   opacity: 0.45;
@@ -2522,14 +2355,15 @@ watch(ready, (value) => {
   display: grid;
   flex: 0 0 auto;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 50%;
   background: transparent;
   color: var(--site-muted);
   cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 .ws-tool-btn:hover {
   background: var(--site-soft);
@@ -2548,9 +2382,9 @@ watch(ready, (value) => {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-width: 86px;
-  height: 38px;
-  padding: 0 16px;
+  min-width: 92px;
+  height: 40px;
+  padding: 0 20px;
   border: 0;
   border-radius: 999px;
   background: var(--site-accent);
@@ -2558,11 +2392,13 @@ watch(ready, (value) => {
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--site-accent) 20%, transparent);
-  transition: background var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--site-accent) 30%, transparent);
+  transition: background var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 .ws-send-btn:hover:not(:disabled) {
   background: color-mix(in srgb, var(--site-accent) 86%, var(--site-ink));
+  box-shadow: 0 12px 26px color-mix(in srgb, var(--site-accent) 38%, transparent);
+  transform: translateY(-1px);
 }
 .ws-send-btn:active:not(:disabled) {
   transform: translateY(1px);
@@ -2600,11 +2436,11 @@ watch(ready, (value) => {
 .ws-composer-secondary button {
   min-height: 30px;
   padding: 0 12px;
-  border: 1px solid var(--site-line);
+  border: 1px solid transparent;
   border-radius: 999px;
-  background: var(--site-paper);
-  color: var(--site-ink);
-  font-size: 10.5px;
+  background: transparent;
+  color: var(--site-muted);
+  font-size: 11px;
   cursor: pointer;
   transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
 }
@@ -2633,150 +2469,6 @@ watch(ready, (value) => {
 }
 .reference-mentions button {
   border-radius: 8px;
-}
-
-/* ── Detail column ───────────────────────────────────────────────────────── */
-.ws-detail {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 16px;
-  border: 1px solid var(--site-line);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--site-paper) 92%, transparent);
-  box-shadow: var(--shadow-sm);
-  scrollbar-color: var(--site-line) transparent;
-}
-.ws-detail-head {
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--site-line);
-}
-.ws-detail-head h2 {
-  margin: 4px 0 0;
-  color: var(--site-ink);
-  font: 600 18px/1.2 var(--site-title-font);
-  letter-spacing: -0.02em;
-}
-.ws-detail-meta {
-  display: grid;
-  gap: 8px;
-  margin: 14px 0;
-}
-.ws-detail-meta > div {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-.ws-detail-meta dt {
-  color: var(--site-muted);
-  font-size: 10px;
-}
-.ws-detail-meta dd {
-  margin: 0;
-  color: var(--site-ink);
-  font-size: 11px;
-  text-align: right;
-  overflow-wrap: anywhere;
-}
-.ws-detail-meta dd.is-success {
-  color: rgb(var(--success-6));
-}
-.ws-detail-meta dd.is-danger {
-  color: rgb(var(--danger-6));
-}
-.ws-detail-meta dd.is-accent {
-  color: var(--site-accent);
-}
-.ws-detail-block {
-  padding: 12px 0;
-  border-top: 1px solid var(--site-line);
-}
-.ws-detail-prompt {
-  max-height: 200px;
-  overflow-y: auto;
-  margin: 6px 0 0;
-  color: var(--site-ink);
-  font-size: 11px;
-  line-height: 1.65;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-}
-.ws-detail-refs {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 5px;
-  margin-top: 7px;
-}
-.ws-detail-refs button {
-  overflow: hidden;
-  aspect-ratio: 1;
-  padding: 0;
-  border: 1px solid var(--site-line);
-  border-radius: 8px;
-  background: var(--site-soft);
-  cursor: zoom-in;
-}
-.ws-detail-refs .creative-image {
-  min-height: 0;
-}
-.ws-detail-refs :deep(.creative-image img) {
-  object-fit: cover;
-}
-.ws-detail-error {
-  padding: 9px 10px;
-  border-radius: 8px;
-  background: color-mix(in srgb, rgb(var(--danger-6)) 7%, transparent);
-  color: rgb(var(--danger-6));
-  font-size: 10.5px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.ws-detail-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: auto;
-  padding-top: 12px;
-  border-top: 1px solid var(--site-line);
-}
-.ws-detail-actions button,
-.ws-detail-actions a {
-  min-height: 32px;
-  padding: 0 11px;
-  border: 1px solid var(--site-line);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--site-ink);
-  font-size: 10.5px;
-  text-decoration: none;
-  cursor: pointer;
-}
-.ws-detail-actions button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-.ws-detail-empty {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 24px 10px;
-  color: var(--site-muted);
-  text-align: center;
-}
-.ws-detail-empty svg {
-  width: 26px;
-  height: 26px;
-}
-.ws-detail-empty p {
-  max-width: 24ch;
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.6;
 }
 
 /* ── Drawer / modals ─────────────────────────────────────────────────────── */
@@ -2926,16 +2618,24 @@ watch(ready, (value) => {
 
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 1320px) {
-  .ai-studio.ws-shell {
-    --ws-detail: 252px;
+  .ws-task {
+    grid-template-columns: minmax(0, 1fr) 272px;
   }
 }
+/* 中等宽度：详情卡落到舞台下方，整块任务视图自己滚动，不再把提示词和参考图藏掉。 */
 @media (max-width: 1100px) {
-  .ai-studio.ws-shell {
-    grid-template-columns: minmax(0, 1fr);
+  .ws-task {
+    display: block;
+    overflow-y: auto;
+    scrollbar-width: thin;
   }
-  .ws-detail {
-    display: none;
+  .ws-task-main {
+    min-height: min(560px, 62vh);
+  }
+  .ws-task > .ws-detail {
+    max-height: none;
+    margin-top: 16px;
+    overflow: visible;
   }
 }
 @media (max-width: 820px) {
@@ -2956,41 +2656,44 @@ watch(ready, (value) => {
   .ws-stage-head {
     position: relative;
     z-index: 12;
-    min-height: 48px;
-    padding: 4px;
-    background: color-mix(in srgb, var(--site-canvas) 92%, transparent);
+    flex-wrap: wrap;
+    gap: 10px;
+    min-height: 0;
+    padding: 4px 2px 10px;
   }
-  .ws-stage-meta {
-    flex: 1;
-    min-width: 0;
+  .ws-stage-title {
+    flex: 1 1 140px;
   }
-  .ws-stage-meta strong {
-    font-size: 15px;
+  .ws-stage-title strong {
+    font-size: 18px;
   }
-  .ws-stage-views {
-    gap: 4px;
+  .ws-live {
+    order: 3;
+    flex: 1 0 100%;
+    max-width: none;
   }
-  .ws-gallery {
-    columns: 2;
-    column-gap: 8px;
+  .ws-view-toggle button {
+    padding: 0 12px;
+  }
+  .ws-task {
+    display: block;
     overflow: visible;
-    padding: 4px 0 8px;
   }
-  .ws-gallery-card {
-    margin-bottom: 8px;
+  .ws-task-main {
+    min-height: 0;
   }
-  .ws-gallery-card.is-state {
-    min-height: 150px;
-    padding: 12px;
-  }
-  .ws-prompt-line {
-    padding-bottom: 6px;
+  .ws-task > .ws-detail {
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: 18px;
   }
   .ws-canvas {
     flex: none;
     width: 100%;
     min-height: 0;
+    padding: 10px;
     overflow: visible;
+    border-radius: 20px;
   }
   .ws-canvas-image {
     height: auto;
@@ -3006,16 +2709,19 @@ watch(ready, (value) => {
     box-shadow: none;
   }
   .ws-actions {
+    width: 100%;
     justify-content: space-around;
-    gap: 2px;
-    padding: 8px 0 10px;
+    gap: 0;
+    margin-top: 10px;
+    padding: 4px 2px;
   }
   .ws-actions > button {
     flex-direction: column;
     gap: 3px;
     min-width: 52px;
+    min-height: 46px;
     padding: 4px 6px;
-    font-size: 9.5px;
+    font-size: 10px;
   }
   .ws-actions svg {
     width: 17px;
@@ -3027,12 +2733,14 @@ watch(ready, (value) => {
     right: max(8px, env(safe-area-inset-right));
     bottom: calc(var(--studio-dock-bottom, 0px) + 10px);
     left: max(8px, env(safe-area-inset-left));
+    width: auto;
+    max-width: none;
     margin: 0;
     padding: 0 0 max(4px, env(safe-area-inset-bottom));
   }
   .ws-composer-box {
     padding: 10px 10px 8px;
-    border-radius: 16px;
+    border-radius: 20px;
     box-shadow: 0 -8px 30px color-mix(in srgb, var(--site-ink) 13%, transparent);
   }
   .ws-composer-prompt textarea {
@@ -3076,13 +2784,20 @@ watch(ready, (value) => {
   .ws-composer-secondary button {
     min-height: 44px;
     padding: 0 8px;
-    border-radius: 10px;
+    border-radius: 12px;
+    background: var(--site-soft);
+    color: var(--site-ink);
     font-size: 12px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .ws-composer-box,
   .ws-send-btn {
+    transition: none;
+  }
+  .ws-canvas-image,
+  .ws-view-thumb {
+    animation: none;
     transition: none;
   }
 }
