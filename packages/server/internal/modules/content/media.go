@@ -29,9 +29,11 @@ func (h *Handler) RegisterMedia(r *gin.Engine) {
 		{"/images/*filepath", h.deps.Cfg.ImagesDir},
 	} {
 		dir := m.dir
-		r.GET(m.route, func(c *gin.Context) {
+		serve := func(c *gin.Context) {
 			h.serveMedia(c, dir)
-		})
+		}
+		r.GET(m.route, serve)
+		r.HEAD(m.route, serve)
 	}
 }
 
@@ -53,6 +55,12 @@ func (h *Handler) serveMedia(c *gin.Context, dir string) {
 		c.Status(404)
 		return
 	}
+
+	header := c.Writer.Header()
+	header.Set("Access-Control-Allow-Origin", "*")
+	header.Set("Cross-Origin-Resource-Policy", "cross-origin")
+	header.Del("Access-Control-Allow-Credentials")
+	header.Del("Vary")
 
 	if c.Query(downloadParam) == "1" || c.Query(downloadParam) == "true" {
 		ext := strings.ToLower(filepath.Ext(abs))
