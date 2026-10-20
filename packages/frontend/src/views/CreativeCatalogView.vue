@@ -95,16 +95,40 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <div class="creative-page characters-gallery-page creative-theme">
-    <header class="creative-page-head">
+    <header v-if="detail" class="creative-page-head">
       <div>
-        <span class="creative-eyebrow">✧ 角色手册 / CHARACTERS</span>
-        <h1>{{ detail?.title || '角色设定库' }}</h1>
-        <p>{{ detail?.summary || '从角色的轮廓、表情与细节出发，延续你的创作。' }}</p>
+        <h1>{{ detail.title }}</h1>
+        <p v-if="detail.summary">{{ detail.summary }}</p>
       </div>
       <div class="creative-actions">
         <RouterLink to="/studio">进入 AI 工作台</RouterLink
         ><RouterLink v-if="detail" to="/characters">全部角色</RouterLink>
       </div>
+    </header>
+    <header v-else class="character-toolbar">
+      <h1>角色设定库</h1>
+      <a-input
+        v-model="search"
+        allow-clear
+        placeholder="搜索角色名称与简介"
+        aria-label="搜索角色名称与简介"
+        class="catalog-search"
+      >
+        <template #prefix>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            aria-hidden="true"
+          >
+            <circle cx="10.5" cy="10.5" r="6.5" />
+            <path d="m16 16 4.5 4.5" />
+          </svg>
+        </template>
+      </a-input>
     </header>
     <div v-if="error" class="creative-error">{{ error }}</div>
     <template v-if="detail"
@@ -145,26 +169,24 @@ onBeforeUnmount(() => {
         </article>
       </div></template
     >
-    <template v-else
-      ><a-input v-model="search" placeholder="搜索角色名称与简介" class="catalog-search" />
-      <div class="creative-grid">
+    <template v-else>
+      <div class="character-index">
         <RouterLink
           v-for="row in filtered"
           :key="row.id"
           :to="`/characters/${row.slug}`"
-          class="creative-box creative-card character-card"
+          class="character-card"
           ><div class="creative-image-tile">
             <CreativeImage
               v-if="row.payload.asset_ids[0]"
               :id="row.payload.asset_ids[0]"
               public-asset
-            /><span v-else class="character-mark" aria-hidden="true">✧</span>
+            /><span v-else class="character-mark" aria-hidden="true">{{
+              row.title.slice(0, 1)
+            }}</span>
           </div>
           <h2>{{ row.title }}</h2>
-          <p>{{ row.summary }}</p>
-          <span class="character-card-footer"
-            >查看角色设定 <span aria-hidden="true">↗</span></span
-          ></RouterLink
+          <p v-if="row.summary">{{ row.summary }}</p></RouterLink
         >
       </div>
       <div v-if="!filtered.length && !error" class="creative-empty">
@@ -183,152 +205,101 @@ onBeforeUnmount(() => {
   </div>
 </template>
 <style scoped>
+.characters-gallery-page {
+  max-width: 1440px;
+  margin: clamp(24px, 4vw, 48px) auto 64px;
+  padding-inline: clamp(20px, 4vw, 56px);
+}
+.character-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+.character-toolbar h1 {
+  flex-shrink: 0;
+  margin: 0;
+  color: var(--creative-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  font-weight: 500;
+}
 .catalog-search {
-  max-width: 420px;
-  margin-bottom: 24px;
+  width: min(100%, 300px);
+  min-height: 38px;
+  border-radius: 8px;
+  background: var(--creative-paper);
+}
+.character-index {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 40px 28px;
 }
 .character-card {
-  text-decoration: none;
+  min-width: 0;
   color: var(--creative-ink);
+  text-decoration: none;
+  border-radius: 8px;
+}
+.character-card:focus-visible {
+  outline: 2px solid var(--creative-accent);
+  outline-offset: 6px;
+}
+.character-card .creative-image-tile {
+  height: auto;
+  aspect-ratio: 4 / 5;
+  padding: clamp(12px, 2vw, 24px);
+  border-radius: 8px;
+  background: var(--creative-paper);
+  transition: background-color 160ms ease;
+}
+.character-card:hover .creative-image-tile {
+  background: var(--creative-soft);
 }
 .character-card h2 {
-  margin: 20px 0 8px;
+  margin: 16px 0 6px;
+  font-size: 18px;
+  line-height: 1.5;
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
-.character-card-footer {
-  display: flex;
-  justify-content: space-between;
-  margin-top: auto;
-  padding-top: 16px;
-  border-top: 1px solid var(--creative-line);
-  color: var(--creative-accent);
-  font-size: 12px;
-}
-.character-story {
-  margin-bottom: 24px;
-}
-.character-story p,
-.character-text {
-  white-space: pre-wrap;
-}
-.character-preview {
-  height: 240px;
-  display: block;
-  width: 100%;
-  border: 0;
-  border-radius: 8px;
-  background: var(--creative-canvas);
-  cursor: zoom-in;
+.character-card p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin: 0;
+  color: var(--creative-muted);
+  font-size: 13px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
 }
 .character-mark {
   display: grid;
   place-items: center;
   height: 100%;
-  font-size: 70px;
-  color: var(--creative-accent);
-}
-.character-large {
-  height: 60vh;
-}
-
-/* The character index keeps the gallery language: images lead, metadata is
-   quiet, and the detail view reads as a single reference sheet. */
-.characters-gallery-page {
-  max-width: 1440px;
-  margin-top: clamp(24px, 5vw, 60px);
-  padding-inline: clamp(20px, 5vw, 64px);
-}
-.characters-gallery-page .creative-page-head {
-  padding-top: 26px;
-  padding-bottom: 34px;
-  margin-bottom: 26px;
-}
-.characters-gallery-page .creative-page-head h1 {
+  color: var(--creative-muted);
   font-family: var(--creative-title-font);
-  font-size: clamp(34px, 5vw, 58px);
-  font-weight: 500;
-  letter-spacing: -.02em;
-  line-height: 1.22;
+  font-size: 64px;
 }
-.characters-gallery-page .creative-page-head p {
-  max-width: 560px;
-}
-.characters-gallery-page .catalog-search {
-  width: min(100%, 420px);
-  margin-bottom: 26px;
-}
-.characters-gallery-page .catalog-search :deep(.arco-input-wrapper) {
-  min-height: 42px;
-  border-radius: 3px;
-  background: var(--creative-paper);
-}
-.characters-gallery-page .creative-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 24px 16px;
-}
-.characters-gallery-page .character-card.creative-card {
-  display: block;
-  padding: 0 0 16px;
-  border-width: 0 0 1px;
-  border-radius: 0;
-  background: transparent;
-  transition: transform .18s ease, border-color .18s ease;
-}
-.characters-gallery-page .character-card.creative-card:hover {
-  border-color: var(--creative-accent);
-  transform: translateY(-3px);
-}
-.characters-gallery-page .creative-image-tile {
-  height: 280px;
-  overflow: hidden;
-  border-radius: 2px;
-  background: var(--creative-paper);
-}
-.characters-gallery-page .creative-image-tile .creative-image {
-  height: 100%;
-  transition: transform .35s ease;
-}
-.characters-gallery-page .character-card:hover .creative-image {
-  transform: scale(1.025);
-}
-.characters-gallery-page .character-card h2 {
-  margin: 16px 0 6px;
-  font-family: var(--creative-title-font);
-  font-size: 22px;
-  font-weight: 500;
-}
-.characters-gallery-page .character-card p {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-  min-height: 42px;
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.8;
-}
-.characters-gallery-page .character-card-footer {
-  margin-top: 12px;
-  padding-top: 0;
-  border-top: 0;
-  font-size: 11px;
-  letter-spacing: .04em;
-}
-.characters-gallery-page .character-story {
+.character-story {
   max-width: 940px;
   margin: 0 auto 26px;
   padding: clamp(24px, 5vw, 52px);
-  border-radius: 4px;
   box-shadow: none;
 }
-.characters-gallery-page .character-story h2 {
+.character-story p,
+.character-text {
+  white-space: pre-wrap;
+}
+.character-story h2 {
   margin-top: 30px;
-  font-family: var(--creative-title-font);
   font-size: 25px;
   font-weight: 500;
 }
-.characters-gallery-page .character-story .arco-btn {
+.character-story .arco-btn {
   margin-top: 20px;
-  border-radius: 3px;
 }
 .characters-gallery-page .creative-field {
   display: flex;
@@ -344,35 +315,54 @@ onBeforeUnmount(() => {
   min-height: 36px;
   padding: 0 10px;
   border: 1px solid var(--creative-line);
-  border-radius: 3px;
+  border-radius: 6px;
   background: var(--creative-paper);
   color: var(--creative-ink);
 }
-.characters-gallery-page .creative-grid > .creative-box {
-  border-radius: 4px;
-  box-shadow: none;
+.character-preview {
+  display: block;
+  width: 100%;
+  height: 280px;
+  padding: 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--creative-paper);
+  cursor: zoom-in;
 }
-.characters-gallery-page .character-preview {
-  border-radius: 2px;
-}
-.characters-gallery-page .character-large {
+.character-large {
   height: min(68vh, 720px);
 }
-@media (max-width: 980px) {
-  .characters-gallery-page .creative-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+@media (max-width: 1100px) {
+  .character-index {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-@media (max-width: 640px) {
-  .characters-gallery-page .creative-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 20px 12px;
+@media (max-width: 540px) {
+  .character-toolbar {
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 24px;
   }
-  .characters-gallery-page .creative-image-tile {
-    height: 220px;
+  .catalog-search {
+    width: 100%;
   }
-  .characters-gallery-page .character-card h2 {
-    font-size: 19px;
+  .character-index {
+    gap: 28px 14px;
+  }
+  .character-card .creative-image-tile {
+    padding: 8px;
+  }
+  .character-card h2 {
+    margin-top: 12px;
+    font-size: 16px;
+  }
+  .character-card p {
+    font-size: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .character-card .creative-image-tile {
+    transition: none;
   }
 }
 </style>

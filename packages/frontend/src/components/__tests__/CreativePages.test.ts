@@ -110,13 +110,17 @@ describe('creative discovery pages', () => {
       expect(wrapper.get('.idea-card-prompt').text()).toBe('保留的说明')
     },
   )
-  it('makes the character card destination explicit and keeps search filtering working', async () => {
+  it('keeps the character index content-focused and preserves search filtering', async () => {
     api.resources.mockResolvedValue([
       { id: 2, slug: 'koizumi', title: '小泉', summary: '角色简介', payload: { asset_ids: [] } },
     ])
     const wrapper = await render(CreativeCatalogView, '/characters')
     expect(wrapper.get('a.character-card').attributes('href')).toBe('/characters/koizumi')
-    expect(wrapper.get('a.character-card').text()).toContain('查看角色设定')
+    expect(wrapper.get('h1').text()).toBe('角色设定库')
+    expect(wrapper.get('a.character-card h2').text()).toBe('小泉')
+    expect(wrapper.get('a.character-card p').text()).toBe('角色简介')
+    expect(wrapper.find('.creative-page-head').exists()).toBe(false)
+    expect(wrapper.find('.character-card-footer').exists()).toBe(false)
     await wrapper.get('input').setValue('不存在的角色')
     expect(wrapper.find('a.character-card').exists()).toBe(false)
     await wrapper.get('input').setValue('小泉')
