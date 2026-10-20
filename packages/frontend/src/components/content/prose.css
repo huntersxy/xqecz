@@ -1,0 +1,24 @@
+/* 详情页正文（Markdown 渲染结果）的共享排版；用 .cd-prose 命名空间，不污染全局。 */
+.cd-prose { line-height: 1.85; color: var(--creative-ink); word-break: break-word; }
+.cd-prose p { margin: 0 0 .9em; }
+.cd-prose p:last-child { margin-bottom: 0; }
+.cd-prose h1, .cd-prose h2, .cd-prose h3, .cd-prose h4 { margin: 1.3em 0 .55em; font-weight: 700; line-height: 1.4; color: var(--creative-ink); }
+.cd-prose h1 { font-size: 1.3em; }
+.cd-prose h2 { font-size: 1.18em; }
+.cd-prose h3 { font-size: 1.08em; }
+.cd-prose h4 { font-size: 1em; }
+.cd-prose > :first-child { margin-top: 0; }
+.cd-prose ul, .cd-prose ol { margin: 0 0 .9em; padding-left: 1.5em; }
+.cd-prose li { margin: .25em 0; }
+.cd-prose blockquote { margin: 0 0 .9em; padding: .5em .9em; border-left: 3px solid var(--creative-accent); border-radius: 0 8px 8px 0; background: var(--creative-soft); color: var(--creative-muted); }
+.cd-prose pre { margin: 0 0 .9em; padding: .7em .9em; border-radius: 8px; background: var(--creative-canvas); overflow-x: auto; font-size: .875em; line-height: 1.6; }
+.cd-prose code { padding: .1em .35em; border-radius: 4px; background: var(--creative-canvas); font-family: Consolas, 'Courier New', monospace; font-size: .875em; }
+.cd-prose pre code { padding: 0; background: none; font-size: inherit; }
+.cd-prose a { color: var(--creative-accent); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--creative-accent) 40%, transparent); }
+.cd-prose a:hover { border-bottom-color: var(--creative-accent); }
+.cd-prose img { display: block; max-width: 100%; height: auto; margin: .5em auto .9em; border-radius: 8px; }
+.cd-prose table { width: 100%; margin: 0 0 .9em; border-collapse: collapse; font-size: .875em; }
+.cd-prose th, .cd-prose td { padding: .45em .7em; border: 1px solid var(--creative-line); text-align: left; }
+.cd-prose th { background: var(--creative-soft); font-weight: 600; }
+.cd-prose hr { margin: 1.4em 0; border: 0; border-top: 1px solid var(--creative-line); }
+.cd-prose strong { font-weight: 600; }

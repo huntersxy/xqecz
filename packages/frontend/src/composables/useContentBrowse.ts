@@ -5,13 +5,19 @@ import { useListCache } from '@/composables/useListCache'
 import { scrollBehavior } from '@/utils'
 import type { Content } from '@/types'
 
-const THUMB_H = 64
-const THUMB_GAP = 6
 const PAGE_SIZE = 20
+/** 缩略图条一次最多渲染多少张（以当前作品为中心取窗口）。 */
+const PREVIEW_COUNT = 9
+
+/** 焦点在可输入元素里时，方向键/Esc 属于输入本身，不能拿来翻页或返回。 */
+function isTypingTarget(t: EventTarget | null): boolean {
+  if (!(t instanceof HTMLElement)) return false
+  return t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)
+}
 
 /**
  * 内容详情页的"沉浸式浏览"上下文：
- * 列表缓存 + 上一个/下一个 + 底部缩略图走马灯 + 键盘导航。
+ * 列表缓存 + 上一个/下一个 + 底部缩略图条 + 键盘导航。
  * 与视图解耦，便于复用与测试。
  */
 export function useContentBrowse() {
@@ -23,28 +29,27 @@ export function useContentBrowse() {
   const isFetchingMore = ref(false)
   const listPage = ref(1)
   const listTotalPages = ref(1)
-  const previewCount = ref(5)
+  /** 缩略图条根节点：由视图绑定，用于把当前项滚到中间。 */
   const previewRef = ref<HTMLElement | null>(null)
 
   const currentId = computed(() => Number(route.params.id))
   const currentIndex = computed(() => cachedList.value.findIndex((c) => c.id === currentId.value))
+  const hasMorePages = computed(() => listPage.value < listTotalPages.value)
   const hasPrev = computed(() => currentIndex.value > 0)
-  const hasNext = computed(() => currentIndex.value >= 0)
-
-  function calcPreviewCount() {
-    const h = window.innerHeight
-    previewCount.value = Math.max(3, Math.floor((h - 120) / (THUMB_H + THUMB_GAP)))
-  }
+  // 已加载列表里还有下一个，或者后面还有没拉的页
+  const hasNext = computed(() => {
+    const idx = currentIndex.value
+    return idx >= 0 && (idx < cachedList.value.length - 1 || hasMorePages.value)
+  })
 
   const previewItems = computed(() => {
     if (currentIndex.value < 0) return []
     const total = cachedList.value.length
-    const count = previewCount.value
-    const half = Math.floor(count / 2)
+    const half = Math.floor(PREVIEW_COUNT / 2)
     let start = currentIndex.value - half
-    let end = start + count
-    if (start < 0) { start = 0; end = Math.min(count, total) }
-    if (end > total) { end = total; start = Math.max(0, end - count) }
+    let end = start + PREVIEW_COUNT
+    if (start < 0) { start = 0; end = Math.min(PREVIEW_COUNT, total) }
+    if (end > total) { end = total; start = Math.max(0, end - PREVIEW_COUNT) }
     return cachedList.value.slice(start, end).map((item) => ({
       ...item,
       isCurrent: item.id === currentId.value,
@@ -59,7 +64,7 @@ export function useContentBrowse() {
   }
 
   async function fetchMore(): Promise<boolean> {
-    if (isFetchingMore.value || listPage.value >= listTotalPages.value) return false
+    if (isFetchingMore.value || !hasMorePages.value) return false
     isFetchingMore.value = true
     try {
       const nextPage = listPage.value + 1
@@ -96,11 +101,13 @@ export function useContentBrowse() {
   async function goToNext() {
     const idx = currentIndex.value
     if (idx < 0) return
-    const next = cachedList.value[idx + 1]
+    // 已经在已加载列表的末尾：先拉下一页，拉不到就停
+    if (idx >= cachedList.value.length - 1 && !(await fetchMore())) return
+    const next = cachedList.value[currentIndex.value + 1]
     if (!next) return
     await navigateTo(next.id)
     // 接近末尾时预加载更多
-    if (currentIndex.value >= cachedList.value.length - 3) await fetchMore()
+    if (currentIndex.value >= cachedList.value.length - 3) void fetchMore()
   }
 
   function goBack() {
@@ -109,9 +116,13 @@ export function useContentBrowse() {
   }
 
   function handleKeydown(e: KeyboardEvent) {
+    if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return
+    if (isTypingTarget(e.target)) return
+    // 看图器（viewerjs）打开时，Esc/方向键归它所有
+    if (document.body.classList.contains('viewer-open')) return
     if (e.key === 'Escape') goBack()
-    if (e.key === 'ArrowLeft') void goToPrev()
-    if (e.key === 'ArrowRight') void goToNext()
+    else if (e.key === 'ArrowLeft') void goToPrev()
+    else if (e.key === 'ArrowRight') void goToNext()
   }
 
   onMounted(() => {
@@ -119,14 +130,11 @@ export function useContentBrowse() {
     cachedList.value = cached?.list || []
     listPage.value = Math.ceil(cachedList.value.length / PAGE_SIZE) || 1
     listTotalPages.value = cached?.totalPages || 1
-    calcPreviewCount()
     document.addEventListener('keydown', handleKeydown)
-    window.addEventListener('resize', calcPreviewCount)
   })
 
   onBeforeUnmount(() => {
     document.removeEventListener('keydown', handleKeydown)
-    window.removeEventListener('resize', calcPreviewCount)
   })
 
   return {
@@ -137,7 +145,6 @@ export function useContentBrowse() {
     hasNext,
     previewItems,
     previewRef,
-    calcPreviewCount,
     scrollThumbIntoView,
     fetchMore,
     navigateTo,

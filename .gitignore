@@ -47,3 +47,4 @@ _tmp_*
 !/docs/frontend-media.md
 !/docs/vision-metadata.md
 !/docs/ai-creation.md
+/.tmp-shots
