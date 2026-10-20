@@ -6,6 +6,7 @@ import AdminEmpty from './AdminEmpty.vue'
 import AdminPanel from './AdminPanel.vue'
 import AdminSkeleton from './AdminSkeleton.vue'
 import AdminStatus from './AdminStatus.vue'
+import MediaImage from '@/components/MediaImage.vue'
 import { useAdminStore } from '@/stores/admin'
 import { formatTime, prefersReducedMotion } from '@/utils'
 
@@ -17,6 +18,11 @@ const statusMap: Record<string, { type: 'success' | 'warning' | 'danger'; label:
   pending: { type: 'warning', label: '待处理' },
   approved: { type: 'success', label: '已通过' },
   rejected: { type: 'danger', label: '已拒绝' },
+}
+
+// 认领内容的封面：优先缩略图，没有缩略图退回原图，两者皆空才显示占位图标。
+function claimThumb(content?: { thumb?: string; img?: string } | null) {
+  return content?.thumb || content?.img || ''
 }
 
 // 首屏加载才出骨架；翻页与刷新保留已有卡片，避免整块内容闪烁
@@ -117,8 +123,15 @@ onBeforeUnmount(() => {
           class="adm-card"
           :class="{ 'is-leaving': isLeaving(record.id) }"
         >
-          <div class="adm-card-media is-placeholder is-quiet">
-            <div class="claim-glyph">
+          <div class="adm-card-media" :class="{ 'is-placeholder': !claimThumb(record.content) }">
+            <MediaImage
+              v-if="claimThumb(record.content)"
+              class="claim-media-img"
+              :src="claimThumb(record.content)"
+              :preview="false"
+              alt=""
+            />
+            <div v-else class="claim-glyph is-quiet">
               <span class="claim-glyph-icon" aria-hidden="true"><IconLink /></span>
               <span class="claim-glyph-text">认领申请</span>
             </div>
@@ -185,9 +198,25 @@ onBeforeUnmount(() => {
   width: 120px;
 }
 
-// 卡片网格与骨架的 16px 内边距对齐
+// 卡片网格与骨架的 16px 内边距对齐；认领卡带封面后可收窄，宽屏排三列避免大片留白
 .claim-grid {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   padding: var(--adm-gap-lg, 16px);
+}
+
+// MediaImage 渲染成 a-image（外层 .arco-image + 内层 img），全局 .adm-card-media > img 命不中，
+// 这里把封面铺满媒体区；尺寸与占位风格仍由全局样式决定。
+.claim-media-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+
+  :deep(.arco-image-img) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 }
 
 .claim-glyph {
