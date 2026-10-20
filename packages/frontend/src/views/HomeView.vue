@@ -92,8 +92,10 @@ let loadSeq = 0
 // （loadAllPages 或 homeStore/localStorage 缓存恢复）提供，不必再 sync。
 // 首次激活后复位，后续激活（详情页返回等）正常做增量同步。
 let isFirstActivation = true
+let isHomeActive = false
 let restoreTimer: ReturnType<typeof setTimeout> | undefined
 function cancelScrollRestore() {
+  isHomeActive = false
   clearTimeout(restoreTimer)
   restoreTimer = undefined
   pendingScrollRestore.value = false
@@ -122,6 +124,7 @@ function onCardResized(id: string | number) {
   // 如果有待恢复的滚动位置，在卡片尺寸稳定后尝试恢复
   if (pendingScrollRestore.value) {
     requestAnimationFrame(() => {
+      if (!isHomeActive || !pendingScrollRestore.value) return
       const target = homeStore.scrollPosition
       // 只有当容器高度足够时才恢复
       if (document.documentElement.scrollHeight > target + 100) {
@@ -502,24 +505,34 @@ onMounted(() => {
 
 // keep-alive 激活时恢复滚动位置
 onActivated(() => {
+  isHomeActive = true
   // 恢复瀑布流布局缓存
   if (homeStore.cachedPositions.size > 0) {
     waterfall.restore(homeStore.cachedPositions, homeStore.cachedContainerHeight)
   }
   // 同上：回到首页后先按当前实际高度重排，再恢复滚动。
-  nextTick(() => waterfall.relayout())
+  nextTick(() => {
+    if (!isHomeActive) return
+    waterfall.relayout()
+    // relayout 会更新容器高度，等 DOM 落稳后恢复，避免被旧高度截断。
+    void nextTick(() => {
+      if (!isHomeActive) return
+      homeStore.restoreScroll()
+      pendingScrollRestore.value = Math.abs(globalThis.scrollY - homeStore.scrollPosition) > 1
+    })
+  })
 
   // 标记需要在图片加载后恢复滚动
   pendingScrollRestore.value = true
 
-  // 延迟恢复滚动，再拉取最新列表 diff（有新增时锚定当前可见内容，不丢阅读位置）。
+  // 首帧恢复缓存位置；仅把增量同步留到入场之后，避免先显示顶部再跳到原位置。
   // 首次挂载的激活不 sync（数据已由 onMounted 提供），复位标志后后续激活正常增量同步。
   const firstActivation = isFirstActivation
   isFirstActivation = false
   restoreTimer = setTimeout(() => {
     restoreTimer = undefined
+    if (pendingScrollRestore.value) homeStore.restoreScroll()
     pendingScrollRestore.value = false
-    homeStore.restoreScroll()
     if (firstActivation) return
     void syncLatestOnActivated()
   }, 300)
@@ -543,7 +556,7 @@ onActivated(() => {
             </button>
           </div>
           <div v-if="featuredWorks.length" class="gallery-featured-strip">
-            <button v-for="item in featuredWorks" :key="item.id" class="gallery-featured-item" type="button" @click="openContent(item)">
+            <button v-for="item in featuredWorks" :key="item.id" class="gallery-featured-item" type="button" :data-preload-route="`/content/${item.id}`" @click="openContent(item)">
               <MediaImage :src="item.thumb" :alt="item.title" :preview="false" />
               <span>{{ item.title }}</span>
             </button>

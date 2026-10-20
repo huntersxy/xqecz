@@ -8,9 +8,31 @@ import { useGlobalSearch } from '@/composables/useGlobalSearch'
 import { revealOriginFrom, withRevealTransition } from '@/utils/viewTransition'
 import { SHELL_SIDEBAR_CLOSE_EVENT } from '@/utils/shellSidebar'
 import UserAvatar from '@/components/UserAvatar.vue'
+import { createRoutePreloader } from '@/router/preload'
 
 const route = useRoute()
 const router = useRouter()
+const preloadRoute = createRoutePreloader(router)
+
+// 在常驻外壳委托导航意图，覆盖侧栏、顶栏和内容区链接，也覆盖动态作品卡片。
+// 只预热页面代码，不挂载、不取数据；pointerover 支持触屏按下前的路径。
+function onNavigationIntent(event: Event) {
+  if (!(event.target instanceof Element)) return
+  const target = event.target.closest<HTMLElement>('a[href], [data-preload-route]')
+  if (!target) return
+  if (event instanceof MouseEvent && event.relatedTarget instanceof Node && target.contains(event.relatedTarget)) return
+  const path = target.dataset.preloadRoute
+  if (path) {
+    preloadRoute(path)
+    return
+  }
+  const href = target.getAttribute('href')
+  if (!href) return
+  const url = new URL(href, window.location.href)
+  if (url.origin === window.location.origin && url.pathname === window.location.pathname && url.hash.startsWith('#/')) {
+    preloadRoute(url.hash.slice(1))
+  }
+}
 const themeStore = useThemeStore()
 const userStore = useUserStore()
 const mobileOpen = ref(false)
@@ -97,6 +119,9 @@ onBeforeUnmount(() => {
   <div
     class="public-shell creative-theme"
     :class="{ 'is-mobile-open': mobileOpen, 'is-workspace': workspaceMode, 'is-admin': adminMode }"
+    @pointerover="onNavigationIntent"
+    @pointerdown.passive="onNavigationIntent"
+    @focusin="onNavigationIntent"
   >
     <aside class="public-shell-sidebar" aria-label="站点导航">
       <button
@@ -138,7 +163,7 @@ onBeforeUnmount(() => {
       <div id="public-shell-workspace" class="public-shell-workspace"></div>
 
       <div class="public-shell-bottom">
-        <button class="public-shell-publish" type="button" @click="handlePublish">
+        <button class="public-shell-publish" type="button" data-preload-route="/quick-upload" @click="handlePublish">
           <IconUpload />
           <span>发布作品</span>
         </button>

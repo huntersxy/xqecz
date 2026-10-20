@@ -41,7 +41,7 @@ const viewKey = computed(() => {
   return route.fullPath
 })
 
-// 公开整页之间做「旧页淡出 → 新页上浮淡入」的串行切换（mode=out-in，旧页离场时间很短）。
+// 整页只做轻淡入，旧页立即退出：不让离场动画挡住新页挂载、请求与首帧。
 // 以下情况直接瞬时切换，不做过渡：
 // - 详情层负责自身入场，且覆盖层挂载不能被延迟；
 // - 后台内部切换页签频繁，过渡只会拖慢；
@@ -50,7 +50,7 @@ const viewKey = computed(() => {
 const pageTransition = ref<'page-swap' | ''>('')
 // 只有真正的整页切换（page-swap）才需要在离场结束后回到顶部。
 // 详情层进出、后台切页签、同路径换 query 都用空 name 瞬时切换，它们同样会触发
-// after-leave 钩子；若无条件回到顶部，会把首页 onActivated 刚恢复的滚动位置清成 0。
+// leave 钩子；若无条件回到顶部，会把首页恢复的滚动位置清成 0。
 let swapAnimated = false
 watch(
   () => [route.path, route.name] as const,
@@ -67,11 +67,13 @@ watch(
   { flush: 'sync' },
 )
 
-// 没有全局 scrollBehavior：旧页离场结束后回到顶部，避免新页沿用上一页的滚动位置。
+// 没有全局 scrollBehavior：移除旧页时回到顶部，避免新页沿用上一页的滚动位置。
 // 首页自己用 onActivated 恢复滚动，晚于这里，所以不会被覆盖。
-function onPageLeft() {
-  if (!swapAnimated) return
-  if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'instant' })
+function onPageLeave(_element: Element, done: () => void) {
+  if (swapAnimated && typeof window !== 'undefined') {
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }
+  done()
 }
 
 // 跨天回到已登录标签页时补一次签到；服务端持有真实日期与发放上限。
@@ -95,7 +97,7 @@ onBeforeUnmount(() => {
       <ErrorBoundary>
         <RouterView v-slot="{ Component }">
           <PublicShell v-if="Component">
-            <Transition :name="pageTransition" :mode="pageTransition ? 'out-in' : undefined" @after-leave="onPageLeft">
+            <Transition :name="pageTransition" @leave="onPageLeave">
               <KeepAlive :include="['HomeView']">
                 <component :is="Component" :key="viewKey" />
               </KeepAlive>
@@ -123,22 +125,15 @@ onBeforeUnmount(() => {
   padding-top: 0 !important;
   background: transparent;
 }
-/* 页面切换：离场短而干脆，入场稍长并带一点上浮。只用 opacity 与小位移，
-   不用 blur/scale——整页重绘成本高，而且 transform 祖先会改变 position:fixed 后代的定位基准。 */
+/* 首帧就可读、可点击。整页不做 transform，避免改变 fixed 弹层的定位基准。 */
 .page-swap-enter-active {
-  transition:
-    opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.page-swap-leave-active {
-  transition: opacity 0.14s ease-in;
-  pointer-events: none;
+  transition: opacity 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .page-swap-enter-from {
-  opacity: 0;
-  transform: translateY(10px);
+  opacity: .72;
 }
-.page-swap-leave-to {
-  opacity: 0;
+@media (prefers-reduced-motion: reduce) {
+  .page-swap-enter-active { transition-duration: 80ms; }
+  .page-swap-enter-from { opacity: .9; }
 }
 </style>

@@ -93,6 +93,10 @@ const pageRef = ref<HTMLElement | null>(null)
 function focusPage() {
   pageRef.value?.focus({ preventScroll: true })
 }
+
+function leavePage(_element: Element, done: () => void) {
+  done()
+}
 </script>
 
 <template>
@@ -104,7 +108,7 @@ function focusPage() {
       @select="onMenuSelect"
     />
     <section class="admin-workspace-content" aria-label="管理工作区">
-      <transition name="admin-page" mode="out-in" @after-enter="focusPage">
+      <transition name="admin-page" @leave="leavePage" @after-enter="focusPage">
         <div :key="activeTab" ref="pageRef" class="admin-page" tabindex="-1">
           <AdminDashboard v-if="activeTab === 'dashboard'" @select="onMenuSelect" />
           <AdminContentList v-else-if="activeTab === 'my'" mode="my" />
@@ -275,29 +279,17 @@ body[arco-theme='dark'] .admin-theme.creative-theme {
   outline: none;
 }
 
-// ── M1 页签切换过渡：离场 120ms 只淡出，进场 360ms 上移 8px 淡入 ──
+// 页签立即挂载，轻淡入承接状态变化；不把侧栏操作串成半秒的等待。
 .admin-page-enter-active {
-  transition:
-    opacity var(--adm-dur-slow, 360ms) var(--adm-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
-    transform var(--adm-dur-slow, 360ms) var(--adm-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
-}
-
-.admin-page-leave-active {
-  transition: opacity var(--adm-dur-fast, 120ms) var(--adm-ease-in, ease-in);
+  transition: opacity 180ms var(--adm-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .admin-page-enter-from {
-  opacity: 0;
-  transform: translateY(8px);
-}
-
-.admin-page-leave-to {
-  opacity: 0;
+  opacity: .72;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .admin-page-enter-active,
-  .admin-page-leave-active { transition: none; }
-  .admin-page-enter-from { transform: none; }
+  .admin-page-enter-active { transition-duration: 80ms; }
+  .admin-page-enter-from { opacity: .9; }
 }
 </style>

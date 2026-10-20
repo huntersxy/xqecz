@@ -78,7 +78,7 @@ onBeforeUnmount(() => ro?.disconnect())
 </script>
 
 <template>
-  <div ref="cardRef" class="wf-card" @click="emit('click', props.item)" @keydown.enter="emit('click', props.item)" tabindex="0">
+  <div ref="cardRef" class="wf-card" :data-preload-route="`/content/${props.item.id}`" @click="emit('click', props.item)" @keydown.enter="emit('click', props.item)" tabindex="0">
     <template v-if="props.item.thumb">
       <div class="wf-card-media">
         <MediaImage :src="props.item.thumb" :alt="props.item.title" :preview="false" loading="lazy" decoding="async" />
