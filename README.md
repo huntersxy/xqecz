@@ -96,29 +96,6 @@ pnpm exec moon run server:test frontend:test
 ./packages/server/xqecz-server admin -username admin -reset
 ```
 
-## 生产部署
-
-生产形态是**前后端分开发布**，服务器上不执行包管理器：
-
-| 侧 | 形态 | 产物 |
-|----|------|------|
-| 后端 | CI 经 SSH 直传 + OpenRC | `CGO_ENABLED=0 GOOS=linux GOARCH=amd64` 单二进制 + `.env`，由 `/etc/init.d/xqecz` 接管 |
-| 前端 | EdgeOne Makers 自行构建 | `dist` 静态文件，`VITE_API_BASE_URL` / `VITE_MEDIA_BASE_URL` 指向后端域名（CI 不发前端） |
-
-推送到 `master` 后由 GitHub Actions 自动构建、上传并重启后端，并以生产 `/api/health` 探针收尾。完整流程、`.env` 定位规则、nginx 参考配置与回滚方式见 **[docs/deploy.md](docs/deploy.md)**。
-
-## 接口约定（摘要）
-
-- 全部挂在 `/api` 前缀下，共 52 条；统一响应 `{ code, message, data }`，`code === 200` 为成功
-- 校验类失败沿用 HTTP 200 + 业务码；鉴权类失败才改 HTTP 状态码
-- 时间字段统一序列化为 UTC 毫秒（与前端 `Date.toJSON()` 逐字节一致）
-- 认证双通道：请求头 `X-API-Key` 优先，其次 Cookie 会话 `session_id`
-- 上传：multipart 字段名 `file`，流式落盘，单文件 ≤ 20MB，仅 `image/*` 与 `video/*`；上传不做转码，压缩由后台 TinyPNG 任务就地替换（GIF 与 <400KB 跳过，压缩后后缀不变）
-- 下载：媒体地址带 `?download=1` 即以附件返回（`Content-Disposition`），文件名取内容标题
-- **前端是契约**：`packages/frontend/src/api/index.ts` 与 `src/types/schemas.ts` 定义接口形状，后端响应必须能被前端 zod schema 直接解析
-
-完整的接口清单与改动约束见 **[AGENTS.md](AGENTS.md)**。
-
 ## 技术栈
 
 | 层 | 技术 |

@@ -215,6 +215,7 @@ const skeletonRatios = ['3 / 4', '1 / 1', '4 / 5', '2 / 3', '1 / 1', '3 / 4', '4
           </button>
         </article>
 
+        <!-- 失败卡带提示词与报错文本，锁死画幅会把文字裁成半行；只有排队中的占位卡保留画幅。 -->
         <article
           v-else
           class="ws-gallery-card is-state"
@@ -223,7 +224,9 @@ const skeletonRatios = ['3 / 4', '1 / 1', '4 / 5', '2 / 3', '1 / 1', '3 / 4', '4
             'is-pending': isPendingStatus(item.row.task.status),
           }"
           :style="{
-            aspectRatio: stateTileRatio(item.row.task.size),
+            aspectRatio: isFailedStatus(item.row.task.status)
+              ? undefined
+              : stateTileRatio(item.row.task.size),
             '--enter-delay': `${Math.min(order, 12) * 28}ms`,
           }"
         >
@@ -523,15 +526,18 @@ const skeletonRatios = ['3 / 4', '1 / 1', '4 / 5', '2 / 3', '1 / 1', '3 / 4', '4
 }
 .ws-gallery-note-actions {
   display: flex;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 4px;
   margin-top: auto;
 }
 .ws-gallery-note-actions button {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 5px;
+  white-space: nowrap;
   height: 28px;
-  padding: 0 11px;
+  padding: 0 8px;
   border: 1px solid var(--site-line);
   border-radius: 999px;
   background: var(--site-paper);

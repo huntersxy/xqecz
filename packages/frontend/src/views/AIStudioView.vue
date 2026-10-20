@@ -917,7 +917,8 @@ watch(ready, (value) => {
         <div class="ws-stage-title">
           <strong>{{ name }}</strong>
           <span v-if="galleryOpen" class="ws-stage-sub">
-            全部结果<i aria-hidden="true" />{{ galleryTasks.length }} 个任务<i aria-hidden="true" />{{ galleryImageCount }} 张作品
+            <span class="ws-stage-sub-lead">全部结果<i aria-hidden="true" /></span
+            >{{ galleryTasks.length }} 个任务<i aria-hidden="true" />{{ galleryImageCount }} 张作品
           </span>
           <span v-else-if="stageTask" class="ws-stage-sub">
             {{ dayOf(stageTask.task.created_at) }} {{ clockOf(stageTask.task.created_at) }}<i aria-hidden="true" /><span
@@ -2427,10 +2428,6 @@ button.ws-option:hover:not(:disabled),
 }
 /* 窄屏：参数组换到单独一行，避免把工具按钮挤成滚动条。 */
 @media (max-width: 560px) {
-  .ws-tool-btn {
-    padding: 0 9px 0 8px;
-    font-size: 11px;
-  }
   .ws-composer-bar { flex-wrap: wrap; }
   .ws-composer-options {
     width: 100%;
@@ -2472,6 +2469,14 @@ button.ws-option:hover:not(:disabled),
 .ws-tool-btn svg {
   width: 15px;
   height: 15px;
+}
+/* 窄屏工具按钮改用紧凑内边距；必须写在基础规则之后才生效。 */
+@media (max-width: 560px) {
+  .ws-tool-btn {
+    height: 30px;
+    padding: 0 9px 0 8px;
+    font-size: 11px;
+  }
 }
 .ws-send-btn {
   display: inline-flex;
@@ -2756,6 +2761,20 @@ button.ws-option:hover:not(:disabled),
   .ws-stage-title strong {
     font-size: 18px;
   }
+  /* 窄屏副标题单行省略：画廊模式下「全部结果」与标题重复，直接不显示。 */
+  .ws-stage-sub {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ws-stage-sub i {
+    display: inline-block;
+    margin: 0 8px;
+    vertical-align: middle;
+  }
+  .ws-stage-sub-lead {
+    display: none;
+  }
   .ws-live {
     order: 3;
     flex: 1 0 100%;
@@ -2799,18 +2818,21 @@ button.ws-option:hover:not(:disabled),
   }
   .ws-actions {
     width: 100%;
-    justify-content: space-around;
+    flex-wrap: nowrap;
+    justify-content: space-between;
     gap: 0;
     margin-top: 10px;
     padding: 4px 2px;
   }
   .ws-actions > button {
+    flex: 1 1 0;
     flex-direction: column;
     gap: 3px;
-    min-width: 52px;
+    min-width: 0;
     min-height: 46px;
-    padding: 4px 6px;
+    padding: 4px 2px;
     font-size: 10px;
+    white-space: nowrap;
   }
   .ws-actions svg {
     width: 17px;
@@ -2825,27 +2847,34 @@ button.ws-option:hover:not(:disabled),
     width: auto;
     max-width: none;
     margin: 0;
-    padding: 0 0 max(4px, env(safe-area-inset-bottom));
-  }
-  .ws-composer-box {
-    padding: 10px 10px 8px;
-    border-radius: 20px;
+    padding: 8px 8px max(10px, env(safe-area-inset-bottom));
+    border-radius: 22px;
+    border: 1px solid color-mix(in srgb, var(--site-line) 72%, transparent);
+    background: var(--site-paper);
     box-shadow: 0 -8px 30px color-mix(in srgb, var(--site-ink) 13%, transparent);
   }
+  .ws-composer.is-dragging {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--site-accent) 55%, transparent);
+  }
+  /* 卡片边界交给 .ws-composer，内层盒子退成纯内容区，参考图条因此落在卡内。 */
+  .ws-composer-box {
+    padding: 0 2px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
   .ws-composer-prompt textarea {
-    min-height: 72px;
+    min-height: 60px;
     max-height: 240px;
-    padding: 6px 4px 6px;
+    padding: 4px 2px 6px;
     font-size: 13px;
   }
   .ws-composer-bar {
     gap: 4px;
     margin-top: 4px;
     padding-top: 7px;
-  }
-  .ws-tool-btn {
-    width: 30px;
-    height: 30px;
   }
   .ws-send-btn {
     width: 100%;
@@ -2864,8 +2893,7 @@ button.ws-option:hover:not(:disabled),
     display: none;
   }
   .ws-composer-hint {
-    grid-column: 1 / -1;
-    font-size: 9px;
+    display: none;
   }
   .ws-composer-secondary {
     display: contents;
