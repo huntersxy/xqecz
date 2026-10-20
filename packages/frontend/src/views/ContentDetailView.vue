@@ -157,8 +157,7 @@ onMounted(() => {
 
 <style scoped>
 .cd-root { position: fixed; inset: 0; z-index: 1000; color: var(--creative-ink); background: var(--creative-canvas); }
-.cd-shell { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; animation: cd-fade-in .2s ease-out; }
-@keyframes cd-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.cd-shell { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; }
 
 .cd-back-btn, .cd-counter, .cd-stage-arrow {
   border: 1px solid color-mix(in srgb, var(--creative-line) 80%, transparent);

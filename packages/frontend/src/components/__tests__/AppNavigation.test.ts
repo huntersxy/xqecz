@@ -64,7 +64,7 @@ describe('page navigation with real Vue transitions', () => {
     await router.push('/')
     await flushPromises()
     expect(wrapper.find('.home').exists()).toBe(true)
-    expect(scroll).not.toHaveBeenCalled()
+    expect(scroll).toHaveBeenCalledWith({ top: 0, behavior: 'instant' })
     wrapper.unmount()
   })
 })

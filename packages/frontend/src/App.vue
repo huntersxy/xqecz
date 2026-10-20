@@ -26,13 +26,8 @@ const pageTransition = ref<'page-swap' | ''>('')
 let swapAnimated = false
 watch(
   () => [route.path, route.name] as const,
-  ([toPath, toName], [fromPath, fromName]) => {
-    const skip =
-      toName === 'content-detail' ||
-      fromName === 'content-detail' ||
-      toPath.startsWith('/admin') ||
-      fromPath.startsWith('/admin') ||
-      toPath === fromPath
+  ([toPath], [fromPath]) => {
+    const skip = toPath === fromPath
     swapAnimated = !skip
     pageTransition.value = skip ? '' : 'page-swap'
   },
@@ -96,13 +91,16 @@ onBeforeUnmount(() => {
   background: transparent;
 }
 .page-swap-enter-active {
-  transition: opacity 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    opacity var(--dur-enter) var(--ease-out),
+    transform var(--dur-enter) var(--ease-out);
 }
 .page-swap-enter-from {
-  opacity: .72;
+  opacity: 0;
+  transform: translateY(8px);
 }
 @media (prefers-reduced-motion: reduce) {
-  .page-swap-enter-active { transition-duration: 80ms; }
-  .page-swap-enter-from { opacity: .9; }
+  .page-swap-enter-active { transition: none; }
+  .page-swap-enter-from { opacity: 1; transform: none; }
 }
 </style>

@@ -20,6 +20,7 @@ const rows = ref<AIIdeaView[]>([]),
   status = ref(''),
   character = ref(''),
   error = ref(''),
+  loading = ref(false),
   busy = ref(false)
 let controller: AbortController | undefined, timer: ReturnType<typeof setTimeout> | undefined
 const labels: Record<string, string> = {
@@ -45,6 +46,7 @@ async function load() {
   controller = new AbortController()
   const signal = controller.signal
   error.value = ''
+  loading.value = true
   try {
     if (route.params.id) {
       const next = await aiApi.idea(Number(route.params.id), signal)
@@ -63,6 +65,8 @@ async function load() {
     if (detail.value?.idea.status === 'generating') timer = setTimeout(load, 4000)
   } catch (e) {
     if (!signal.aborted) error.value = (e as Error).message
+  } finally {
+    if (!signal.aborted) loading.value = false
   }
 }
 watch(
@@ -147,7 +151,13 @@ onBeforeUnmount(() => {
       </div>
     </header>
     <div v-if="error" class="creative-error" role="alert">{{ error }}</div>
-    <template v-if="detail"
+    <section v-else-if="loading && route.params.id && !detail" class="creative-box is-skeleton" role="status" aria-label="正在加载创意">
+      <span class="page-skeleton-line is-title"></span>
+      <span class="page-skeleton-line"></span>
+      <span class="page-skeleton-line"></span>
+      <span class="page-skeleton-line is-short"></span>
+    </section>
+    <template v-else-if="detail"
       ><div class="idea-authors">
         <span>创意：{{ detail.author.username }}</span
         ><span v-if="detail.sponsor">赞助：{{ detail.sponsor.username }}</span
@@ -208,6 +218,24 @@ onBeforeUnmount(() => {
         ><a-button @click="load">搜索</a-button>
       </div>
       <div class="creative-grid idea-list">
+        <template v-if="loading && !rows.length">
+          <div
+            v-for="n in 4"
+            :key="`idea-skeleton-${n}`"
+            class="creative-box creative-card idea-card is-skeleton"
+            aria-hidden="true"
+          >
+            <div class="idea-card-main">
+              <span class="page-skeleton-line is-title"></span>
+              <span class="page-skeleton-line"></span>
+              <span class="page-skeleton-line"></span>
+              <span class="page-skeleton-line is-short"></span>
+            </div>
+            <div class="idea-card-references">
+              <span class="page-skeleton-thumb"></span>
+            </div>
+          </div>
+        </template>
         <RouterLink
           v-for="row in rows"
           :key="row.idea.id"
@@ -239,7 +267,7 @@ onBeforeUnmount(() => {
           </div>
         </RouterLink>
       </div>
-      <p v-if="!rows.length && !error" class="creative-empty">
+      <p v-if="!loading && !rows.length && !error" class="creative-empty">
         还没有创意投稿，从你的工作台开始吧。
       </p></template
     >

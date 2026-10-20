@@ -13,6 +13,7 @@ const route = useRoute(),
   search = ref(''),
   purpose = ref(''),
   error = ref(''),
+  loading = ref(false),
   preview = ref<AIAsset | null>(null)
 let controller: AbortController | undefined
 const originalTitle = document.title
@@ -43,6 +44,7 @@ watch(
     controller = new AbortController()
     const signal = controller.signal
     error.value = ''
+    loading.value = true
     detail.value = null
     purpose.value = ''
     preview.value = null
@@ -70,6 +72,8 @@ watch(
       descriptionMeta.content = detail.value?.summary || '浏览官方角色设定、外观特征与授权参考图。'
     } catch (e) {
       if (!signal.aborted) error.value = (e as Error).message
+    } finally {
+      if (!signal.aborted) loading.value = false
     }
   },
   { immediate: true },
@@ -131,7 +135,14 @@ onBeforeUnmount(() => {
       </a-input>
     </header>
     <div v-if="error" class="creative-error">{{ error }}</div>
-    <template v-if="detail"
+    <div v-else-if="loading && route.params.id && !detail" class="creative-grid" role="status" aria-label="正在加载角色">
+      <div v-for="n in 6" :key="`character-detail-skeleton-${n}`" class="creative-box is-skeleton" aria-hidden="true">
+        <span class="page-skeleton-thumb"></span>
+        <span class="page-skeleton-line is-title"></span>
+        <span class="page-skeleton-line is-short"></span>
+      </div>
+    </div>
+    <template v-else-if="detail"
       ><section class="creative-box character-story">
         <p>{{ detail.payload.description }}</p>
         <h2 v-if="detail.payload.appearance">外观特征</h2>
@@ -171,6 +182,18 @@ onBeforeUnmount(() => {
     >
     <template v-else>
       <div class="character-index">
+        <template v-if="loading && !rows.length">
+          <div
+            v-for="n in 10"
+            :key="`character-skeleton-${n}`"
+            class="character-card is-skeleton"
+            aria-hidden="true"
+          >
+            <div class="creative-image-tile"><span class="page-skeleton-thumb"></span></div>
+            <span class="page-skeleton-line is-title"></span>
+            <span class="page-skeleton-line is-short"></span>
+          </div>
+        </template>
         <RouterLink
           v-for="row in filtered"
           :key="row.id"
@@ -189,7 +212,7 @@ onBeforeUnmount(() => {
           <p v-if="row.summary">{{ row.summary }}</p></RouterLink
         >
       </div>
-      <div v-if="!filtered.length && !error" class="creative-empty">
+      <div v-if="!loading && !filtered.length && !error" class="creative-empty">
         角色设定正在整理中
       </div></template
     >

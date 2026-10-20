@@ -63,7 +63,8 @@ onBeforeUnmount(() => {
   max-width: 100%;
   max-height: 100%;
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  animation: creative-image-in .32s ease;
 }
+@keyframes creative-image-in { from { opacity: 0; } to { opacity: 1; } }
+.creative-image img { height: 100%; object-fit: contain; }
 </style>

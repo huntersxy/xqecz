@@ -148,7 +148,13 @@ function goPage(value: number) {
     </template>
 
     <template v-else>
-      <p v-if="listLoading" class="poll-page-state" role="status">正在加载投票…</p>
+      <div v-if="listLoading && !rows.length" class="poll-preview-grid" role="status" aria-label="正在加载投票">
+        <div v-for="n in 4" :key="`poll-skeleton-${n}`" class="poll-preview is-skeleton" aria-hidden="true">
+          <span class="page-skeleton-line is-title"></span>
+          <span class="page-skeleton-line"></span>
+          <span class="page-skeleton-line is-short"></span>
+        </div>
+      </div>
       <div v-else-if="listError" class="poll-page-state" role="alert">
         <p>{{ listError }}</p>
         <button class="poll-secondary" type="button" @click="loadList(page)">重新加载</button>

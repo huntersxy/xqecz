@@ -269,15 +269,18 @@ body[arco-theme='dark'] .admin-theme.creative-theme {
 }
 
 .admin-page-enter-active {
-  transition: opacity 180ms var(--adm-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+  transition:
+    opacity var(--adm-dur-slow, 360ms) var(--adm-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+    transform var(--adm-dur-slow, 360ms) var(--adm-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .admin-page-enter-from {
-  opacity: .72;
+  opacity: 0;
+  transform: translateY(8px);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .admin-page-enter-active { transition-duration: 80ms; }
-  .admin-page-enter-from { opacity: .9; }
+  .admin-page-enter-active { transition: none; }
+  .admin-page-enter-from { opacity: 1; transform: none; }
 }
 </style>
