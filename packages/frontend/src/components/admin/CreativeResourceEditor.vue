@@ -175,7 +175,7 @@ function addVariable() {
         placeholder="填写授权来源与允许使用的范围"
         :max-length="300"
       />
-      <a-button :loading="uploading" :disabled="busy" @click="uploadInput?.click()"
+      <a-button size="small" :loading="uploading" :disabled="busy" @click="uploadInput?.click()"
         >添加角色图片</a-button
       >
       <input
@@ -265,7 +265,7 @@ function addVariable() {
       </div>
     </details>
     <div v-if="error" class="creative-error">{{ error }}</div>
-    <a-button type="primary" :loading="busy" :disabled="uploading" @click="save"
+    <a-button type="primary" size="small" :loading="busy" :disabled="uploading" @click="save"
       >保存资源</a-button
     ></a-form
   >

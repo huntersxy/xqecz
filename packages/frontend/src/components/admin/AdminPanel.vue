@@ -519,4 +519,159 @@ defineExpose({ focusTitle: () => titleEl.value?.focus() })
 
   .adm-card-grid > .adm-card { animation: none; }
 }
+
+// ── 工作区版式：主栏 + 侧栏（用户 / 投票 / 视觉 / 密钥 / AI 共用）──
+// 侧栏只在宽屏吸顶；1180 以下折成单列，避免主栏被挤成窄条。
+.adm-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: var(--adm-gap-lg, 16px);
+  align-items: start;
+  padding: var(--adm-gap-lg, 16px) var(--adm-gap-xl, 24px) var(--adm-gap-xl, 24px);
+}
+
+.adm-board-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--adm-gap-lg, 16px);
+  min-width: 0;
+}
+
+.adm-board-aside {
+  position: sticky;
+  top: var(--adm-gap-lg, 16px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--adm-gap-md, 12px);
+  min-width: 0;
+}
+
+@media (max-width: 1180px) {
+  .adm-board { grid-template-columns: minmax(0, 1fr); }
+
+  .adm-board-aside { position: static; }
+}
+
+@media (max-width: 768px) {
+  .adm-board { padding: var(--adm-gap-md, 12px); }
+}
+
+// ── 指标条：页面顶部的 3–4 个概览数字 ──
+.adm-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: var(--adm-gap-sm, 8px);
+}
+
+.adm-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--adm-line, var(--admin-border-soft));
+  border-radius: var(--adm-r-card, var(--admin-radius));
+  background: var(--adm-surface, var(--admin-surface));
+}
+
+.adm-stat-label {
+  color: var(--adm-muted, var(--admin-text-3));
+  font-size: var(--adm-font-xs, 12px);
+}
+
+.adm-stat-value {
+  color: var(--adm-ink, var(--admin-text));
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-stat-hint {
+  overflow: hidden;
+  color: var(--adm-muted, var(--admin-text-3));
+  font-size: var(--adm-font-xs, 12px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// ── 卡片变体与无图卡片的内容区 ──
+.adm-card-grid.is-wide {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+.adm-card-grid.is-dense {
+  grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+}
+
+.adm-card-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 16px;
+}
+
+.adm-card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--adm-gap-sm, 8px);
+  margin-top: auto;
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+
+.adm-card-foot > .is-push {
+  margin-left: auto;
+}
+
+// ── 键值行：紧凑的「标签 — 值」列表 ──
+.adm-kv {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.adm-kv-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  font-size: var(--adm-font-xs, 12px);
+}
+
+.adm-kv-row dt {
+  flex: 0 0 auto;
+  color: var(--adm-muted, var(--admin-text-3));
+}
+
+.adm-kv-row dd {
+  overflow: hidden;
+  min-width: 0;
+  margin: 0;
+  color: var(--adm-ink, var(--admin-text));
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 768px) {
+  .adm-card-grid.is-wide,
+  .adm-card-grid.is-dense {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .adm-card-grid.is-wide,
+  .adm-card-grid.is-dense {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 </style>

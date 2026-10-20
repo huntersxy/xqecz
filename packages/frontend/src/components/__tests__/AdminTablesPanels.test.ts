@@ -141,13 +141,13 @@ describe('投票管理面板', () => {
     expect(wrapper.text()).toContain('创建投票')
   })
 
-  it('首屏加载时渲染行骨架，不闪空态', async () => {
+  it('首屏加载时渲染卡片骨架，不闪空态', async () => {
     admin.pollsLoading = true
     const wrapper = mountPanel(AdminPollPanel)
     await flushPromises()
 
     expect(wrapper.find('.admin-skeleton').exists()).toBe(true)
-    expect(wrapper.findAll('.admin-skeleton-row')).toHaveLength(5)
+    expect(wrapper.findAll('.admin-skeleton-card')).toHaveLength(5)
     expect(wrapper.find('.admin-empty').exists()).toBe(false)
   })
 
@@ -164,7 +164,7 @@ describe('投票管理面板', () => {
     expect(wrapper.find('.admin-empty').exists()).toBe(false)
   })
 
-  it('删除需二次确认：取消不请求，确认后删除并刷新', async () => {
+  it('删除需二次确认：取消不请求，确认后卡片淡出再删除并刷新', async () => {
     admin.polls = [pollFixture]
     const deletePoll = vi.spyOn(admin, 'deletePoll').mockResolvedValue(true)
     const wrapper = mountPanel(AdminPollPanel)
@@ -175,11 +175,18 @@ describe('投票管理面板', () => {
     await flushPromises()
     expect(confirmMock).toHaveBeenCalledTimes(1)
     expect(deletePoll).not.toHaveBeenCalled()
+    expect(wrapper.find('.adm-card').classes()).not.toContain('is-leaving')
 
     await wrapper.find('.poll-delete').trigger('click')
     await flushPromises()
-    expect(deletePoll).toHaveBeenCalledWith(7)
-    expect(admin.loadPolls).toHaveBeenCalledTimes(2)
+    // 确认后先走 M8 的 280ms 离场，再调接口；用 waitFor 等这段定时器
+    expect(wrapper.find('.adm-card').classes()).toContain('is-leaving')
+    await vi.waitFor(() => {
+      expect(deletePoll).toHaveBeenCalledWith(7)
+    })
+    await vi.waitFor(() => {
+      expect(admin.loadPolls).toHaveBeenCalledTimes(2)
+    })
   })
 })
 

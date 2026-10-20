@@ -13,6 +13,21 @@ import AIProviderEditor from './AIProviderEditor.vue'
 import CreativeResourceEditor from './CreativeResourceEditor.vue'
 import '@/assets/creative-pages.css'
 import { creativeLicenseOptions } from '@/utils/creativeLicenses'
+import type { Component } from 'vue'
+import {
+  IconBulb,
+  IconDelete,
+  IconEdit,
+  IconFile,
+  IconGift,
+  IconImage,
+  IconPlayArrow,
+  IconPoweroff,
+  IconSettings,
+  IconThunderbolt,
+  IconUser,
+  IconUserGroup,
+} from '@arco-design/web-vue/es/icon'
 const tab = ref('providers'),
   providers = ref<AIProvider[]>([]),
   assets = ref<AIAsset[]>([]),
@@ -112,6 +127,144 @@ const menus = [
   ['character', '角色资源'],
   ['template', '提示词模板'],
 ]
+
+/* ── 分区导航 / 台账视图 ─────────────────────────────────────────── */
+type AdminStatusType = 'success' | 'warning' | 'danger' | 'info' | 'neutral'
+type LedgerRow = z.infer<typeof AILedgerSchema>
+
+const menuIcons: Record<string, Component> = {
+  providers: IconSettings,
+  quota: IconGift,
+  tasks: IconImage,
+  ideas: IconBulb,
+  sponsors: IconUserGroup,
+  character: IconUser,
+  template: IconFile,
+}
+
+const enabledProviderCount = computed(() => providers.value.filter((p) => p.enabled).length)
+const unknownTaskCount = computed(
+  () => tasks.value.filter((t) => t.task.status === 'unknown').length,
+)
+const sponsorCount = computed(() => tasks.value.filter((t) => t.task.idea_id > 0).length)
+const characterCount = computed(() => resources.value.filter((r) => r.kind !== 'template').length)
+const templateCount = computed(() => resources.value.filter((r) => r.kind === 'template').length)
+
+const navItems = computed(() => {
+  const counts: Record<string, number> = {
+    providers: providers.value.length,
+    quota: ledger.value.length,
+    tasks: tasks.value.length,
+    ideas: ideas.value.length,
+    sponsors: sponsorCount.value,
+    character: characterCount.value,
+    template: templateCount.value,
+  }
+  return menus.map(([key, label]) => ({ key, label, icon: menuIcons[key], count: counts[key] ?? 0 }))
+})
+
+function dateText(iso: string) {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString()
+}
+
+function timeText(iso: string) {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleTimeString()
+}
+
+function dayKey(iso: string) {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '未知日期' : d.toLocaleDateString()
+}
+
+const ledgerGroups = computed(() => {
+  const groups = new Map<string, LedgerRow[]>()
+  for (const row of ledger.value) {
+    const key = dayKey(row.created_at)
+    const list = groups.get(key)
+    if (list) list.push(row)
+    else groups.set(key, [row])
+  }
+  return Array.from(groups, ([key, rows]) => ({ key, rows }))
+})
+
+function userName(id: number) {
+  return grantUsers.value.find((u) => u.id === id)?.username || `用户 #${id}`
+}
+
+function taskAuthor(row: AITaskView) {
+  return (
+    row.user?.username ||
+    grantUsers.value.find((u) => u.id === row.task.user_id)?.username ||
+    '已注销用户'
+  )
+}
+
+function taskType(status: string): AdminStatusType {
+  if (status === 'succeeded') return 'success'
+  if (status === 'failed') return 'danger'
+  if (status === 'unknown') return 'warning'
+  if (status === 'running' || status === 'queued') return 'info'
+  return 'neutral'
+}
+
+function resourceLabel(status: string) {
+  if (status === 'published') return '已发布'
+  if (status === 'archived') return '已归档'
+  return '草稿'
+}
+
+function toggleSelected(id: number, checked: boolean) {
+  if (checked) {
+    if (!selected.value.includes(id)) selected.value = [...selected.value, id]
+    return
+  }
+  selected.value = selected.value.filter((x) => x !== id)
+}
+
+function toggleProvider(row: AIProvider) {
+  return run(async () => {
+    const action = row.enabled ? '关闭' : '启用'
+    if (!(await confirm(`${action}供应商“${row.name}”？`))) return
+    await aiApi.setProviderEnabled(row.id, !row.enabled)
+    await load()
+  })
+}
+
+function testProviderConnection(row: AIProvider) {
+  return run(async () => {
+    if (!(await confirm('测试会请求生成一张图，可能产生供应商费用。继续？'))) return
+    await aiApi.testProvider(row.id, newKey())
+    tab.value = 'tasks'
+    await load()
+  })
+}
+
+function removeProvider(row: AIProvider) {
+  return run(async () => {
+    if (!(await confirm(`删除供应商“${row.name}”？删除后不可恢复。`))) return
+    await aiApi.deleteProvider(row.id)
+    await load()
+  })
+}
+
+function sponsorIdea(row: AIIdeaView) {
+  return run(async () => {
+    if (!(await confirm(`赞助此创意，预留 ${row.current_cost} 额度？`))) return
+    await aiApi.sponsor(row.idea.id, row.current_cost, newKey())
+    await load()
+  })
+}
+
+function hideIdea(id: number) {
+  return run(async () => {
+    if (!(await confirm('下架此创意与公开成果？'))) return
+    await aiApi.hideIdea(id, '管理员下架')
+    await load()
+  })
+}
+
 const taskLabels: Record<string, string> = {
   queued: '等待生成',
   running: '正在生成',
@@ -423,359 +576,430 @@ onBeforeUnmount(() => {
 <template>
   <AdminPanel
     title="AI 创作管理"
-    desc="资源、供应商、额度和社区赞助使用同一套持久化任务与审计记录。"
+    desc="供应商、生图任务、创意投稿与角色素材共用一套持久化任务与审计记录。"
+    flow
   >
     <template #actions>
       <a-button size="small" :loading="loading" @click="run(load)">刷新</a-button>
     </template>
-    <div class="admin-ai-body">
-      <div class="admin-ai-tabs">
-        <button
-          v-for="menu in menus"
-          :key="menu[0]"
-          :class="{ 'is-active': tab === menu[0] }"
-          :aria-current="tab === menu[0] ? 'page' : undefined"
-          @click="switchTab(menu[0]!)"
-        >
-          {{ menu[1] }}
-        </button>
-      </div>
-      <p v-if="error" class="admin-ai-alert">{{ error }}</p>
 
-      <!-- A. 供应商：提示词增强说明卡 + 一行一个的结构化供应商行 -->
-      <template v-if="tab === 'providers'">
-        <section class="admin-ai-card admin-prompt-card">
-          <header class="admin-ai-card-head">
-            <div class="admin-ai-card-heading">
-              <h3>提示词增强</h3>
-              <p>勾选后会把这段固定要求追加到用户提示词末尾，所有用户可在工作台悬浮查看。</p>
-            </div>
-            <a-switch v-model="promptEnhancement.enabled" size="small" aria-label="启用提示词增强" />
-          </header>
-          <a-textarea
-            v-model="promptEnhancement.prompt"
-            class="admin-prompt-input"
-            :maxlength="4000"
-            :auto-size="{ minRows: 3, maxRows: 8 }"
-            aria-label="提示词增强内容"
-            placeholder="例如：统一线条与光影要求、禁止出现的元素……"
-          />
-          <footer class="admin-ai-card-foot">
-            <span class="admin-ai-hint">
-              {{ promptEnhancement.enabled ? '当前已启用，用户在工作台可见' : '当前已停用，仅保存文本' }}
-            </span>
-            <a-button
-              type="primary"
-              size="small"
-              :loading="promptEnhancementSaving"
-              @click="savePromptEnhancement"
-              >保存提示词</a-button
-            >
-          </footer>
-        </section>
-
-        <AdminDataToolbar
-          :summary="`共 ${providers.length} 个供应商 · ${providers.filter((p) => p.enabled).length} 个启用`"
-        >
-          <template #actions>
-            <a-button type="primary" size="small" @click="editProvider(null)">添加供应商</a-button>
-          </template>
-        </AdminDataToolbar>
-
-        <AdminSkeleton
-          v-if="loading && !providers.length"
-          variant="rows"
-          :rows="4"
-          :columns="3"
-          label="加载供应商"
-        />
-        <AdminEmpty
-          v-else-if="!providers.length"
-          title="还没有供应商"
-          desc="添加图片生成供应商，填写接口地址与密钥后即可在 AI 工作台使用。"
-        >
-          <template #actions>
-            <a-button type="primary" size="small" @click="editProvider(null)">添加供应商</a-button>
-          </template>
-        </AdminEmpty>
-        <div v-else class="admin-ai-list adm-stagger">
-          <article v-for="p in providers" :key="p.id" class="provider-row">
-            <div class="provider-main">
-              <div class="provider-head">
-                <span class="provider-state" :class="{ 'is-on': p.enabled }" aria-hidden="true" />
-                <strong class="provider-name">{{ p.name }}</strong>
-                <span class="admin-ai-pill">{{ adapterLabels[p.adapter] || p.adapter }}</span>
-                <span class="admin-ai-pill is-mono">{{ p.model }}</span>
-                <span class="admin-ai-pill" :class="p.has_key ? 'is-quiet' : 'is-warn'">
-                  {{ p.has_key ? '密钥已加密保存' : '未配置密钥' }}
-                </span>
-                <span v-if="p.default" class="admin-ai-pill is-accent">默认</span>
-              </div>
-              <p class="provider-endpoint" :title="p.endpoint">{{ p.endpoint }}</p>
-            </div>
-            <div class="provider-actions">
-              <a-switch
-                :model-value="p.enabled"
-                size="small"
-                :aria-label="`切换供应商 ${p.name} 的启用状态`"
-                @change="
-                  run(async () => {
-                    const action = p.enabled ? '关闭' : '启用'
-                    if (await confirm(`${action}供应商“${p.name}”？`)) {
-                      await aiApi.setProviderEnabled(p.id, !p.enabled)
-                      await load()
-                    }
-                  })
-                "
-              />
-              <a-button size="small" @click="editProvider(p)">编辑</a-button>
-              <a-button
-                size="small"
-                :disabled="!p.enabled"
-                @click="
-                  run(async () => {
-                    if (await confirm('测试会请求生成一张图，可能产生供应商费用。继续？')) {
-                      await aiApi.testProvider(p.id, newKey())
-                      tab = 'tasks'
-                      await load()
-                    }
-                  })
-                "
-                >生成连通测试</a-button
-              >
-              <a-button
-                size="small"
-                status="danger"
-                @click="
-                  run(async () => {
-                    if (await confirm(`删除供应商“${p.name}”？删除后不可恢复。`)) {
-                      await aiApi.deleteProvider(p.id)
-                      await load()
-                    }
-                  })
-                "
-                >删除</a-button
-              >
-            </div>
-          </article>
+    <div class="ai-workspace">
+      <nav class="ai-rail" role="tablist" aria-label="AI 创作管理分区">
+        <div v-for="item in navItems" :key="item.key" class="ai-rail-row">
+          <button
+            type="button"
+            class="ai-rail-item"
+            :class="{ 'is-active': tab === item.key }"
+            role="tab"
+            :id="'ai-tab-' + item.key"
+            :aria-selected="tab === item.key"
+            :aria-controls="'ai-pane-' + item.key"
+            :aria-current="tab === item.key ? 'page' : undefined"
+            @click="switchTab(item.key)"
+          >
+            <span class="ai-rail-icon" aria-hidden="true"><component :is="item.icon" /></span>
+            <span class="ai-rail-label">{{ item.label }}</span>
+          </button>
+          <span v-if="item.count > 0" class="ai-rail-count">{{
+            item.count > 99 ? '99+' : item.count
+          }}</span>
         </div>
-      </template>
+      </nav>
 
-      <!-- B. 用户额度 / 账本：发放表单收进卡 + 紧凑账本行列表 -->
-      <template v-else-if="tab === 'quota'">
-        <section class="admin-ai-card admin-grant-card">
-          <header class="admin-ai-card-head">
-            <div class="admin-ai-card-heading">
-              <h3>发放额度</h3>
-              <p>选择用户或全体用户。以下数量是每位用户本次增加的可用额度；管理员生成不消耗站点额度。</p>
+      <div class="ai-main">
+        <div class="adm-stat-grid adm-ai-stats">
+          <div class="adm-stat">
+            <span class="adm-stat-label">启用供应商</span>
+            <strong class="adm-stat-value">{{ enabledProviderCount }}</strong>
+            <span class="adm-stat-hint">共 {{ providers.length }} 个供应商</span>
+          </div>
+          <div class="adm-stat">
+            <span class="adm-stat-label">生图任务</span>
+            <strong class="adm-stat-value">{{ tasks.length }}</strong>
+            <span class="adm-stat-hint">{{ unknownTaskCount }} 条待核查结算</span>
+          </div>
+          <div class="adm-stat">
+            <span class="adm-stat-label">创意投稿</span>
+            <strong class="adm-stat-value">{{ ideas.length }}</strong>
+            <span class="adm-stat-hint">{{ sponsorCount }} 条赞助关联</span>
+          </div>
+          <div class="adm-stat">
+            <span class="adm-stat-label">角色资源</span>
+            <strong class="adm-stat-value">{{ characterCount }}</strong>
+            <span class="adm-stat-hint">另有 {{ templateCount }} 个提示词模板</span>
+          </div>
+        </div>
+
+        <p v-if="error" class="adm-ai-alert" role="alert">{{ error }}</p>
+
+        <!-- A. 供应商：卡片网格 + 折叠的提示词增强 -->
+        <section id="ai-pane-providers" role="tabpanel" :aria-labelledby="'ai-tab-providers'" v-if="tab === 'providers'" class="adm-ai-pane">
+          <header class="adm-ai-pane-head">
+            <div>
+              <h2>供应商</h2>
+              <p>每张卡片是一个图像通道；密钥只在保存时写入，不回显。</p>
             </div>
-            <a-radio-group
-              v-model="grantForm.scope"
-              :disabled="grantBusy || !!pendingGrant"
-              type="button"
-            >
-              <a-radio value="selected">选择用户</a-radio>
-              <a-radio value="all">全体用户</a-radio>
-            </a-radio-group>
+            <a-button type="primary" size="small" @click="editProvider(null)">新建供应商</a-button>
           </header>
-          <div class="grant-fields">
-            <label v-if="grantForm.scope === 'selected'" class="admin-ai-field">
-              <span class="admin-ai-field-label">发给谁</span>
-              <a-select
-                v-model="grantForm.users"
-                multiple
-                allow-search
-                placeholder="搜索并选择用户"
-                :disabled="grantBusy || !!pendingGrant"
-              >
-                <a-option v-for="u in grantUsers" :key="u.id" :value="u.id">
-                  {{ u.username }}（#{{ u.id }}）
-                </a-option>
-              </a-select>
-            </label>
-            <div v-else class="admin-ai-field">
-              <span class="admin-ai-field-label">发给谁</span>
-              <strong class="admin-ai-field-static">全体用户</strong>
-              <span class="admin-ai-hint">提交时由服务器确定完整用户列表</span>
-            </div>
-            <label class="admin-ai-field">
-              <span class="admin-ai-field-label">发放额度</span>
-              <a-input-number
-                v-model="grantForm.amount"
-                :input-attrs="{ 'aria-label': '发放额度' }"
-                :min="1"
-                :max="10000"
-                :precision="0"
-                :disabled="grantBusy || !!pendingGrant"
-              />
-              <span class="admin-ai-hint">本次增加的额度，1–10000</span>
-            </label>
-            <label class="admin-ai-field">
-              <span class="admin-ai-field-label">发放原因（选填）</span>
-              <a-input
-                v-model="grantForm.note"
-                :input-attrs="{ 'aria-label': '发放原因' }"
-                placeholder="如：活动奖励、创作支持"
-                :max-length="300"
-                :disabled="grantBusy || !!pendingGrant"
-              />
-            </label>
+
+          <AdminSkeleton
+            v-if="loading && !providers.length"
+            variant="cards"
+            :rows="2"
+            :columns="3"
+            label="加载供应商"
+          />
+          <AdminEmpty
+            v-else-if="!providers.length"
+            title="暂无供应商"
+            desc="添加一个图像供应商后，用户就能在 AI 工作台提交生图任务。"
+          >
+            <template #actions>
+              <a-button type="primary" size="small" @click="editProvider(null)">新建供应商</a-button>
+            </template>
+          </AdminEmpty>
+          <div v-else class="adm-card-grid is-wide adm-stagger">
+            <article v-for="p in providers" :key="p.id" class="adm-card adm-ai-provider">
+              <div class="adm-card-content">
+                <header class="adm-ai-provider-head">
+                  <h3 class="adm-card-title">{{ p.name }}</h3>
+                  <span
+                    class="adm-ai-dot"
+                    :class="p.enabled ? 'is-on' : 'is-off'"
+                    aria-hidden="true"
+                  />
+                  <span class="adm-ai-provider-state">{{ p.enabled ? '启用' : '停用' }}</span>
+                </header>
+                <div class="adm-ai-chips">
+                  <span class="adm-ai-chip">{{ adapterLabels[p.adapter] || p.adapter }}</span>
+                  <span v-if="p.default" class="adm-ai-chip is-accent">默认通道</span>
+                  <span v-if="!p.has_key" class="adm-ai-chip is-danger">缺少密钥</span>
+                </div>
+                <dl class="adm-kv">
+                  <div class="adm-kv-row">
+                    <dt>model</dt>
+                    <dd :title="p.model">{{ p.model }}</dd>
+                  </div>
+                  <div class="adm-kv-row">
+                    <dt>base_url</dt>
+                    <dd :title="p.endpoint">{{ p.endpoint }}</dd>
+                  </div>
+                </dl>
+              </div>
+              <footer class="adm-card-foot">
+                <div class="ai-icon-bar is-push">
+                  <button
+                    type="button"
+                    class="admin-icon-btn"
+                    title="编辑供应商"
+                    aria-label="编辑供应商"
+                    @click="editProvider(p)"
+                  >
+                    <IconEdit />
+                  </button>
+                  <button
+                    type="button"
+                    class="admin-icon-btn"
+                    :title="p.enabled ? '停用供应商' : '启用供应商'"
+                    :aria-label="p.enabled ? '停用供应商' : '启用供应商'"
+                    @click="toggleProvider(p)"
+                  >
+                    <IconPoweroff v-if="p.enabled" />
+                    <IconPlayArrow v-else />
+                  </button>
+                  <button
+                    type="button"
+                    class="admin-icon-btn"
+                    title="连通测试"
+                    aria-label="连通测试"
+                    :disabled="!p.enabled"
+                    @click="testProviderConnection(p)"
+                  >
+                    <IconThunderbolt />
+                  </button>
+                  <button
+                    type="button"
+                    class="admin-icon-btn is-danger"
+                    title="删除供应商"
+                    aria-label="删除供应商"
+                    @click="removeProvider(p)"
+                  >
+                    <IconDelete />
+                  </button>
+                </div>
+              </footer>
+            </article>
           </div>
-          <div class="admin-grant-foot">
-            <p v-if="grantSuccess" role="status" class="admin-ai-hint is-success">
-              {{ grantSuccess }}
-            </p>
-            <p v-else-if="pendingGrant" class="admin-ai-hint">
-              发放结果尚未确认，再次提交会核对上次操作，不会重复增加额度。
-            </p>
-            <span v-else class="admin-ai-hint">单次每位用户 1–10000 额度</span>
-            <a-button type="primary" size="small" :loading="grantBusy" @click="grant">{{
-              pendingGrant ? '确认上次发放' : '发放额度'
-            }}</a-button>
-          </div>
-        </section>
 
-        <AdminDataToolbar :summary="`共 ${ledger.length} 条记录`" />
-        <AdminSkeleton
-          v-if="loading && !ledger.length"
-          variant="rows"
-          :rows="6"
-          :columns="5"
-          label="加载额度记录"
-        />
-        <AdminEmpty
-          v-else-if="!ledger.length"
-          compact
-          title="暂无额度记录"
-          desc="用户登录、生成与管理员发放产生的记录会显示在这里。"
-        />
-        <ul v-else class="ledger-list">
-          <li v-for="row in ledger" :key="row.id" class="ledger-row">
-            <time class="ledger-time" :datetime="row.created_at">
-              {{ new Date(row.created_at).toLocaleString() }}
-            </time>
-            <span class="ledger-user">
-              {{
-                grantUsers.find((user) => user.id === row.user_id)?.username ||
-                `用户 #${row.user_id}`
-              }}
-            </span>
-            <span class="ledger-kind">{{ ledgerLabels[row.kind] || row.kind }}</span>
-            <span
-              class="ledger-amount"
-              :class="{ 'is-plus': row.amount > 0, 'is-minus': row.amount < 0 }"
-              >{{ row.amount > 0 ? `+${row.amount}` : row.amount }}</span
-            >
-            <span class="ledger-note" :title="row.note">
-              {{ row.note || '—' }}
-              <span v-if="row.task_id" class="ledger-task">任务 #{{ row.task_id }}</span>
-            </span>
-          </li>
-        </ul>
-      </template>
-
-      <!-- C/D. 生图任务 / 赞助记录：卡头一行 + 卡身两列（正文 / 图集） -->
-      <template v-else-if="tab === 'tasks' || tab === 'sponsors'">
-        <AdminDataToolbar
-          :summary="
-            search || status
-              ? `结果 ${shownTasks.length} · 共 ${tasks.length}`
-              : `共 ${tasks.length} 条${tab === 'sponsors' ? '赞助记录' : '生成任务'}`
-          "
-        >
-          <template #actions>
-            <a-input
-              v-model="search"
-              class="admin-ai-search"
-              size="small"
-              :placeholder="tab === 'sponsors' ? '搜索赞助记录或用户' : '搜索提示词或用户'"
-              @press-enter="run(() => queryRows())"
-            />
-            <a-select
-              v-model="status"
-              class="admin-ai-filter"
-              size="small"
-              placeholder="全部生成状态"
-              allow-clear
-            >
-              <a-option
-                v-for="s in ['queued', 'running', 'succeeded', 'failed', 'unknown', 'cancelled']"
-                :key="s"
-                :value="s"
-                >{{ taskLabels[s] }}</a-option
+          <details class="adm-card adm-ai-fold" open>
+            <summary class="adm-ai-fold-head">
+              <span class="adm-ai-fold-title">提示词增强</span>
+              <span class="adm-ai-fold-desc"
+                >启用后把这段固定要求追加到用户提示词末尾，工作台里对所有人生效。</span
               >
-            </a-select>
-            <a-button size="small" @click="run(() => queryRows())">搜索</a-button>
-          </template>
-        </AdminDataToolbar>
-
-        <AdminSkeleton
-          v-if="loading && !tasks.length"
-          variant="rows"
-          :rows="3"
-          :columns="4"
-          label="加载生成任务"
-        />
-        <AdminEmpty
-          v-else-if="!shownTasks.length"
-          :title="
-            tasks.length
-              ? tab === 'sponsors'
-                ? '没有匹配的赞助记录'
-                : '没有匹配的任务'
-              : tab === 'sponsors'
-                ? '暂无赞助记录'
-                : '暂无生成任务'
-          "
-          :desc="
-            tasks.length
-              ? '换个关键词或状态筛选再试。'
-              : tab === 'sponsors'
-                ? '用户赞助创意后会在这里生成对应任务与核查记录。'
-                : '用户在 AI 工作台提交生图后，任务会出现在这里。'
-          "
-        />
-        <div v-else class="admin-task-list adm-stagger">
-          <article v-for="row in shownTasks" :key="row.task.id" class="admin-task-record">
-            <header class="admin-task-header">
-              <div class="admin-task-identity">
-                <strong class="admin-task-id">#{{ row.task.id }}</strong>
-                <AdminStatus
-                  :type="
-                    row.task.status === 'succeeded'
-                      ? 'success'
-                      : row.task.status === 'failed'
-                        ? 'danger'
-                        : row.task.status === 'unknown'
-                          ? 'warning'
-                          : row.task.status === 'running'
-                            ? 'info'
-                            : 'neutral'
-                  "
-                  :label="taskLabels[row.task.status] || row.task.status"
+              <span class="adm-ai-fold-state">{{
+                promptEnhancement.enabled ? '已启用' : '已停用'
+              }}</span>
+            </summary>
+            <div class="adm-ai-fold-body">
+              <div class="adm-ai-field-inline">
+                <a-switch
+                  v-model="promptEnhancement.enabled"
+                  size="small"
+                  aria-label="启用提示词增强"
                 />
-                <span class="admin-task-author">{{
-                  row.user?.username ||
-                  grantUsers.find((user) => user.id === row.task.user_id)?.username ||
-                  '已注销用户'
+                <span class="adm-ai-hint">{{
+                  promptEnhancement.enabled ? '用户在工作台可见' : '仅保存文本，不追加到任务'
                 }}</span>
               </div>
-              <time class="admin-task-time" :datetime="row.task.created_at">{{
-                new Date(row.task.created_at).toLocaleString()
-              }}</time>
+              <a-textarea
+                v-model="promptEnhancement.prompt"
+                :maxlength="4000"
+                :auto-size="{ minRows: 3, maxRows: 8 }"
+                aria-label="提示词增强内容"
+                placeholder="例如：统一线条与光影要求、禁止出现的元素……"
+              />
+              <div class="adm-ai-fold-foot">
+                <a-button
+                  type="primary"
+                  size="small"
+                  :loading="promptEnhancementSaving"
+                  @click="run(savePromptEnhancement)"
+                  >保存</a-button
+                >
+              </div>
+            </div>
+          </details>
+        </section>
+
+        <!-- B. 额度 / 账本：时间线 + 吸顶发放表单 -->
+        <section id="ai-pane-quota" role="tabpanel" :aria-labelledby="'ai-tab-quota'" v-else-if="tab === 'quota'" class="adm-board">
+          <div class="adm-board-main">
+            <header class="adm-ai-pane-head">
+              <div>
+                <h2>用户额度 / 账本</h2>
+                <p>按日期倒序排列的额度流水：打卡、预留、结算与人工发放都在这里对账。</p>
+              </div>
+              <span class="adm-ai-hint">共 {{ ledger.length }} 条记录</span>
             </header>
-            <p v-if="row.task.error" class="admin-ai-alert is-warning" role="alert">
-              {{ row.task.error }}
-            </p>
-            <div class="admin-task-body">
-              <div class="admin-task-main">
+            <AdminSkeleton
+              v-if="loading && !ledger.length"
+              variant="rows"
+              :rows="6"
+              :columns="3"
+              label="加载额度记录"
+            />
+            <AdminEmpty
+              v-else-if="!ledger.length"
+              compact
+              title="暂无额度记录"
+              desc="用户登录、生成与管理员发放产生的记录会显示在这里。"
+            />
+            <div v-else class="adm-ai-timeline">
+              <section v-for="group in ledgerGroups" :key="group.key" class="adm-ai-day">
+                <h3 class="adm-ai-day-label">{{ group.key }}</h3>
+                <ol class="adm-ai-day-rows">
+                  <li v-for="row in group.rows" :key="row.id" class="adm-ai-entry">
+                    <span class="adm-ai-node" aria-hidden="true" />
+                    <div class="adm-ai-entry-body">
+                      <div class="adm-ai-entry-head">
+                        <strong class="adm-ai-entry-user">{{ userName(row.user_id) }}</strong>
+                        <span class="adm-ai-chip">{{ ledgerLabels[row.kind] || row.kind }}</span>
+                        <span
+                          class="adm-ai-entry-amount"
+                          :class="row.amount > 0 ? 'is-plus' : 'is-minus'"
+                          >{{ row.amount > 0 ? '+' + row.amount : row.amount }}</span
+                        >
+                        <time class="adm-ai-entry-time" :datetime="row.created_at">{{
+                          timeText(row.created_at)
+                        }}</time>
+                      </div>
+                      <p v-if="row.note" class="adm-ai-entry-note">{{ row.note }}</p>
+                      <span v-if="row.task_id" class="adm-ai-entry-link"
+                        >关联任务 #{{ row.task_id }}</span
+                      >
+                    </div>
+                  </li>
+                </ol>
+              </section>
+            </div>
+          </div>
+
+          <aside class="adm-board-aside">
+            <div class="adm-card adm-ai-grant">
+              <div class="adm-card-content">
+                <header class="adm-ai-grant-head">
+                  <h3 class="adm-card-title">发放额度</h3>
+                  <a-radio-group
+                    v-model="grantForm.scope"
+                    :disabled="grantBusy || !!pendingGrant"
+                    type="button"
+                    size="small"
+                  >
+                    <a-radio value="selected">选择用户</a-radio>
+                    <a-radio value="all">全体用户</a-radio>
+                  </a-radio-group>
+                </header>
+                <label v-if="grantForm.scope === 'selected'" class="adm-ai-field">
+                  <span class="adm-ai-field-label">发给谁</span>
+                  <a-select
+                    v-model="grantForm.users"
+                    multiple
+                    allow-search
+                    placeholder="搜索并选择用户"
+                    :disabled="grantBusy || !!pendingGrant"
+                  >
+                    <a-option v-for="u in grantUsers" :key="u.id" :value="u.id">
+                      {{ u.username }}（#{{ u.id }}）
+                    </a-option>
+                  </a-select>
+                </label>
+                <div v-else class="adm-ai-field">
+                  <span class="adm-ai-field-label">发给谁</span>
+                  <strong class="adm-ai-field-static">全体用户</strong>
+                  <span class="adm-ai-hint">提交时由服务器确定完整用户列表</span>
+                </div>
+                <label class="adm-ai-field">
+                  <span class="adm-ai-field-label">发放额度</span>
+                  <a-input-number
+                    v-model="grantForm.amount"
+                    :input-attrs="{ 'aria-label': '发放额度' }"
+                    :min="1"
+                    :max="10000"
+                    :precision="0"
+                    :disabled="grantBusy || !!pendingGrant"
+                  />
+                  <span class="adm-ai-hint">每位用户本次增加的额度，1–10000</span>
+                </label>
+                <label class="adm-ai-field">
+                  <span class="adm-ai-field-label">发放原因（选填）</span>
+                  <a-input
+                    v-model="grantForm.note"
+                    :input-attrs="{ 'aria-label': '发放原因' }"
+                    placeholder="如：活动奖励、创作支持"
+                    :max-length="300"
+                    :disabled="grantBusy || !!pendingGrant"
+                  />
+                </label>
+                <div class="adm-ai-grant-foot">
+                  <p v-if="grantSuccess" role="status" class="adm-ai-hint is-success">
+                    {{ grantSuccess }}
+                  </p>
+                  <p v-else-if="pendingGrant" class="adm-ai-hint">
+                    发放结果尚未确认，再次提交会核对上次操作，不会重复增加额度。
+                  </p>
+                  <span v-else class="adm-ai-hint">单次每位用户 1–10000 额度</span>
+                  <a-button type="primary" size="small" :loading="grantBusy" @click="grant">{{
+                    pendingGrant ? '确认上次发放' : '发放额度'
+                  }}</a-button>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <!-- C. 生图任务：结果图画廊卡片 -->
+        <section id="ai-pane-tasks" role="tabpanel" :aria-labelledby="'ai-tab-tasks'" v-else-if="tab === 'tasks'" class="adm-ai-pane">
+          <header class="adm-ai-pane-head">
+            <div>
+              <h2>生图任务</h2>
+              <p>任务、结果图与原始参考图并排可查；未知状态的订单需要人工核查结算。</p>
+            </div>
+            <div class="adm-ai-filter-row">
+              <a-input
+                v-model="search"
+                size="small"
+                placeholder="搜索提示词或用户"
+                class="adm-ai-search"
+                @press-enter="run(() => queryRows())"
+              />
+              <a-select
+                v-model="status"
+                size="small"
+                placeholder="全部生成状态"
+                allow-clear
+                class="adm-ai-filter"
+              >
+                <a-option v-for="(label, key) in taskLabels" :key="key" :value="key">{{
+                  label
+                }}</a-option>
+              </a-select>
+              <a-button size="small" @click="run(() => queryRows())">搜索</a-button>
+            </div>
+          </header>
+
+          <AdminSkeleton
+            v-if="loading && !tasks.length"
+            variant="cards"
+            :rows="3"
+            :columns="3"
+            label="加载生成任务"
+          />
+          <AdminEmpty
+            v-else-if="!shownTasks.length"
+            :title="tasks.length ? '没有匹配的任务' : '暂无生成任务'"
+            :desc="
+              tasks.length
+                ? '换个关键词或状态筛选再试。'
+                : '用户在 AI 工作台提交生图后，任务会出现在这里。'
+            "
+          />
+          <div v-else class="adm-card-grid adm-stagger">
+            <article
+              v-for="row in shownTasks"
+              :key="row.task.id"
+              class="adm-card admin-task-record"
+            >
+              <div class="admin-task-cover adm-card-media">
+                <button
+                  v-if="row.assets.length"
+                  type="button"
+                  class="admin-image-preview"
+                  :aria-label="'查看生成结果 1'"
+                  @click="previewAsset = { id: row.assets[0]?.id ?? 0, title: '生成结果 1' }"
+                >
+                  <CreativeImage :id="row.assets[0]?.id ?? 0" />
+                </button>
+                <span v-else class="admin-task-cover-empty">{{
+                  row.task.status === 'succeeded' ? '暂无可展示的结果图片' : '尚无生成结果'
+                }}</span>
+                <span class="adm-card-badge">{{
+                  taskLabels[row.task.status] || row.task.status
+                }}</span>
+              </div>
+
+              <div class="adm-card-content">
+                <header class="admin-task-header">
+                  <div class="admin-task-identity">
+                    <strong class="admin-task-id">#{{ row.task.id }}</strong>
+                    <span class="admin-task-author">{{ taskAuthor(row) }}</span>
+                  </div>
+                  <time class="admin-task-time" :datetime="row.task.created_at"
+                    >{{ dateText(row.task.created_at) }} {{ timeText(row.task.created_at) }}</time
+                  >
+                </header>
+                <p v-if="row.task.error" class="adm-ai-alert is-warning" role="alert">
+                  {{ row.task.error }}
+                </p>
                 <div class="admin-task-meta">
                   <span>{{ row.task.model }}</span>
                   <span>{{ row.task.size }} · {{ row.task.count }} 张</span>
                   <span>{{ row.task.cost }} 额度</span>
-                  <RouterLink v-if="row.task.idea_id" :to="`/ideas/${row.task.idea_id}`"
+                  <RouterLink v-if="row.task.idea_id" :to="'/ideas/' + row.task.idea_id"
                     >创意 #{{ row.task.idea_id }}</RouterLink
                   >
+                </div>
+                <div v-if="row.assets.length > 1" class="admin-task-results" aria-label="生成结果">
+                  <button
+                    v-for="(asset, index) in row.assets.slice(1)"
+                    :key="asset.id"
+                    type="button"
+                    class="admin-image-preview"
+                    :aria-label="'查看生成结果 ' + (index + 2)"
+                    @click="previewAsset = { id: asset.id, title: '生成结果 ' + (index + 2) }"
+                  >
+                    <CreativeImage :id="asset.id" />
+                  </button>
                 </div>
                 <details class="admin-task-prompt">
                   <summary>
@@ -788,44 +1012,8 @@ onBeforeUnmount(() => {
                 <details v-if="row.diagnostic" class="admin-task-diagnostic">
                   <summary>排查诊断 · 仅管理员可见</summary>
                   <pre>{{ row.diagnostic }}</pre>
-                  <a-button size="mini" @click="copyDiagnostic(row.diagnostic)">复制诊断</a-button>
+                  <a-button size="small" @click="copyDiagnostic(row.diagnostic)">复制诊断</a-button>
                 </details>
-                <div class="admin-task-actions">
-                  <a-button
-                    v-if="row.task.status === 'unknown'"
-                    size="small"
-                    @click="startResolve(row.task.id)"
-                    >核查结算</a-button
-                  >
-                  <a-button size="small" status="danger" @click="deleteTask(row.task.id)"
-                    >删除任务及结果</a-button
-                  >
-                </div>
-              </div>
-              <div
-                v-if="row.assets.length || row.references?.length"
-                class="admin-task-side"
-              >
-                <section v-if="row.assets.length || row.task.status === 'succeeded'" class="admin-task-gallery-block">
-                  <h3 class="admin-task-eyebrow">
-                    结果<span v-if="row.assets.length">{{ row.assets.length }}</span>
-                  </h3>
-                  <div v-if="row.assets.length" class="admin-task-results" aria-label="生成结果">
-                    <button
-                      v-for="(asset, index) in row.assets"
-                      :key="asset.id"
-                      type="button"
-                      class="admin-image-preview"
-                      :aria-label="`查看生成结果 ${index + 1}`"
-                      @click="previewAsset = { id: asset.id, title: `生成结果 ${index + 1}` }"
-                    >
-                      <CreativeImage :id="asset.id" />
-                    </button>
-                  </div>
-                  <p v-else class="admin-task-no-results">
-                    {{ row.task.status === 'succeeded' ? '暂无可展示的结果图片' : '尚无生成结果' }}
-                  </p>
-                </section>
                 <aside
                   v-if="row.references?.length"
                   class="admin-task-references"
@@ -840,288 +1028,429 @@ onBeforeUnmount(() => {
                       :key="asset.id"
                       type="button"
                       class="admin-image-preview"
-                      :aria-label="`查看原始参考图 ${index + 1}`"
-                      @click="previewAsset = { id: asset.id, title: `原始参考图 ${index + 1}` }"
+                      :aria-label="'查看原始参考图 ' + (index + 1)"
+                      @click="previewAsset = { id: asset.id, title: '原始参考图 ' + (index + 1) }"
                     >
                       <CreativeImage :id="asset.id" />
                     </button>
                   </div>
                 </aside>
               </div>
-            </div>
-          </article>
-        </div>
-        <div v-if="moreRows" class="admin-ai-more">
-          <a-button size="small" :loading="loading" @click="run(() => queryRows(true))"
-            >加载更早的任务</a-button
-          >
-        </div>
-      </template>
 
-      <!-- E. 创意投稿：左竖图 + 右侧正文 + 底部操作 -->
-      <template v-else-if="tab === 'ideas'">
-        <AdminDataToolbar :summary="`共 ${ideas.length} 条投稿`">
-          <template #actions>
-            <a-input
-              v-model="search"
-              class="admin-ai-search"
-              size="small"
-              placeholder="搜索投稿"
-              @press-enter="run(() => queryRows())"
-            />
-            <a-select
-              v-model="status"
-              class="admin-ai-filter"
-              size="small"
-              placeholder="全部状态"
-              allow-clear
-            >
-              <a-option v-for="(label, value) in ideaStatusLabels" :key="value" :value="value">
-                {{ label }}</a-option
-              >
-            </a-select>
-            <a-button size="small" @click="run(() => queryRows())">搜索投稿</a-button>
-          </template>
-        </AdminDataToolbar>
-
-        <AdminSkeleton
-          v-if="loading && !ideas.length"
-          variant="rows"
-          :rows="4"
-          :columns="4"
-          label="加载创意投稿"
-        />
-        <AdminEmpty
-          v-else-if="!ideas.length"
-          title="暂无创意投稿"
-          desc="用户提交创意并通过审核后，会在这里看到投稿、参考图与赞助状态。"
-        />
-        <div v-else class="idea-admin-list adm-stagger">
-          <article v-for="row in ideas" :key="row.idea.id" class="idea-admin-card">
-            <div class="idea-admin-media">
-              <CreativeImage v-if="row.references.length" :id="row.references[0]?.id ?? 0" />
-              <span v-else class="idea-admin-media-empty">暂无参考图</span>
-            </div>
-            <div class="idea-admin-main">
-              <div class="idea-admin-head">
-                <h3 class="idea-admin-title">{{ row.idea.title || '未命名投稿' }}</h3>
-                <span
-                  class="admin-ai-pill"
-                  :class="row.idea.status === 'unknown' ? 'is-warn' : ''"
-                  >{{ ideaStatusLabels[row.idea.status] || row.idea.status }}</span
+              <footer class="adm-card-foot">
+                <a-button
+                  v-if="row.task.status === 'unknown'"
+                  size="small"
+                  @click="startResolve(row.task.id)"
+                  >核查结算</a-button
                 >
-                <span class="admin-ai-pill is-accent">{{ row.current_cost }} 额度</span>
-              </div>
-              <p class="idea-admin-desc">{{ row.idea.description || '暂无说明' }}</p>
-              <details class="idea-admin-snapshot">
-                <summary>提示词与参数</summary>
-                <pre>{{ row.idea.snapshot }}</pre>
-              </details>
-              <div class="idea-admin-meta">
-                <span>作者 {{ row.author.username }}</span>
-                <span>{{ row.sponsor?.username ? `赞助 ${row.sponsor.username}` : '等待赞助' }}</span>
-                <time :datetime="row.idea.created_at">{{ new Date(row.idea.created_at).toLocaleString() }}</time>
-              </div>
-            </div>
-            <div class="idea-admin-actions">
-              <RouterLink class="idea-admin-link" :to="`/ideas/${row.idea.id}`">预览</RouterLink>
-              <a-button size="small" @click="showEvents(row.idea.id)">操作与核查记录</a-button>
-              <a-button
-                v-if="row.sponsorable"
-                size="small"
-                @click="
-                  run(async () => {
-                    if (await confirm(`赞助此创意，预留 ${row.current_cost} 额度？`)) {
-                      await aiApi.sponsor(row.idea.id, row.current_cost, newKey())
-                      await load()
-                    }
-                  })
-                "
-                >赞助</a-button
-              >
-              <a-button
-                size="small"
-                @click="
-                  run(async () => {
-                    if (await confirm('下架此创意与公开成果？')) {
-                      await aiApi.hideIdea(row.idea.id, '管理员下架')
-                      await load()
-                    }
-                  })
-                "
-                >下架</a-button
-              >
-              <a-button size="small" status="danger" @click="deleteIdea(row.idea.id)"
-                >删除</a-button
-              >
-            </div>
-          </article>
-        </div>
-        <div v-if="moreRows" class="admin-ai-more">
-          <a-button size="small" :loading="loading" @click="run(() => queryRows(true))"
-            >加载更早的投稿</a-button
-          >
-        </div>
-      </template>
-
-      <!-- F. 角色资源：4:3 封面卡片栅格 + 未归入角色的图片折叠区 -->
-      <template v-else-if="tab === 'character'">
-        <AdminDataToolbar :summary="`共 ${shownResources.length} 个角色资源`">
-          <template #actions>
-            <a-input
-              v-model="search"
-              class="admin-ai-search"
-              size="small"
-              placeholder="搜索角色资源"
-              @press-enter="run(() => queryRows())"
-            />
-            <a-button type="primary" size="small" @click="editResource(null)">新建角色资源</a-button>
-          </template>
-        </AdminDataToolbar>
-        <p class="admin-ai-hint">
-          一个角色资源包含名称、外观说明和参考图片。在同一处管理，生成时一起导入。
-        </p>
-
-        <AdminSkeleton
-          v-if="loading && !shownResources.length"
-          variant="cards"
-          :rows="4"
-          label="加载角色资源"
-        />
-        <AdminEmpty
-          v-else-if="!shownResources.length"
-          title="还没有角色资源"
-          desc="添加角色名称与参考图片，生成时即可一起导入。"
-        >
-          <template #actions>
-            <a-button type="primary" size="small" @click="editResource(null)">新建角色资源</a-button>
-          </template>
-        </AdminEmpty>
-        <div v-else class="adm-card-grid resource-grid">
-          <article v-for="row in shownResources" :key="row.id" class="adm-card">
-            <div class="adm-card-media resource-cover">
-              <CreativeImage v-if="row.payload.asset_ids.length" :id="row.payload.asset_ids[0] ?? 0" />
-              <span v-else class="resource-cover-empty">暂无参考图</span>
-            </div>
-            <div class="adm-card-body">
-              <h3 class="adm-card-title">{{ row.title || '未命名角色' }}</h3>
-              <p class="resource-summary">{{ row.summary || '暂无简介' }}</p>
-              <div class="adm-card-meta">
-                <span>{{ row.payload.asset_ids.length }} 张参考图</span>
-                <span>{{ row.status === 'published' ? '已公开' : '未公开' }}</span>
-              </div>
-            </div>
-            <div class="adm-card-actions">
-              <a-button size="small" @click="editResource(row)">管理角色与图片</a-button>
-              <a-button size="small" status="danger" @click="deleteResource(row)">删除</a-button>
-            </div>
-          </article>
-        </div>
-
-        <details class="resource-advanced">
-          <summary>未归入角色的图片（{{ unassignedAssets.length }}）</summary>
-          <a-button size="small" @click="fileInput?.click()">单独上传图片</a-button
-          ><input
-            ref="fileInput"
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            hidden
-            @change="upload"
-          />
-          <p class="admin-ai-hint">文件不可原地替换。修改图像请上传新版本，旧图与历史引用继续保留。</p>
-          <div class="admin-asset-grid">
-            <article v-for="asset in unassignedAssets" :key="asset.id" class="admin-asset-row">
-              <div class="admin-asset-thumb"><CreativeImage :id="asset.id" /></div>
-              <h3 class="admin-asset-name">#{{ asset.id }} {{ asset.title || '未命名图片' }}</h3>
-              <p class="admin-asset-meta">
-                {{ asset.public ? '公开' : '私人' }} · {{ asset.archived ? '已归档' : '可用' }} ·
-                {{ asset.license || '尚未填写授权' }}
-              </p>
-              <div class="admin-asset-actions">
-                <a-button size="small" @click="editAsset(asset)">编辑 / 发布 / 归档</a-button>
-                <a-button size="small" status="danger" @click="deleteAsset(asset.id)">删除图片</a-button>
-              </div>
+                <a-button
+                  size="small"
+                  status="danger"
+                  class="is-push"
+                  @click="deleteTask(row.task.id)"
+                  >删除任务及结果</a-button
+                >
+              </footer>
             </article>
           </div>
-        </details>
-      </template>
-
-      <!-- G. 提示词模板：行卡（标题 + 胶囊 + 操作） -->
-      <template v-else>
-        <AdminDataToolbar :summary="`共 ${shownResources.length} 个提示词模板`">
-          <template #actions>
-            <a-input
-              v-model="search"
-              class="admin-ai-search"
-              size="small"
-              placeholder="搜索提示词模板"
-              @press-enter="run(() => queryRows())"
-            />
-            <a-select
-              v-model="status"
-              class="admin-ai-filter"
-              size="small"
-              placeholder="全部状态"
-              allow-clear
+          <div v-if="moreRows" class="adm-ai-more">
+            <a-button size="small" :loading="loading" @click="run(() => queryRows(true))"
+              >加载更早的任务</a-button
             >
-              <a-option value="draft">草稿</a-option>
-              <a-option value="published">发布</a-option>
-              <a-option value="archived">归档</a-option>
-            </a-select>
-            <a-button size="small" :disabled="!selected.length" @click="archiveSelected"
-              >批量归档</a-button
-            >
-            <a-button type="primary" size="small" @click="editResource(null)">新建提示词</a-button>
-          </template>
-        </AdminDataToolbar>
+          </div>
+        </section>
 
-        <AdminSkeleton
-          v-if="loading && !shownResources.length"
-          variant="rows"
-          :rows="5"
-          :columns="3"
-          label="加载提示词模板"
-        />
-        <AdminEmpty
-          v-else-if="!shownResources.length"
-          title="还没有提示词模板"
-          desc="把常用提示词整理成模板，生成时可以直接选用。"
-        >
-          <template #actions>
-            <a-button type="primary" size="small" @click="editResource(null)">新建提示词</a-button>
-          </template>
-        </AdminEmpty>
-        <div v-else class="prompt-list adm-stagger">
-          <article v-for="row in shownResources" :key="row.id" class="prompt-row">
-            <div class="prompt-main">
-              <a-checkbox
-                class="prompt-check"
-                :model-value="selected.includes(row.id)"
-                @change="
-                  (checked) =>
-                    (selected = checked
-                      ? [...selected, row.id]
-                      : selected.filter((id) => id !== row.id))
-                "
-                >{{ row.title || '未命名模板' }}</a-checkbox
+        <!-- D. 创意投稿：带图卡片网格 -->
+        <section id="ai-pane-ideas" role="tabpanel" :aria-labelledby="'ai-tab-ideas'" v-else-if="tab === 'ideas'" class="adm-ai-pane">
+          <header class="adm-ai-pane-head">
+            <div>
+              <h2>创意投稿</h2>
+              <p>投稿、参考图与赞助状态同卡呈现，审核动作集中在卡底。</p>
+            </div>
+            <div class="adm-ai-filter-row">
+              <a-input
+                v-model="search"
+                size="small"
+                placeholder="搜索投稿"
+                class="adm-ai-search"
+                @press-enter="run(() => queryRows())"
+              />
+              <a-select
+                v-model="status"
+                size="small"
+                placeholder="全部状态"
+                allow-clear
+                class="adm-ai-filter"
               >
-              <div class="prompt-pills">
-                <span class="admin-ai-pill">版本 {{ row.version }}</span>
-                <span class="admin-ai-pill">排序 {{ row.sort_order }}</span>
-                <span class="admin-ai-pill" :class="row.status === 'draft' ? 'is-warn' : ''">
-                  {{ row.status === 'draft' ? '草稿' : row.status === 'published' ? '已发布' : '已归档' }}
-                </span>
-              </div>
-              <p class="prompt-summary" :title="row.summary || ''">{{ row.summary || '暂无摘要' }}</p>
+                <a-option v-for="(label, value) in ideaStatusLabels" :key="value" :value="value">{{
+                  label
+                }}</a-option>
+              </a-select>
+              <a-button size="small" @click="run(() => queryRows())">搜索投稿</a-button>
             </div>
-            <div class="prompt-actions">
-              <a-button size="small" @click="editResource(row)">编辑 / 预览</a-button>
-              <a-button size="small" status="danger" @click="deleteResource(row)">删除</a-button>
-            </div>
-          </article>
-        </div>
-      </template>
+          </header>
 
+          <AdminSkeleton
+            v-if="loading && !ideas.length"
+            variant="cards"
+            :rows="3"
+            :columns="3"
+            label="加载创意投稿"
+          />
+          <AdminEmpty
+            v-else-if="!ideas.length"
+            title="暂无创意投稿"
+            desc="用户提交创意并通过审核后，会在这里看到投稿、参考图与赞助状态。"
+          />
+          <div v-else class="adm-card-grid adm-stagger">
+            <article v-for="row in ideas" :key="row.idea.id" class="adm-card adm-idea-card">
+              <div class="adm-card-media">
+                <CreativeImage v-if="row.references.length" :id="row.references[0]?.id ?? 0" />
+                <span v-else class="admin-task-cover-empty">暂无参考图</span>
+                <span class="adm-card-badge">{{
+                  ideaStatusLabels[row.idea.status] || row.idea.status
+                }}</span>
+              </div>
+              <div class="adm-card-content">
+                <h3 class="adm-card-title">{{ row.idea.title || '未命名投稿' }}</h3>
+                <p class="adm-idea-desc">{{ row.idea.description || '暂无说明' }}</p>
+                <div class="adm-card-meta">
+                  <span class="adm-ai-chip is-accent">{{ row.current_cost }} 额度</span>
+                  <span>作者 {{ row.author.username }}</span>
+                  <span>{{
+                    row.sponsor?.username ? '赞助 ' + row.sponsor.username : '等待赞助'
+                  }}</span>
+                  <time :datetime="row.idea.created_at">{{ dateText(row.idea.created_at) }}</time>
+                </div>
+                <details class="adm-idea-snapshot">
+                  <summary>提示词与参数</summary>
+                  <pre>{{ row.idea.snapshot }}</pre>
+                </details>
+              </div>
+              <footer class="adm-card-foot">
+                <RouterLink class="adm-ai-link" :to="'/ideas/' + row.idea.id">预览</RouterLink>
+                <a-button size="small" @click="showEvents(row.idea.id)">操作与核查记录</a-button>
+                <a-button v-if="row.sponsorable" size="small" @click="sponsorIdea(row)"
+                  >赞助</a-button
+                >
+                <a-button size="small" @click="hideIdea(row.idea.id)">下架</a-button>
+                <a-button
+                  size="small"
+                  status="danger"
+                  class="is-push"
+                  @click="deleteIdea(row.idea.id)"
+                  >删除</a-button
+                >
+              </footer>
+            </article>
+          </div>
+          <div v-if="moreRows" class="adm-ai-more">
+            <a-button size="small" :loading="loading" @click="run(() => queryRows(true))"
+              >加载更早的投稿</a-button
+            >
+          </div>
+        </section>
+
+        <!-- E. 赞助记录：金额卡片列表 -->
+        <section id="ai-pane-sponsors" role="tabpanel" :aria-labelledby="'ai-tab-sponsors'" v-else-if="tab === 'sponsors'" class="adm-ai-pane">
+          <header class="adm-ai-pane-head">
+            <div>
+              <h2>赞助记录</h2>
+              <p>每条记录对应一次创意赞助任务；金额为本次预留并结算的额度。</p>
+            </div>
+            <div v-if="tasks.length" class="adm-ai-filter-row">
+              <a-input
+                v-model="search"
+                size="small"
+                placeholder="搜索赞助记录或用户"
+                class="adm-ai-search"
+                @press-enter="run(() => queryRows())"
+              />
+              <a-button size="small" @click="run(() => queryRows())">搜索</a-button>
+            </div>
+          </header>
+
+          <AdminSkeleton
+            v-if="loading && !tasks.length"
+            variant="cards"
+            :rows="2"
+            :columns="3"
+            label="加载赞助记录"
+          />
+          <AdminEmpty
+            v-else-if="!shownTasks.length"
+            :title="tasks.length ? '没有匹配的赞助记录' : '暂无赞助记录'"
+            :desc="
+              tasks.length
+                ? '换个关键词再试。'
+                : '用户赞助创意后会在这里生成对应任务与核查记录。'
+            "
+          />
+          <div v-else class="adm-card-grid is-wide adm-stagger">
+            <article v-for="row in shownTasks" :key="row.task.id" class="adm-card adm-sponsor-card">
+              <div class="adm-card-content">
+                <div class="adm-sponsor-head">
+                  <span class="adm-sponsor-amount">{{ row.task.cost }}<span>额度</span></span>
+                  <AdminStatus
+                    :type="taskType(row.task.status)"
+                    :label="taskLabels[row.task.status] || row.task.status"
+                  />
+                </div>
+                <h3 class="adm-card-title">赞助人 {{ taskAuthor(row) }}</h3>
+                <div class="adm-card-meta">
+                  <span>创意 #{{ row.task.idea_id }}</span>
+                  <time :datetime="row.task.created_at">{{
+                    dateText(row.task.created_at) + ' ' + timeText(row.task.created_at)
+                  }}</time>
+                  <span>{{ row.task.model }}</span>
+                </div>
+                <p v-if="row.task.error" class="adm-ai-alert is-warning" role="alert">
+                  {{ row.task.error }}
+                </p>
+              </div>
+              <footer class="adm-card-foot">
+                <a-button
+                  v-if="row.task.status === 'unknown'"
+                  size="small"
+                  @click="startResolve(row.task.id)"
+                  >核查结算</a-button
+                >
+                <RouterLink class="adm-ai-link is-push" :to="'/ideas/' + row.task.idea_id"
+                  >查看创意</RouterLink
+                >
+                <a-button size="small" status="danger" @click="deleteTask(row.task.id)"
+                  >删除任务及结果</a-button
+                >
+              </footer>
+            </article>
+          </div>
+          <div v-if="moreRows" class="adm-ai-more">
+            <a-button size="small" :loading="loading" @click="run(() => queryRows(true))"
+              >加载更早的赞助记录</a-button
+            >
+          </div>
+        </section>
+
+        <!-- F. 角色资源：4:5 封面栅格 + 素材库 -->
+        <section id="ai-pane-character" role="tabpanel" :aria-labelledby="'ai-tab-character'" v-else-if="tab === 'character'" class="adm-ai-pane">
+          <header class="adm-ai-pane-head">
+            <div>
+              <h2>角色资源</h2>
+              <p>角色由名称、外观说明与参考图组成，生成时一起导入。</p>
+            </div>
+            <div class="adm-ai-filter-row">
+              <a-input
+                v-model="search"
+                size="small"
+                placeholder="搜索角色资源"
+                class="adm-ai-search"
+                @press-enter="run(() => queryRows())"
+              />
+              <a-button type="primary" size="small" @click="editResource(null)"
+                >新建角色资源</a-button
+              >
+            </div>
+          </header>
+
+          <AdminSkeleton
+            v-if="loading && !shownResources.length"
+            variant="cards"
+            :rows="3"
+            label="加载角色资源"
+          />
+          <AdminEmpty
+            v-else-if="!shownResources.length"
+            title="还没有角色资源"
+            desc="添加角色名称与参考图片，生成时即可一起导入。"
+          >
+            <template #actions>
+              <a-button type="primary" size="small" @click="editResource(null)"
+                >新建角色资源</a-button
+              >
+            </template>
+          </AdminEmpty>
+          <div v-else class="adm-card-grid adm-stagger">
+            <article v-for="row in shownResources" :key="row.id" class="adm-card">
+              <div class="adm-card-media admin-resource-cover">
+                <CreativeImage
+                  v-if="row.payload.asset_ids.length"
+                  :id="row.payload.asset_ids[0] ?? 0"
+                />
+                <span v-else class="admin-task-cover-empty">暂无参考图</span>
+                <span class="adm-card-badge">{{ resourceLabel(row.status) }}</span>
+              </div>
+              <div class="adm-card-body">
+                <h3 class="adm-card-title">{{ row.title || '未命名角色' }}</h3>
+                <p class="adm-resource-summary">{{ row.summary || '暂无简介' }}</p>
+                <div class="adm-card-meta">
+                  <span>{{ row.payload.asset_ids.length }} 张参考图</span>
+                  <span>{{ row.status === 'published' ? '已公开' : '未公开' }}</span>
+                </div>
+              </div>
+              <footer class="adm-card-foot">
+                <a-button size="small" @click="editResource(row)">编辑 / 发布 / 归档</a-button>
+                <a-button size="small" status="danger" class="is-push" @click="deleteResource(row)"
+                  >删除</a-button
+                >
+              </footer>
+            </article>
+          </div>
+
+          <section class="adm-card adm-ai-assets">
+            <div class="adm-card-content">
+              <header class="adm-ai-assets-head">
+                <h3 class="adm-card-title">未归入角色的图片（{{ unassignedAssets.length }}）</h3>
+                <a-button size="small" @click="fileInput?.click()">单独上传图片</a-button>
+                <input
+                  ref="fileInput"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  hidden
+                  @change="upload"
+                />
+              </header>
+              <p class="adm-ai-hint">
+                文件不可原地替换。修改图像请上传新版本，旧图与历史引用继续保留。
+              </p>
+              <div v-if="unassignedAssets.length" class="adm-asset-grid">
+                <article
+                  v-for="asset in unassignedAssets"
+                  :key="asset.id"
+                  class="adm-card adm-asset-card"
+                >
+                  <div class="adm-card-media adm-asset-thumb">
+                    <CreativeImage :id="asset.id" />
+                  </div>
+                  <div class="adm-card-body">
+                    <h4 class="adm-card-title">#{{ asset.id }} {{ asset.title || '未命名图片' }}</h4>
+                    <p class="adm-ai-hint">
+                      {{ asset.public ? '公开' : '私人' }} ·
+                      {{ asset.archived ? '已归档' : '可用' }} ·
+                      {{ asset.license || '尚未填写授权' }}
+                    </p>
+                  </div>
+                  <footer class="adm-card-foot">
+                    <a-button size="small" @click="editAsset(asset)">编辑 / 发布 / 归档</a-button>
+                    <a-button
+                      size="small"
+                      status="danger"
+                      class="is-push"
+                      @click="deleteAsset(asset.id)"
+                      >删除图片</a-button
+                    >
+                  </footer>
+                </article>
+              </div>
+              <AdminEmpty
+                v-else
+                compact
+                title="没有待归入的图片"
+                desc="上传的设定图会先留在这里，归档到角色后从这里消失。"
+              />
+            </div>
+          </section>
+        </section>
+
+        <!-- G. 提示词模板：卡片列表 -->
+        <section id="ai-pane-template" role="tabpanel" :aria-labelledby="'ai-tab-template'" v-else class="adm-ai-pane">
+          <header class="adm-ai-pane-head">
+            <div>
+              <h2>提示词模板</h2>
+              <p>把常用提示词整理成模板，生成时可直接选用。</p>
+            </div>
+            <div class="adm-ai-filter-row">
+              <a-input
+                v-model="search"
+                size="small"
+                placeholder="搜索提示词模板"
+                class="adm-ai-search"
+                @press-enter="run(() => queryRows())"
+              />
+              <a-select
+                v-model="status"
+                size="small"
+                placeholder="全部状态"
+                allow-clear
+                class="adm-ai-filter"
+              >
+                <a-option value="draft">草稿</a-option>
+                <a-option value="published">发布</a-option>
+                <a-option value="archived">归档</a-option>
+              </a-select>
+              <a-button size="small" :disabled="!selected.length" @click="archiveSelected"
+                >批量归档</a-button
+              >
+              <a-button type="primary" size="small" @click="editResource(null)"
+                >新建提示词</a-button
+              >
+            </div>
+          </header>
+
+          <AdminSkeleton
+            v-if="loading && !shownResources.length"
+            variant="cards"
+            :rows="3"
+            :columns="3"
+            label="加载提示词模板"
+          />
+          <AdminEmpty
+            v-else-if="!shownResources.length"
+            title="还没有提示词模板"
+            desc="把常用提示词整理成模板，生成时可以直接选用。"
+          >
+            <template #actions>
+              <a-button type="primary" size="small" @click="editResource(null)"
+                >新建提示词</a-button
+              >
+            </template>
+          </AdminEmpty>
+          <div v-else class="adm-card-grid is-wide adm-stagger">
+            <article
+              v-for="row in shownResources"
+              :key="row.id"
+              class="adm-card ai-template-card"
+            >
+              <div class="adm-card-content">
+                <header class="ai-template-head">
+                  <a-checkbox
+                    class="adm-template-check"
+                    :model-value="selected.includes(row.id)"
+                    :aria-label="'选择模板 ' + (row.title || '未命名模板')"
+                    @change="(checked) => toggleSelected(row.id, !!checked)"
+                  />
+                  <h3 class="adm-card-title">{{ row.title || '未命名模板' }}</h3>
+                </header>
+                <div class="adm-ai-chips">
+                  <span class="adm-ai-chip">版本 {{ row.version }}</span>
+                  <span class="adm-ai-chip">排序 {{ row.sort_order }}</span>
+                  <span class="adm-ai-chip" :class="row.status === 'draft' ? 'is-warn' : ''">{{
+                    row.status === 'draft'
+                      ? '草稿'
+                      : row.status === 'published'
+                        ? '已发布'
+                        : '已归档'
+                  }}</span>
+                </div>
+                <p class="adm-template-summary" :title="row.summary || ''">
+                  {{ row.summary || '暂无摘要' }}
+                </p>
+              </div>
+              <footer class="adm-card-foot">
+                <a-button size="small" @click="editResource(row)">编辑 / 预览</a-button>
+                <a-button
+                  size="small"
+                  status="danger"
+                  class="is-push"
+                  @click="deleteResource(row)"
+                  >删除</a-button
+                >
+              </footer>
+            </article>
+          </div>
+        </section>
+      </div>
+    </div>
       <a-modal
         :visible="!!previewAsset"
         class="admin-theme creative-theme creative-dialog ai-dialog"
@@ -1129,7 +1458,7 @@ onBeforeUnmount(() => {
         :width="900"
         :footer="false"
         @cancel="previewAsset = null"
-        ><div v-if="previewAsset" class="admin-asset-preview">
+        ><div v-if="previewAsset" class="ai-dialog-body admin-asset-preview">
           <CreativeImage :id="previewAsset.id" full /></div
       ></a-modal>
       <a-modal
@@ -1138,19 +1467,23 @@ onBeforeUnmount(() => {
         title="供应商配置"
         :width="760"
         :footer="false"
-        ><AIProviderEditor v-if="providerOpen" :provider="editingProvider" @saved="saved"
-      /></a-modal>
+        ><div class="ai-dialog-body">
+          <AIProviderEditor v-if="providerOpen" :provider="editingProvider" @saved="saved" />
+        </div></a-modal
+      >
       <a-modal
         v-model:visible="eventsOpen"
         class="admin-theme creative-theme creative-dialog ai-dialog"
         title="创意操作与核查记录"
         :footer="false"
-        ><div v-for="event in events" :key="event.id" class="studio-task">
-          <strong
-            >{{ event.action }} · 任务 #{{ event.task_id }} · 操作人 #{{ event.actor_id }}</strong
-          >
-          <p>{{ event.note }}</p>
-          <small>{{ event.created_at }}</small>
+        ><div class="ai-dialog-body">
+          <div v-for="event in events" :key="event.id" class="studio-task">
+            <strong
+              >{{ event.action }} · 任务 #{{ event.task_id }} · 操作人 #{{ event.actor_id }}</strong
+            >
+            <p>{{ event.note }}</p>
+            <small>{{ event.created_at }}</small>
+          </div>
         </div></a-modal
       >
       <a-modal
@@ -1159,21 +1492,24 @@ onBeforeUnmount(() => {
         title="创作资源"
         :width="800"
         :footer="false"
-        ><CreativeResourceEditor
-          v-if="resourceOpen"
-          :resource="editingResource"
-          :kind="editingResource?.kind ?? kind"
-          :assets="assets"
-          :resources="resources"
-          @saved="saved"
-          @assets-changed="assets = $event"
-      /></a-modal>
+        ><div class="ai-dialog-body">
+          <CreativeResourceEditor
+            v-if="resourceOpen"
+            :resource="editingResource"
+            :kind="editingResource?.kind ?? kind"
+            :assets="assets"
+            :resources="resources"
+            @saved="saved"
+            @assets-changed="assets = $event"
+          />
+        </div></a-modal
+      >
       <a-modal
         v-model:visible="assetOpen"
         class="admin-theme creative-theme creative-dialog ai-dialog"
         title="设定图信息"
         :footer="false"
-        ><template v-if="editingAsset"
+        ><div v-if="editingAsset" class="ai-dialog-body"
           ><div v-if="assetError" class="admin-ai-alert" role="alert">{{ assetError }}</div>
           <label class="creative-field"
             >标题<a-input v-model="editingAsset.title" :max-length="150" /></label
@@ -1215,9 +1551,9 @@ onBeforeUnmount(() => {
             工作台发布到站内。
           </p>
           <a-checkbox v-model="editingAsset.archived">归档</a-checkbox
-          ><a-button type="primary" :loading="assetSaving" @click="saveAsset"
+          ><a-button type="primary" size="small" :loading="assetSaving" @click="saveAsset"
             >保存</a-button
-          ></template
+          ></div
         ></a-modal
       >
       <a-modal
@@ -1228,7 +1564,8 @@ onBeforeUnmount(() => {
         :mask-closable="!resolveBusy"
         :esc-to-close="!resolveBusy"
         :closable="!resolveBusy"
-        ><p>先在供应商侧核查实际执行与计费情况，再释放或结算预留额度。此操作不会重新请求生图。</p>
+        ><div class="ai-dialog-body">
+        <p>先在供应商侧核查实际执行与计费情况，再释放或结算预留额度。此操作不会重新请求生图。</p>
         <a-checkbox v-model="consumed" :disabled="resolveBusy"
           >已确认产生供应商费用，结算预留额度</a-checkbox
         ><label class="creative-field"
@@ -1243,783 +1580,1059 @@ onBeforeUnmount(() => {
           ></label
         >
         <p v-if="resolveError" role="alert" class="admin-ai-alert">{{ resolveError }}</p>
-        <a-button type="primary" :loading="resolveBusy" @click="resolve">{{
+        <a-button type="primary" size="small" :loading="resolveBusy" @click="resolve">{{
           consumed ? '确认结算' : '确认未消耗，释放预留'
-        }}</a-button></a-modal
+        }}</a-button></div></a-modal
       >
-    </div>
   </AdminPanel>
 </template>
+
 <style scoped>
-.admin-ai-body {
-  padding: var(--adm-gap-xl, 24px);
+/* AI 创作管理：左侧分区 rail + 右侧工作区。仅使用 --adm-* 令牌（带旧值回落）。 */
+.ai-workspace {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: calc(var(--adm-gap-lg, 16px) + var(--adm-gap-xs, 4px));
+  align-items: start;
+  min-width: 0;
+}
+
+.ai-rail {
+  position: sticky;
+  top: var(--adm-gap-lg, 16px);
   display: flex;
   flex-direction: column;
-  gap: var(--adm-gap-lg, 16px);
+  gap: 2px;
   min-width: 0;
+  padding: var(--adm-gap-sm, 8px);
+  border: 1px solid var(--adm-line, var(--admin-border-soft));
+  border-radius: var(--adm-r-card, var(--admin-radius));
+  background: var(--adm-surface, var(--admin-surface));
 }
-/* 工具条在 body 内不再自带上下留白，靠 body 的 gap 控制节奏 */
-.admin-ai-body :deep(.admin-data-toolbar) {
-  padding: 0;
-}
-.admin-ai-body :deep(.admin-data-toolbar-actions) {
-  min-width: 0;
-}
-
-/* ── 页签：沿用上一轮的胶囊分段控件 ── */
-.admin-ai-tabs {
-  display: flex;
-  gap: var(--adm-gap-sm, 8px);
-  flex-wrap: wrap;
-  padding-bottom: var(--adm-gap-md, 12px);
-  border-bottom: 1px solid var(--adm-line, var(--creative-line));
-}
-.admin-ai-tabs button {
-  min-height: var(--adm-touch, 36px);
-  padding: 0 14px;
-  border: 1px solid var(--adm-line, var(--creative-line));
-  border-radius: var(--adm-r-pill, 999px);
-  background: var(--adm-surface, var(--creative-paper));
-  color: var(--adm-muted, var(--creative-muted));
-  font-size: var(--adm-font-sm, 13px);
-  cursor: pointer;
-  transition:
-    background var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease),
-    border-color var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease),
-    color var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease),
-    transform var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease);
-}
-.admin-ai-tabs button:hover:not(:disabled) {
-  border-color: var(--adm-accent, var(--creative-accent));
-  background: var(--adm-soft, var(--creative-soft));
-  color: var(--adm-accent, var(--creative-accent));
-}
-.admin-ai-tabs button:focus-visible {
-  outline: 2px solid var(--adm-accent, var(--creative-accent));
-  outline-offset: 2px;
-}
-.admin-ai-tabs button:active:not(:disabled) {
-  transform: scale(.98);
-}
-.admin-ai-tabs button.is-active {
-  border-color: var(--adm-accent, var(--creative-accent));
-  background: var(--adm-accent-soft, var(--creative-soft));
-  color: var(--adm-accent, var(--creative-accent));
-}
-
-/* ── 通用块：提示条 / 卡片 / 胶囊 / 提示文字 ── */
-.admin-ai-alert {
-  margin: 0;
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--adm-danger) 30%, transparent);
-  border-radius: var(--adm-r-control, 10px);
-  background: color-mix(in srgb, var(--adm-danger) 8%, var(--adm-surface, var(--creative-paper)));
-  color: color-mix(in srgb, var(--adm-danger) 70%, var(--adm-ink, var(--creative-ink)));
-  font-size: var(--adm-font-sm, 13px);
-  line-height: 1.65;
-  overflow-wrap: anywhere;
-}
-.admin-ai-alert.is-warning {
-  border-color: color-mix(in srgb, var(--adm-warning) 30%, transparent);
-  background: color-mix(in srgb, var(--adm-warning) 10%, var(--adm-surface, var(--creative-paper)));
-  color: color-mix(in srgb, var(--adm-warning) 68%, var(--adm-ink, var(--creative-ink)));
-}
-
-.admin-ai-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--adm-gap-md, 12px);
-  min-width: 0;
-  padding: var(--adm-gap-lg, 16px);
-  border: 1px solid var(--adm-line, var(--creative-line));
-  border-radius: var(--adm-r-card, 16px);
-  background: var(--adm-surface, var(--creative-paper));
-}
-.admin-ai-card-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--adm-gap-lg, 16px);
-  flex-wrap: wrap;
-}
-.admin-ai-card-heading {
-  min-width: 0;
-  flex: 1;
-}
-.admin-ai-card-heading h3 {
-  margin: 0;
-  color: var(--adm-ink, var(--creative-ink));
-  font-size: var(--adm-font-md, 15px);
-  font-weight: 600;
-  line-height: 1.4;
-}
-.admin-ai-card-heading p {
-  max-width: 68ch;
-  margin: var(--adm-gap-xs, 4px) 0 0;
-  color: var(--adm-muted, var(--creative-muted));
-  font-size: var(--adm-font-base, 14px);
-  line-height: 1.65;
-}
-.admin-ai-card-foot {
+.ai-rail-row {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--adm-gap-md, 12px);
-  flex-wrap: wrap;
+  min-width: 0;
 }
-.admin-ai-hint {
-  margin: 0;
-  color: var(--adm-muted, var(--creative-muted));
-  font-size: var(--adm-font-xs, 12px);
-  line-height: 1.6;
-}
-.admin-ai-hint.is-success {
-  color: color-mix(in srgb, var(--adm-success) 78%, var(--adm-ink, var(--creative-ink)));
-}
-
-.admin-ai-pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 22px;
-  padding: 0 8px;
-  border: 1px solid transparent;
-  border-radius: var(--adm-r-pill, 999px);
-  background: var(--adm-soft, var(--creative-soft));
-  color: var(--adm-muted, var(--creative-muted));
-  font-size: var(--adm-font-xs, 12px);
-  line-height: 1.6;
-  white-space: nowrap;
-}
-.admin-ai-pill.is-mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  letter-spacing: -.01em;
-}
-.admin-ai-pill.is-quiet {
-  background: transparent;
-  border-color: var(--adm-line, var(--creative-line));
-}
-.admin-ai-pill.is-warn {
-  background: color-mix(in srgb, var(--adm-warning) 12%, transparent);
-  color: color-mix(in srgb, var(--adm-warning) 70%, var(--adm-ink, var(--creative-ink)));
-}
-.admin-ai-pill.is-accent {
-  background: var(--adm-accent-soft, var(--creative-soft));
-  color: var(--adm-accent, var(--creative-accent));
-}
-
-.admin-ai-list {
+.ai-rail-item {
   display: flex;
-  flex-direction: column;
+  flex: 1 1 auto;
+  align-items: center;
   gap: 10px;
   min-width: 0;
-}
-.admin-ai-more {
-  display: flex;
-  justify-content: center;
-}
-
-/* ── A. 提示词增强说明卡 ── */
-.admin-prompt-card {
-  gap: var(--adm-gap-md, 12px);
-}
-.admin-prompt-input :deep(.arco-textarea) {
-  min-height: 96px;
+  min-height: 40px;
+  padding: 8px 34px 8px 12px;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: var(--adm-r-control, var(--admin-radius));
+  background: transparent;
+  color: var(--adm-muted, var(--admin-text));
   font-size: var(--adm-font-sm, 13px);
-  line-height: 1.7;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease),
+    color var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease),
+    border-color var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease);
+}
+.ai-rail-item:hover {
+  background: var(--adm-soft, var(--admin-fill));
+  color: var(--adm-ink, var(--admin-text));
+}
+.ai-rail-item.is-active {
+  border-left-color: var(--adm-accent, var(--admin-primary));
+  background: var(--adm-accent-soft, var(--admin-primary-soft));
+  color: var(--adm-ink, var(--admin-text));
+  font-weight: 600;
+}
+.ai-rail-item:focus-visible {
+  outline: 2px solid var(--adm-accent, var(--admin-primary));
+  outline-offset: 2px;
+}
+.ai-rail-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: calc(var(--adm-r-control, 10px) - 2px);
+  background: var(--adm-soft, var(--admin-fill));
+  color: var(--adm-muted, var(--admin-text));
+  font-size: var(--adm-font-sm, 13px);
+}
+.ai-rail-item.is-active .ai-rail-icon {
+  background: var(--adm-accent-soft, var(--admin-primary-soft));
+  color: var(--adm-accent, var(--admin-primary));
+}
+.ai-rail-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-rail-count {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  padding: 0 6px;
+  border-radius: var(--adm-r-pill, 999px);
+  background: var(--adm-soft, var(--admin-fill));
+  color: var(--adm-muted, var(--admin-text));
+  font-size: var(--adm-font-xs, 11px);
+  line-height: 18px;
+  font-variant-numeric: var(--adm-numeric, tabular-nums);
+  pointer-events: none;
 }
 
-/* ── A. 供应商行卡 ── */
-.provider-row {
+.ai-main {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--adm-gap-lg, 16px);
   min-width: 0;
-  padding: 14px var(--adm-gap-lg, 16px);
-  border: 1px solid var(--adm-line, var(--creative-line));
-  border-radius: var(--adm-r-card, 16px);
-  background: var(--adm-surface, var(--creative-paper));
-  transition: border-color var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease);
 }
-@media (hover: hover) and (pointer: fine) {
-  .provider-row:hover {
-    border-color: color-mix(in srgb, var(--adm-accent, var(--creative-accent)) 45%, var(--adm-line, var(--creative-line)));
-  }
+.adm-ai-stats {
+  margin: 0;
 }
-.provider-main {
+.adm-ai-pane {
   display: flex;
-  flex: 1;
   flex-direction: column;
+  gap: var(--adm-gap-lg, 16px);
+  min-width: 0;
+}
+.adm-ai-pane-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--adm-gap-md, 12px);
+  min-width: 0;
+}
+.adm-ai-pane-head h2 {
+  margin: 0;
+  font-size: var(--adm-font-lg, 17px);
+  font-weight: 600;
+  color: var(--adm-ink, var(--admin-text));
+}
+.adm-ai-pane-head p {
+  margin: 4px 0 0;
+  font-size: var(--adm-font-xs, 12px);
+  line-height: 1.6;
+  color: var(--adm-muted, var(--admin-text));
+}
+.adm-ai-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--adm-gap-sm, 8px);
+  min-width: 0;
+}
+.adm-ai-search {
+  width: 200px;
+}
+.adm-ai-filter {
+  width: 150px;
+}
+/* Arco 的 a-select 根节点不带 scoped 作用域属性（a-input / a-button 带），
+   所以上面两条普通规则对下拉框从未生效，下拉会撑满整行。必须走 :deep()。 */
+.adm-ai-filter-row :deep(.adm-ai-search) {
+  flex: 0 0 200px;
+  width: 200px;
+}
+.adm-ai-filter-row :deep(.adm-ai-filter) {
+  flex: 0 0 150px;
+  width: 150px;
+}
+.adm-ai-filter-row :deep(.arco-btn) {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.adm-ai-alert,
+.admin-ai-alert {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--adm-danger, var(--admin-danger));
+  border-radius: var(--adm-r-control, var(--admin-radius));
+  background: var(--adm-danger-soft, var(--admin-danger-soft));
+  color: var(--adm-danger, var(--admin-danger));
+  font-size: var(--adm-font-xs, 12px);
+  line-height: 1.6;
+}
+.adm-ai-alert.is-warning,
+.admin-ai-alert.is-warning {
+  border-color: var(--adm-warning, var(--adm-accent, var(--admin-primary)));
+  background: var(--adm-soft, var(--admin-fill));
+  color: var(--adm-ink, var(--admin-text));
+}
+
+.adm-ai-chips {
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   min-width: 0;
 }
-.provider-head {
+.adm-ai-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 1px 8px;
+  overflow: hidden;
+  border-radius: var(--adm-r-pill, 999px);
+  background: var(--adm-soft, var(--admin-fill));
+  color: var(--adm-muted, var(--admin-text));
+  font-size: var(--adm-font-xs, 11px);
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.adm-ai-chip.is-accent {
+  background: var(--adm-accent-soft, var(--admin-primary-soft));
+  color: var(--adm-accent, var(--admin-primary));
+}
+.adm-ai-chip.is-danger {
+  background: var(--adm-danger-soft, var(--admin-danger-soft));
+  color: var(--adm-danger, var(--admin-danger));
+}
+.adm-ai-chip.is-warn {
+  color: var(--adm-warning, var(--adm-accent, var(--admin-primary)));
+}
+
+.adm-ai-provider-head {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: var(--adm-gap-sm, 8px);
+  gap: 8px;
   min-width: 0;
 }
-.provider-state {
+.adm-ai-provider-head .adm-card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+.adm-ai-dot {
   flex: none;
   width: 8px;
   height: 8px;
-  border-radius: var(--adm-r-pill, 999px);
-  background: var(--adm-muted, var(--creative-muted));
-  opacity: .45;
+  border-radius: 50%;
+  background: var(--adm-muted, var(--admin-text));
 }
-.provider-state.is-on {
-  opacity: 1;
-  background: var(--adm-success);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--adm-success) 18%, transparent);
+.adm-ai-dot.is-on {
+  background: var(--adm-success, var(--adm-accent, var(--admin-primary)));
 }
-.provider-name {
-  color: var(--adm-ink, var(--creative-ink));
-  font-size: var(--adm-font-md, 15px);
-  font-weight: 600;
-  line-height: 1.4;
+.adm-ai-dot.is-off {
+  background: var(--adm-line, var(--admin-border-soft));
+  box-shadow: inset 0 0 0 1px var(--adm-muted, var(--admin-text));
 }
-.provider-endpoint {
-  margin: 0;
-  overflow: hidden;
-  color: var(--adm-muted, var(--creative-muted));
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: var(--adm-font-xs, 12px);
-  line-height: 1.5;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.provider-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
+.adm-ai-provider-state {
   flex: none;
-  gap: var(--adm-gap-sm, 8px);
+  font-size: var(--adm-font-xs, 11px);
+  color: var(--adm-muted, var(--admin-text));
 }
 
-/* ── B. 发放额度 ── */
-.admin-grant-card {
-  gap: var(--adm-gap-lg, 16px);
+.adm-ai-fold {
+  padding: 0;
+  overflow: hidden;
 }
-.grant-fields {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(120px, .55fr) minmax(0, 1fr);
-  align-items: start;
-  gap: var(--adm-gap-lg, 16px);
+.adm-ai-fold-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid transparent;
+  cursor: pointer;
+  list-style: none;
+  transition: background-color var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease);
 }
-.admin-ai-field {
+.adm-ai-fold-head::-webkit-details-marker {
+  display: none;
+}
+.adm-ai-fold-head:hover {
+  background: var(--adm-soft, var(--admin-fill));
+}
+.adm-ai-fold[open] .adm-ai-fold-head {
+  border-bottom-color: var(--adm-line, var(--admin-border-soft));
+}
+.adm-ai-fold-head::after {
+  content: '▾';
+  margin-left: auto;
+  color: var(--adm-muted, var(--admin-text));
+  font-size: var(--adm-font-xs, 12px);
+  transition: transform var(--adm-dur-base, 220ms) var(--adm-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+}
+.adm-ai-fold[open] .adm-ai-fold-head::after {
+  transform: rotate(180deg);
+}
+.adm-ai-fold-title {
+  flex: none;
+  font-size: var(--adm-font-md, 15px);
+  font-weight: 600;
+  color: var(--adm-ink, var(--admin-text));
+}
+.adm-ai-fold-desc {
+  flex: 1 1 240px;
+  min-width: 0;
+  font-size: var(--adm-font-xs, 12px);
+  line-height: 1.6;
+  color: var(--adm-muted, var(--admin-text));
+}
+.adm-ai-fold-state {
+  flex: none;
+  font-size: var(--adm-font-xs, 11px);
+  color: var(--adm-muted, var(--admin-text));
+}
+.adm-ai-fold:not([open]) .adm-ai-fold-body {
+  display: none;
+}
+.admin-task-prompt:not([open]) pre,
+.admin-task-diagnostic:not([open]) > *:not(summary),
+.adm-idea-snapshot:not([open]) pre {
+  display: none;
+}
+.adm-ai-fold-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--adm-gap-md, 12px);
+  padding: 14px 16px 16px;
+}
+.adm-ai-fold-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.adm-ai-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-width: 0;
 }
-.admin-ai-field-label {
-  color: var(--adm-muted, var(--creative-muted));
-  font-size: var(--adm-font-xs, 12px);
-  line-height: 1.5;
-}
-.admin-ai-field-static {
-  color: var(--adm-ink, var(--creative-ink));
-  font-size: var(--adm-font-base, 14px);
+.adm-ai-field-label {
+  font-size: var(--adm-font-xs, 11px);
   font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--adm-muted, var(--admin-text));
 }
-.grant-fields :deep(.arco-select),
-.grant-fields :deep(.arco-input-number),
-.grant-fields :deep(.arco-input-wrapper) {
-  width: 100%;
+.adm-ai-field-static {
+  font-size: var(--adm-font-base, 14px);
+  color: var(--adm-ink, var(--admin-text));
 }
-.admin-grant-foot {
+.adm-ai-field-inline {
   display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.adm-ai-hint {
+  margin: 0;
+  font-size: var(--adm-font-xs, 11px);
+  line-height: 1.6;
+  color: var(--adm-muted, var(--admin-text));
+}
+.adm-ai-hint.is-success {
+  color: var(--adm-success, var(--adm-accent, var(--admin-primary)));
+}
+
+.adm-ai-grant-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--adm-gap-sm, 8px);
+}
+.adm-ai-grant-head .adm-card-title {
+  margin: 0;
+  font-size: var(--adm-font-base, 14px);
+}
+.adm-ai-grant-foot {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--adm-gap-md, 12px);
-  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: var(--adm-gap-md, 12px);
+  border-top: 1px solid var(--adm-line, var(--admin-border-soft));
+}
+.adm-ai-grant-foot .adm-ai-hint {
+  flex: 1 1 140px;
+  min-width: 0;
 }
 
-/* ── B. 账本紧凑行 ── */
-.ledger-list {
-  margin: 0;
-  padding: 0;
-  border: 1px solid var(--adm-line, var(--creative-line));
-  border-radius: var(--adm-r-card, 16px);
-  background: var(--adm-surface, var(--creative-paper));
-  list-style: none;
-  overflow: hidden;
-}
-.ledger-row {
-  display: grid;
-  grid-template-columns: minmax(128px, 160px) minmax(72px, 120px) 92px 76px minmax(0, 1fr);
-  align-items: center;
-  gap: var(--adm-gap-md, 12px);
-  min-height: 44px;
-  padding: 0 var(--adm-gap-lg, 16px);
-  border-bottom: 1px solid var(--adm-line, var(--creative-line));
-  color: var(--adm-ink, var(--creative-ink));
-  font-size: var(--adm-font-sm, 13px);
-}
-.ledger-row:last-child {
-  border-bottom: 0;
-}
-.ledger-time {
-  color: var(--adm-muted, var(--creative-muted));
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: var(--adm-font-xs, 12px);
-  font-variant-numeric: var(--adm-numeric, tabular-nums);
-}
-.ledger-user {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.ledger-kind {
-  justify-self: start;
-  padding: 1px 8px;
-  border-radius: var(--adm-r-pill, 999px);
-  background: var(--adm-soft, var(--creative-soft));
-  color: var(--adm-muted, var(--creative-muted));
-  font-size: var(--adm-font-xs, 12px);
-  white-space: nowrap;
-}
-.ledger-amount {
-  justify-self: end;
-  color: var(--adm-muted, var(--creative-muted));
-  font-variant-numeric: var(--adm-numeric, tabular-nums);
-  font-weight: 600;
-  text-align: right;
-}
-.ledger-amount.is-plus {
-  color: var(--adm-success);
-}
-.ledger-amount.is-minus {
-  color: var(--adm-danger);
-}
-.ledger-note {
-  overflow: hidden;
-  color: var(--adm-muted, var(--creative-muted));
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.ledger-task {
-  margin-left: var(--adm-gap-sm, 8px);
-  font-size: var(--adm-font-xs, 12px);
-  opacity: .85;
-}
-
-/* ── E. 创意投稿横向卡 ── */
-.idea-admin-list {
+.adm-ai-timeline {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--adm-gap-xl, 24px);
   min-width: 0;
 }
-.idea-admin-card {
+.adm-ai-day {
+  margin: 0;
+}
+.adm-ai-day-label {
+  margin: 0 0 8px;
+  color: var(--adm-muted, var(--admin-text));
+  font-size: var(--adm-font-xs, 11px);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  text-transform: uppercase;
+  font-variant-numeric: var(--adm-numeric, tabular-nums);
+}
+.adm-ai-day-rows {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0 0 0 20px;
+  list-style: none;
+}
+.adm-ai-day-rows::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 5px;
+  width: 1px;
+  background: var(--adm-line, var(--admin-border-soft));
+}
+.adm-ai-entry {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: var(--adm-r-control, var(--admin-radius));
+  transition: background-color var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease);
+}
+.adm-ai-entry:hover {
+  background: var(--adm-soft, var(--admin-fill));
+}
+.adm-ai-node {
+  position: absolute;
+  top: 14px;
+  left: -19px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--adm-surface, var(--admin-surface));
+  box-shadow: inset 0 0 0 1px var(--adm-line, var(--admin-border-soft));
+}
+.adm-ai-entry-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.adm-ai-entry-head {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
-  gap: var(--adm-gap-md, 12px);
+  align-items: center;
+  gap: 6px;
   min-width: 0;
-  padding: var(--adm-gap-md, 12px);
-  border: 1px solid var(--adm-line, var(--creative-line));
-  border-radius: var(--adm-r-card, 16px);
-  background: var(--adm-surface, var(--creative-paper));
-  transition: border-color var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease);
 }
-@media (hover: hover) and (pointer: fine) {
-  .idea-admin-card:hover {
-    border-color: color-mix(in srgb, var(--adm-accent, var(--creative-accent)) 45%, var(--adm-line, var(--creative-line)));
-  }
+.adm-ai-entry-user {
+  font-size: var(--adm-font-sm, 13px);
+  color: var(--adm-ink, var(--admin-text));
+  overflow-wrap: anywhere;
 }
-.idea-admin-media {
-  flex: none;
-  width: 88px;
-  height: 110px;
-  overflow: hidden;
-  border-radius: 10px;
-  background: var(--adm-canvas, var(--creative-canvas));
+.adm-ai-entry-amount {
+  font-size: var(--adm-font-sm, 13px);
+  font-weight: 600;
+  font-variant-numeric: var(--adm-numeric, tabular-nums);
 }
-.idea-admin-media :deep(.creative-image),
-.idea-admin-media :deep(.creative-image img) {
+.adm-ai-entry-amount.is-plus {
+  color: var(--adm-success, var(--adm-accent, var(--admin-primary)));
+}
+.adm-ai-entry-amount.is-minus {
+  color: var(--adm-danger, var(--admin-danger));
+}
+.adm-ai-entry-time {
+  margin-left: auto;
+  color: var(--adm-muted, var(--admin-text));
+  font-size: var(--adm-font-xs, 11px);
+  font-variant-numeric: var(--adm-numeric, tabular-nums);
+}
+.adm-ai-entry-note {
+  margin: 0;
+  color: var(--adm-muted, var(--admin-text));
+  font-size: var(--adm-font-xs, 12px);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.adm-ai-entry-link {
+  font-size: var(--adm-font-xs, 11px);
+  color: var(--adm-accent, var(--admin-primary));
+}
+
+/* 生图任务：结果图画廊卡片 */
+.admin-task-record {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.admin-task-cover {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  margin: 0;
+  background: var(--adm-soft, var(--admin-fill));
+}
+.admin-task-cover .admin-image-preview {
+  display: block;
   width: 100%;
   height: 100%;
-  min-height: 0;
+}
+.admin-task-cover :deep(.creative-image img) {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
-.idea-admin-media-empty {
+.admin-task-cover-empty {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   height: 100%;
-  color: var(--adm-muted, var(--creative-muted));
+  padding: 12px;
+  color: var(--adm-muted, var(--admin-text));
   font-size: var(--adm-font-xs, 12px);
+  line-height: 1.6;
+  text-align: center;
 }
-.idea-admin-main {
+.admin-task-header {
   display: flex;
-  flex: 1;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: 6px;
   min-width: 0;
 }
-.idea-admin-head {
+.admin-task-identity {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: var(--adm-gap-sm, 8px);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
-.idea-admin-title {
-  margin: 0;
-  color: var(--adm-ink, var(--creative-ink));
-  font-size: var(--adm-font-base, 14px);
+.admin-task-id {
+  color: var(--adm-ink, var(--admin-text));
+  font-family: ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size: var(--adm-font-md, 15px);
   font-weight: 600;
-  line-height: 1.45;
+}
+.admin-task-author {
+  max-width: 22ch;
+  overflow: hidden;
+  color: var(--adm-muted, var(--admin-text));
+  font-size: var(--adm-font-xs, 12px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-task-time {
+  color: var(--adm-muted, var(--admin-text));
+  font-family: ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size: var(--adm-font-xs, 12px);
+  font-variant-numeric: var(--adm-numeric, tabular-nums);
+}
+.admin-task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--adm-muted, var(--admin-text));
+  font-size: var(--adm-font-xs, 12px);
+  font-variant-numeric: var(--adm-numeric, tabular-nums);
   overflow-wrap: anywhere;
 }
-.idea-admin-desc {
+.admin-task-meta > span {
+  padding: 1px 8px;
+  border-radius: var(--adm-r-pill, 999px);
+  background: var(--adm-soft, var(--admin-fill));
+}
+.admin-task-meta > a {
+  color: var(--adm-accent, var(--admin-primary));
+  font-size: var(--adm-font-xs, 12px);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.admin-task-results {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+.admin-task-results .admin-image-preview {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+}
+.admin-task-prompt {
+  min-width: 0;
+}
+.admin-task-prompt summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  cursor: pointer;
+  list-style: none;
+}
+.admin-task-prompt summary::-webkit-details-marker {
+  display: none;
+}
+.admin-task-prompt-excerpt {
   display: -webkit-box;
+  flex: 0 1 auto;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  min-width: 0;
   overflow: hidden;
-  margin: 0;
-  color: var(--adm-muted, var(--creative-muted));
+  color: var(--adm-ink, var(--admin-text));
   font-size: var(--adm-font-sm, 13px);
-  line-height: 1.65;
+  line-height: 1.7;
   overflow-wrap: anywhere;
+  white-space: normal;
 }
-.idea-admin-snapshot summary {
-  color: var(--adm-accent, var(--creative-accent));
+.admin-prompt-expand,
+.admin-prompt-collapse {
+  flex: none;
+  color: var(--adm-accent, var(--admin-primary));
   font-size: var(--adm-font-xs, 12px);
-  cursor: pointer;
+  line-height: 1.9;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
 }
-.idea-admin-snapshot pre {
-  max-height: 180px;
-  margin: 6px 0 0;
+.admin-prompt-collapse,
+.admin-task-prompt[open] .admin-task-prompt-excerpt,
+.admin-task-prompt[open] .admin-prompt-expand {
+  display: none;
+}
+.admin-task-prompt[open] .admin-prompt-collapse {
+  display: inline-block;
+  margin-left: auto;
+}
+.admin-task-prompt pre {
+  max-height: 220px;
+  margin: 8px 0 0;
+  padding: 0;
   overflow: auto;
-  color: var(--adm-muted, var(--creative-muted));
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--adm-muted, var(--admin-text));
+  font-family: ui-monospace,SFMono-Regular,Menlo,monospace;
   font-size: var(--adm-font-xs, 12px);
-  line-height: 1.65;
+  line-height: 1.75;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.idea-admin-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px var(--adm-gap-md, 12px);
-  color: var(--adm-muted, var(--creative-muted));
+.admin-task-diagnostic {
+  padding: 8px 12px;
+  border: 1px dashed var(--adm-line, var(--admin-border-soft));
+  border-radius: 10px;
+  background: var(--adm-soft, var(--admin-fill));
+  color: var(--adm-muted, var(--admin-text));
   font-size: var(--adm-font-xs, 12px);
+}
+.admin-task-diagnostic summary {
+  cursor: pointer;
+  list-style: none;
+}
+.admin-task-diagnostic summary::-webkit-details-marker {
+  display: none;
+}
+.admin-task-diagnostic pre {
+  max-height: 200px;
+  margin: 8px 0;
+  overflow: auto;
+  font-family: ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size: var(--adm-font-xs, 12px);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.admin-task-references {
+  min-width: 0;
+  margin: 0;
+}
+.admin-task-eyebrow {
+  margin: 0;
+  color: var(--adm-muted, var(--admin-text));
+  font-size: var(--adm-font-xs, 11px);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+.admin-task-eyebrow span {
+  margin-left: 4px;
   font-variant-numeric: var(--adm-numeric, tabular-nums);
+  opacity: 0.8;
 }
-/* 投稿卡的操作按钮排成底部一行，不再在右侧竖着堆四五个 */
-.idea-admin-actions {
+.admin-task-reference-list {
   display: flex;
-  flex: 1 1 100%;
   flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--adm-gap-sm, 8px);
+  gap: 8px;
+  min-width: 0;
+  margin-top: 6px;
 }
-.idea-admin-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 32px;
-  padding: 0 14px;
-  border: 1px solid var(--adm-line, var(--creative-line));
-  border-radius: var(--adm-r-pill, 999px);
-  background: var(--adm-surface, var(--creative-paper));
-  color: var(--adm-ink, var(--creative-ink));
-  font-size: var(--adm-font-sm, 13px);
-  text-decoration: none;
-  transition:
-    border-color var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease),
-    color var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease);
-}
-.idea-admin-link:hover {
-  border-color: var(--adm-accent, var(--creative-accent));
-  color: var(--adm-accent, var(--creative-accent));
-}
-.idea-admin-link:focus-visible {
-  outline: 2px solid var(--adm-accent, var(--creative-accent));
-  outline-offset: 2px;
+.admin-task-reference-list .admin-image-preview {
+  width: 56px;
+  height: 56px;
 }
 
-/* ── F. 角色资源卡片 / 未归入角色的图片 ── */
-.resource-grid {
-  min-width: 0;
+/* 创意投稿 */
+.adm-idea-card .adm-card-media {
+  position: relative;
+  aspect-ratio: 4 / 3;
 }
-.resource-cover {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* 角色立绘多是竖版，4:3 会把头脚裁掉，改用 4:5 并偏上取景 */
-  aspect-ratio: 4 / 5;
-}
-.resource-cover :deep(.creative-image),
-.resource-cover :deep(.creative-image img) {
+.adm-idea-card .adm-card-media :deep(img) {
   width: 100%;
   height: 100%;
-  min-height: 0;
+  object-fit: cover;
+}
+.adm-idea-desc {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  margin: 0;
+  overflow: hidden;
+  color: var(--adm-muted, var(--admin-text));
+  font-size: var(--adm-font-xs, 12px);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.adm-idea-snapshot summary {
+  color: var(--adm-accent, var(--admin-primary));
+  font-size: var(--adm-font-xs, 11px);
+  line-height: 1.7;
+  cursor: pointer;
+  list-style: none;
+}
+.adm-idea-snapshot summary::-webkit-details-marker {
+  display: none;
+}
+.adm-idea-snapshot pre {
+  max-height: 180px;
+  margin: 8px 0 0;
+  overflow: auto;
+  color: var(--adm-muted, var(--admin-text));
+  font-family: ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size: var(--adm-font-xs, 12px);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* 赞助记录 */
+.adm-sponsor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.adm-sponsor-amount {
+  color: var(--adm-ink, var(--admin-text));
+  font-size: var(--adm-font-xl, 21px);
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: var(--adm-numeric, tabular-nums);
+}
+.adm-sponsor-amount span {
+  margin-left: 4px;
+  color: var(--adm-muted, var(--admin-text));
+  font-size: var(--adm-font-xs, 11px);
+  font-weight: 500;
+}
+
+/* 角色资源 / 素材 */
+.admin-resource-cover {
+  aspect-ratio: 4 / 5;
+}
+.admin-resource-cover :deep(.creative-image img) {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   object-position: center 22%;
 }
-.resource-cover-empty {
-  color: var(--adm-muted, var(--creative-muted));
-  font-size: var(--adm-font-xs, 12px);
-}
-.resource-summary {
+.adm-resource-summary {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  overflow: hidden;
   margin: 0;
-  color: var(--adm-muted, var(--creative-muted));
-  font-size: var(--adm-font-sm, 13px);
-  line-height: 1.6;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  color: var(--adm-muted, var(--admin-text));
+  font-size: var(--adm-font-xs, 12px);
+  line-height: 1.7;
 }
-.resource-advanced {
-  margin-top: var(--adm-gap-sm, 8px);
-  padding-top: var(--adm-gap-lg, 16px);
-  border-top: 1px solid var(--adm-line, var(--creative-line));
+.adm-ai-assets {
+  padding: 0;
 }
-.resource-advanced > summary {
-  margin-bottom: var(--adm-gap-md, 12px);
-  color: var(--adm-muted, var(--creative-muted));
-  font-size: var(--adm-font-sm, 13px);
-  cursor: pointer;
+.adm-ai-assets-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
-.resource-advanced > summary:focus-visible {
-  outline: 2px solid var(--adm-accent, var(--creative-accent));
-  outline-offset: 3px;
+.adm-ai-assets-head .adm-card-title {
+  flex: 1 1 200px;
+  margin: 0;
+  font-size: var(--adm-font-base, 14px);
 }
-.admin-asset-grid {
+.adm-asset-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
   gap: var(--adm-gap-md, 12px);
   margin-top: var(--adm-gap-md, 12px);
 }
-.admin-asset-row {
-  display: flex;
-  flex-direction: column;
-  gap: var(--adm-gap-sm, 8px);
+.adm-asset-card {
   min-width: 0;
-  padding: var(--adm-gap-md, 12px);
-  border: 1px solid var(--adm-line, var(--creative-line));
-  border-radius: var(--adm-r-card, 16px);
-  background: var(--adm-surface, var(--creative-paper));
 }
-.admin-asset-thumb {
-  aspect-ratio: 1 / 1;
-  overflow: hidden;
-  border-radius: var(--adm-r-control, 10px);
-  background: var(--adm-canvas, var(--creative-canvas));
+.adm-asset-thumb {
+  aspect-ratio: 4 / 5;
 }
-.admin-asset-thumb :deep(.creative-image),
-.admin-asset-thumb :deep(.creative-image img) {
+.adm-asset-thumb :deep(.creative-image img) {
   width: 100%;
   height: 100%;
-  min-height: 0;
   object-fit: cover;
-}
-.admin-asset-name {
-  margin: 0;
-  color: var(--adm-ink, var(--creative-ink));
-  font-size: var(--adm-font-sm, 13px);
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-.admin-asset-meta {
-  margin: 0;
-  color: var(--adm-muted, var(--creative-muted));
-  font-size: var(--adm-font-xs, 12px);
-  line-height: 1.6;
-}
-.admin-asset-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--adm-gap-sm, 8px);
-  margin-top: auto;
+  object-position: center 22%;
 }
 
-/* ── G. 提示词模板行卡 ── */
-.prompt-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+/* 提示词模板 */
+.adm-template-summary {
   min-width: 0;
-}
-.prompt-row {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--adm-gap-md, 12px);
-  min-width: 0;
-  padding: var(--adm-gap-md, 12px) var(--adm-gap-lg, 16px);
-  border: 1px solid var(--adm-line, var(--creative-line));
-  border-radius: var(--adm-r-card, 16px);
-  background: var(--adm-surface, var(--creative-paper));
-  transition: border-color var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease);
-}
-@media (hover: hover) and (pointer: fine) {
-  .prompt-row:hover {
-    border-color: color-mix(in srgb, var(--adm-accent, var(--creative-accent)) 45%, var(--adm-line, var(--creative-line)));
-  }
-}
-.prompt-main {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-.prompt-check :deep(.arco-checkbox-label) {
-  color: var(--adm-ink, var(--creative-ink));
-  font-size: var(--adm-font-base, 14px);
-  font-weight: 600;
-  line-height: 1.45;
-}
-.prompt-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.prompt-summary {
   margin: 0;
   overflow: hidden;
-  color: var(--adm-muted, var(--creative-muted));
+  color: var(--adm-muted, var(--admin-text));
   font-size: var(--adm-font-xs, 12px);
-  line-height: 1.6;
-  white-space: nowrap;
   text-overflow: ellipsis;
-}
-.prompt-actions {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--adm-gap-sm, 8px);
-  margin-left: auto;
+  white-space: nowrap;
 }
 
-/* ── 工具条：搜索、筛选、按钮排成一行 ──
-   Arco 的 Select 根节点不继承 scoped 作用域属性，宽度只能走 :deep。 */
-.admin-ai-body :deep(.admin-data-toolbar-actions) {
-  flex: 1 1 auto;
-  flex-wrap: nowrap;
-  justify-content: flex-end;
+.adm-ai-more {
+  display: flex;
+  justify-content: center;
+  padding-top: 4px;
+}
+.adm-ai-link {
+  align-self: center;
+  color: var(--adm-accent, var(--admin-primary));
+  font-size: var(--adm-font-xs, 12px);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+
+/* ── 供应商卡片图标操作 ── */
+.ai-icon-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--adm-gap-xs, 4px);
+}
+.ai-icon-bar .admin-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--adm-r-control, 10px);
+  background: transparent;
+  color: var(--adm-muted, var(--admin-text));
+  font-size: var(--adm-font-base, 14px);
+  cursor: pointer;
+  transition:
+    background-color var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease),
+    color var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease),
+    border-color var(--adm-dur-fast, 120ms) var(--adm-ease-std, ease);
+}
+.ai-icon-bar .admin-icon-btn:hover {
+  border-color: var(--adm-line, var(--admin-border-soft));
+  background: var(--adm-soft, var(--admin-fill));
+  color: var(--adm-ink, var(--admin-text));
+}
+.ai-icon-bar .admin-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.ai-icon-bar .admin-icon-btn.is-danger:hover {
+  border-color: var(--adm-danger, var(--admin-danger));
+  background: var(--adm-danger-soft, var(--admin-danger-soft));
+  color: var(--adm-danger, var(--admin-danger));
+}
+.ai-icon-bar .admin-icon-btn:focus-visible {
+  outline: 2px solid var(--adm-accent, var(--admin-primary));
+  outline-offset: 2px;
+}
+
+/* ── 模板卡片 ── */
+.ai-template-head {
+  display: flex;
+  align-items: flex-start;
   gap: var(--adm-gap-sm, 8px);
   min-width: 0;
 }
-.admin-ai-body :deep(.admin-ai-search) {
-  flex: 0 1 220px;
-  width: 220px;
+.ai-template-head .adm-card-title {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
-.admin-ai-body :deep(.admin-ai-filter) {
-  flex: 0 0 160px;
-  width: 160px;
+.ai-template-head .adm-template-check {
+  flex: none;
+  margin: 0;
 }
-/* 输入框、下拉、按钮等高，否则 38px 的 Select 会把工具条撑成三层 */
-.admin-ai-body
-  :deep(.admin-data-toolbar-actions :is(.arco-input-wrapper, .arco-select-view-single)) {
-  height: 32px;
-  min-height: 32px;
-  font-size: var(--adm-font-sm, 13px);
+.ai-template-card .adm-card-content {
+  overflow-wrap: anywhere;
+}
+.ai-workspace .adm-card-title {
+  overflow-wrap: anywhere;
+}
+
+/* ── 弹窗正文与按钮令牌 ── */
+.ai-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--adm-gap-md, 12px);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ai-dialog-body :deep(.arco-btn) {
+  border-radius: var(--adm-r-control, 10px);
+}
+.ai-dialog-body
+  :deep(.arco-btn.arco-btn-secondary.arco-btn-status-normal:not(.arco-btn-disabled)) {
+  border: 1px solid var(--adm-line, var(--admin-border-soft));
+  background: var(--adm-surface, var(--admin-surface));
+  color: var(--adm-ink, var(--admin-text));
+}
+.ai-dialog-body
+  :deep(.arco-btn.arco-btn-secondary.arco-btn-status-normal:not(.arco-btn-disabled):hover) {
+  border-color: var(--adm-accent, var(--admin-primary));
+  background: var(--adm-soft, var(--admin-fill));
+  color: var(--adm-accent, var(--admin-primary));
+}
+.ai-workspace :deep(.arco-btn) {
+  border-radius: var(--adm-r-control, 10px);
+}
+.ai-workspace :deep(.arco-btn-primary:not(.arco-btn-disabled)),
+.ai-dialog-body :deep(.arco-btn-primary:not(.arco-btn-disabled)) {
+  border-color: transparent;
+  background-color: var(--adm-accent, var(--admin-primary));
+}
+.ai-workspace :deep(.arco-btn-primary:not(.arco-btn-disabled):hover),
+.ai-workspace :deep(.arco-btn-primary:not(.arco-btn-disabled):active),
+.ai-dialog-body :deep(.arco-btn-primary:not(.arco-btn-disabled):hover),
+.ai-dialog-body :deep(.arco-btn-primary:not(.arco-btn-disabled):active) {
+  border-color: transparent;
+  background-color: var(
+    --adm-accent-hover,
+    var(--site-accent-hover, var(--adm-accent, var(--admin-primary)))
+  );
+}
+.ai-workspace :deep(.arco-input-wrapper),
+.ai-workspace :deep(.arco-select-view-single),
+.ai-dialog-body :deep(.arco-input-wrapper),
+.ai-dialog-body :deep(.arco-select-view-single),
+.ai-dialog-body :deep(.arco-textarea-wrapper) {
+  border-radius: var(--adm-r-control, 10px);
+}
+
+@media (max-width: 1180px) {
+  .ai-workspace {
+    grid-template-columns: 176px minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 820px) {
-  .provider-row {
-    flex-direction: column;
-    align-items: stretch;
+  .ai-workspace {
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--adm-gap-md, 12px);
   }
-  .provider-actions {
-    justify-content: flex-start;
+  .ai-rail {
+    position: static;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 4px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 6px;
+    white-space: nowrap;
+    scrollbar-width: none;
   }
-  .grant-fields {
-    grid-template-columns: minmax(0, 1fr);
+  .ai-rail::-webkit-scrollbar {
+    display: none;
   }
-  .admin-grant-foot .arco-btn {
-    width: 100%;
+  .ai-rail-row {
+    flex: 0 0 auto;
+  }
+  .ai-rail-item {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 8px 36px 8px 10px;
+    border-left: 0;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+  .ai-rail-item.is-active {
+    border-bottom-color: var(--adm-accent, var(--admin-primary));
+  }
+  .ai-rail-label {
+    overflow: visible;
   }
 }
 
 @media (max-width: 768px) {
-  .admin-ai-body {
-    padding: var(--adm-gap-lg, 16px);
+  .ai-rail-item {
+    min-height: 44px;
   }
-  /* 手机档页签横向滚动，避免 7 个入口堆成三行挤压内容 */
-  .admin-ai-tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding: 2px 0 var(--adm-gap-sm, 8px);
-    scrollbar-width: thin;
+  .ai-icon-bar .admin-icon-btn {
+    width: 44px;
+    height: 44px;
   }
-  .admin-ai-tabs button {
-    flex: 0 0 auto;
+  .ai-workspace :deep(.arco-btn-size-small),
+  .ai-dialog-body :deep(.arco-btn-size-small) {
+    min-height: 44px;
   }
-  .ledger-list {
-    border-radius: var(--adm-r-card, 16px);
+  .adm-ai-pane-head {
+    flex-direction: column;
+    align-items: stretch;
   }
-  .ledger-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px var(--adm-gap-md, 12px);
-    padding: 10px var(--adm-gap-md, 12px);
-  }
-  .ledger-time {
-    flex-basis: 100%;
-  }
-  .ledger-user {
-    flex: 1;
-    min-width: 0;
-  }
-  .ledger-amount {
-    justify-self: auto;
-  }
-  .ledger-note {
-    flex-basis: 100%;
-    white-space: normal;
-  }
-  .idea-admin-card {
-    flex-wrap: wrap;
-    padding: var(--adm-gap-sm, 8px);
-  }
-  .idea-admin-media {
-    width: 72px;
-    height: 90px;
-  }
-  .idea-admin-actions {
-    flex-direction: row;
-    flex-wrap: wrap;
+  .adm-ai-search,
+  .adm-ai-filter,
+  .adm-ai-filter-row :deep(.adm-ai-search),
+  .adm-ai-filter-row :deep(.adm-ai-filter) {
     width: 100%;
   }
-  .prompt-row {
-    flex-wrap: wrap;
-  }
-  .prompt-actions {
-    width: 100%;
+  .adm-ai-entry-time {
     margin-left: 0;
   }
-  .admin-ai-body :deep(.admin-ai-search),
-  .admin-ai-body :deep(.admin-ai-filter) {
-    flex: 1 1 100%;
-    width: 100%;
+  .adm-ai-pane .adm-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .admin-ai-body :deep(.admin-data-toolbar-actions) {
-    width: 100%;
-    margin-left: 0;
+  .adm-asset-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .adm-ai-pane .adm-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .adm-asset-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .admin-ai-tabs button,
-  .provider-row,
-  .idea-admin-card,
-  .idea-admin-link,
-  .prompt-row {
+  .ai-rail-item,
+  .adm-ai-entry,
+  .ai-icon-bar .admin-icon-btn,
+  .adm-ai-fold-head,
+  .adm-ai-fold-head::after {
     transition: none;
-  }
-  .admin-ai-tabs button:active:not(:disabled) {
-    transform: none;
   }
 }
 </style>

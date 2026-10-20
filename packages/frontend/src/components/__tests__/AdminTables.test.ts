@@ -1,4 +1,4 @@
-// WP5a：内容卡片流 / 用户表格的定向行为测试。
+// WP5a：内容卡片流 / 用户卡片流的定向行为测试。
 // 覆盖：三种 mode 的渲染差异、卡片网格（桌面与手机同一套）、pending 审核动作、
 // 卡片 M8 退场与 280ms 后的延迟刷新、删除确认流，以及用户管理的角色 / 封禁 / 删除三个动作。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -271,7 +271,7 @@ describe('AdminContentList 审核与删除', () => {
 })
 
 describe('AdminUserTable 用户管理', () => {
-  it('角色 / 封禁用状态点，角色切换 / 封禁 / 删除三个动作都走 store', async () => {
+  it('卡片流渲染徽标与操作，角色切换 / 封禁 / 删除三个动作都走 store', async () => {
     admin.users.list = [currentUser, otherUser]
     admin.users.total = 2
     admin.users.totalPages = 1
@@ -282,8 +282,14 @@ describe('AdminUserTable 用户管理', () => {
 
     expect(wrapper.find('.admin-panel-title').text()).toBe('用户管理')
     expect(wrapper.find('.admin-data-toolbar-summary').text()).toBe('共 2 位用户')
-    // 两位用户 × 角色 + 状态 = 4 个状态点；本人不渲染操作按钮。
-    expect(wrapper.findAll('.admin-status')).toHaveLength(4)
+    // 不再有表格：桌面与手机共用同一套密集卡片网格。
+    expect(wrapper.find('.arco-table').exists()).toBe(false)
+    expect(wrapper.find('.adm-card-grid.is-dense').exists()).toBe(true)
+    expect(wrapper.findAll('.user-card')).toHaveLength(2)
+    // 两位用户 × 角色徽标 + 封禁 / 本人徽标 = 4 个徽标；本人不渲染操作按钮。
+    expect(wrapper.findAll('.adm-card-badge')).toHaveLength(4)
+    expect(wrapper.get('.user-card').text()).toContain('管理员')
+    expect(wrapper.get('.user-card').text()).toContain('自己')
     expect(wrapper.findAll('[aria-label="删除"]')).toHaveLength(1)
 
     await wrapper.get('[aria-label="设为管理员"]').trigger('click')
@@ -294,9 +300,49 @@ describe('AdminUserTable 用户管理', () => {
     await settle()
     expect(admin.updateUserBan).toHaveBeenCalledWith(2, false)
 
+    // 删除先给卡片打 M8 退场标记，280ms 后才真正调接口并刷新。
     await wrapper.get('[aria-label="删除"]').trigger('click')
     await settle()
+    expect(wrapper.find('.user-card.is-leaving').exists()).toBe(true)
+    expect(admin.deleteUser).not.toHaveBeenCalled()
+
+    await new Promise(resolve => setTimeout(resolve, 340))
+    await settle()
     expect(admin.deleteUser).toHaveBeenCalledWith(2)
-    expect(wrapper.find('tr.is-leaving').exists()).toBe(true)
+    expect(admin.loadUsers).toHaveBeenCalled()
+    expect(wrapper.find('.user-card.is-leaving').exists()).toBe(false)
+  })
+
+  it('概览指标按当前页统计，页内筛选只过滤当前页', async () => {
+    admin.users.list = [currentUser, otherUser, { id: 3, username: 'writer', is_admin: true } as User]
+    admin.users.total = 6
+    admin.users.totalPages = 2
+    admin.users.page = 2
+    admin.users.loading = false
+
+    const wrapper = mountUsers()
+    await settle()
+
+    const stats = wrapper.findAll('.adm-stat')
+    expect(stats).toHaveLength(3)
+    expect(stats[0].text()).toContain('6')
+    expect(stats[1].text()).toContain('2')
+    expect(stats[1].text()).toContain('当前页')
+    expect(stats[2].text()).toContain('1')
+
+    const filter = wrapper.get('[aria-label="筛选当前页用户"]')
+    expect(filter.text()).toContain('当前页')
+    const buttons = filter.findAll('button')
+    expect(buttons.map(button => button.text())).toEqual(['全部', '管理员', '已封禁'])
+    expect(wrapper.findAll('.user-card')).toHaveLength(3)
+
+    await buttons[1].trigger('click')
+    await settle()
+    expect(wrapper.findAll('.user-card')).toHaveLength(2)
+
+    await buttons[2].trigger('click')
+    await settle()
+    expect(wrapper.findAll('.user-card')).toHaveLength(1)
+    expect(wrapper.get('.user-card').text()).toContain('已封禁')
   })
 })

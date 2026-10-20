@@ -163,7 +163,7 @@ async function save() {
     <a-checkbox v-model="form.enabled">启用</a-checkbox
     ><a-checkbox v-model="form.default">默认供应商</a-checkbox>
     <div v-if="error" class="creative-error">{{ error }}</div>
-    <a-button type="primary" :loading="busy" @click="save">加密保存供应商</a-button></a-form
+    <a-button type="primary" size="small" :loading="busy" @click="save">加密保存供应商</a-button></a-form
   >
 </template>
 <style scoped>
