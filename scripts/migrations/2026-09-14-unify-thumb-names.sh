@@ -1,11 +1,4 @@
 #!/bin/bash
-# 统一 thumbs 命名：把所有缩略图规整为「<主图 md5>_thumb.webp」，并同步库中的 thumb_path。
-# 未被任何记录引用的缩略图移入 data/bin（垃圾桶，保留而非删除）。
-#
-# 背景：主图已在上一步统一为 uploads/<md5>.<ext>，早期缩略图却是 <n>_<时间戳>_thumb.webp，
-# 两种规则并存导致「按主图名找缩略图」的调试与迁移都很别扭。
-#
-# 用法：unify-thumb-names.sh [dry-run|apply]
 set -euo pipefail
 
 MODE="${1:-dry-run}"
@@ -25,7 +18,6 @@ WORK="/root/xqecz-unify-thumbs-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$WORK"
 echo "工作目录: $WORK   模式: $MODE"
 
-# 用哨兵分隔符输出，避免空字段被折叠导致字段错位
 q "SELECT CONCAT(id,'|',IFNULL(file_path,''),'|',IFNULL(thumb_path,'')) FROM contents ORDER BY id" > "$WORK/rows.txt"
 TOTAL=$(grep -c . "$WORK/rows.txt" || true)
 echo "记录总数: $TOTAL"
@@ -37,7 +29,6 @@ while IFS='|' read -r id fp tp; do
   [ -z "${id:-}" ] && continue
   [ -z "$tp" ] && continue
 
-  # 目标名：主图为裸文件名（<md5>.<ext>）时用其 stem；否则沿用原缩略图名
   stem=""
   case "$fp" in
     "" ) ;;
@@ -60,7 +51,6 @@ while IFS='|' read -r id fp tp; do
   fi
 
   if [ -f "$dst" ]; then
-    # 目标已存在（内容相同即去重）：直接改库引用，源文件入桶
     if [ "$MODE" = apply ]; then rm -f "$src"; else printf '%s -> (dup) %s\n' "$src" "$dst" >> "$WORK/plan.txt"; fi
     deduped=$((deduped+1))
   else
@@ -71,7 +61,6 @@ while IFS='|' read -r id fp tp; do
   printf "UPDATE contents SET thumb_path='%s' WHERE id=%s;\n" "$want" "$id" >> "$WORK/update.sql"
 done < "$WORK/rows.txt"
 
-# 未被引用的缩略图入桶
 orphan=0
 if [ -d "$DATA_DIR/thumbs" ]; then
   while IFS= read -r f; do

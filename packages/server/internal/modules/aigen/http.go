@@ -1,4 +1,3 @@
-// Package aigen connects AI services to the existing session and admin boundary.
 package aigen
 
 import (
@@ -118,8 +117,6 @@ func fail(c *gin.Context, err error) {
 	}
 }
 
-// Normalize model times through the site's single timestamp serializer. The
-// models keep native time.Time for GORM, and HTTP owns the external contract.
 func wire(v any) (any, error) {
 	raw, err := json.Marshal(v)
 	if err != nil {
@@ -227,8 +224,6 @@ func (h *Handler) listLedger(c *gin.Context, user uint64) {
 }
 func (h *Handler) sessions(c *gin.Context) {
 	rows := []core.Session{}
-	// Workspaces are listed newest first. The old single-workspace contract only
-	// returned one row; clients that need the active draft still select sessions[0].
 	if err := h.db(c).Where("user_id = ? AND name <> ?", uid(c), "供应商连通测试").Order("updated_at desc, id desc").Limit(100).Find(&rows).Error; err != nil {
 		fail(c, err)
 		return
@@ -246,9 +241,7 @@ func (h *Handler) getSession(c *gin.Context) {
 func (h *Handler) createSession(c *gin.Context) {
 	var req struct {
 		Name string `json:"name"`
-		// New creates another workspace. Omitting it keeps the historical
-		// coalescing behavior relied on by first-load and multi-tab entry.
-		New bool `json:"new"`
+		New  bool   `json:"new"`
 	}
 	if bind(c, &req) != nil || len([]rune(req.Name)) > 100 {
 		fail(c, core.ErrInvalid)
@@ -263,8 +256,6 @@ func (h *Handler) createSession(c *gin.Context) {
 	}
 	var row core.Session
 	err := h.db(c).Transaction(func(tx *gorm.DB) error {
-		// Serialize workspace allocation per user so two first-use tabs cannot
-		// create duplicate starter drafts.
 		var user store.User
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&user, uid(c)).Error; err != nil {
 			return err
@@ -320,8 +311,6 @@ func (h *Handler) taskViews(c *gin.Context, rows []core.Task, includeDiagnostic 
 		ids = append(ids, r.ID)
 		userIDs = append(userIDs, r.UserID)
 	}
-	// Fetch display names once for the whole page, including historical owners
-	// outside the grant selector's limit; never serialize account details.
 	users := []store.User{}
 	if len(userIDs) > 0 {
 		if err := h.db(c).Select("id,username").Where("id IN ?", userIDs).Find(&users).Error; err != nil {
@@ -351,14 +340,10 @@ func (h *Handler) taskViews(c *gin.Context, rows []core.Task, includeDiagnostic 
 		if own == nil {
 			own = []core.Asset{}
 		}
-		// Decode only reference metadata and the original prompt; never return
-		// the encrypted provider snapshot.
 		var snapshot struct {
 			Input      core.Input   `json:"input"`
 			References []core.Asset `json:"references"`
-			// Diagnostic is an administrator-only, redacted failure report; the
-			// task owner must never receive it.
-			Diagnostic string `json:"diagnostic"`
+			Diagnostic string       `json:"diagnostic"`
 		}
 		if err := json.Unmarshal([]byte(row.Snapshot), &snapshot); err != nil {
 			snapshot.References = nil
@@ -392,8 +377,6 @@ func (h *Handler) listTasks(c *gin.Context, admin bool) {
 	if !admin {
 		q = q.Where("user_id = ? AND archived = ? AND mode <> ?", uid(c), false, "test")
 	} else {
-		// Archived tasks remain queryable for a future audit view, but the
-		// active management list must not keep deleted records visible.
 		switch c.Query("archived") {
 		case "1":
 			q = q.Where("archived = ?", true)
@@ -526,7 +509,6 @@ func (h *Handler) publicAssets(c *gin.Context) {
 		fail(c, err)
 		return
 	}
-	// Liked is the owner's private bookmark; public views must not disclose it.
 	for i := range rows {
 		rows[i].Liked = false
 	}

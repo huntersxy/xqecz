@@ -1,7 +1,4 @@
 <script setup lang="ts">
-// 用户管理：把「桌面 a-table + 手机卡片」两套实现合并成一套卡片流。
-// 信息层级：身份（头像 + 用户名）最重，角色 / 封禁 / 本人用徽标，邮箱与注册时间降到键值行，
-// 角色切换、封禁、删除收进卡片页脚；删除先退场再落库（M8）。
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useAdminStore } from '@/stores/admin'
@@ -19,10 +16,8 @@ const userStore = useUserStore()
 const admin = useAdminStore()
 
 const summary = computed(() => `共 ${admin.users.total} 位用户`)
-// 首屏才出骨架；已有数据时刷新只让工具条的按钮转圈，卡片保持可读
 const showSkeleton = computed(() => admin.users.loading && admin.users.list.length === 0)
 
-// 指标只统计当前页：管理员 / 已封禁没有服务端聚合接口，页内计数与页内筛选保持同一口径
 const pageAdmins = computed(() => admin.users.list.filter(u => u.is_admin).length)
 const pageBanned = computed(() => admin.users.list.filter(u => u.is_banned).length)
 
@@ -34,7 +29,6 @@ const filterOptions: { value: UserFilter; label: string }[] = [
   { value: 'banned', label: '已封禁' },
 ]
 
-// 筛选只作用于当前页（不动分页参数），与工具条上的「当前页」文案一致
 const visibleUsers = computed(() => {
   if (filter.value === 'admin') return admin.users.list.filter(u => u.is_admin)
   if (filter.value === 'banned') return admin.users.list.filter(u => u.is_banned)
@@ -68,8 +62,6 @@ async function doBan(id: number, isBanned: boolean) {
   if (await admin.updateUserBan(id, !isBanned)) refresh()
 }
 
-// M8：删除先让卡片淡出 280ms，再落库并刷新；接口失败把卡片放回原位。
-// 失败提示由 store 的 runAdmin 统一负责，这里只负责回滚视觉状态。
 const LEAVE_MS = 280
 const leavingIds = ref<number[]>([])
 const timers = new Set<ReturnType<typeof setTimeout>>()
@@ -90,7 +82,6 @@ async function commitDelete(id: number) {
     return
   }
   await admin.loadUsers(admin.users.page)
-  // 删掉当页最后一位用户时回退一页，避免停在空页
   if (admin.users.list.length === 0 && admin.users.page > 1) {
     await admin.loadUsers(admin.users.page - 1)
   }
@@ -308,12 +299,10 @@ onBeforeUnmount(() => {
 <style lang="scss" scoped>
 @use './admin' as *;
 
-// 工具条自身有上下留白，外层 .admin-panel-toolbar 也有一层，抵消掉避免双倍
 :deep(.admin-panel-toolbar .admin-data-toolbar) {
   padding: 0;
 }
 
-// ── 工具条：页内筛选（全部 / 管理员 / 已封禁）──
 .user-filter {
   display: flex;
   align-items: center;
@@ -357,7 +346,6 @@ onBeforeUnmount(() => {
   }
 }
 
-// ── 卡片头：头像 + 用户名（单行）+ 用户 ID ──
 .user-head {
   display: flex;
   align-items: center;
@@ -376,7 +364,6 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-// 用户名只有一行：压掉全局 .adm-card-title 的两行截断
 .user-card .user-name {
   display: block;
   overflow: hidden;
@@ -393,15 +380,12 @@ onBeforeUnmount(() => {
   @include numeric;
 }
 
-// ── 徽标：角色 / 已封禁 / 自己 ──
 .user-badges {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-// 全局 .adm-card-badge 是「盖在媒体图上的绝对定位」；用户卡没有媒体区，
-// 这里改回行内胶囊，并按角色 / 封禁 / 本人区分颜色。
 .user-card .adm-card-badge {
   position: static;
   padding: 2px 8px;
@@ -429,7 +413,6 @@ onBeforeUnmount(() => {
   }
 }
 
-// ── 页脚动作：图标按钮桌面 36px / 手机 44px ──
 .user-card .adm-card-foot {
   gap: 6px;
 }
@@ -451,7 +434,6 @@ onBeforeUnmount(() => {
   padding: var(--adm-gap-md, 12px) 0 var(--adm-gap-xs, 4px);
 }
 
-// ── 侧栏：分页信息 + 操作规则 ──
 .user-side-title {
   margin: 0;
   color: var(--adm-ink, var(--admin-text));
@@ -491,7 +473,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 768px) {
-  // 手机档筛选按钮放到 §6.2 要求的 44px 触控高度
   .user-filter-btn {
     min-height: var(--adm-touch, 44px);
     padding: 0 14px;
@@ -501,8 +482,6 @@ onBeforeUnmount(() => {
     gap: 8px;
   }
 
-  // 手机档单列：用户卡的键值行（邮箱）挤进 220px 两列会被截得太碎；
-  // 选择器多带一个 .adm-card-grid 以上过全局密集网格（同样是 0,2,0 的等价规则）。
   .adm-card-grid.user-grid {
     grid-template-columns: minmax(0, 1fr);
   }

@@ -1,11 +1,6 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
-/**
- * 站内统一浮层：底部抽屉（sheet）与居中弹窗（center）共用。
- * 负责挂载到 body、遮罩、Esc / 遮罩关闭、焦点收进面板与关闭后归还、Tab 焦点圈定。
- * 背景滚动锁定由 main.css 按 `.site-overlay` 是否在 DOM 里决定，这里不碰内联样式。
- */
 defineOptions({ inheritAttrs: false })
 
 const props = withDefaults(
@@ -25,7 +20,6 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 const panel = ref<HTMLElement | null>(null)
 let opener: HTMLElement | null = null
 
-// 多层浮层叠放时（例如上传抽屉里再弹确认框），Esc 只交给最上面的一层。
 const stack: symbol[] = (globalThis as { __siteOverlayStack?: symbol[] }).__siteOverlayStack ??= []
 const token = Symbol('overlay')
 
@@ -77,7 +71,6 @@ watch(
       stack.push(token)
       document.addEventListener('keydown', onDocumentKeydown)
       await nextTick()
-      // 面板里已有自动聚焦的控件就不抢；否则把焦点交给面板本身，读屏从标题开始。
       if (panel.value && !panel.value.contains(document.activeElement)) panel.value.focus({ preventScroll: true })
     } else {
       teardown()
@@ -130,7 +123,6 @@ onBeforeUnmount(teardown)
 .is-center .site-overlay-panel { width: min(440px, 100%); border-radius: 20px; }
 .is-sheet .site-overlay-panel { width: min(920px, calc(100% - 48px)); margin-bottom: 24px; overflow: hidden; border-radius: 24px; }
 
-/* 遮罩淡入淡出，面板上浮并带一点缩放；离场更快，不挡着下一步操作。 */
 .site-overlay-enter-active,
 .site-overlay-leave-active { transition: opacity .24s cubic-bezier(.22, 1, .36, 1); }
 .site-overlay-enter-active .site-overlay-panel { transition: transform .32s cubic-bezier(.22, 1, .36, 1); }

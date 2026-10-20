@@ -47,8 +47,6 @@ func (h *Handler) publish(c *gin.Context) {
 		ok(c, gin.H{"content_id": *asset.ContentID})
 		return
 	}
-	// 作品描述默认使用生成时的原始提示词（不含站点增强后缀），
-	// 增强与否单独记在 contents.ai_enhanced，供详情页展示。
 	basePrompt, enhanced := h.taskPrompt(c, asset.TaskID)
 	if strings.TrimSpace(req.Description) == "" {
 		req.Description = basePrompt
@@ -91,8 +89,6 @@ func (h *Handler) publish(c *gin.Context) {
 	}
 	ok(c, gin.H{"content_id": item.ID})
 }
-// taskPrompt 读取任务快照里的 BasePrompt（增强前）与 EnhancePrompt 标记。
-// 快照缺失或历史任务没有 BasePrompt 时回退任务行的 prompt。
 func (h *Handler) taskPrompt(c *gin.Context, taskID uint64) (string, bool) {
 	if taskID == 0 {
 		return "", false

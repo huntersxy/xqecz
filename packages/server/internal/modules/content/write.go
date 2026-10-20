@@ -20,17 +20,14 @@ import (
 	"gorm.io/gorm"
 )
 
-// softFail 返回 HTTP 200 + 业务错误码（与旧实现一致：校验类失败不改变 HTTP 状态）。
 func softFail(c *gin.Context, code int, message string) { web.SoftFail(c, code, message) }
 
-// randomName 生成兜底文件名（第三方客户端未按 md5 重命名时使用）。
 func randomName() string {
 	b := make([]byte, 6)
 	_, _ = rand.Read(b)
 	return strconv.FormatInt(time.Now().UnixMilli(), 10) + "_" + hex.EncodeToString(b)
 }
 
-// createInput 是创建内容的统一入参（普通上传与游客快速上传共用）。
 type createInput struct {
 	Title         string
 	Content       string
@@ -43,13 +40,10 @@ type createInput struct {
 	GuestEmail    string
 	AbsPath       string
 	AutoMetadata  bool
-	// AIEnhanced 标记发布生成作品时是否启用了提示词增强；普通上传恒为 false。
-	AIEnhanced bool
-	// Link runs in the same transaction as creation for imported AI assets.
-	Link func(*gorm.DB, uint64) error
+	AIEnhanced    bool
+	Link          func(*gorm.DB, uint64) error
 }
 
-// upload 登录用户上传（Session 或具备 upload 权限的 API 密钥）。
 func (h *Handler) upload(c *gin.Context) {
 	identity := web.MustIdentity(c)
 	form, err := h.parseMultipart(c)
@@ -91,7 +85,6 @@ func (h *Handler) upload(c *gin.Context) {
 	web.OK(c, item, "上传成功")
 }
 
-// quickUpload 游客快速上传（免登录）：邮箱 + 昵称标识上传者，落库 user_id=0。
 func (h *Handler) quickUpload(c *gin.Context) {
 	ctx := c.Request.Context()
 	form, err := h.parseMultipart(c)
@@ -116,7 +109,6 @@ func (h *Handler) quickUpload(c *gin.Context) {
 		return
 	}
 
-	// 已登录用户沿用真实身份；未登录用游客信息。
 	var user *store.User
 	if sid, err := c.Cookie(web.SessionCookie); err == nil && sid != "" {
 		if uid, ok := h.deps.Redis.GetSession(ctx, sid); ok {
@@ -127,7 +119,6 @@ func (h *Handler) quickUpload(c *gin.Context) {
 		}
 	}
 
-	// 仅在有文件时按 IP 限频（纯文字描述不占带宽，无需风控）。
 	if form.File != nil {
 		count := h.deps.Redis.IncrWithTTL(ctx, "quick_upload:ip:"+clientIP(c), time.Hour)
 		if count > 20 {
@@ -161,7 +152,6 @@ func (h *Handler) quickUpload(c *gin.Context) {
 	web.OK(c, item, "上传成功")
 }
 
-// update 编辑内容：仅作者或管理员可改；编辑后回到待审（管理员编辑视为过审）。
 func (h *Handler) update(c *gin.Context) {
 	ctx := c.Request.Context()
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -224,7 +214,6 @@ func (h *Handler) update(c *gin.Context) {
 			if err := tx.Model(&store.Content{}).Where("id = ?", id).Updates(updates).Error; err != nil {
 				return err
 			}
-			// Any explicit title/tag/file edit revokes the job, even if the editor restores the old placeholder later.
 			_, titleEdited := updates["title"]
 			_, tagsEdited := updates["tags"]
 			_, fileEdited := updates["file_path"]
@@ -248,8 +237,6 @@ func (h *Handler) update(c *gin.Context) {
 	web.OK(c, item, "更新成功")
 }
 
-// remove 删除内容（物理删除）：仅作者或管理员可删。
-// 一并清理关联数据（评论及其举报、点赞、收藏），并把不再被引用的媒体文件移入垃圾桶。
 func (h *Handler) remove(c *gin.Context) {
 	ctx := c.Request.Context()
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -283,8 +270,6 @@ func (h *Handler) remove(c *gin.Context) {
 	web.OK(c, nil, "已删除")
 }
 
-// purgeContent 在一个事务里物理删除内容及其关联行。
-// 回复的 parent_id 置空而非连带删除，保留他人回复内容、避免悬空引用。
 func (h *Handler) purgeContent(ctx context.Context, row store.Content) error {
 	return h.deps.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var commentIDs []uint64
@@ -322,8 +307,6 @@ func (h *Handler) purgeContent(ctx context.Context, row store.Content) error {
 	})
 }
 
-// removeOrphanMedia 把媒体文件移入垃圾桶目录（保留而非删除）。
-// 同一文件可能被多条内容共用（历史上存在重复上传），故必须先查引用计数。
 func (h *Handler) removeOrphanMedia(ctx context.Context, paths ...*string) {
 	db := h.deps.DB.WithContext(ctx)
 	for _, p := range paths {
@@ -353,7 +336,6 @@ func (h *Handler) removeOrphanMedia(ctx context.Context, paths ...*string) {
 	}
 }
 
-// claim 提交认领申请。
 func (h *Handler) claim(c *gin.Context) {
 	ctx := c.Request.Context()
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -388,7 +370,6 @@ func (h *Handler) claim(c *gin.Context) {
 	web.OK(c, gin.H{"id": claim.ID}, "认领申请已提交")
 }
 
-// toggleLike 切换点赞，并按推荐权重变化刷新推荐位与缓存。
 func (h *Handler) toggleLike(c *gin.Context) {
 	ctx := c.Request.Context()
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -422,13 +403,11 @@ func (h *Handler) toggleLike(c *gin.Context) {
 	}
 
 	count := h.likeCount(ctx, id)
-	// 点赞权重高，变化后立即刷新推荐位（Redis 锁防抖）。
 	h.rec.RefreshAsync()
 	h.invalidate(ctx, id)
 	web.OK(c, gin.H{"liked": liked, "like_count": count}, message)
 }
 
-// likeStatus 返回当前用户的点赞/收藏状态与点赞总数。
 func (h *Handler) likeStatus(c *gin.Context) {
 	ctx := c.Request.Context()
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -451,7 +430,6 @@ func (h *Handler) likeStatus(c *gin.Context) {
 	}, "ok")
 }
 
-// toggleFavorite 切换收藏。
 func (h *Handler) toggleFavorite(c *gin.Context) {
 	ctx := c.Request.Context()
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -486,7 +464,6 @@ func (h *Handler) toggleFavorite(c *gin.Context) {
 	web.OK(c, gin.H{"favorited": favorited}, message)
 }
 
-// createContent 落库并返回装饰后的内容（含异步媒体处理与推荐刷新）。
 func (h *Handler) createContent(ctx context.Context, in createInput) (Item, error) {
 	row := store.Content{
 		Title:       in.Title,
@@ -529,7 +506,6 @@ func (h *Handler) createContent(ctx context.Context, in createInput) (Item, erro
 		return Item{}, err
 	}
 
-	// 新内容改变所有列表/搜索/标签结果。
 	h.deps.Redis.ClearContentListCache(ctx)
 
 	if in.AbsPath != "" {
@@ -549,7 +525,6 @@ func (h *Handler) createContent(ctx context.Context, in createInput) (Item, erro
 	return decorateWith(h.mirror, row, userMap, 0, false), nil
 }
 
-// processMedia 异步生成缩略图并回写 thumb_path（失败仅告警，不影响上传结果）。
 func (h *Handler) processMedia(id uint64, absPath, contentType string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
@@ -567,11 +542,6 @@ func (h *Handler) processMedia(id uint64, absPath, contentType string) {
 	h.invalidate(ctx, id)
 }
 
-// prepareUploadFile 返回上传文件的相对路径、大小与绝对路径。
-// 保留原始格式不做转码（压缩交给后台 TinyPNG 任务，压缩后后缀不变）。
-//
-// 落盘成功即异步把这一份推给镜像链的每个目标（本地为主、对象存储为备份，两份都留）。
-// 推送失败不影响上传结果，由回填任务兜底。
 func (h *Handler) prepareUploadFile(f *uploadedFile) (string, int64, string) {
 	if f == nil {
 		return "", 0, ""
@@ -582,7 +552,6 @@ func (h *Handler) prepareUploadFile(f *uploadedFile) (string, int64, string) {
 	return f.RelPath, f.Size, f.AbsPath
 }
 
-// invalidate 失效单条详情与列表缓存（写路径统一调用）。
 func (h *Handler) invalidate(ctx context.Context, id uint64) {
 	h.deps.Redis.ClearContentCache(ctx, id)
 	h.deps.Redis.ClearContentListCache(ctx)

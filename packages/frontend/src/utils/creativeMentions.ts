@@ -3,8 +3,6 @@ export function referenceMentionAt(text: string, cursor: number) {
   return match ? { start: cursor - match[0].length, end: cursor, query: match[1] ?? '' } : null
 }
 
-// Number labels belong to the displayed order, but existing prose belongs to
-// the selected image. Reordering renumbers tokens without changing their target.
 export function remapReferenceMentions(text: string, before: number[], after: number[]) {
   return text.replace(/@图片([1-9]\d*)(?!\d)/g, (token, index: string) => {
     const id = before[Number(index) - 1]

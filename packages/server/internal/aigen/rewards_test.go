@@ -11,7 +11,6 @@ import (
 func TestDailyLoginCapAndRewardSeparation(t *testing.T) {
 	s, _, _, _ := testService(t)
 	ctx := context.Background()
-	// 15:59 UTC is still the previous calendar day in China.
 	now := time.Date(2026, 10, 17, 15, 59, 0, 0, time.UTC)
 	login := func(at time.Time) {
 		t.Helper()

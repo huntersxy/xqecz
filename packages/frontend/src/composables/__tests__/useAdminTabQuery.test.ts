@@ -12,7 +12,6 @@ import {
 
 const Empty = defineComponent({ render: () => h('div') })
 
-/** 等路由导航（含 replace/push 的异步守卫）落定。 */
 async function settle() {
   await flushPromises()
   await nextTick()
@@ -27,7 +26,6 @@ async function mountHarness(url: string, isAdminFlag: boolean) {
       { path: '/admin', component: Empty },
     ],
   })
-  // 先定位再挂载，让 setup 首帧就读到目标 query
   await router.push(url)
   await router.isReady()
   const replaceSpy = vi.spyOn(router, 'replace')

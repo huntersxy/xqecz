@@ -1,4 +1,3 @@
-// Package comment 实现树形评论、评论计数与举报。
 package comment
 
 import (
@@ -25,7 +24,6 @@ type Handler struct {
 
 func New(deps app.Deps) *Handler { return &Handler{deps: deps} }
 
-// Register 挂载 /comment 路由。
 func Register(api *gin.RouterGroup, deps app.Deps) {
 	h := New(deps)
 	g := api.Group("/comment")
@@ -36,14 +34,12 @@ func Register(api *gin.RouterGroup, deps app.Deps) {
 	g.POST("/report", web.RequireAuth(deps), h.report)
 }
 
-// UserBrief 是评论内嵌的作者信息。
 type UserBrief struct {
 	ID        uint64 `json:"id"`
 	Username  string `json:"username"`
 	AvatarURL string `json:"avatar_url,omitempty"`
 }
 
-// ParentDTO 是直接被回复评论的引用信息。
 type ParentDTO struct {
 	ID     uint64    `json:"id"`
 	UserID uint64    `json:"user_id"`
@@ -51,7 +47,6 @@ type ParentDTO struct {
 	User   UserBrief `json:"user"`
 }
 
-// DTO 保留直接父评论，同时将其引用信息交给前端展示。
 type DTO struct {
 	ID        uint64     `json:"id"`
 	ContentID uint64     `json:"content_id"`
@@ -65,13 +60,11 @@ type DTO struct {
 	User      UserBrief  `json:"user"`
 }
 
-// TopDTO 是顶层评论（额外携带一层回复列表）。
 type TopDTO struct {
 	DTO
 	Replies []DTO `json:"replies"`
 }
 
-// Page 是评论分页响应。
 type Page struct {
 	List      []TopDTO `json:"list"`
 	Total     int64    `json:"total"`
@@ -132,7 +125,6 @@ func (h *Handler) query(ctx context.Context, contentID uint64, page, pageSize in
 		topIDs = append(topIDs, t.ID)
 	}
 
-	// 逐层批量取整条回复链；分页仍只作用于顶层评论，不截断其后代。
 	var replies []store.Comment
 	frontier := topIDs
 	seen := make(map[uint64]bool, len(topIDs))
@@ -156,8 +148,6 @@ func (h *Handler) query(ctx context.Context, contentID uint64, page, pageSize in
 		}
 	}
 
-	// 批量取作者，消除 N+1。一个用户可能写了多条回复，先去重可
-	// 明显缩短 IN 参数并避免把同一作者重复编码到请求中。
 	ids := make([]uint64, 0, len(tops)+len(replies))
 	seenUsers := make(map[uint64]struct{}, len(tops)+len(replies))
 	for i := range tops {
@@ -179,8 +169,6 @@ func (h *Handler) query(ctx context.Context, contentID uint64, page, pageSize in
 	users := map[uint64]store.User{}
 	if len(ids) > 0 {
 		var rows []store.User
-		// Comment responses only expose id, username and an avatar derived from
-		// email; avoid reading password and administrative fields into memory.
 		if err := db.Select("id", "username", "email").Where("id IN ?", ids).Find(&rows).Error; err != nil {
 			return Page{}, err
 		}
@@ -298,7 +286,6 @@ func (h *Handler) remove(c *gin.Context) {
 		return
 	}
 	if err := h.deps.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 删除父评论时将直接回复提升为顶层，保留后续回复链。
 		if err := tx.Model(&store.Comment{}).Where("parent_id = ?", id).Update("parent_id", nil).Error; err != nil {
 			return err
 		}

@@ -22,17 +22,9 @@ import {
   type GalleryItem,
 } from '@/utils/studioTask'
 
-/**
- * 「全部结果」瀑布流。布局算法归 useWaterfallLayout（与首页同一份），这里只负责：
- * 1. 成图卡片按资产宽高比预留高度，状态卡片按任务画幅预留高度——卡片高度由宽度确定，
- *    首次排版不依赖图片解码，也就不会出现「先叠在一起再弹开」；
- * 2. 数据集合变化、卡片高度变化后合并到一帧做一次全量重排（全量重排是幂等的，不会来回抖动）；
- * 3. 新卡片直接落在目标位置，已有卡片位置变化才用过渡滑动。
- */
 const props = defineProps<{
   items: GalleryItem[]
   ready: boolean
-  /** 搜索/状态筛选生效中：空列表时提示「没有匹配」而不是「还没有作品」。 */
   filtered: boolean
 }>()
 const emit = defineEmits<{
@@ -48,7 +40,6 @@ const masonry = ref<HTMLElement | null>(null)
 const layoutItems = computed(() => props.items.map((item) => ({ id: item.key })))
 const waterfall = useWaterfallLayout(masonry, layoutItems)
 
-// 已经落过位的卡片才允许位置过渡；新卡片首次出现时直接在目标位置，不从左上角飞入。
 const placed = shallowRef<ReadonlySet<string>>(new Set())
 let epoch = 0
 let frames: number[] = []
@@ -60,7 +51,6 @@ function cancelFrames() {
   frames = []
 }
 
-/** 让 ResizeObserver 盯住当前所有卡片：文字换行、字体加载导致的高度变化会触发重排。 */
 function observeCells() {
   const el = masonry.value
   const key = props.items.map((item) => item.key).join('|')
@@ -72,10 +62,6 @@ function observeCells() {
   for (const cell of el.querySelectorAll<HTMLElement>('[data-wf-id]')) cellObserver.observe(cell)
 }
 
-/**
- * 全量重排并在下一帧复核一次：第一遍卡片可能还是兜底宽度，高度不准；
- * 第二遍宽度已落地，按真实高度重新平衡各列。两遍都发生在同一次绘制之前，用户看不到中间态。
- */
 function scheduleSettle(initial: boolean) {
   const token = ++epoch
   cancelFrames()
@@ -100,7 +86,6 @@ watch(
   () => props.items.map((item) => item.key).join('|'),
   () => void nextTick(() => scheduleSettle(false)),
 )
-// 容器只在有内容时存在：出现时做首次排版，消失（切到单个任务/清空）时放掉观察器与计时。
 watch(masonry, (el) => {
   if (el) {
     placed.value = new Set()
@@ -215,7 +200,6 @@ const skeletonRatios = ['3 / 4', '1 / 1', '4 / 5', '2 / 3', '1 / 1', '3 / 4', '4
           </button>
         </article>
 
-        <!-- 失败卡带提示词与报错文本，锁死画幅会把文字裁成半行；只有排队中的占位卡保留画幅。 -->
         <article
           v-else
           class="ws-gallery-card is-state"
@@ -262,7 +246,6 @@ const skeletonRatios = ['3 / 4', '1 / 1', '4 / 5', '2 / 3', '1 / 1', '3 / 4', '4
 </template>
 
 <style scoped>
-/* 滚动容器自带上下羽化：卡片滑出视口时淡出，而不是被硬边切掉；顶部留白给羽化让位。 */
 .ws-gallery {
   flex: 1;
   min-height: 0;
@@ -281,7 +264,6 @@ const skeletonRatios = ['3 / 4', '1 / 1', '4 / 5', '2 / 3', '1 / 1', '3 / 4', '4
   position: absolute;
   top: 0;
   left: 0;
-  /* 兜底宽度：布局算出位置之前卡片已经按一列宽度排出真实高度，visibility 隐藏避免闪现。 */
   width: 240px;
   will-change: transform;
 }
@@ -355,7 +337,6 @@ const skeletonRatios = ['3 / 4', '1 / 1', '4 / 5', '2 / 3', '1 / 1', '3 / 4', '4
   letter-spacing: 0.04em;
   backdrop-filter: blur(8px);
 }
-/* 提示词与时间浮在图片底部的渐变上；固定深色渐变保证日夜主题下文字都可读。 */
 .ws-gallery-veil {
   position: absolute;
   right: 0;
@@ -441,7 +422,6 @@ const skeletonRatios = ['3 / 4', '1 / 1', '4 / 5', '2 / 3', '1 / 1', '3 / 4', '4
   }
 }
 
-/* 无图任务：排队/生成中用流光占位，失败用淡红底，二者共用画幅预留的高度。 */
 .ws-gallery-card.is-state {
   display: flex;
   flex-direction: column;
@@ -564,7 +544,6 @@ const skeletonRatios = ['3 / 4', '1 / 1', '4 / 5', '2 / 3', '1 / 1', '3 / 4', '4
   }
 }
 
-/* 加载骨架与空状态 */
 .ws-gallery-skeleton {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -657,7 +636,6 @@ const skeletonRatios = ['3 / 4', '1 / 1', '4 / 5', '2 / 3', '1 / 1', '3 / 4', '4
   outline-offset: 2px;
 }
 
-/* 手机：页面整体滚动，画廊不再自己滚动，也不需要羽化遮罩。 */
 @media (max-width: 820px) {
   .ws-gallery {
     flex: none;

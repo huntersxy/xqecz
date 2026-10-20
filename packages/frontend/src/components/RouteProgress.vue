@@ -2,13 +2,6 @@
 import { onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-/**
- * 顶部细进度条：点击跳转后页面代码（懒加载 chunk）与路由守卫还没完成时，
- * 给一个即时的"正在前往"反馈。
- * - 延迟 SHOW_DELAY_MS 才出现：预热命中的跳转几乎瞬时完成，不该闪一下进度条；
- * - 只在 path 变化时出现：同页改 query（筛选、搜索）不算页面切换；
- * - 完成后冲到 100% 再淡出，失败/被取消的导航同样收尾，不会卡在半路。
- */
 const SHOW_DELAY_MS = 120
 
 const router = useRouter()
@@ -30,7 +23,6 @@ function start() {
   showTimer = setTimeout(() => {
     visible.value = true
     progress.value = 0.12
-    // 越接近终点涨得越慢，永远不会自己涨满。
     trickleTimer = setInterval(() => {
       progress.value += (0.9 - progress.value) * 0.12
     }, 180)
@@ -48,8 +40,6 @@ function finish() {
   }, 260)
 }
 
-// 必须是 beforeEach：路由懒加载的 chunk 在它之后、beforeResolve 之前才解析，
-// 用 beforeResolve 就错过了最需要反馈的那段等待。
 const removeBefore = router.beforeEach((to, from) => {
   if (to.path !== from.path) start()
 })

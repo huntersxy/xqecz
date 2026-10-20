@@ -1,13 +1,7 @@
 <script setup lang="ts">
-// 数据区工具条（§10「工具区：计数 / 刷新 / 页面动作」）：左侧摘要，右侧动作与刷新。
-// 保持无状态：计数与刷新动作都由使用方提供，组件只负责版式与触控尺寸，
-// 避免把各页签不同的数据源抽象进来。
 interface Props {
-  /** 左侧摘要文案，例如「共 128 条内容」；不传则只渲染默认插槽 */
   summary?: string
-  /** 内置刷新按钮的 loading 态 */
   loading?: boolean
-  /** 是否渲染内置刷新按钮；不想用内置按钮时改用 actions 插槽 */
   refreshable?: boolean
 }
 

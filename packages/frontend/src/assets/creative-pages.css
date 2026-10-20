@@ -475,7 +475,6 @@
   border-radius: 20px;
   min-width: 0;
 }
-/* 页面与传送到 body 的弹层共用控件外观，状态色仍由 Arco 的 status 决定。 */
 :is(.creative-page, .ai-dialog, .admin-ai-body) .arco-btn {
   border-radius: 999px;
 }
@@ -598,8 +597,6 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
 }
-/* Ideas are proposals: the prompt leads, while original references provide
-   context in a stable side rail, even after a proposal has generated results. */
 .idea-list.creative-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24px;
@@ -755,8 +752,6 @@
   color: var(--creative-muted);
   font-size: 12px;
 }
-/* Arco owns the inner input's border/padding. Native fields are direct children
-   only; styling every descendant caused a second border inside Arco controls. */
 .creative-field > textarea,
 .creative-field > select,
 .creative-field > input {
@@ -849,9 +844,6 @@
   }
 }
 
-/* Desktop keeps gallery and composer in one viewport and in normal flow.
-   The phone dock reserves its measured height in the
-   page and follows the visible viewport when the on-screen keyboard opens. */
 .ai-studio {
   max-width: 1440px;
   margin-block: 24px 40px;
@@ -961,8 +953,6 @@ body[arco-theme='dark'] .ai-studio {
   width: 230px;
 }
 .ai-studio select {
-  /* Native option menus are painted outside the page surface. Keep their
-     browser-controlled palette in sync with the explicit creative theme. */
   color-scheme: light;
   color: var(--creative-ink);
   background: var(--creative-paper);
@@ -1971,7 +1961,6 @@ body[arco-theme='dark'] .ai-studio select {
   .studio-head-actions .arco-btn > span > span {
     display: none;
   }
-  /* The page scrolls behind the dock; keep the empty-state action near its top. */
   .studio-gallery-empty {
     padding: 24px 8px;
     justify-content: flex-start;

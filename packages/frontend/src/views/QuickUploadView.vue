@@ -164,8 +164,6 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-/* --creative-* 已在 main.css 统一映射 --site-*（首页 gallery 调色板），
-   此处直接使用，不再重复声明 --qu-* 冗余层。 */
 .qu-page {
   min-height: 100%;
   background: var(--creative-canvas);

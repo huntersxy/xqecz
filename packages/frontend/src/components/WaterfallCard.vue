@@ -15,7 +15,6 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   click: [content: Content]
   imageLoaded: [id: string | number]
-  /** 点赞结果回传列表：父级持有 allContents，不更新它的话返回首页时缓存会把数量复原。 */
   liked: [payload: { id: string | number; liked: boolean; like_count: number }]
 }>()
 const likeCount = ref(props.item.like_count || 0)
@@ -34,8 +33,6 @@ async function toggleLike(event: MouseEvent) {
       emit('liked', { id: props.item.id, liked: res.data.liked, like_count: res.data.like_count })
     }
   } catch (err) {
-    // request() 已对非 401 失败弹过 toast；只有未登录这一种需要额外引导，
-    // 其余情况静默即可，不能在事件回调里把异常放出去（会冒泡到 ErrorBoundary 顶掉整页）。
     if ((err as { status?: number })?.status === 401) {
       toast.info('登录后即可点亮')
     }
@@ -44,15 +41,11 @@ async function toggleLike(event: MouseEvent) {
   }
 }
 
-// 纯文本卡：从正文提炼一段摘要（去 Markdown），无正文时回退到标题
 const previewText = computed(() => {
   const source = props.item.text || props.item.title || ''
   return getPreviewText(source, 96)
 })
 
-// 瀑布流依赖卡片高度变化触发重排：用 ResizeObserver 监听整卡高度，
-// 只在高度发生有意义变化时 emit（初始观察回调不重复触发），图片加载/失败、
-// 字体变化等都会反映到高度上。
 const cardRef = ref<HTMLElement | null>(null)
 let ro: ResizeObserver | null = null
 let lastHeight = 0

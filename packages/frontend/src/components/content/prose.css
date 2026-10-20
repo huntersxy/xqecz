@@ -1,4 +1,3 @@
-/* 详情页正文（Markdown 渲染结果）的共享排版；用 .cd-prose 命名空间，不污染全局。 */
 .cd-prose { line-height: 1.85; color: var(--creative-ink); word-break: break-word; }
 .cd-prose p { margin: 0 0 .9em; }
 .cd-prose p:last-child { margin-bottom: 0; }

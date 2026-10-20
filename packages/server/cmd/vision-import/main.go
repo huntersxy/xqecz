@@ -1,4 +1,3 @@
-// vision-import prepares private character references without connecting to MySQL or Redis.
 package main
 
 import (

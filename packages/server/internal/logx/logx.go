@@ -1,11 +1,3 @@
-// Package logx 提供比 slog TextHandler 更适合人眼阅读的控制台日志格式：
-//
-//	[2026-09-14 22:09:49 INFO] tinypng 压缩完成  id=844  file=db36a.webp  before=1.36MB  after=92.9KB  saved=1.27MB
-//	[2026-09-14 22:22:29 WARN] http  req="GET /"  status=404  cost=100µs
-//
-// 设计取舍：单行、无引号噪音；字节类字段自动转人类可读；duration 按量级转
-// µs/ms/s/m；值里含空白才加引号（如 `req="GET /"`）；输出为终端时给时间/级别/键
-// 上色，重定向到文件（生产 `>> log`）时自动纯文本。
 package logx
 
 import (
@@ -19,20 +11,15 @@ import (
 	"time"
 )
 
-// byteKeys 的值按字节数格式化（如 1427370 → 1.36MB）。
 var byteKeys = map[string]bool{
 	"before": true, "after": true, "saved": true, "min_size": true,
 	"orig": true, "got": true, "size": true, "file_size": true, "written": true,
 }
 
-// New 创建默认配置的 Handler（Info 起记，stdout 为终端时带色）。
 func New(w io.Writer) slog.Handler {
 	return newHandler(w, slog.LevelInfo, isTerminal(w), nil)
 }
 
-// NewWithBuffer creates a handler that writes to w and keeps the same rendered
-// lines in buffer. The buffer is deliberately optional so command-line tools
-// can keep the lightweight stdout-only behavior.
 func NewWithBuffer(w io.Writer, buffer *Buffer) slog.Handler {
 	return newHandler(w, slog.LevelInfo, isTerminal(w), buffer)
 }
@@ -49,8 +36,8 @@ type Handler struct {
 	minLevel slog.Level
 	color    bool
 	buffer   *Buffer
-	pre      string // WithAttrs/WithGroup 累积的已格式化前缀
-	group    string // 当前组前缀（仅 WithGroup）
+	pre      string
+	group    string
 }
 
 func (h *Handler) Enabled(_ context.Context, l slog.Level) bool { return l >= h.minLevel }
@@ -68,8 +55,6 @@ func (h *Handler) Handle(_ context.Context, r slog.Record) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.buffer != nil {
-		// The terminal writer may use ANSI colors; the browser terminal receives
-		// plain text so escape sequences never become visible log noise.
 		h.buffer.Append(Entry{Time: r.Time, Level: r.Level.String(), Message: r.Message, Line: string(stripANSI(b[:len(b)-1]))})
 	}
 	_, err := h.out.Write(b)
@@ -95,7 +80,6 @@ func stripANSI(src []byte) []byte {
 	return result
 }
 
-// appendAttrs 依次输出：WithAttrs 累积前缀 → 本条记录的属性。组内键带组名前缀。
 func (h *Handler) appendAttrs(b []byte, r slog.Record) []byte {
 	if h.pre != "" {
 		b = append(b, h.pre...)
@@ -143,7 +127,6 @@ func appendTime(b []byte, t time.Time, color bool) []byte {
 	return append(b, s...)
 }
 
-// appendLevel 输出 4 字符级别名（不带尾随空格，方括号由 Handle 统一包裹）。
 func appendLevel(b []byte, l slog.Level, color bool) []byte {
 	name, code := "INFO", "32"
 	switch {
@@ -214,7 +197,6 @@ func isSensitiveKey(key string) bool {
 	return false
 }
 
-// formatDuration：亚毫秒用 µs、毫秒 1 位小数、秒级 2 位小数、分钟以上用 m。
 func formatDuration(d time.Duration) string {
 	switch {
 	case d >= time.Minute:
@@ -228,7 +210,6 @@ func formatDuration(d time.Duration) string {
 	}
 }
 
-// formatBytes：1023 → 1023B；1.36MB 风格。
 func formatBytes(n int64) string {
 	switch {
 	case n < 0:

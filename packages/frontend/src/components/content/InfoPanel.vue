@@ -22,7 +22,6 @@ const router = useRouter()
 const userStore = useUserStore()
 const commentRef = ref<InstanceType<typeof CommentThread> | null>(null)
 
-/** 有图/视频时，文字是「关于作品」的说明；纯文字作品的正文已在舞台整篇展示，面板不再重复。 */
 const hasMedia = computed(() => !!(props.content.img || props.content.video))
 
 const renderedText = computed(() => {
@@ -30,7 +29,6 @@ const renderedText = computed(() => {
   return t ? rewriteMediaInHtml(renderMarkdown(t)) : ''
 })
 
-// 长正文默认收起，避免把评论挤到几屏之外
 const LONG_TEXT = 280
 const isLongText = computed(() => (props.content.text || '').length > LONG_TEXT)
 const textExpanded = ref(false)
@@ -152,7 +150,6 @@ defineExpose({ commentRef })
   padding: 64px 28px 32px; background: var(--creative-paper); border-left: 1px solid var(--creative-line);
   overflow-y: auto; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--creative-line) transparent;
 }
-/* 标题区：衬线大标题允许折行，完整读出作品名 */
 .cd-head { display: flex; flex-direction: column; flex-shrink: 0; gap: 10px; }
 .cd-eyebrow { color: var(--creative-muted); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; }
 .cd-eyebrow > span { margin-left: 5px; color: var(--creative-accent); }
@@ -198,7 +195,6 @@ defineExpose({ commentRef })
 
 @media (min-width: 769px) and (max-width: 1024px) { .cd-side { flex-basis: 340px; padding: 64px 22px 28px; } }
 @media (max-width: 768px) {
-  /* 窄屏：面板接在舞台下方，随整页滚动，不再自带滚动条 */
   .cd-side { flex: 0 0 auto; width: 100%; padding: 22px 20px 32px; gap: 20px; border-left: 0; border-top: 1px solid var(--creative-line); overflow-y: visible; scrollbar-gutter: auto; }
   .cd-title { font-size: 22px; }
 }

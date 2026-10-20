@@ -128,7 +128,6 @@ const menus = [
   ['template', '提示词模板'],
 ]
 
-/* ── 分区导航 / 台账视图 ─────────────────────────────────────────── */
 type AdminStatusType = 'success' | 'warning' | 'danger' | 'info' | 'neutral'
 type LedgerRow = z.infer<typeof AILedgerSchema>
 
@@ -339,7 +338,6 @@ async function run(fn: () => Promise<unknown>) {
     if (!stopped) error.value = (e as Error).message
   }
 }
-/** 复制管理员诊断文本，供贴进排查记录或日志检索。 */
 async function copyDiagnostic(text: string) {
   try {
     await navigator.clipboard?.writeText(text)
@@ -490,7 +488,6 @@ async function saveAsset() {
   }
   assetSaving.value = true
   try {
-    // Submit editable metadata only; ownership and task provenance remain server-owned.
     await aiApi.metadata(id, {
       title,
       description,
@@ -632,7 +629,6 @@ onBeforeUnmount(() => {
 
         <p v-if="error" class="adm-ai-alert" role="alert">{{ error }}</p>
 
-        <!-- A. 供应商：卡片网格 + 折叠的提示词增强 -->
         <section id="ai-pane-providers" role="tabpanel" :aria-labelledby="'ai-tab-providers'" v-if="tab === 'providers'" class="adm-ai-pane">
           <header class="adm-ai-pane-head">
             <div>
@@ -772,7 +768,6 @@ onBeforeUnmount(() => {
           </details>
         </section>
 
-        <!-- B. 额度 / 账本：时间线 + 吸顶发放表单 -->
         <section id="ai-pane-quota" role="tabpanel" :aria-labelledby="'ai-tab-quota'" v-else-if="tab === 'quota'" class="adm-board">
           <div class="adm-board-main">
             <header class="adm-ai-pane-head">
@@ -898,7 +893,6 @@ onBeforeUnmount(() => {
           </aside>
         </section>
 
-        <!-- C. 生图任务：结果图画廊卡片 -->
         <section id="ai-pane-tasks" role="tabpanel" :aria-labelledby="'ai-tab-tasks'" v-else-if="tab === 'tasks'" class="adm-ai-pane">
           <header class="adm-ai-pane-head">
             <div>
@@ -1061,7 +1055,6 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
-        <!-- D. 创意投稿：带图卡片网格 -->
         <section id="ai-pane-ideas" role="tabpanel" :aria-labelledby="'ai-tab-ideas'" v-else-if="tab === 'ideas'" class="adm-ai-pane">
           <header class="adm-ai-pane-head">
             <div>
@@ -1152,7 +1145,6 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
-        <!-- E. 赞助记录：金额卡片列表 -->
         <section id="ai-pane-sponsors" role="tabpanel" :aria-labelledby="'ai-tab-sponsors'" v-else-if="tab === 'sponsors'" class="adm-ai-pane">
           <header class="adm-ai-pane-head">
             <div>
@@ -1232,7 +1224,6 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
-        <!-- F. 角色资源：4:5 封面栅格 + 素材库 -->
         <section id="ai-pane-character" role="tabpanel" :aria-labelledby="'ai-tab-character'" v-else-if="tab === 'character'" class="adm-ai-pane">
           <header class="adm-ai-pane-head">
             <div>
@@ -1352,7 +1343,6 @@ onBeforeUnmount(() => {
           </section>
         </section>
 
-        <!-- G. 提示词模板：卡片列表 -->
         <section id="ai-pane-template" role="tabpanel" :aria-labelledby="'ai-tab-template'" v-else class="adm-ai-pane">
           <header class="adm-ai-pane-head">
             <div>
@@ -1588,7 +1578,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-/* AI 创作管理：左侧分区 rail + 右侧工作区。仅使用 --adm-* 令牌（带旧值回落）。 */
 .ai-workspace {
   display: grid;
   grid-template-columns: 200px minmax(0, 1fr);
@@ -1736,8 +1725,6 @@ onBeforeUnmount(() => {
 .adm-ai-filter {
   width: 150px;
 }
-/* Arco 的 a-select 根节点不带 scoped 作用域属性（a-input / a-button 带），
-   所以上面两条普通规则对下拉框从未生效，下拉会撑满整行。必须走 :deep()。 */
 .adm-ai-filter-row :deep(.adm-ai-search) {
   flex: 0 0 200px;
   width: 200px;
@@ -2067,7 +2054,6 @@ onBeforeUnmount(() => {
   color: var(--adm-accent, var(--admin-primary));
 }
 
-/* 生图任务：结果图画廊卡片 */
 .admin-task-record {
   display: flex;
   flex-direction: column;
@@ -2282,7 +2268,6 @@ onBeforeUnmount(() => {
   height: 56px;
 }
 
-/* 创意投稿 */
 .adm-idea-card .adm-card-media {
   position: relative;
   aspect-ratio: 4 / 3;
@@ -2325,7 +2310,6 @@ onBeforeUnmount(() => {
   overflow-wrap: anywhere;
 }
 
-/* 赞助记录 */
 .adm-sponsor-head {
   display: flex;
   align-items: center;
@@ -2347,7 +2331,6 @@ onBeforeUnmount(() => {
   font-weight: 500;
 }
 
-/* 角色资源 / 素材 */
 .admin-resource-cover {
   aspect-ratio: 4 / 5;
 }
@@ -2401,7 +2384,6 @@ onBeforeUnmount(() => {
   object-position: center 22%;
 }
 
-/* 提示词模板 */
 .adm-template-summary {
   min-width: 0;
   margin: 0;
@@ -2426,7 +2408,6 @@ onBeforeUnmount(() => {
 }
 
 
-/* ── 供应商卡片图标操作 ── */
 .ai-icon-bar {
   display: inline-flex;
   align-items: center;
@@ -2469,7 +2450,6 @@ onBeforeUnmount(() => {
   outline-offset: 2px;
 }
 
-/* ── 模板卡片 ── */
 .ai-template-head {
   display: flex;
   align-items: flex-start;
@@ -2491,7 +2471,6 @@ onBeforeUnmount(() => {
   overflow-wrap: anywhere;
 }
 
-/* ── 弹窗正文与按钮令牌 ── */
 .ai-dialog-body {
   display: flex;
   flex-direction: column;

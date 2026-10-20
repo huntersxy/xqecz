@@ -1,15 +1,5 @@
 name: Build & Deploy
 
-# 生产形态（2026-09 起）：CI 只管后端，前端交给 EdgeOne Makers。
-#
-#   后端 → 部署机（Alpine + OpenRC，服务名 xqecz，目录 /opt/xqecz）：
-#          SSH 直传单文件 → 原子 mv 替换 → rc-service restart → 探 API 域名
-#   前端 → EdgeOne Makers 自行构建（xq.xiey.work）。仓库根 .env 被 gitignore，
-#          VITE_API_BASE_URL / VITE_MEDIA_BASE_URL 只能在 Makers 控制台配，
-#          所以 CI 既不构建也不发布前端；前端构建失败在 Makers 的构建日志里可见。
-#
-# 旧形态（宝塔「Go 项目」+「静态站点」，FTP + 面板 ExecShell）已随迁移废弃：
-# 目标机没有面板、没有 FTP，只有 SSH 与 OpenRC，故三段式面板调用全部删除。
 on:
   push:
     branches: ["master"]
@@ -20,22 +10,16 @@ on:
         type: boolean
         default: true
 
-# 部署不可并发：两次推送同时覆盖二进制会互相打断
 concurrency:
   group: deploy-production
   cancel-in-progress: false
 
 env:
-  # 主机与密钥都从 Secrets 注入，仓库内不出现服务器地址与凭据
   DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
   DEPLOY_USER: alpine
   DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
   DEPLOY_DIR: /opt/xqecz
-  # 一律非交互：CI 没有 TTY，认证失败时若不禁用交互，ssh 会停下来询问而卡到作业超时。
-  # 目标机是公网 22，常态有爆破连接，密钥失败要立刻红而不是挂着。
   SSH_OPTS: -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new
-  # 健康检查必须打 API 源站：xq.xiey.work 已是 Makers 静态站且不反代，
-  # /api/* 在那里返回 404，拿它当探针会「服务明明是好的却判失败」
   HEALTH_URL: https://api39.xiey.work/api/health
 
 jobs:
@@ -60,7 +44,6 @@ jobs:
           GOARCH: amd64
         run: go build -ldflags="-s -w" -o xqecz-server ./cmd/server
 
-      # ── SSH：私钥与主机地址只从 Secrets 来 ──
 
       - name: Configure SSH
         env:
@@ -72,14 +55,10 @@ jobs:
           mkdir -p ~/.ssh
           umask 077
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
-          # 托管 IP 会变，用 accept-new 而非首次信任的密钥固定，避免轮换后卡死部署
           ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
           ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" $SSH_OPTS \
             "$DEPLOY_USER@$DEPLOY_HOST" 'echo "ssh 连通：$(hostname)"'
 
-      # ── 上传：写成 .new，绝不触碰同目录的 .env 与 data/ ──
-      # 直接覆盖「正在运行的二进制」会被内核拒绝（ETXTBSY），
-      # 服务器侧再用 mv 原子替换（不改变运行中进程持有的 inode）后重启。
 
       - name: Upload backend binary
         run: |
@@ -105,8 +84,6 @@ jobs:
           '
           echo "替换与重启完成"
 
-      # 部署是否真的生效，以生产探针为准。
-      # 注意：这里探的是 API 域名，不是前端域名——前端在 Makers 上，没有 /api 反代。
 
       - name: Verify production health
         run: |
@@ -123,10 +100,6 @@ jobs:
           echo "健康检查失败：$HEALTH_URL 未返回 200"
           exit 1
 
-      # 健康检查只看「服务活着」：mv 静默失败、restart 失败时服务照样 200，
-      # 实际跑的还是上一版二进制（旧 CI 轮就踩过这个坑，接口形状没变才没发现）。
-      # SSH 输出是同步的，直接读回「文件」与「运行进程」两份 md5 比对即可，
-      # 不必再像旧版那样写文件→面板 GetFileBody 取回→解析 JSON 包装。
       - name: Verify running binary is this build
         run: |
           set -euo pipefail
@@ -139,8 +112,6 @@ jobs:
             if [ -n "$P" ] && [ -r "/proc/$P/exe" ]; then
               R=$(md5sum "/proc/$P/exe" 2>/dev/null | cut -d" " -f1)
             fi
-            # 用 pidof 按可执行文件名计数：busybox 的 pgrep 没有 -c，
-            # 而 pgrep -f 会匹配到执行这段脚本的 shell 自身（cmdline 里含本文件名），多算一个。
             N=$(pidof xqecz-server 2>/dev/null | wc -w)
             echo "bin=${B:-unknown}"
             echo "running=${R:-unknown}"

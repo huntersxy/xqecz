@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useHomeStore } from '../home'
 
-// Mock window.scrollTo
 const mockScrollTo = vi.fn()
 vi.stubGlobal('window', { scrollTo: mockScrollTo })
 
@@ -45,7 +44,6 @@ describe('useHomeStore', () => {
   it('should clear state correctly', () => {
     const store = useHomeStore()
 
-    // First save some state
     store.saveState({
       searchKeyword: 'test',
       selectedTags: ['tag1'],
@@ -54,7 +52,6 @@ describe('useHomeStore', () => {
       scrollPosition: 500,
     })
 
-    // Then clear
     store.clearState()
 
     expect(store.searchKeyword).toBe('')

@@ -1,4 +1,3 @@
-// Package content 实现内容读取路径（列表、搜索、推荐、标签、详情）。
 package content
 
 import (
@@ -22,17 +21,13 @@ import (
 	"gorm.io/gorm"
 )
 
-// 缓存 TTL：5 分钟仅作兜底，所有写路径显式失效。
 const (
 	ContentTTL = 300 * time.Second
 	ListTTL    = 300 * time.Second
 	TagsTTL    = 300 * time.Second
 )
 
-// Options 是内容模块的可选依赖，用零值即「不启用」。
 type Options struct {
-	// Mirror 为媒体镜像链（R2 与自建 OpenList 两个目标）：只影响对外返回的镜像地址
-	// 与上传/压缩后的异步推送，为 nil 时行为与接入镜像之前完全一致。
 	Mirror app.MediaMirror
 }
 
@@ -50,7 +45,6 @@ func New(deps app.Deps, opts ...Options) *Handler {
 	return h
 }
 
-// Register 挂载 /content 路由并返回处理器实例（管理端复用同一实例）。
 func Register(api *gin.RouterGroup, deps app.Deps, opts ...Options) *Handler {
 	h := New(deps, opts...)
 	g := api.Group("/content")
@@ -61,7 +55,6 @@ func Register(api *gin.RouterGroup, deps app.Deps, opts ...Options) *Handler {
 	g.GET("/metadata-options", h.metadataOptions)
 	g.GET("/my", web.RequireAuth(deps), h.my)
 
-	// 写路径：Session 或具备对应权限的 API 密钥。
 	g.POST("/upload", web.RequireAuth(deps), web.RequireAPIKeyPermission("upload"), h.upload)
 	g.POST("/quick-upload", h.quickUpload)
 	g.PUT("/:id", web.RequireAuth(deps), web.RequireAPIKeyPermission("upload"), h.update)
@@ -75,7 +68,6 @@ func Register(api *gin.RouterGroup, deps app.Deps, opts ...Options) *Handler {
 	return h
 }
 
-// listOpts 是列表查询的统一入参。
 type listOpts struct {
 	Page          int
 	PageSize      int
@@ -106,7 +98,6 @@ func (o *listOpts) normalize() {
 	}
 }
 
-// cacheKey 与旧实现完全一致的规范化参数哈希，避免迁移期新旧进程串缓存。
 func (o *listOpts) cacheKey() string {
 	statuses := append([]string{}, o.AuditStatuses...)
 	sortStrings(statuses)
@@ -145,7 +136,6 @@ func (h *Handler) list(c *gin.Context) {
 		SortBy:      c.Query("sort_by"),
 		Order:       c.Query("order"),
 	}
-	// 公开可见范围：已通过 + 审核中；rejected 不对外展示。
 	if opts.AuditStatus == "" {
 		opts.AuditStatuses = []string{"approved", "pending"}
 	}
@@ -170,7 +160,6 @@ func (h *Handler) search(c *gin.Context) {
 		Keyword:       keyword,
 		AuditStatuses: []string{"approved", "pending"},
 	}
-	// 搜索同样支持标签筛选（旧实现漏了查询侧的标签条件）。
 	page, err := h.query(c.Request.Context(), opts)
 	if err != nil {
 		web.Fail(c, 500, "服务异常")
@@ -195,7 +184,6 @@ func (h *Handler) my(c *gin.Context) {
 	web.OK(c, page, "ok")
 }
 
-// query 执行列表查询（含读穿缓存）。
 func (h *Handler) query(ctx context.Context, opts listOpts) (Page, error) {
 	opts.normalize()
 	key := opts.cacheKey()
@@ -270,11 +258,9 @@ func (h *Handler) detail(c *gin.Context) {
 	identity, hasViewer := web.IdentityOf(c)
 	ctx := c.Request.Context()
 
-	// 匿名非 silent 的公开详情走缓存；登录/内部请求直查，保证权限判断与新鲜度。
 	if !hasViewer && !silent {
 		var cached Item
 		if hit, _ := h.deps.Redis.GetJSON(ctx, "content:"+strconv.FormatUint(id, 10), &cached); hit {
-			// 缓存不含浏览量展示，但命中时照常累计，保证统计不丢。
 			h.incView(ctx, id)
 			web.OK(c, cached, "ok")
 			return
@@ -292,7 +278,6 @@ func (h *Handler) detail(c *gin.Context) {
 		return
 	}
 
-	// 审核中（pending）公开可见；已拒绝（rejected）仅作者本人或管理员可见。
 	if row.AuditStatus == "rejected" {
 		isOwner := hasViewer && identity.UID == row.UserID
 		if !isOwner && !(hasViewer && identity.IsAdmin) {
@@ -311,7 +296,6 @@ func (h *Handler) detail(c *gin.Context) {
 
 	item := decorateWith(h.mirror, row, h.userMapFor(ctx, []store.Content{row}), likeCount, false)
 
-	// 仅缓存公开可见（非 rejected）内容；rejected 的权限需实时判断，不缓存。
 	if !hasViewer && row.AuditStatus != "rejected" {
 		_ = h.deps.Redis.SetJSON(ctx, "content:"+strconv.FormatUint(id, 10), item, ContentTTL)
 	}
@@ -339,7 +323,6 @@ func (h *Handler) recommend(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	// 优先读推荐 ZSet（由 refreshRecommend 维护）。
 	if ids := h.deps.Redis.GetRecommendList(ctx, pageNum, count); len(ids) > 0 {
 		var rows []store.Content
 		if err := h.deps.DB.WithContext(ctx).
@@ -365,7 +348,6 @@ func (h *Handler) recommend(c *gin.Context) {
 		}
 	}
 
-	// 降级：推荐位尚未生成时按浏览量排序。
 	var rows []store.Content
 	err := h.deps.DB.WithContext(ctx).
 		Where("audit_status = ?", "approved").
@@ -392,7 +374,6 @@ func (h *Handler) tags(c *gin.Context) {
 	key := "tags"
 	list, err := cache.GetOrSetJSON(ctx, h.deps.Redis, key, TagsTTL, func() ([]string, error) {
 		var rows []store.Content
-		// 公开可见范围 = 已通过 + 审核中（rejected 不参与标签云）。
 		if err := h.deps.DB.WithContext(ctx).
 			Select("tags").
 			Where("audit_status IN ?", []string{"approved", "pending"}).
@@ -418,15 +399,10 @@ func (h *Handler) tags(c *gin.Context) {
 	web.OK(c, list, "ok")
 }
 
-// decorateRows 批量装饰公开列表：批量取作者与点赞数，消除 N+1。
-// 公开卡片自身展示浏览量（首页/推荐条的眼睛图标），因此公开路径也带上
-// view_count；管理员等需要区分口径的调用继续走 decorateRowsWith 显式传参。
 func (h *Handler) decorateRows(ctx context.Context, rows []store.Content) ([]Item, error) {
 	return h.decorateRowsWith(ctx, rows, true)
 }
 
-// decorateRowsWith 在一次作者查询和一次点赞聚合中装饰整批内容。
-// includeViewCount 仅由需要展示浏览量的管理端路径开启，避免公开列表扩大响应。
 func (h *Handler) decorateRowsWith(ctx context.Context, rows []store.Content, includeViewCount bool) ([]Item, error) {
 	if len(rows) == 0 {
 		return []Item{}, nil
@@ -475,8 +451,6 @@ func (h *Handler) userMapFor(ctx context.Context, rows []store.Content) map[uint
 		return out
 	}
 	var users []store.User
-	// Public content decoration only needs the author identity and avatar
-	// source. Avoid fetching password/role/session fields for every list row.
 	if err := h.deps.DB.WithContext(ctx).Select("id", "username", "email").Where("id IN ?", ids).Find(&users).Error; err != nil {
 		return out
 	}

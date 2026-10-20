@@ -30,7 +30,6 @@ const langClass: Record<string, string> = {
   powershell: 'powershell',
 }
 
-// 示例统一以“上传 → 列表 → 删除”完整链路为例；密钥换成你自己的。
 const codeExamples: Record<string, string> = {
   curl: `# 1. 上传内容（multipart/form-data）
 curl -X POST "https://xq.xiey.work/api/content/upload" \\
@@ -129,7 +128,6 @@ $deleted = Invoke-RestMethod -Uri ($base + '/content/' + $id) -Method Delete -He
 $deleted | ConvertTo-Json -Depth 5`,
 }
 
-// 目录与正文一一对应：正文连续渲染，目录只负责定位与高亮。
 const tocItems = [
   { id: 'sec-auth', label: '认证与权限' },
   { id: 'sec-response', label: '统一响应格式' },
@@ -143,7 +141,6 @@ const tocItems = [
 
 const activeToc = ref('sec-auth')
 
-// 点击目录后短暂锁住高亮，避免平滑滚动途中被中间章节抢回去
 let lockUntil = 0
 let observer: IntersectionObserver | null = null
 const visibleSections = new Set<string>()
@@ -266,7 +263,6 @@ function scrollToSection(id: string) {
   })
 }
 
-// 按目录顺序取第一个进入视口的章节作为当前高亮项
 function syncActiveFromViewport() {
   if (Date.now() < lockUntil) return
   const firstVisible = tocItems.find((item) => visibleSections.has(item.id))
@@ -274,7 +270,6 @@ function syncActiveFromViewport() {
 }
 
 function setupObserver() {
-  // jsdom 与老浏览器没有 IntersectionObserver：保持点击切换，不抛错
   if (typeof IntersectionObserver === 'undefined') return
   observer?.disconnect()
   visibleSections.clear()
@@ -297,7 +292,6 @@ function setupObserver() {
 function highlightBlocks() {
   document.querySelectorAll('.api-docs pre:not(.no-hl) code').forEach((el) => {
     const node = el as HTMLElement
-    // 连续渲染下同一节点会被多次收集，已高亮过就跳过，避免 hljs 重复告警
     if (node.dataset.highlighted) return
     hljs.highlightElement(node)
   })
@@ -322,7 +316,7 @@ function copyActiveExample() {
   navigator.clipboard
     ?.writeText(code)
     .then(() => toast.success('示例已复制'))
-    .catch(() => { /* 剪贴板不可用时静默 */ })
+    .catch(() => { })
 }
 
 function copyFrame(e: MouseEvent) {
@@ -332,7 +326,7 @@ function copyFrame(e: MouseEvent) {
   navigator.clipboard
     ?.writeText(code)
     .then(() => toast.success('已复制'))
-    .catch(() => { /* 剪贴板不可用时静默 */ })
+    .catch(() => { })
 }
 </script>
 
@@ -356,7 +350,6 @@ function copyFrame(e: MouseEvent) {
 
     <div class="api-body">
       <main class="api-main">
-        <!-- 认证与权限 -->
         <section id="sec-auth" class="api-section">
           <h4 class="api-section-title">认证与权限</h4>
           <p class="api-desc">
@@ -395,7 +388,6 @@ function copyFrame(e: MouseEvent) {
           </div>
         </section>
 
-        <!-- 统一响应格式 -->
         <section id="sec-response" class="api-section">
           <h4 class="api-section-title">统一响应格式</h4>
           <p class="api-desc">
@@ -436,7 +428,6 @@ function copyFrame(e: MouseEvent) {
           </p>
         </section>
 
-        <!-- 5 个接口卡片连续排列，目录负责定位 -->
         <section v-for="card in endpointCards" :id="card.id" :key="card.id" class="api-endpoint-card">
           <div class="api-ep-head">
             <span class="api-method" :class="card.methodCls">{{ card.method }}</span>
@@ -476,7 +467,6 @@ function copyFrame(e: MouseEvent) {
           </div>
         </section>
 
-        <!-- 语言示例 -->
         <section id="sec-examples" class="api-section">
           <div class="api-examples-head">
             <h4 class="api-section-title">语言示例</h4>
@@ -491,7 +481,6 @@ function copyFrame(e: MouseEvent) {
         </section>
       </main>
 
-      <!-- 右侧吸顶目录：IntersectionObserver 高亮当前章节 -->
       <aside class="api-toc" aria-label="文档目录">
         <div class="api-toc-group">目录</div>
         <button
@@ -514,7 +503,6 @@ function copyFrame(e: MouseEvent) {
 <style lang="scss" scoped>
 @use './admin' as *;
 
-// 文档页只换皮肤：正文结构、接口内容与代码示例保持不变。
 .api-docs {
   padding: var(--adm-gap-xl, 24px);
   color: var(--adm-ink, var(--admin-text));
@@ -558,7 +546,6 @@ function copyFrame(e: MouseEvent) {
   border-radius: var(--adm-r-control, 10px);
 }
 
-/* ── 双栏：正文 + 右侧吸顶目录 ── */
 .api-body {
   display: flex;
   align-items: flex-start;
@@ -645,7 +632,6 @@ function copyFrame(e: MouseEvent) {
   color: #f7f1e8;
 }
 
-/* ── 章节与接口卡片 ── */
 .api-section {
   margin-bottom: var(--adm-gap-xl, 24px);
   scroll-margin-top: var(--adm-gap-lg, 16px);
@@ -716,7 +702,6 @@ function copyFrame(e: MouseEvent) {
   word-break: break-all;
 }
 
-/* 方法徽标：12% 色底 + 同色文字 + 描边，不用高饱和实心块 */
 .api-method {
   flex: none;
   padding: 3px 10px;
@@ -785,7 +770,6 @@ function copyFrame(e: MouseEvent) {
   color: var(--adm-ink, var(--admin-text));
 }
 
-/* ── 表格：圆角容器，去双线外框 ── */
 .api-table-wrap {
   overflow: hidden;
   border: 1px solid var(--adm-line, var(--admin-border-soft));
@@ -843,7 +827,6 @@ function copyFrame(e: MouseEvent) {
   }
 }
 
-/* ── 代码块：暖调深色恒底，不随亮/暗主题翻转 ── */
 .code-frame {
   margin: var(--adm-gap-sm, 8px) 0 var(--adm-gap-md, 12px);
   overflow: hidden;
@@ -902,7 +885,6 @@ function copyFrame(e: MouseEvent) {
   }
 }
 
-/* 字符串值用暖白，避免 github-dark 的冷色铺在暖底上 */
 .api-code :deep(.hljs-string),
 .api-json :deep(.hljs-string) {
   color: #f2e8d8;
@@ -930,7 +912,6 @@ function copyFrame(e: MouseEvent) {
   }
 }
 
-/* ── 语言示例 ── */
 .api-examples-head {
   display: flex;
   align-items: center;
@@ -955,7 +936,6 @@ function copyFrame(e: MouseEvent) {
   white-space: pre;
 }
 
-/* ── ≤820：目录变吸顶横向条，置顶 ── */
 @media (max-width: 820px) {
   .api-body {
     flex-direction: column;

@@ -7,7 +7,6 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/store"
 )
 
-// fakeMirror 是测试用的镜像替身：只按固定前缀拼地址，能记下推送调用。
 type fakeMirror struct {
 	base     string
 	base2    string
@@ -22,7 +21,6 @@ func (f *fakeMirror) R2URL(rel string) string {
 	return f.base + "/" + rel
 }
 
-// OpenListURL 模拟自建 OpenList（首选）那一级：base2 为空即代表「未启用 / 未配公开域名」。
 func (f *fakeMirror) OpenListURL(rel string) string {
 	if f.base2 == "" || rel == "" {
 		return ""
@@ -34,12 +32,10 @@ func (f *fakeMirror) PushAsync(rel, absPath string) {
 	f.pushed = append(f.pushed, rel)
 }
 
-// ArchiveOriginalAsync 记录归档调用：本包只关心「有没有被调用」，不校验 R2 侧细节。
 func (f *fakeMirror) ArchiveOriginalAsync(rel, origPath string) {
 	f.archived = append(f.archived, rel)
 }
 
-// TestDecorateWithMirrorExposesBackupURL 图片行的镜像地址（mirror_*）与源站地址同路径、仅换 host。
 func TestDecorateWithMirrorExposesBackupURL(t *testing.T) {
 	now := time.Now()
 	mm := &fakeMirror{base: "https://file.example.com"}
@@ -60,7 +56,6 @@ func TestDecorateWithMirrorExposesBackupURL(t *testing.T) {
 	}
 }
 
-// TestDecorateWithMirrorVideo 视频行同理，走 mirror_video 字段。
 func TestDecorateWithMirrorVideo(t *testing.T) {
 	now := time.Now()
 	mm := &fakeMirror{base: "https://file.example.com"}
@@ -77,7 +72,6 @@ func TestDecorateWithMirrorVideo(t *testing.T) {
 	}
 }
 
-// TestDecorateWithoutMirrorHasNoBackup 未接入镜像时输出与旧实现逐字段一致（无镜像字段）。
 func TestDecorateWithoutMirrorHasNoBackup(t *testing.T) {
 	now := time.Now()
 	row := store.Content{
@@ -93,7 +87,6 @@ func TestDecorateWithoutMirrorHasNoBackup(t *testing.T) {
 	}
 }
 
-// TestDecorateThumbOnlyRowHasNoMirror 只有缩略图的行不镜像（缩略图保持纯本地）。
 func TestDecorateThumbOnlyRowHasNoMirror(t *testing.T) {
 	now := time.Now()
 	mm := &fakeMirror{base: "https://file.example.com"}
@@ -110,7 +103,6 @@ func TestDecorateThumbOnlyRowHasNoMirror(t *testing.T) {
 	}
 }
 
-// TestPrepareUploadFilePushesToMirror 上传落盘后立即异步推给镜像链每个目标（原图先落本地，再推一份）。
 func TestPrepareUploadFilePushesToMirror(t *testing.T) {
 	mm := &fakeMirror{base: "https://file.example.com"}
 	h := &Handler{mirror: mm}
@@ -126,7 +118,6 @@ func TestPrepareUploadFilePushesToMirror(t *testing.T) {
 	}
 }
 
-// TestPrepareUploadFileWithoutMirror 未接入镜像时上传流程不受影响，且 nil 文件安全。
 func TestPrepareUploadFileWithoutMirror(t *testing.T) {
 	h := &Handler{}
 	if rel, size, abs := h.prepareUploadFile(nil); rel != "" || size != 0 || abs != "" {
@@ -138,8 +129,6 @@ func TestPrepareUploadFileWithoutMirror(t *testing.T) {
 	}
 }
 
-// TestDecorateWithMirror2ExposesFallbackURL 自建 OpenList（首选镜像）与 R2 并列下发，
-// 前端据此做 OpenList → R2 → 源站 的逐级回退。
 func TestDecorateWithMirror2ExposesFallbackURL(t *testing.T) {
 	now := time.Now()
 	mm := &fakeMirror{base: "https://r2.example.com", base2: "https://drive.example.com"}
@@ -160,11 +149,9 @@ func TestDecorateWithMirror2ExposesFallbackURL(t *testing.T) {
 	}
 }
 
-// TestDecorateMirror2EmptyWhenClosed 首选镜像未配公开域名时只是少一个候选，
-// R2 不受影响——两级各自独立下发，不共用判空。
 func TestDecorateMirror2EmptyWhenClosed(t *testing.T) {
 	now := time.Now()
-	mm := &fakeMirror{base: "https://r2.example.com"} // base2 空 = 首选未启用
+	mm := &fakeMirror{base: "https://r2.example.com"}
 	row := store.Content{
 		ID: 6, Title: "i", FilePath: ptr("ab12.webp"), Tags: "[]",
 		AuditStatus: "approved", CreatedAt: now, UpdatedAt: now,
@@ -179,7 +166,6 @@ func TestDecorateMirror2EmptyWhenClosed(t *testing.T) {
 	}
 }
 
-// TestDecorateMirror2Video 视频行的首选镜像地址走 mirror2_video。
 func TestDecorateMirror2Video(t *testing.T) {
 	now := time.Now()
 	mm := &fakeMirror{base: "https://r2.example.com", base2: "https://drive.example.com"}

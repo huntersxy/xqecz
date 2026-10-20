@@ -17,21 +17,17 @@ import (
 	xdraw "golang.org/x/image/draw"
 )
 
-// 星图缩略图与普通 800px 缩略图分开；策略变化须更换目录版本，避免 CDN 复用旧质量。
 const AtlasDirectory = "atlas-v1"
 const AtlasMaxEdge = 256
 const AtlasQuality = 55
 
-// 走马灯大面积展示，使用更清晰的独立档位，不复用 256px 星图小球。
 const MontageDirectory = "montage-v1"
 const MontageMaxEdge = 640
 const MontageQuality = 78
 
-// 请求补图与启动回填共用生成入口。限制编码并发而非浏览作品数，防首次展开压满服务。
 var atlasJobs = make(chan struct{}, 2)
 var atlasLocks [64]sync.Mutex
 
-// AtlasThumbnailURL 只为本地普通 WebP 缩略图返回专用地址，不猜原图、视频或第三方路径。
 func AtlasThumbnailURL(thumb string) string   { return thumbnailVariantURL(thumb, AtlasDirectory) }
 func MontageThumbnailURL(thumb string) string { return thumbnailVariantURL(thumb, MontageDirectory) }
 
@@ -50,8 +46,6 @@ func validAtlasName(name string) bool {
 	return name != "" && filepath.Base(name) == name && !strings.ContainsAny(name, "/\\?#") && !strings.HasPrefix(name, ".") && strings.HasSuffix(name, ".webp")
 }
 
-// EnsureAtlasThumbnail 从已存在的普通缩略图缩放，视频也复用抽帧图，不重复解码原媒体。
-// 源缩略图更新则重建（走马灯档另比字节数）；已有有效文件直接返回。失败保留旧产物，取消后不得提交新文件。
 func EnsureAtlasThumbnail(ctx context.Context, thumbDir, name string) (string, error) {
 	return ensureThumbnailVariant(ctx, thumbDir, name, AtlasDirectory, AtlasMaxEdge, AtlasQuality)
 }
@@ -128,7 +122,6 @@ func ensureThumbnailVariant(ctx context.Context, thumbDir, name, directory strin
 	if closeErr != nil {
 		return "", closeErr
 	}
-	// 清晰档重编码有时反而增大：原 WebP 更小时保留原清晰度和字节数。
 	if directory == MontageDirectory && format == "webp" {
 		encoded, statErr := os.Stat(tmpPath)
 		if statErr != nil {
@@ -156,8 +149,6 @@ func ensureThumbnailVariant(ctx context.Context, thumbDir, name, directory strin
 	return rel, nil
 }
 
-// SweepAtlasThumbnails 补齐已有普通缩略图；仅扫描直属文件，绝不递归处理自己的产物。
-// 无 DB 字段迁移、无首次请求全量同步生成；失败继续其它文件，关停及时取消。
 func SweepAtlasThumbnails(ctx context.Context, thumbDir string) (ok, failed int, err error) {
 	entries, err := os.ReadDir(thumbDir)
 	if os.IsNotExist(err) {

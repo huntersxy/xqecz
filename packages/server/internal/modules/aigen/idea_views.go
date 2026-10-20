@@ -7,8 +7,6 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/store"
 )
 
-// The plaza batches authors, assets and prices; its cost never requires one
-// network/database round trip per card. Sponsorship revalidates authoritatively.
 func (h *Handler) ideaViews(c *gin.Context, rows []core.Idea) ([]any, error) {
 	userIDs, assetIDs, taskIDs := []uint64{}, []uint64{}, []uint64{}
 	inputs := map[uint64]core.Input{}
@@ -47,8 +45,6 @@ func (h *Handler) ideaViews(c *gin.Context, rows []core.Idea) ([]any, error) {
 			return nil, err
 		}
 	}
-	// Liked is only meaningful to the owner; the public plaza renders assets as
-	// submitted references/results and must not expose the private bookmark.
 	for i := range assets {
 		assets[i].Liked = false
 	}

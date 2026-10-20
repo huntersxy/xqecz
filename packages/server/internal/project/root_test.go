@@ -6,7 +6,6 @@ import (
 	"testing"
 )
 
-// 清掉显式根环境变量，避免宿主机环境影响探测类断言。
 func clearRootEnv(t *testing.T) {
 	t.Helper()
 	t.Setenv("PROJECT_ROOT", "")
@@ -32,7 +31,6 @@ func TestFindRootByXqeczRootEnv(t *testing.T) {
 	}
 }
 
-// 生产形态只上传二进制与 .env（不带 pnpm-workspace.yaml），.env 必须能独立作为根标记。
 func TestFindRootByMarkers(t *testing.T) {
 	for _, marker := range []string{"pnpm-workspace.yaml", ".git", ".env"} {
 		t.Run(marker, func(t *testing.T) {
@@ -49,7 +47,6 @@ func TestFindRootByMarkers(t *testing.T) {
 			if got := FindRoot(nested); got != root {
 				t.Fatalf("标记 %s 未生效: got %q want %q", marker, got, root)
 			}
-			// 生成目录内的相对起点同样应解析到根
 			wd, err := os.Getwd()
 			if err != nil {
 				t.Fatal(err)
@@ -66,7 +63,6 @@ func TestFindRootByMarkers(t *testing.T) {
 	}
 }
 
-// 无任何标记时回退到向上遍历的终点，不应 panic 且返回绝对路径。
 func TestFindRootFallbackWithoutMarkers(t *testing.T) {
 	clearRootEnv(t)
 	start := t.TempDir()

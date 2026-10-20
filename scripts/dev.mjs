@@ -1,13 +1,3 @@
-// 开发编排器：自适应端口 + 完善的进程销毁（替代 concurrently）。
-//
-// 1) 自适应端口：每次启动前探测空闲端口（server 优先 3000、fe 优先 5173，被占用则向上顺延），
-//    并通过环境变量把实际端口注入两端，保证互连关系正确：
-//      server ← PORT / CORS_ORIGINS
-//      fe     ← VITE_PORT / VITE_PROXY_TARGET
-// 2) 完善的进程销毁：
-//    - Ctrl+C / SIGTERM / 任一子进程退出 → 递归杀掉所有子进程树（Windows 用 PowerShell CIM
-//      枚举后代，POSIX 用进程组），不留孤儿进程占端口。
-//    - 每次启动先读取上一次的 pid 记录，清理上次异常退出遗留的孤儿进程（自愈）。
 import { spawn, spawnSync } from 'node:child_process'
 import { createServer } from 'node:net'
 import { dirname, join } from 'node:path'
@@ -19,8 +9,6 @@ const isWin = process.platform === 'win32'
 const cacheDir = join(root, 'node_modules', '.cache', 'xqecz-dev')
 const pidFile = join(cacheDir, 'pids.json')
 
-// ---------- 端口探测 ----------
-/** 尝试在指定 host:port 上监听一次，成功即认为可用。 */
 function canListen(port, host) {
   return new Promise((resolve) => {
     const srv = createServer()
@@ -32,11 +20,9 @@ function canListen(port, host) {
   })
 }
 
-/** 从 preferred 起向上找一个 IPv4/IPv6 都空闲、且未被本次启动占用的端口。 */
 async function findFreePort(preferred, taken) {
   for (let p = preferred; p < preferred + 200; p++) {
     if (taken.has(p)) continue
-    // 后端 Go 服务可能绑 '::'、前端 Vite 监听全接口，两个族都要空闲才算真空闲
     if ((await canListen(p, '0.0.0.0')) && (await canListen(p, '::'))) {
       taken.add(p)
       return p
@@ -45,8 +31,6 @@ async function findFreePort(preferred, taken) {
   throw new Error(`no free port near ${preferred}`)
 }
 
-// ---------- 进程树销毁 ----------
-/** 递归杀掉 pid 及其全部后代。Windows 走 PowerShell CIM（本机 taskkill/wmic 被策略禁用）。 */
 function killTree(pid) {
   if (!pid) return
   try {
@@ -62,21 +46,18 @@ function killTree(pid) {
         timeout: 15000,
       })
     } else {
-      // POSIX：子进程以独立进程组启动，杀整组
-      try { process.kill(-pid, 'SIGTERM') } catch { /* 组不存在则杀单个 */ process.kill(pid, 'SIGTERM') }
+      try { process.kill(-pid, 'SIGTERM') } catch { process.kill(pid, 'SIGTERM') }
       setTimeout(() => {
-        try { process.kill(-pid, 'SIGKILL') } catch { /* already gone */ }
+        try { process.kill(-pid, 'SIGKILL') } catch { }
       }, 3000).unref()
     }
-  } catch { /* 进程已不存在 */ }
+  } catch { }
 }
 
-/** 判断 pid 是否仍存活。 */
 function isAlive(pid) {
   try { process.kill(pid, 0); return true } catch { return false }
 }
 
-/** 一次性获取系统全部 (pid, ppid) 对（Windows），用于在 JS 侧计算后代集合。 */
 function listPidPairs() {
   if (!isWin) return []
   const r = spawnSync(
@@ -89,7 +70,6 @@ function listPidPairs() {
   return r.stdout.split(/\r?\n/).map((l) => l.trim().split(' ').map(Number)).filter((a) => a.length === 2 && !Number.isNaN(a[0]))
 }
 
-/** 基于 (pid, ppid) 快照计算 root 的全部后代。 */
 function descendantsOf(root, pairs) {
   const byParent = new Map()
   for (const [pid, ppid] of pairs) {
@@ -105,9 +85,6 @@ function descendantsOf(root, pairs) {
   return out
 }
 
-/** 启动前自愈：清理上一次 dev 会话遗留的孤儿进程。
- *  同时按「根 pid 递归」与「后代快照逐个杀」双路清理——
- *  覆盖父进程已死、孙进程（如 vite 的 node、go run 编出的临时二进制）仍存活的断链场景。 */
 function cleanupStale() {
   try {
     const stale = JSON.parse(readFileSync(pidFile, 'utf8'))
@@ -117,35 +94,31 @@ function cleanupStale() {
       const alive = [...targets].filter((p) => p && isAlive(p))
       if (alive.length) {
         console.log(`[dev] 清理上次遗留的 ${name} 进程 (pids: ${alive.join(',')})`)
-        killTree(pid) // 先按树递归（还活着的父子链）
-        for (const p of alive) { try { process.kill(p, 'SIGKILL') } catch { /* 已退出 */ } }
+        killTree(pid)
+        for (const p of alive) { try { process.kill(p, 'SIGKILL') } catch { } }
       }
     }
     rmSync(pidFile, { force: true })
-  } catch { /* 无残留记录 */ }
+  } catch { }
 }
 
-// ---------- 子进程管理 ----------
 const COLORS = { server: '\x1b[34m', fe: '\x1b[35m', dev: '\x1b[36m' }
 const RESET = '\x1b[0m'
-const children = [] // { name, child }
+const children = []
 let shuttingDown = false
 
 function savePids() {
   try {
     mkdirSync(cacheDir, { recursive: true })
-    // 附带整棵后代 pid 快照：即使编排器被强杀（无信号机会）、父子链断裂，
-    // 下次启动也能按快照逐个清理孤儿（vite 的 node、go run 的临时二进制等孙进程）。
     const pairs = listPidPairs()
     writeFileSync(pidFile, JSON.stringify(children.map((c) => ({
       name: c.name,
       pid: c.child.pid,
       tree: pairs.length ? descendantsOf(c.child.pid, pairs) : [],
     }))))
-  } catch { /* 缓存目录不可写时忽略（仅影响自愈） */ }
+  } catch { }
 }
 
-/** 带前缀转发子进程输出。 */
 function pipePrefixed(name, stream, out) {
   let buf = ''
   stream.on('data', (chunk) => {
@@ -160,10 +133,6 @@ function pipePrefixed(name, stream, out) {
 }
 
 function launch(name, command, args, extraEnv) {
-  // Windows：`shell: true` 与 args 数组组合会触发 DEP0190（参数仅拼接、不转义，有注入风险）。
-  // 这里把命令与参数在本地拼成单字符串传给 shell（参数均为代码内常量，无用户输入），
-  // 消除警告且行为不变；POSIX 保持 spawn(command, args) + 独立进程组，便于整组销毁。
-  // NO_COLOR: '' 覆盖系统 NO_COLOR，避免与 FORCE_COLOR 并存触发 Node 噪音警告。
   const childEnv = { ...process.env, ...extraEnv, FORCE_COLOR: '1', NO_COLOR: '' }
   const child = isWin
     ? spawn(
@@ -172,14 +141,14 @@ function launch(name, command, args, extraEnv) {
           cwd: root,
           env: childEnv,
           stdio: ['ignore', 'pipe', 'pipe'],
-          shell: true, // pnpm/go 在 Windows 需经 shell 解析（.cmd 包装）
+          shell: true,
         },
       )
     : spawn(command, args, {
         cwd: root,
         env: childEnv,
         stdio: ['ignore', 'pipe', 'pipe'],
-        detached: true, // POSIX 独立进程组，便于整组销毁
+        detached: true,
       })
   pipePrefixed(name, child.stdout, process.stdout)
   pipePrefixed(name, child.stderr, process.stderr)
@@ -203,11 +172,9 @@ function shutdown(code = 0) {
     }
   }
   rmSync(pidFile, { force: true })
-  // 给 stdout 冲刷留一点时间
   setTimeout(() => process.exit(code), 200)
 }
 
-// ---------- 主流程 ----------
 async function main() {
   cleanupStale()
 
@@ -218,7 +185,6 @@ async function main() {
   console.log(`${COLORS.dev}[dev]${RESET} 端口分配: server=${serverPort} fe=${fePort}`)
   console.log(`${COLORS.dev}[dev]${RESET} 前端入口: http://localhost:${fePort}`)
 
-  // Go 后端：go run 直接起（无构建产物流转），端口与 CORS 由环境变量注入。
   launch('server', 'go', ['-C', 'packages/server', 'run', './cmd/server'], {
     PORT: String(serverPort),
     CORS_ORIGINS: `http://localhost:${fePort},http://127.0.0.1:${fePort}`,
@@ -228,14 +194,12 @@ async function main() {
     VITE_PROXY_TARGET: `http://localhost:${serverPort}`,
   })
   savePids()
-  // go run 重新编译会更换孙进程 pid，定期刷新快照保证自愈精准
   setInterval(savePids, 30_000).unref()
 
   process.on('SIGINT', () => shutdown(0))
   process.on('SIGTERM', () => shutdown(0))
   process.on('SIGHUP', () => shutdown(0))
   process.on('exit', () => {
-    // 最后兜底：同步杀一遍（正常路径 shutdown 已处理，这里覆盖异常崩溃）
     if (!shuttingDown) for (const { child } of children) killTree(child.pid)
   })
 }

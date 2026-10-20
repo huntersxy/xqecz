@@ -1,4 +1,3 @@
-// Package poll 实现投票的列表、详情、投票、创建与删除。
 package poll
 
 import (
@@ -17,7 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// visitorCookie 是游客投票去重用的标识 Cookie。
 const visitorCookie = "visitor_id"
 
 type Handler struct {
@@ -26,7 +24,6 @@ type Handler struct {
 
 func New(deps app.Deps) *Handler { return &Handler{deps: deps} }
 
-// Register 挂载 /poll 路由。
 func Register(api *gin.RouterGroup, deps app.Deps) {
 	h := New(deps)
 	g := api.Group("/poll")
@@ -37,13 +34,11 @@ func Register(api *gin.RouterGroup, deps app.Deps) {
 	g.DELETE("/:id", web.RequireAuth(deps), h.remove)
 }
 
-// UserBrief 是投票内嵌的发起人信息。
 type UserBrief struct {
 	ID       uint64 `json:"id"`
 	Username string `json:"username"`
 }
 
-// DTO 是投票的对外形状。
 type DTO struct {
 	ID          uint64     `json:"id"`
 	Title       string     `json:"title"`
@@ -56,7 +51,6 @@ type DTO struct {
 	UpdatedAt   web.Time   `json:"updated_at"`
 }
 
-// Detail 是投票详情响应。
 type Detail struct {
 	Poll       DTO              `json:"poll"`
 	VoteCounts map[string]int64 `json:"vote_counts"`
@@ -64,7 +58,6 @@ type Detail struct {
 	MyVote     *int             `json:"my_vote"`
 }
 
-// Page 是投票分页响应。
 type Page struct {
 	List      []DTO `json:"list"`
 	Total     int64 `json:"total"`
@@ -168,7 +161,6 @@ func (h *Handler) vote(c *gin.Context) {
 		return
 	}
 
-	// 已登录用户按 user_id 去重，游客按 visitor_id 去重（必要时下发 Cookie）。
 	visitor := ""
 	if identity.UID == 0 {
 		visitor = h.ensureVisitor(c)
@@ -285,7 +277,6 @@ func (h *Handler) remove(c *gin.Context) {
 		web.Fail(c, 403, "无权删除该投票")
 		return
 	}
-	// 物理删除：投票记录一并清理，避免留下悬空的 poll_votes。
 	if err := h.deps.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("poll_id = ?", id).Delete(&store.PollVote{}).Error; err != nil {
 			return err
@@ -298,7 +289,6 @@ func (h *Handler) remove(c *gin.Context) {
 	web.OK(c, nil, "已删除")
 }
 
-// detail 组装投票详情：各选项票数、总票数与本投票人的选择。
 func (h *Handler) detail(ctx context.Context, id, uid uint64, visitor string) (Detail, error) {
 	var row store.Poll
 	if err := h.deps.DB.WithContext(ctx).First(&row, id).Error; err != nil {
@@ -350,7 +340,6 @@ func (h *Handler) detail(ctx context.Context, id, uid uint64, visitor string) (D
 	}, nil
 }
 
-// ensureVisitor 读取或下发游客标识 Cookie（一年有效），用于投票去重。
 func (h *Handler) ensureVisitor(c *gin.Context) string {
 	if v, err := c.Cookie(visitorCookie); err == nil && v != "" {
 		return v

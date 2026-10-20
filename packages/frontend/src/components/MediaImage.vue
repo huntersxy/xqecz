@@ -10,13 +10,8 @@ const props = withDefaults(
   { src: '', alt: '', fallbackSrc: '' },
 )
 
-/**
- * `fallback` 会带上**失败的那个地址**，调用方据此判断是哪一级不可达
- *（OpenList 还是 R2），从而只修正那一级的结论。
- */
 const emit = defineEmits<{ error: []; fallback: [failedUrl: string] }>()
 
-// 兜底链与逐级回退规则在 useImageFallback 里，SiteImage 共用同一套。
 const { currentSrc, finalFailed, onLoadError } = useImageFallback({
   src: toRef(props, 'src'),
   fallbackSrc: toRef(props, 'fallbackSrc'),

@@ -8,9 +8,6 @@ import (
 	"time"
 )
 
-// MoveToBin 把文件移入垃圾桶目录（保留文件名）；目标已存在时加毫秒时间戳前缀，
-// 避免同名文件互相覆盖。
-// rename 跨设备会失败，此时退化为复制 + 删除源文件。
 func MoveToBin(absPath, binDir string) error {
 	f, err := os.Stat(absPath)
 	if err != nil {

@@ -38,8 +38,6 @@ const results = computed(() => query.value.trim() ? nodes.value.filter(node => `
 const isMap = computed(() => phase.value === 'map')
 const status = computed(() => ({ flight: '星球正在飞行', unfold: '作品正在展开', marquee: '作品阵列', collapse: '星系正在形成', map: '星图已展开', closing: '正在返回星球' })[phase.value])
 const originStyle = { width: `${props.origin.width}px`, height: `${props.origin.height}px`, backgroundImage: `url("${props.origin.image}")` }
-// 这条时间线把「共享的星球」作为唯一主角：飞行和展开保留呼吸感，
-// 走马灯缩短到一次可读的停留，避免彩蛋变成必须等待的页面加载。
 const OPENING_TIMELINE = {
   flight: 900,
   flightSettle: 920,
@@ -59,7 +57,6 @@ const selectionImageSource = computed(() => {
 })
 let enginePromise: Promise<void>
 let disposed = false
-// 每次跳过/关闭都会使旧动画序列失效；await 后必须核对版本，防止已关闭的星图复活。
 let version = 0
 const animations = new Set<Animation>()
 const abort = new AbortController()
@@ -104,8 +101,6 @@ async function prepareScene() {
     universe.enter()
   } catch { failed.value = true }
 }
-// 清晰走马灯在场景模块导入前就发起：每个作品登记一个请求（montageRequests），
-// 成功后写入 imageUrls 供选择卡预览直接复用，不再重复下载。
 function preloadMontage() {
   for (const node of montageItems) {
     if (montageRequests.has(node.artwork.id)) continue
@@ -124,7 +119,6 @@ async function loadSelectionPreview(node?: UniverseNode) {
   const image = await (montageRequests.get(node.artwork.id) || loadMontageImage(node.artwork, previewAbort.signal))
   if (image && !disposed && !previewAbort.signal.aborted) previewUrls.value[node.artwork.id] = image.src
 }
-// 每帧绘制后同步定位，不在 pointermove 中触发 Vue 全组件重渲染。
 function placeSelection() {
   const node = selected.value, card = selectionCard.value, viewport = root.value
   if (!node || !card || !viewport || !universe) return
@@ -137,7 +131,6 @@ async function openSequence() {
   const current = version
   animate(sprite.value!, [{ transform: originTransform(), opacity: 1 }, { transform: 'translate(-50%, -50%) scale(1.8)', opacity: 1 }], OPENING_TIMELINE.flight)
   if (!await wait(OPENING_TIMELINE.flightSettle, current)) return
-  // 等待清晰首批图就绪，最多延长一次飞行停留；不能无限卡在慢图上。
   await Promise.race([Promise.all(montageRequests.values()), wait(OPENING_TIMELINE.assetWait, current)])
   if (disposed || current !== version) return
   phase.value = 'unfold'
@@ -166,7 +159,6 @@ async function formMap() {
   universe?.setActive(true)
   montage.value?.getAnimations().forEach(animation => animation.cancel())
   if (montage.value) { montage.value.style.clipPath = 'none'; montage.value.style.opacity = '1'; montage.value.style.transform = 'none' }
-  // 冻结轨道并批量测量，再脱离行容器，避免坍缩作品被横向轨道裁切。
   montage.value?.querySelectorAll<HTMLElement>('.au-row').forEach(row => { row.style.animationPlayState = 'paused' })
   const tiles = [...(montage.value?.querySelectorAll<HTMLElement>('.au-tile') || [])]
   const viewport = root.value?.getBoundingClientRect()
@@ -185,7 +177,6 @@ async function formMap() {
     const y = (point?.y ?? innerHeight/2) - rect.top - rect.height/2
     const diameter = point?.diameter ?? 8
     const scaleX = diameter / rect.width, scaleY = diameter / rect.height
-    // 先向内部压缩成圆，再飞往对应坐标；接近落点才让位给已绘制的星球。
     animate(clone, [
       { transform: 'translate(0,0) scale(1)', clipPath: 'inset(0 round 6px)', opacity: 1 },
       { offset: .35, transform: `translate(0,0) scale(${side/rect.width},${side/rect.height})`, clipPath: 'inset(0 round 50%)', opacity: 1 },
@@ -250,7 +241,6 @@ onMounted(async () => {
   else void openSequence()
 })
 onBeforeUnmount(() => {
-  // Teleport 的资源不随页面 DOM 自动释放；同时还原焦点和背景 inert，防止返回后无法点击。
   disposed = true; version++; abort.abort(); previewAbort.abort()
   animations.forEach(animation => animation.cancel())
   universe?.dispose()

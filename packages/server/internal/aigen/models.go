@@ -1,4 +1,3 @@
-// Package aigen owns durable generation, immutable images and transactional credit accounting.
 package aigen
 
 import "time"
@@ -44,10 +43,9 @@ type Session struct {
 func (Session) TableName() string { return "ai_sessions" }
 
 type Account struct {
-	UserID    uint64 `gorm:"primaryKey" json:"user_id"`
-	Available int64  `json:"available"`
-	Reserved  int64  `json:"reserved"`
-	// Daily balances are a subset of Available/Reserved; existing credits remain uncapped.
+	UserID         uint64    `gorm:"primaryKey" json:"user_id"`
+	Available      int64     `json:"available"`
+	Reserved       int64     `json:"reserved"`
 	DailyAvailable int64     `gorm:"not null;default:0" json:"daily_available"`
 	DailyReserved  int64     `gorm:"not null;default:0" json:"daily_reserved"`
 	LastLoginDay   string    `gorm:"size:10" json:"-"`
@@ -70,71 +68,58 @@ type Ledger struct {
 
 func (Ledger) TableName() string { return "ai_quota_ledger" }
 
-// Image bytes and filenames never change. Archive removes a library entry,
-// while existing tasks keep their validated reference snapshots readable.
 type Asset struct {
-	ID              uint64 `gorm:"primaryKey" json:"id"`
-	TaskID          uint64 `gorm:"index" json:"task_id"`
-	UserID          uint64 `gorm:"index;index:idx_ai_asset_digest,priority:1" json:"user_id"`
-	FileName        string `gorm:"size:100" json:"-"`
-	PreviewFileName string `gorm:"size:120" json:"-"`
-	Digest          string `gorm:"size:64;index:idx_ai_asset_digest,priority:2" json:"-"`
-	Mime            string `gorm:"size:40" json:"mime"`
-	Bytes           int64  `json:"bytes"`
-	Width           int    `json:"width"`
-	Height          int    `json:"height"`
-	Title           string `gorm:"size:150" json:"title"`
-	Description     string `gorm:"type:text" json:"description"`
-	License         string `gorm:"size:300" json:"license"`
-	Purpose         string `gorm:"size:80" json:"purpose"`
-	Public          bool   `gorm:"index" json:"public"`
-	DownloadAllowed bool   `json:"download_allowed"`
-	// Liked is the owner's private bookmark on generated results. It never
-	// changes public visibility and is only editable through the owner route.
-	Liked     bool      `gorm:"index" json:"liked"`
-	Archived  bool      `gorm:"index" json:"archived"`
-	ContentID *uint64   `json:"content_id"`
-	CreatedAt time.Time `json:"created_at"`
+	ID              uint64    `gorm:"primaryKey" json:"id"`
+	TaskID          uint64    `gorm:"index" json:"task_id"`
+	UserID          uint64    `gorm:"index;index:idx_ai_asset_digest,priority:1" json:"user_id"`
+	FileName        string    `gorm:"size:100" json:"-"`
+	PreviewFileName string    `gorm:"size:120" json:"-"`
+	Digest          string    `gorm:"size:64;index:idx_ai_asset_digest,priority:2" json:"-"`
+	Mime            string    `gorm:"size:40" json:"mime"`
+	Bytes           int64     `json:"bytes"`
+	Width           int       `json:"width"`
+	Height          int       `json:"height"`
+	Title           string    `gorm:"size:150" json:"title"`
+	Description     string    `gorm:"type:text" json:"description"`
+	License         string    `gorm:"size:300" json:"license"`
+	Purpose         string    `gorm:"size:80" json:"purpose"`
+	Public          bool      `gorm:"index" json:"public"`
+	DownloadAllowed bool      `json:"download_allowed"`
+	Liked           bool      `gorm:"index" json:"liked"`
+	Archived        bool      `gorm:"index" json:"archived"`
+	ContentID       *uint64   `json:"content_id"`
+	CreatedAt       time.Time `json:"created_at"`
 }
 
 func (Asset) TableName() string { return "ai_assets" }
 
 type ProviderConfig struct {
-	ID                uint64 `gorm:"primaryKey" json:"id"`
-	UserID            uint64 `gorm:"index" json:"-"`
-	AllowedProviderID uint64 `json:"allowed_provider_id"`
-	Name              string `gorm:"size:100" json:"name"`
-	// Adapter selects the wire protocol while Endpoint remains the complete
-	// provider URL. Empty values are read as the legacy OpenAI Images adapter.
-	Adapter   string `gorm:"size:40" json:"adapter"`
-	Endpoint  string `gorm:"size:500" json:"endpoint"`
-	Model     string `gorm:"size:160" json:"model"`
-	CipherKey string `gorm:"type:text" json:"-"`
-	Enabled   bool   `json:"enabled"`
-	Default   bool   `json:"default"`
-	// Sizes remains in the schema for old clients and snapshots. Generation
-	// accepts the user's validated size (or auto) independently of this field.
-	Sizes          string `gorm:"type:text" json:"sizes"`
-	Qualities      string `gorm:"type:text" json:"qualities"`
-	MaxCount       int    `json:"max_count"`
-	MaxReferences  int    `json:"max_references"`
-	EditTransport  string `gorm:"size:32" json:"edit_transport"`
-	TimeoutSeconds int    `json:"timeout_seconds"`
-	Concurrency    int    `json:"concurrency"`
-	Cost           int64  `json:"cost"`
-	QualityCosts   string `gorm:"type:text" json:"quality_costs"`
-	// Options contains non-secret adapter-specific JSON. API keys stay in
-	// CipherKey so snapshots and public views never expose credentials.
-	Options   string    `gorm:"type:text" json:"options,omitempty"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Revision  uint64    `json:"revision"`
+	ID                uint64    `gorm:"primaryKey" json:"id"`
+	UserID            uint64    `gorm:"index" json:"-"`
+	AllowedProviderID uint64    `json:"allowed_provider_id"`
+	Name              string    `gorm:"size:100" json:"name"`
+	Adapter           string    `gorm:"size:40" json:"adapter"`
+	Endpoint          string    `gorm:"size:500" json:"endpoint"`
+	Model             string    `gorm:"size:160" json:"model"`
+	CipherKey         string    `gorm:"type:text" json:"-"`
+	Enabled           bool      `json:"enabled"`
+	Default           bool      `json:"default"`
+	Sizes             string    `gorm:"type:text" json:"sizes"`
+	Qualities         string    `gorm:"type:text" json:"qualities"`
+	MaxCount          int       `json:"max_count"`
+	MaxReferences     int       `json:"max_references"`
+	EditTransport     string    `gorm:"size:32" json:"edit_transport"`
+	TimeoutSeconds    int       `json:"timeout_seconds"`
+	Concurrency       int       `json:"concurrency"`
+	Cost              int64     `json:"cost"`
+	QualityCosts      string    `gorm:"type:text" json:"quality_costs"`
+	Options           string    `gorm:"type:text" json:"options,omitempty"`
+	UpdatedAt         time.Time `json:"updated_at"`
+	Revision          uint64    `json:"revision"`
 }
 
 func (ProviderConfig) TableName() string { return "ai_provider_configs" }
 
-// PromptEnhancement is a public, site-wide suffix appended to generation
-// prompts when the user enables the workbench option. The text is editable by
-// administrators and contains no provider credentials.
 type PromptEnhancement struct {
 	Enabled bool   `json:"enabled"`
 	Prompt  string `json:"prompt"`
@@ -184,11 +169,9 @@ type Reference struct {
 	Note    string `json:"note"`
 }
 type Input struct {
-	SessionID uint64 `json:"session_id"`
-	Key       string `json:"idempotency_key"`
-	Prompt    string `json:"prompt"`
-	// BasePrompt is persisted inside task/idea snapshots so an historical
-	// request is never re-expanded with a later administrator setting.
+	SessionID        uint64      `json:"session_id"`
+	Key              string      `json:"idempotency_key"`
+	Prompt           string      `json:"prompt"`
 	BasePrompt       string      `json:"base_prompt,omitempty"`
 	EnhancePrompt    bool        `json:"enhance_prompt"`
 	ProviderID       uint64      `json:"provider_id"`
@@ -208,8 +191,5 @@ type taskSnapshot struct {
 	CipherKey  string         `json:"key"`
 	References []Asset        `json:"references"`
 	Files      []string       `json:"files"`
-	// Diagnostic is an administrator-only, redacted report of an unknown
-	// provider failure. Task itself json:"-"s the snapshot, so this field only
-	// surfaces through the admin task list.
-	Diagnostic string `json:"diagnostic,omitempty"`
+	Diagnostic string         `json:"diagnostic,omitempty"`
 }

@@ -21,11 +21,8 @@ const admin = useAdminStore()
 const { activeTab } = storeToRefs(admin)
 const isAdmin = computed(() => !!userStore.user?.is_admin)
 
-// 页签的唯一真相走 URL：route.query.tab → activeTab → 组件，切换只经 selectTab。
-// 缺失 / 非法 / 越权由 composable 在 onMounted 里一次性 replace 规范化。
 const { isAllowed, selectTab } = useAdminTabQuery({ isAdmin, activeTab })
 
-// 合并后的角标 = 待审内容 + 待处理认领；为 0 时不显示徽标
 const reviewBadge = computed(() => admin.pendingCounts.content + admin.pendingCounts.claims || undefined)
 
 const navGroups = computed<AdminNavGroup[]>(() => {
@@ -67,18 +64,15 @@ const navGroups = computed<AdminNavGroup[]>(() => {
       ...(isAdmin.value ? [{ key: 'logs', title: '运行日志', icon: IconCode }] : []),
     ],
   })
-  // 无权限的页签不进导航（权限规则的唯一来源在 composable），空组也不显示。
   return groups
     .map((group) => ({ ...group, items: group.items.filter((item) => isAllowed(item.key)) }))
     .filter((group) => group.items.length > 0)
 })
 
 function onMenuSelect(key: string) {
-  // 仪表盘待处理带仍在用旧 key（pending / claims），合并后统一落到「审核与认领」
   selectTab(key === 'pending' || key === 'claims' ? 'review' : key)
 }
 
-// 页签切换、角色异步到位后刷新角标（审批/认领/举报处理完数字自动校正）。
 watch([activeTab, isAdmin], () => {
   if (isAdmin.value) admin.loadPendingCounts()
 })
@@ -88,7 +82,6 @@ onMounted(() => {
   if (isAdmin.value) admin.loadPendingCounts()
 })
 
-// §7.5：页签切换后把焦点移到内容区（tabindex=-1），键盘与读屏的落点和视觉一致。
 const pageRef = ref<HTMLElement | null>(null)
 function focusPage() {
   pageRef.value?.focus({ preventScroll: true })
@@ -136,7 +129,6 @@ function leavePage(_element: Element, done: () => void) {
   </div>
 </template>
 
-<!-- Admin 令牌在主题根与 Teleport 弹层上共享首页的纸感色板；业务状态色仍由 Arco 语义色提供。 -->
 <style lang="scss">
 @use '../components/admin/adm-tokens';
 @use '../components/admin/adm-motion';
@@ -194,7 +186,6 @@ function leavePage(_element: Element, done: () => void) {
   --admin-danger-soft: color-mix(in srgb, rgb(var(--danger-6)) 10%, transparent);
   --admin-radius: 16px;
   --admin-shadow: 0 12px 32px rgba(32, 27, 28, .1);
-  // 覆盖 Arco 的蓝色页面默认值；危险、警告、成功仍分别使用其语义状态色。
   --color-bg-1: var(--site-canvas);
   --color-bg-2: var(--site-paper);
   --color-bg-3: var(--admin-surface);
@@ -266,7 +257,6 @@ body[arco-theme='dark'] .admin-theme.creative-theme {
   padding-top: 24px;
 }
 
-// 波次 4：内容区在超宽屏不再无限拉开（1920 下原来铺满 1600+，卡片与表格都会被拉散）
 .admin-page {
   width: 100%;
   max-width: 1500px;
@@ -274,12 +264,10 @@ body[arco-theme='dark'] .admin-theme.creative-theme {
   margin-inline: auto;
 }
 
-/* 页签容器只作为切换后的焦点落点，不显示焦点环（它不参与 Tab 顺序）。 */
 .admin-page:focus {
   outline: none;
 }
 
-// 页签立即挂载，轻淡入承接状态变化；不把侧栏操作串成半秒的等待。
 .admin-page-enter-active {
   transition: opacity 180ms var(--adm-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 }

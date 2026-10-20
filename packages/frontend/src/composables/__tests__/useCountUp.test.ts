@@ -8,7 +8,6 @@ interface RafHarness {
   request: ReturnType<typeof vi.fn>
   cancel: ReturnType<typeof vi.fn>
   callbacks: Map<number, FrameRequestCallback>
-  /** 执行当前排队的所有帧，时间戳由测试显式给出，不依赖真实时钟。 */
   runFrame: (time: number) => void
 }
 
@@ -50,7 +49,6 @@ function mountCountUp(source: Ref<number>, options?: { duration?: number }) {
   return { wrapper, counted }
 }
 
-/** 每个用例独立控制 performance.now 与 rAF，避免真实时钟造成抖动。 */
 function useFakeTime() {
   let now = 0
   const spy = vi.spyOn(performance, 'now').mockImplementation(() => now)
@@ -83,7 +81,6 @@ describe('useCountUp（M6 KPI 数字滚动）', () => {
     raf.runFrame(0)
     expect(counted.value).toBe(0)
 
-    // 600ms 的 50%：ease-out 为 1-(1-0.5)^3 = 0.875，120 → 105
     time.now = 300
     raf.runFrame(300)
     expect(counted.value).toBe(105)
@@ -108,11 +105,9 @@ describe('useCountUp（M6 KPI 数字滚动）', () => {
     source.value = 300
     await nextTick()
 
-    // 新动画首帧进度为 0，仍停在旧值 100
     raf.runFrame(600)
     expect(counted.value).toBe(100)
 
-    // 再来一半时长：100 + 200 * 0.875 = 275
     raf.runFrame(900)
     expect(counted.value).toBe(275)
 

@@ -227,8 +227,6 @@ func TestUnknownFailureDiagnosticPersistedInSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Point this one task at the failing HTTP 502 provider without touching the
-	// stored provider settings other tests share.
 	var snapshot taskSnapshot
 	if err = json.Unmarshal([]byte(task.Snapshot), &snapshot); err != nil {
 		t.Fatal(err)

@@ -1,6 +1,3 @@
-// WP5a：内容卡片流 / 用户卡片流的定向行为测试。
-// 覆盖：三种 mode 的渲染差异、卡片网格（桌面与手机同一套）、pending 审核动作、
-// 卡片 M8 退场与 280ms 后的延迟刷新、删除确认流，以及用户管理的角色 / 封禁 / 删除三个动作。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
@@ -11,7 +8,6 @@ import { useAdminStore } from '@/stores/admin'
 import { useUserStore } from '@/stores/user'
 import type { Content, User } from '@/types'
 
-// useMediaQuery 在 jsdom 里没有 matchMedia，这里改成由测试直接拨动的开关。
 const media = vi.hoisted(() => ({ mobile: false }))
 
 vi.mock('@vueuse/core', async () => {
@@ -20,7 +16,6 @@ vi.mock('@vueuse/core', async () => {
   return { ...actual, useMediaQuery: () => ref(media.mobile) }
 })
 
-// stores/admin.ts 在模块顶层取 confirm；这里让确认框一律返回 true。
 vi.mock('@/composables/useToast', async () => {
   const { ref } = await import('vue')
   return {
@@ -90,7 +85,6 @@ beforeEach(() => {
   userStore = useUserStore()
   userStore.user = currentUser
 
-  // 列表加载与写操作全部换成桩：只断言调用契约，不碰真实网络。
   vi.spyOn(admin, 'loadMyContent').mockResolvedValue(undefined)
   vi.spyOn(admin, 'loadAllContent').mockResolvedValue(undefined)
   vi.spyOn(admin, 'loadPendingContent').mockResolvedValue(undefined)
@@ -138,7 +132,6 @@ describe('AdminContentList 三种 mode', () => {
     expect(pending.find('.admin-data-toolbar-summary').text()).toBe('共 2 条待审内容')
     expect(pending.findAll('[aria-label="通过"]')).toHaveLength(2)
     expect(pending.findAll('[aria-label="拒绝"]')).toHaveLength(2)
-    // pending 的编辑 / 删除收进「更多」菜单：卡片底部只放通过 / 拒绝 / 更多三个按钮。
     expect(pending.findAll('[aria-label="更多操作"]')).toHaveLength(2)
     expect(pending.findAll('[aria-label="编辑"]')).toHaveLength(0)
     expect(admin.loadPendingContent).toHaveBeenCalledTimes(1)
@@ -172,7 +165,6 @@ describe('AdminContentList 三种 mode', () => {
     expect(mobile.find('.adm-card-grid').exists()).toBe(true)
     expect(mobile.find('.adm-card').text()).toContain('内容 7')
     expect(mobile.find('.adm-card').text()).toContain('审核中')
-    // 手机与桌面共用同一份卡片 DOM：通过 / 拒绝 / 更多都在卡片底部。
     expect(mobile.findAll('.adm-card [aria-label="通过"]')).toHaveLength(1)
     expect(mobile.findAll('.adm-card [aria-label="拒绝"]')).toHaveLength(1)
     expect(mobile.findAll('.adm-card [aria-label="更多操作"]')).toHaveLength(1)
@@ -185,7 +177,6 @@ describe('AdminContentList 三种 mode', () => {
     expect(all.find('.adm-card-badge').text()).toBe('已拒绝')
     expect(all.find('.adm-card-meta').text()).toContain('creator')
     expect(all.find('.adm-card-meta').text()).toContain('甲')
-    // 超过 2 个标签折成 +N，原文进 title 提示，不在卡片里铺开
     expect(all.find('.adm-card-meta').text()).toContain('+1')
 
     seedContentList(admin.myContent, [content(9, { audit_status: 'approved' })])
@@ -212,7 +203,6 @@ describe('AdminContentList 卡片交互', () => {
     await wrapper.get('[aria-label="编辑"]').trigger('click')
     expect(openDrawer).toHaveBeenNthCalledWith(3, expect.objectContaining({ id: 21 }), 'edit')
 
-    // 操作区已 @click.stop：点「删除」不会再冒泡出一次开抽屉。
     await wrapper.get('[aria-label="删除"]').trigger('click')
     expect(openDrawer).toHaveBeenCalledTimes(3)
   })
@@ -233,7 +223,6 @@ describe('AdminContentList 审核与删除', () => {
     await wrapper.get('[aria-label="拒绝"]').trigger('click')
     await settle()
     expect(admin.auditContent).toHaveBeenNthCalledWith(2, 11, 'rejected', currentUser.id)
-    // 退场期间只打了标记，刷新要等 280ms 后才发生。
     expect(admin.loadPendingContent).toHaveBeenCalledTimes(1)
   })
 
@@ -247,7 +236,6 @@ describe('AdminContentList 审核与删除', () => {
     await settle()
     expect(wrapper.find('.adm-card.is-leaving').exists()).toBe(true)
 
-    // 真实等待 280ms（不用 fake timers：@vue/test-utils 的 flushPromises 自身依赖 setTimeout）
     await new Promise(resolve => setTimeout(resolve, 340))
     await settle()
 
@@ -282,11 +270,9 @@ describe('AdminUserTable 用户管理', () => {
 
     expect(wrapper.find('.admin-panel-title').text()).toBe('用户管理')
     expect(wrapper.find('.admin-data-toolbar-summary').text()).toBe('共 2 位用户')
-    // 不再有表格：桌面与手机共用同一套密集卡片网格。
     expect(wrapper.find('.arco-table').exists()).toBe(false)
     expect(wrapper.find('.adm-card-grid.is-dense').exists()).toBe(true)
     expect(wrapper.findAll('.user-card')).toHaveLength(2)
-    // 两位用户 × 角色徽标 + 封禁 / 本人徽标 = 4 个徽标；本人不渲染操作按钮。
     expect(wrapper.findAll('.adm-card-badge')).toHaveLength(4)
     expect(wrapper.get('.user-card').text()).toContain('管理员')
     expect(wrapper.get('.user-card').text()).toContain('自己')
@@ -300,7 +286,6 @@ describe('AdminUserTable 用户管理', () => {
     await settle()
     expect(admin.updateUserBan).toHaveBeenCalledWith(2, false)
 
-    // 删除先给卡片打 M8 退场标记，280ms 后才真正调接口并刷新。
     await wrapper.get('[aria-label="删除"]').trigger('click')
     await settle()
     expect(wrapper.find('.user-card.is-leaving').exists()).toBe(true)

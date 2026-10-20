@@ -128,7 +128,6 @@ func TestClientVisionWireAndSecretRedaction(t *testing.T) {
 	if received["enable_thinking"] != false || received["max_tokens"] != float64(1024) {
 		t.Fatal(received)
 	}
-	// Provider error bodies may echo secrets. Only the status reaches administrators/jobs.
 	srv.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(401)
 		_, _ = w.Write([]byte("private-key"))
@@ -235,7 +234,6 @@ func TestDurableWorkerSuccessAndCrashRecovery(t *testing.T) {
 	}))
 	defer server.Close()
 	configure(t, s, server.URL+"/v1")
-	// Recover an expired lease after a simulated process crash.
 	s.db.Model(&Job{}).Where("content_id = ?", job.ContentID).Updates(map[string]any{"status": "running", "lease": "old-process", "attempts": 1, "next_at": time.Now().UTC().Add(-time.Minute)})
 	restarted := New(s.db, nil, s.uploadDir)
 	if err := restarted.tick(ctx); err != nil {

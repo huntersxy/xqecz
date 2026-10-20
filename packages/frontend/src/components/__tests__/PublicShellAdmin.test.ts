@@ -1,6 +1,3 @@
-// WP2 · D1：/admin 复用站点壳侧栏的受控改动回归。
-// 只验证「/admin 的槽可见 + 站点壳拿到的状态类」与「/studio、其它路由表现不变」，
-// 槽内滚动样式属于纯 CSS，留给 Lead 浏览器实测（WP2 验收第 9 条）。
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
@@ -75,7 +72,6 @@ afterEach(() => {
     try {
       wrapper.unmount()
     } catch {
-      // 已手动卸载
     }
   }
   document.body.innerHTML = ''
@@ -111,7 +107,6 @@ describe('PublicShell 在 /admin 下的受控改动（D1）', () => {
     await render('/admin', true)
 
     expect(document.querySelector('#public-shell-workspace .admin-nav')).not.toBeNull()
-    // 槽本身在 PublicShell 的 DOM 里，改用「不在页面内容区」判定 teleport 生效。
     expect(document.querySelector('.public-shell-content .admin-nav')).toBeNull()
   })
 })

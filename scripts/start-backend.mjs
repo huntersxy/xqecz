@@ -1,7 +1,3 @@
-// 本机/旧形态用的后端启动器：把 Go 二进制作为子进程拉起（生产由 OpenRC 直接执行二进制，不经这一层）。
-//
-// 用法：node scripts/start-backend.mjs
-// 若不希望多一层 Node 进程，可直接运行 packages/server/xqecz-server（见 docs/deploy.md）。
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -9,7 +5,6 @@ import { fileURLToPath } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const serverDir = join(root, 'packages', 'server')
-// go build -o xqecz-server 在不同平台上可能带或不带 .exe，两个候选都探一遍。
 const candidates = [join(serverDir, 'xqecz-server.exe'), join(serverDir, 'xqecz-server')]
 const bin = candidates.find((p) => existsSync(p))
 
@@ -19,16 +14,14 @@ if (!bin) {
   process.exit(1)
 }
 
-// stdio: inherit —— 日志直接进当前终端，信号原样转发，Node 只做进程守护。
 const child = spawn(bin, [], { cwd: serverDir, stdio: 'inherit', env: process.env })
 
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
   process.on(signal, () => {
-    try { child.kill(signal) } catch { /* 子进程已退出 */ }
+    try { child.kill(signal) } catch { }
   })
 }
 
-// spawn 失败（如产物名不匹配、缺少执行权限）时给出可读提示，而不是抛未捕获异常。
 child.on('error', (err) => {
   console.error(`[start-backend] 启动 ${bin} 失败：${err.message}`)
   process.exit(1)

@@ -11,14 +11,8 @@ import (
 	"time"
 )
 
-// diagnosticMaxRunes bounds what is persisted in the task snapshot. Snapshots
-// are longtext, but the admin list ships every diagnostic on a page, so keep
-// each one small.
 const diagnosticMaxRunes = 900
 
-// diagnosticSecrets masks credential-looking fragments before a provider
-// failure is persisted. Order matters: header forms first, then generic token
-// shapes, then assignment/query forms.
 var diagnosticSecrets = []struct {
 	pattern *regexp.Regexp
 	replace string
@@ -30,9 +24,6 @@ var diagnosticSecrets = []struct {
 	{regexp.MustCompile(`(?i)([?&](?:key|token|api_key|apikey|access_token|signature|sig|x-amz-signature|x-amz-credential|x-amz-security-token|auth)=)[^&\s"'<>]+`), "${1}***"},
 }
 
-// redactDiagnostic removes credentials from a provider failure report and caps
-// its total length. It never sees the decrypted provider key: the snapshot
-// carries CipherKey, not the plaintext.
 func redactDiagnostic(text string) string {
 	for _, rule := range diagnosticSecrets {
 		text = rule.pattern.ReplaceAllString(text, rule.replace)
@@ -41,13 +32,9 @@ func redactDiagnostic(text string) string {
 	if len(runes) <= diagnosticMaxRunes {
 		return text
 	}
-	// Redaction runs first, so a truncated tail can never expose a partial
-	// secret that the rules would otherwise have masked.
 	return string(runes[:diagnosticMaxRunes-1]) + "…"
 }
 
-// failureCategory labels the failure for administrators without changing the
-// user-visible wording.
 func failureCategory(err error) string {
 	var response *ProviderResponseError
 	switch {
@@ -64,9 +51,6 @@ func failureCategory(err error) string {
 	}
 }
 
-// unknownFailureMessage keeps the polite wording but adds the task number so a
-// user and an administrator can correlate the message with the task list. The
-// task stays in the unknown state and its quota reservation is untouched.
 func unknownFailureMessage(taskID uint64, provider ProviderConfig, err error) string {
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
@@ -78,10 +62,6 @@ func unknownFailureMessage(taskID uint64, provider ProviderConfig, err error) st
 	}
 }
 
-// failureDiagnostic builds the admin-only report stored inside the task
-// snapshot. It carries everything an operator needs to investigate: when,
-// which provider/model, how long the call took, the error category, the HTTP
-// status, the provider response prefix and the full error chain.
 func failureDiagnostic(taskID uint64, provider ProviderConfig, err error, elapsed time.Duration, at time.Time) string {
 	statusCode, snippet, message := 0, "", ""
 	var response *ProviderResponseError
@@ -107,8 +87,6 @@ func failureDiagnostic(taskID uint64, provider ProviderConfig, err error, elapse
 	return redactDiagnostic(strings.Join(lines, "\n"))
 }
 
-// logUnknownFailure makes every unknown outcome visible in the admin runtime
-// log instead of only in the fixed user-facing sentence.
 func (s *Service) logUnknownFailure(taskID uint64, provider ProviderConfig, elapsed time.Duration, err error) {
 	slog.Error("AI generation ended with unknown provider result",
 		"task_id", taskID,
@@ -120,9 +98,6 @@ func (s *Service) logUnknownFailure(taskID uint64, provider ProviderConfig, elap
 	)
 }
 
-// persistDiagnostic writes the redacted report back into the task snapshot
-// with a separate UPDATE, preserving the original snapshot contents. A failed
-// write must not undo the task settlement, so problems are only logged.
 func (s *Service) persistDiagnostic(taskID uint64, rawSnapshot, diagnostic string) {
 	if s == nil || s.db == nil || strings.TrimSpace(diagnostic) == "" {
 		return

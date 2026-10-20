@@ -29,10 +29,6 @@ var ErrUnavailable = errors.New("供应商未配置、已停用或密钥不可�
 var ErrConflict = errors.New("数据已更新，请刷新后重试")
 var ErrResolveNote = errors.New("核查依据与说明须填写 3–300 个字")
 
-// validUserImageSize keeps the user-controlled size field bounded without
-// making it depend on a provider's legacy sizes list. The frontend normalizes
-// custom values to the same safe range; the server still rejects malformed or
-// unexpectedly large requests received from older clients or direct callers.
 func validUserImageSize(value string) bool {
 	value = strings.ToLower(strings.TrimSpace(strings.ReplaceAll(value, "×", "x")))
 	if value == "auto" {
@@ -75,8 +71,6 @@ func NewWithProvider(db *gorm.DB, cfg config.Config, provider Provider) *Service
 }
 func (s *Service) Database() *gorm.DB { return s.db }
 
-// The secret file and all images live outside every public media mount. Init
-// migrates feature tables only; tests and migration tools use isolated databases.
 func (s *Service) Init(ctx context.Context) error {
 	if s.dir == "" {
 		return errors.New("AI private directory is missing")
@@ -109,7 +103,6 @@ func (s *Service) Init(ctx context.Context) error {
 		if saved > 0 {
 			return errors.New("AI encryption key is missing; restore it with the database backup")
 		}
-		// Removing a BYOK config does not remove encrypted keys from old task snapshots.
 		if s.db.Migrator().HasTable(&Task{}) {
 			if err := s.db.Model(&Task{}).Count(&saved).Error; err != nil {
 				return err
@@ -160,8 +153,6 @@ func (s *Service) SavePromptEnhancement(ctx context.Context, value PromptEnhance
 	return value, nil
 }
 
-// Resolve existing parents as well as junctions/symlinks before creating a new
-// directory. A lexical sibling must not secretly resolve into a public mount.
 func canonicalPath(path string) (string, error) {
 	current, err := filepath.Abs(path)
 	if err != nil {
@@ -263,8 +254,6 @@ func (s *Service) prepare(ctx context.Context, uid uint64, input Input, options 
 		if asset.Public && asset.UserID != uid && !asset.DownloadAllowed {
 			return taskSnapshot{}, 0, ErrInvalid
 		}
-		// Explicit @image positions refer to every displayed attachment. Collapsing
-		// identical bytes here would change those positions before provider dispatch.
 		if asset.Digest != "" && !strings.Contains(input.Prompt, "@图片") {
 			if digests[asset.Digest] {
 				if ref.AssetID == input.ParentAssetID {
@@ -340,8 +329,6 @@ func (s *Service) Quote(ctx context.Context, uid uint64, input Input) (int64, er
 	return chargedCost(s.db.WithContext(ctx), uid, cost)
 }
 
-// Quota exemption is determined from the persisted role, never a client flag.
-// Provider prices still describe public ideas; only the paying user's charge changes.
 func chargedCost(db *gorm.DB, uid uint64, cost int64) (int64, error) {
 	var user store.User
 	if err := db.Select("id", "is_admin").First(&user, uid).Error; err != nil {
@@ -635,8 +622,6 @@ func (s *Service) runOne(ctx context.Context) {
 	}
 }
 
-// Every completion locks idea -> account -> task, matching sponsorship and
-// cancellation. State comparison and unique ledger keys make settlement idempotent.
 func (s *Service) complete(task Task, expected, status, message string, assets []Asset, consumed bool, actor uint64) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -719,10 +704,6 @@ func (s *Service) Cancel(ctx context.Context, uid, id uint64) error {
 	return s.complete(task, "queued", "cancelled", "用户取消排队任务", nil, false, uid)
 }
 
-// ArchiveTask hides a terminal failure from the owner's history while keeping
-// its task, ledger, idea and generated assets available for admin audit.
-// Archiving is deliberately separate from physical deletion because the task
-// still documents a provider failure and may be linked from a sponsored idea.
 func (s *Service) ArchiveTask(ctx context.Context, uid, id uint64) error {
 	var task Task
 	if err := s.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, uid).First(&task).Error; err != nil {
@@ -746,10 +727,6 @@ func (s *Service) ArchiveTask(ctx context.Context, uid, id uint64) error {
 	return nil
 }
 
-// ArchiveTaskAsAdmin removes a terminal task and its generated images from
-// the active admin lists while keeping the task, ledger and files available
-// for audit. Tasks with reserved or in-flight work must be resolved first so
-// deletion cannot strand quota or let a late provider result reappear.
 func (s *Service) ArchiveTaskAsAdmin(ctx context.Context, id uint64) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var task Task
@@ -773,8 +750,6 @@ func (s *Service) ArchiveTaskAsAdmin(ctx context.Context, id uint64) error {
 }
 
 func (s *Service) Resolve(ctx context.Context, actor, id uint64, consumed bool, note string) error {
-	// Validate the audit note separately from generation inputs: settlement does
-	// not revalidate sessions or reference images, and must retain its evidence.
 	note = strings.TrimSpace(note)
 	if len([]rune(note)) < 3 || len([]rune(note)) > 300 {
 		return ErrResolveNote

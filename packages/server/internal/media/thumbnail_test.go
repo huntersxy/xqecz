@@ -13,10 +13,6 @@ import (
 	"testing"
 )
 
-// 这些用例锁死 2026-09-14 那次事故的修复：生成缩略图失败时不得留下 0 字节文件，
-// 也不得破坏该内容原有的可用缩略图。
-
-// truncatedWebP 复刻线上那份损坏文件：RIFF 头声明一个很大的 VP8L 块，实际只有 payloadLen 字节。
 func truncatedWebP(payloadLen int) []byte {
 	const declared = 5_178_438
 	payload := make([]byte, payloadLen)
@@ -66,7 +62,6 @@ func assertNoThumbJunk(t *testing.T, dir string) {
 	}
 }
 
-// TestGenerateThumbnailSuccess 正常源图应产出 800px 宽的可解码 WebP，且不残留临时文件。
 func TestGenerateThumbnailSuccess(t *testing.T) {
 	root := t.TempDir()
 	thumbDir := filepath.Join(root, "thumbs")
@@ -98,9 +93,6 @@ func TestGenerateThumbnailSuccess(t *testing.T) {
 	assertNoThumbJunk(t, thumbDir)
 }
 
-// TestGenerateThumbnailFailureKeepsExistingThumbnail 是事故的直接回归：
-// 同一内容先有一张可用缩略图，随后源图变成 128KiB 截断 WebP，再生成时必须报错
-// 且已有的可用缩略图一字节未变。
 func TestGenerateThumbnailFailureKeepsExistingThumbnail(t *testing.T) {
 	root := t.TempDir()
 	thumbDir := filepath.Join(root, "thumbs")
@@ -139,8 +131,6 @@ func TestGenerateThumbnailFailureKeepsExistingThumbnail(t *testing.T) {
 	assertNoThumbJunk(t, thumbDir)
 }
 
-// TestGenerateThumbnailFailureLeavesNoFile 源图损坏且原本没有缩略图时，失败后不留任何文件
-// （旧实现在 ffmpeg 路径下会留下一个 0 字节的 _thumb.webp）。
 func TestGenerateThumbnailFailureLeavesNoFile(t *testing.T) {
 	root := t.TempDir()
 	thumbDir := filepath.Join(root, "thumbs")

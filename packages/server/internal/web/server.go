@@ -14,9 +14,6 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/app"
 )
 
-// New 组装 gin 引擎：中间件、媒体目录，业务路由由 registrar 注入。
-// mediaRegistrar 负责挂载 /uploads、/thumbs、/images（由 content 模块提供，
-// 因为下载文件名需要读库取内容标题，避免 web 包反向依赖业务模块）。
 func New(deps app.Deps, mediaRegistrar func(*gin.Engine), registrar func(*gin.RouterGroup)) *gin.Engine {
 	if deps.Cfg.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -28,7 +25,6 @@ func New(deps app.Deps, mediaRegistrar func(*gin.Engine), registrar func(*gin.Ro
 		mediaRegistrar(r)
 	}
 
-	// 静态目录之外未命中的路径统一返回业务错误包装，前端可读到文案。
 	r.NoRoute(func(c *gin.Context) { Fail(c, 404, "接口不存在") })
 
 	if registrar != nil {
@@ -49,8 +45,6 @@ func requestLogger() gin.HandlerFunc {
 				"cost", cost,
 			)
 		} else if cost >= 500*time.Millisecond {
-			// Keep the hot path quiet while retaining a useful signal for the
-			// admin terminal when a successful request is unusually slow.
 			slog.Info("http slow",
 				"req", c.Request.Method+" "+c.Request.URL.Path,
 				"status", c.Writer.Status(),
@@ -60,7 +54,6 @@ func requestLogger() gin.HandlerFunc {
 	}
 }
 
-// Run 启动 HTTP 服务：端口被占用时向上顺延，收到退出信号后优雅关停。
 func Run(deps app.Deps, build func(app.Deps) *gin.Engine) error {
 	ln, port, err := listenAdaptive(deps.Cfg.Port)
 	if err != nil {
@@ -108,7 +101,6 @@ func listenAdaptive(preferred int) (net.Listener, int, error) {
 	return nil, 0, fmt.Errorf("no free port in range %d-%d", preferred, preferred+49)
 }
 
-// Check 记录依赖连通性（启动时调用，失败仅告警不阻断）。
 func Check(deps app.Deps) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

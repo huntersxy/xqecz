@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-// TestScoreItem 覆盖打分的三段构成与饱和上限（点赞权重高于浏览量）。
 func TestScoreItem(t *testing.T) {
 	now := time.Now().Unix()
 
@@ -33,7 +32,6 @@ func TestScoreItem(t *testing.T) {
 	}
 }
 
-// TestComputeSortsDescending 校验输出按分数降序，与输入顺序无关。
 func TestComputeSortsDescending(t *testing.T) {
 	now := time.Now().Unix()
 	out := Compute([]Item{

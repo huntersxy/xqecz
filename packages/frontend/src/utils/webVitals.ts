@@ -1,7 +1,3 @@
-/**
- * Web Vitals 性能监控工具
- * 跟踪 LCP、FID、CLS、TTFB 等核心指标
- */
 
 interface WebVitalMetric {
   name: string
@@ -13,7 +9,6 @@ interface WebVitalMetric {
 
 type MetricCallback = (metric: WebVitalMetric) => void
 
-// 阈值配置 (基于 Web Vitals 推荐)
 const thresholds = {
   LCP: { good: 2500, poor: 4000 },
   FID: { good: 100, poor: 300 },
@@ -35,9 +30,6 @@ function generateId(): string {
   return `${Date.now()}-${crypto.randomUUID()}`
 }
 
-/**
- * 观察 LCP (Largest Contentful Paint)
- */
 function observeLCP(callback: MetricCallback): void {
   if (!('PerformanceObserver' in globalThis)) return
 
@@ -63,9 +55,6 @@ function observeLCP(callback: MetricCallback): void {
   }
 }
 
-/**
- * 观察 FID (First Input Delay)
- */
 function observeFID(callback: MetricCallback): void {
   if (!('PerformanceObserver' in globalThis)) return
 
@@ -92,9 +81,6 @@ function observeFID(callback: MetricCallback): void {
   }
 }
 
-/**
- * 观察 CLS (Cumulative Layout Shift)
- */
 function observeCLS(callback: MetricCallback): void {
   if (!('PerformanceObserver' in globalThis)) return
 
@@ -125,9 +111,6 @@ function observeCLS(callback: MetricCallback): void {
   }
 }
 
-/**
- * 观察 TTFB (Time to First Byte)
- */
 function observeTTFB(callback: MetricCallback): void {
   if (!('performance' in globalThis) || !('timing' in performance)) return
 
@@ -146,9 +129,6 @@ function observeTTFB(callback: MetricCallback): void {
   }
 }
 
-/**
- * 观察 FCP (First Contentful Paint)
- */
 function observeFCP(callback: MetricCallback): void {
   if (!('PerformanceObserver' in globalThis)) return
 
@@ -174,12 +154,8 @@ function observeFCP(callback: MetricCallback): void {
   }
 }
 
-/**
- * 初始化性能监控
- */
 export function initWebVitals(callback?: MetricCallback): void {
   const defaultCallback = (metric: WebVitalMetric) => {
-    // 仅开发环境打印到控制台；生产环境应改为发送到分析服务，避免噪音日志
     if (!import.meta.env.DEV) return
     let emoji = '❌'
     if (metric.rating === 'good') {
@@ -188,18 +164,14 @@ export function initWebVitals(callback?: MetricCallback): void {
       emoji = '⚠️'
     }
     console.log(`${emoji} [Web Vitals] ${metric.name}: ${metric.value.toFixed(2)}ms (${metric.rating})`)
-
-    // 可以在这里发送到分析服务
   }
 
   const metricCallback = callback || defaultCallback
 
-  // 等待页面加载完成后开始观察
   if (document.readyState === 'complete') {
     startObservers(metricCallback)
   } else {
     globalThis.addEventListener('load', () => {
-      // 延迟一点确保所有指标都已记录
       setTimeout(() => startObservers(metricCallback), 0)
     })
   }

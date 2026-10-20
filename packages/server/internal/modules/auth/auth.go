@@ -1,4 +1,3 @@
-// Package auth 实现注册、登录、会话与账户设置接口，行为与旧 NestJS 实现逐字段对齐。
 package auth
 
 import (
@@ -26,7 +25,6 @@ type Handler struct {
 
 func New(deps app.Deps) *Handler { return &Handler{deps: deps} }
 
-// Register 挂载 /auth 路由。
 func Register(api *gin.RouterGroup, deps app.Deps) {
 	h := New(deps)
 	g := api.Group("/auth")
@@ -220,7 +218,6 @@ func (h *Handler) updateEmail(c *gin.Context) {
 		web.Fail(c, 500, "服务异常")
 		return
 	}
-	// 邮箱参与头像 URL 生成，变化后需失效内容缓存。
 	h.deps.Redis.ClearAllContentCaches(c.Request.Context())
 	web.OK(c, nil, "邮箱更新成功")
 }

@@ -1,4 +1,3 @@
-// Package vision owns optional image metadata generation. Credentials never enter public responses.
 package vision
 
 import (
@@ -39,7 +38,6 @@ type Settings struct {
 	HasAPIKey bool `json:"has_api_key"`
 }
 
-// A missing api_key preserves the existing secret; clear_api_key explicitly removes it.
 type SettingsUpdate struct {
 	Config
 	Key         *string `json:"api_key"`
@@ -51,7 +49,6 @@ func DefaultConfig() Config {
 		Prompt: DefaultPrompt, MaxTags: 8, TimeoutSeconds: 90, DisableThinking: true, TokenParameter: "max_tokens", UseReferences: true, ReferenceMode: "images", ReferencePrompt: DefaultReferencePrompt}
 }
 
-// Only a base URL or the full Chat Completions endpoint is accepted. Redirects are disabled by the client.
 func endpoint(raw string) (string, error) {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || u.Hostname() == "" || (u.Scheme != "https" && u.Scheme != "http") || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
@@ -98,7 +95,6 @@ func validateConfig(c Config) error {
 	return nil
 }
 
-// Separate tables leave existing content columns and contracts intact. Secret-bearing SQL uses a silent logger.
 type settingRow struct {
 	ID      uint   `gorm:"primaryKey"`
 	Payload string `gorm:"type:text;not null"`

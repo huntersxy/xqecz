@@ -37,7 +37,6 @@ func TestLoginAndContentApprovalCreditRewards(t *testing.T) {
 		}
 		return row
 	}
-	// A remembered session earns today's credit without requiring logout/login.
 	for i := 0; i < 2; i++ {
 		jsonData(t, aiRequest(t, handler, "GET", "/api/auth/me", "fixture-author", nil))
 	}
@@ -59,7 +58,6 @@ func TestLoginAndContentApprovalCreditRewards(t *testing.T) {
 	if a := account(); a.Available != 22 || a.DailyAvailable != 1 {
 		t.Fatal("approval reward must be uncapped and once per work", a)
 	}
-	// If reward accounting fails, the audit status must roll back too.
 	broken := store.Content{Title: "rollback", UserID: 2, AuditStatus: "pending", Tags: "[]"}
 	deps.DB.Create(&broken)
 	deps.DB.Migrator().DropTable(&aigen.Ledger{})
@@ -304,8 +302,6 @@ func TestAIResolutionNoteFeedback(t *testing.T) {
 	}
 }
 
-// The browser fixture uses the real routes and a disposable SQLite/Redis pair.
-// Its deterministic provider is explicitly a test adapter, never production functionality.
 func TestAIBrowserFixture(t *testing.T) {
 	address := os.Getenv("XQECZ_AI_FIXTURE_ADDR")
 	if address == "" {
@@ -437,7 +433,6 @@ func TestAIHTTPPrivacyFiltersAndPagination(t *testing.T) {
 	if !bytes.Contains(w.Body.Bytes(), []byte(`"code":409`)) {
 		t.Fatal("stale template accepted", w.Body.String())
 	}
-	// A missing expendable preview must fall back to the retained original.
 	previewPath, err := deps.AI.AssetPath(aigen.Asset{FileName: private.PreviewFileName})
 	if err != nil {
 		t.Fatal(err)

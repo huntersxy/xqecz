@@ -1,5 +1,3 @@
-// WP6：上传内容 / API 密钥 / API 文档三页的交互契约。
-// 网络层与 store 全部打桩，只验证组件自己的校验、提交、复制与目录切换。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import AdminUploadPanel from '@/components/admin/AdminUploadPanel.vue'
@@ -36,7 +34,6 @@ vi.mock('@/composables/useToast', () => ({
   useConfirm: () => ({ confirm }),
 }))
 
-// 上传面板只需要「已登录 + 上传动作」两个外部依赖
 vi.mock('@/stores/user', () => ({
   useUserStore: () => ({ user: { id: 9, username: 'admin', role: 'admin' } }),
 }))
@@ -50,7 +47,6 @@ vi.mock('@/stores/admin', () => ({
   }),
 }))
 
-// Markdown 编辑器在 jsdom 里没有 CodeMirror，用 textarea 保持 v-model 语义
 vi.mock('@/components/MarkdownEditor.vue', async () => {
   const { defineComponent, h } = await import('vue')
   return {
@@ -95,7 +91,6 @@ beforeEach(() => {
     removeEventListener: vi.fn(),
     dispatchEvent: vi.fn(),
   })))
-  // 目录点击后调 scrollIntoView，jsdom 未实现
   Element.prototype.scrollIntoView = vi.fn()
   Object.defineProperty(navigator, 'clipboard', {
     configurable: true,
@@ -204,7 +199,6 @@ describe('API 密钥面板', () => {
 
     expect(copyToClipboard).toHaveBeenCalledWith('xq_完整密钥_只显示一次')
     expect(toast.success).toHaveBeenCalledWith('已复制到剪贴板')
-    // 弹层由 a-modal teleport 到 body，断言整页文本而不是组件根节点
     expect(document.body.textContent).toContain('已复制')
   })
 

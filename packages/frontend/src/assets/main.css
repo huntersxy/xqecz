@@ -4,14 +4,8 @@
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
-/* ── 基础配色：Arco 语义别名 + 公开创作界面的局部调色板 ──
-   默认 --color-* 指向 Arco token，随 <body arco-theme=”dark”> 切换日/夜。
-   下方 .creative-theme 局部覆盖为纸白与柔粉创作风格；工作台显式复用该主题。 */
 
 body {
-  /* 语义别名 → Arco token（直接挂在 body 作用域，与 Arco 的 token 同层。
-     之前写在 :root 时，子组件解析 var(--color-bg-2) 等 Arco token 会因不在该层而失败、
-     背景计算为透明——这是”很多组件背景变透明”的根因） */
   --color-primary: rgb(var(--primary-6));
   --color-primary-hover: rgb(var(--primary-5));
   --color-on-primary: var(--color-white);
@@ -35,14 +29,12 @@ body {
   --color-header-bg: var(--color-bg-2);
   --color-overlay-bg: rgba(255, 255, 255, 0.5);
 
-  /* Enhanced Design System Tokens */
   --shadow-sm: 0 2px 8px rgba(83, 57, 35, 0.04);
   --shadow-md: 0 4px 16px rgba(83, 57, 35, 0.08);
   --shadow-lg: 0 12px 36px rgba(83, 57, 35, 0.12);
   --shadow-xl: 0 20px 48px rgba(83, 57, 35, 0.16);
   --shadow-accent: 0 6px 20px rgba(194, 77, 107, 0.24);
 
-  /* Spacing System (4px base) */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -54,22 +46,18 @@ body {
   --space-12: 48px;
   --space-16: 64px;
 
-  /* Border Radius */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
   --radius-xl: 24px;
   --radius-full: 999px;
 
-  /* Transitions */
   --ease-smooth: cubic-bezier(0.4, 0.0, 0.2, 1);
   --ease-gentle: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --transition-fast: 150ms var(--ease-smooth);
   --transition-base: 250ms var(--ease-smooth);
   --transition-slow: 350ms var(--ease-smooth);
 
-  /* 动效 token：新增动画优先复用，保证全站节奏一致。
-     out = 元素进入/出现（先快后慢，干脆利落）；spring = 轻微回弹，只给小控件的选中反馈用。 */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
   --dur-press: 120ms;
@@ -77,7 +65,6 @@ body {
   --dur-enter: 320ms;
 }
 
-/* 暗色背景跟随 Arco token 切换。 */
 body[arco-theme='dark'] {
   --color-overlay-bg: rgba(0, 0, 0, 0.4);
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.12);
@@ -102,10 +89,6 @@ body[arco-theme='dark'] {
     font-size: 14px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* 常驻滚动条槽位。详情页覆盖层锁住背景滚动时滚动条会消失、内容横向跳动，
-       预留槽位吸收这个跳动，替代原先在 JS 里读 innerWidth-clientWidth 补
-       padding-right 的写法（见下方 html:has(.cd-root)）。不支持该属性的浏览器
-       只是退回跳动，不影响功能。 */
     scrollbar-gutter: stable;
   }
 
@@ -129,7 +112,6 @@ body[arco-theme='dark'] {
   }
 }
 
-/* 作品广场是站点的主视觉；首页与管理空间共用这组纸感中性色和酒红强调。 */
 body {
   --site-paper: #fffdf9;
   --site-canvas: #ebe4e1;
@@ -162,13 +144,6 @@ body[arco-theme='dark'] {
   --site-action-rgb: 240, 168, 187;
 }
 
-/* 创作界面的共享调色板：仅 .creative-theme 使用，工作台保留独立布局与状态色。
-   抽屉通过 Teleport 挂到 body，必须在抽屉根节点显式携带此类。
-
-   --creative-* 是 --site-* 的语义别名，两者值完全一致（以首页 gallery 调色板为准）。
-   好处：创意广场/角色设定/投票/登录/详情等页面继续使用 --creative-* 命名，
-   无需改任何组件代码，视觉自动与首页/后台统一。
-   如需将来在局部范围（某一页面 scope）覆盖某个 creative 值，仍可在该作用域内声明。 */
 body {
   --creative-paper:        var(--site-paper);
   --creative-canvas:       var(--site-canvas);
@@ -183,7 +158,6 @@ body {
   --creative-title-font:   var(--site-title-font);
   --creative-shadow:       var(--shadow-lg);
 
-  /* 全站共享语义 alias（供各区块不引入额外变量名直接使用） */
   --site-chip-bg:      color-mix(in srgb, var(--site-paper) 84%, transparent);
   --site-input-bg:     var(--site-paper);
   --site-input-border: var(--site-line);
@@ -192,25 +166,20 @@ body {
 }
 body[arco-theme='dark'] {
   --creative-warm: #b89260;
-  /* 其余 --creative-* 随 body 上的 --site-* 暗色定义自动更新，无需重复声明 */
 }
 .creative-theme {
-  /* Arco primary ramp — 以 --site-accent 酒红为基准重算，与首页/后台保持一致。
-     原 ramp 是玫瑰粉(#c24d6b)，统一后改为酒红(#6b173b)，暗色用淡粉(#f0a8bb)。
-     rgb 值对应 oklch 等感知步长，可用 oklch() 工具链重算；这里手工取近似值。 */
-  --primary-1: 248, 232, 235;   /* 极淡玫红底 */
+  --primary-1: 248, 232, 235;
   --primary-2: 240, 212, 218;
   --primary-3: 225, 178, 190;
   --primary-4: 204, 137, 157;
   --primary-5: 175, 96, 120;
-  --primary-6: 107, 23, 59;    /* --site-accent 酒红 */
+  --primary-6: 107, 23, 59;
   --primary-7: 84, 16, 46;
   --primary-8: 63, 10, 34;
   --primary-9: 45, 6, 24;
   --primary-10: 30, 3, 15;
   --color-primary: var(--creative-accent);
   --color-primary-hover: var(--creative-accent-hover);
-  /* Arco 的浅主色别名在 body 上已计算，局部替换 primary-* 后需同步覆盖。 */
   --color-primary-light-1: var(--creative-soft);
   --color-primary-light-2: color-mix(in srgb, var(--creative-accent) 16%, var(--creative-paper));
   --color-primary-light-3: color-mix(in srgb, var(--creative-accent) 24%, var(--creative-paper));
@@ -227,20 +196,18 @@ body[arco-theme='dark'] {
   color: var(--creative-ink);
 }
 body[arco-theme='dark'] .creative-theme {
-  /* 暗色 ramp — 基准为 --site-accent 暗色淡粉 #f0a8bb */
   --primary-1: 60, 43, 46;
   --primary-2: 82, 49, 58;
   --primary-3: 113, 64, 80;
   --primary-4: 155, 88, 110;
   --primary-5: 199, 124, 146;
-  --primary-6: 240, 168, 187;  /* --site-accent 暗色淡粉 */
+  --primary-6: 240, 168, 187;
   --primary-7: 246, 188, 198;
   --primary-8: 250, 210, 215;
   --primary-9: 253, 229, 231;
   --primary-10: 255, 242, 241;
   --color-on-primary: var(--site-on-action);
 }
-/* Arco 的 primary 按钮默认白字，夜间浅粉按钮需使用深色前景。 */
 .creative-theme .arco-btn-primary:not(.arco-btn-disabled) {
   color: var(--color-on-primary);
 }
@@ -250,8 +217,6 @@ body[arco-theme='dark'] .creative-theme {
   outline-offset: 3px;
 }
 
-/* 认领、举报、确认及工作台弹窗由 Teleport 挂载，根节点携带主题，
-   样式只约束本组弹窗；窄屏保持边距，长消息不会撑破操作区。 */
 .creative-dialog.arco-modal,
 .creative-dialog .arco-modal {
   max-width: calc(100vw - 32px);
@@ -271,7 +236,6 @@ body[arco-theme='dark'] .creative-theme {
 .creative-dialog .arco-textarea-wrapper { border-radius: 10px; background: var(--creative-canvas); }
 .creative-dialog .arco-modal-close-btn { border-radius: 50%; color: var(--creative-muted); }
 
-/* 编辑器在上传页与编辑抽屉共用；覆盖其公开变量，保留工具栏行为和代码高亮。 */
 .creative-theme .markdown-editor.vditor {
   --border-color: var(--creative-line);
   --panel-background-color: var(--creative-paper);
@@ -284,20 +248,10 @@ body[arco-theme='dark'] .creative-theme {
   border-radius: 12px;
 }
 
-/* ── Arco Image 错误态：只显示图标，不显示 alt / description 文字 ──
-   用 .arco-image 前缀提升特异性，确保压过后加载的 arco.css（main.ts 中 arco.css 在 main.css 之后引入）。
-   结构见 @arco-design/web-vue/es/image/image.js：isError 时渲染
-   .arco-image-error > .arco-image-error-icon（图标）+ .arco-image-error-alt（alt||description 文字）。 */
 .arco-image .arco-image-error-alt {
   display: none;
 }
 
-/* ── 详情页 / 上传面板 / 星图覆盖：锁定背景滚动 ─────────────────────────
-   由「覆盖层在不在 DOM 里」直接决定，不再 onMounted 改内联样式、onBeforeUnmount
-   还原——那套要先把旧值存下来再恢复，漏一处就把全站锁死在 overflow:hidden。
-   锁在 html 而非 body：内联样式改 body 依赖「body 的 overflow 传播到视口」这条
-   规则，而视口的滚动条槽由 html 的 scrollbar-gutter 常驻，两者分层容易对不上。
-   .au-root 是星图覆盖层（ArtworkUniverse），与 .cd-root / .qu-sheet 共用这一条。 */
 html:has(.cd-root),
 html:has(.qu-sheet),
 html:has(.site-confirm),
@@ -305,17 +259,10 @@ html:has(.au-root) {
   overflow: hidden;
 }
 
-/* 上传面板关闭后卸载（退出动画期间仍保留），锁滚与根节点的常驻槽位配合。
-   Arco 会给 body 写入减去滚动条宽度的内联 width；这里已预留槽位，不能再减一次。 */
 body:has(.qu-sheet) {
   width: auto !important;
 }
 
-/* ── Arco 弹层动画 ──────────────────────────────────────────────────────
-   默认弹窗从 0.5 倍缩放并带回弹曲线，抽屉遮罩与面板节奏也不一致，和站内其它过渡
-   不在一个气质上。这里统一成：弹窗轻微上浮 + 0.96 缩放、抽屉与遮罩同曲线同时长。
-   arco.css 在 main.css 之后加载，故用 :root 前缀抬高特异性，不使用 !important；
-   减少动态效果由文件末尾的全局规则把时长压到 0。 */
 :root .zoom-modal-enter-active,
 :root .zoom-modal-appear-active {
   transition:
@@ -351,8 +298,6 @@ body:has(.qu-sheet) {
   transition: transform 0.26s cubic-bezier(0.4, 0, 1, 1);
 }
 
-/* ── 通用按压反馈 ───────────────────────────────────────────────────────
-   Arco 按钮、站内自绘按钮在按下时有统一的轻微下沉，hover 过渡统一时长。 */
 .creative-theme .arco-btn {
   transition:
     background-color var(--dur-hover) ease,
@@ -365,13 +310,6 @@ body:has(.qu-sheet) {
   transform: scale(0.97);
 }
 
-/* ── 跟随系统「减少动态效果」偏好 ─────────────────────────
-   位移与缩放类过渡会诱发晕动症，按偏好把时长压掉。特异性高于组件 scoped
-   样式（.wf-card[data-v-x]），故必须 !important。
-   只压时长、不写 transform: none —— Arco 的居中偏移与走马灯位移都靠
-   transform 承担定位职责，全局归零会直接把布局打坏。
-   例外：加载指示器不能冻结，它表达的是「正在进行」，停了等于把加载态变成
-   无反馈的空白，故保留其循环动画（节奏放慢）。 */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -389,14 +327,6 @@ body:has(.qu-sheet) {
   }
 }
 
-/* ── 主题切换的圆形揭示（View Transition） ──────────────────────────
-   根快照的裁剪动画由 utils/viewTransition.ts 用 WAAPI 打在伪元素上，这里只负责
-   把 UA 默认的整页交叉淡出关掉：不关的话圆内是「新主题」、圆外还叠着一层正在淡出
-   的「旧主题」，两层同时在动，比瞬时切换更花。
-   plus-lighter 是 UA 给新旧快照定的混合模式（为了交叉淡出时不闪白），圆形揭示是
-   上下两层都要完整不透明的，故改回 normal 并用 z-index 钉死「新的在上」。
-   这些伪元素只在过渡期间存在；不认识的浏览器会丢弃整条规则，不影响其它样式。 */
-/* 全屏快照只负责视觉过渡，不应挡住用户继续操作页面。 */
 ::view-transition {
   pointer-events: none;
 }

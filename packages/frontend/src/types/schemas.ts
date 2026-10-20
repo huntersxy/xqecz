@@ -94,10 +94,8 @@ export const AITaskViewSchema = z.object({
   user: z.object({ id: z.number(), username: z.string() }).optional(),
   assets: z.array(AIAssetSchema),
   references: z.array(AIAssetSchema).optional(),
-  // 生成时的原始提示词（不含增强后缀）与是否启用增强。
   base_prompt: z.string().optional(),
   enhance_prompt: z.boolean().optional(),
-  // 仅管理员接口返回的失败诊断（已脱敏），用户端没有这个键。
   diagnostic: z.string().optional(),
 })
 export const AILedgerSchema = z.object({
@@ -214,13 +212,8 @@ export const VisionJobSchema = z.object({
 export const VisionResultSchema = z.object({ title: z.string().min(2), tags: z.array(z.string().min(2)).min(1).max(12) })
 export const VisionReferenceSchema = z.object({ name: z.string().min(1), bytes: z.number().int().positive(), version: z.string().optional(), description: z.string().optional(), needs_description: z.boolean().optional() })
 
-// ── 通用宽松 transform(沿用旧实现 normalize 的 `Number()||0` / `typeof==='string'? : ''` 兜底语义)──
-// 用 z.unknown + transform 而不是 z.coerce,避免 NaN 不触发 default 的边界问题;
-// 严格校验留给"值域有界的字段"(type/audit_status)用 enum/catch。
 const num = z.unknown().transform((v) => Number(v) || 0)
 const str = z.unknown().transform((v) => (typeof v === 'string' ? v : ''))
-// 时间字段专用：后端返回 ISO 字符串（如 '2026-09-13T11:28:04.865Z'），而 formatTime 对数字按 Unix 秒解释。
-// 若沿用 num，Number(ISO) === NaN → 0，时间会被整体丢成 0（详情页/后台一旦消费解析结果就会显示空）。
 const dateNum = z.unknown().transform((v) => {
   if (typeof v === 'number') return Number.isFinite(v) ? v : 0
   if (typeof v === 'string' && v) {
@@ -238,8 +231,6 @@ const tagsArr = z
     Array.isArray(v) ? v.filter((t): t is string => typeof t === 'string') : [],
   )
 
-// ── User(完整) ──
-// 与旧实现 normalize 等价:id/username 必填(契约保证),其他 optional 兜空。
 const UserSchema = z.object({
   id: num,
   username: str,
@@ -251,19 +242,16 @@ const UserSchema = z.object({
 })
 export type User = z.infer<typeof UserSchema>
 
-// ── User(简介,推荐页用) ──
 const UserBriefSchema = z.object({
   id: num,
   username: str,
   avatar_url: str.optional(),
 })
 
-// ── RecommendContent(推荐页) ──
 export const RecommendContentSchema = z.object({
   id: num,
   title: str,
   thumb: str.optional().default(''),
-  // 星图专用低体积图片；可选以兼容旧服务响应和首页缓存。
   atlas_thumb: str.optional(),
   montage_thumb: str.optional(),
   tags: tagsArr,
@@ -274,24 +262,18 @@ export const RecommendContentSchema = z.object({
 })
 export type RecommendContent = z.infer<typeof RecommendContentSchema>
 
-// ── Content(列表/详情) ──
 export const ContentSchema = z.object({
   id: num,
   title: str,
   text: str.optional().default(''),
   thumb: str.optional().default(''),
-  // 星图专用低体积图片；可选以兼容旧服务响应和首页缓存。
   atlas_thumb: str.optional(),
   montage_thumb: str.optional(),
   video: str.optional().default(''),
   img: str.optional().default(''),
   origin: str.optional().default(''),
-  // R2 地址（未接入 R2 时为空）。与 mirror2_* 平级、各自独立；
-  // 详情页按 OpenList → R2 → 源站 的可达性选择取用，缩略图不镜像故 thumb 无对应字段。
   mirror_img: str.optional().default(''),
   mirror_video: str.optional().default(''),
-  // 首选镜像（自建 OpenList）地址。与 mirror_* 平级、各自独立：
-  // 未配公开域名时为空，前端跳过该级继续往下回退。
   mirror2_img: str.optional().default(''),
   mirror2_video: str.optional().default(''),
   file_size: num.optional().default(0),
@@ -301,14 +283,12 @@ export const ContentSchema = z.object({
   view_count: num.optional().default(0),
   like_count: num.optional().default(0),
   audit_status: z.enum(['pending', 'approved', 'rejected']).optional(),
-  // 发布生成作品时是否启用了提示词增强；普通内容与旧响应默认 false。
   ai_enhanced: z.boolean().optional().default(false),
   created_at: dateNum,
   updated_at: dateNum.optional(),
 })
 export type Content = z.infer<typeof ContentSchema>
 
-// ── Comment ──
 export const CommentSchema: z.ZodType<{
   id: number
   content_id: number
@@ -341,7 +321,6 @@ export const CommentSchema: z.ZodType<{
 })
 export type Comment = z.infer<typeof CommentSchema>
 
-// ── Poll ──
 export const PollSchema = z.object({
   id: num,
   title: str,
@@ -372,7 +351,6 @@ export const PollListResponseSchema = z.object({
 })
 export type PollListResponse = z.infer<typeof PollListResponseSchema>
 
-// ── Claim ──
 const ClaimSchema = z.object({
   id: num,
   content_id: num,

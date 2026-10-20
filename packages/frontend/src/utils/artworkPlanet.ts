@@ -1,7 +1,5 @@
 import { getImageUrl, getRemoteFallbackUrl, REMOTE_MEDIA_BASE } from '@/utils'
 
-// 普通 <img> 能显示不代表 Canvas/WebGL 可读取：贴图加载必须统一走本文件的 CORS 入口。
-// 地址归属由 utils/index.ts 判定；这里仅负责贴图的跨域策略，详见 docs/frontend-media.md。
 export interface PlanetArtwork { id: number; thumb: string }
 export const PLANET_COLUMNS = 6
 export const PLANET_ROWS = 2
@@ -18,7 +16,6 @@ function shuffle<T>(items: T[]) {
   return items
 }
 
-/** 新页作品优先进入队列；遍历完才重新洗牌，不把随机固定在首次加载。 */
 export class PlanetArtworkDeck {
   private urls: string[] = []
   private pending: string[] = []
@@ -43,7 +40,6 @@ export class PlanetArtworkDeck {
   }
 }
 
-/** 在共享地址解析之后，为本站跨域贴图设置独立缓存键；不改第三方签名地址。 */
 export function planetImageSource(url: string, origin = window.location.origin, development = import.meta.env.DEV): string {
   const resolved = getImageUrl(url)
   if (!resolved) return ''
@@ -53,13 +49,10 @@ export function planetImageSource(url: string, origin = window.location.origin, 
   if (development && parsed.origin === REMOTE_MEDIA_BASE && /^\/(thumbs|uploads|images)\//.test(parsed.pathname)) {
     return `/__planet-media${parsed.pathname}${parsed.search}`
   }
-  // Ordinary <img> CDN entries may lack ACAO. Separate origins to avoid reusing
-  // a response cached without CORS or with another site's Allow-Origin header.
   parsed.searchParams.set('texture_origin', origin)
   return parsed.href
 }
 
-/** 只读取缩略图，超时 / 离开视口取消；CORS 失败时保留其余可用作品。 */
 export async function loadPlanetImage(url: string, signal: AbortSignal, timeoutMs = 4000): Promise<HTMLImageElement | null> {
   const source = planetImageSource(url)
   if (!source || signal.aborted) return null
@@ -94,7 +87,6 @@ export async function loadPlanetImage(url: string, signal: AbortSignal, timeoutM
   return fallback ? load(planetImageSource(fallback)) : null
 }
 
-/** 星图优先取后端专用小图，旧服务/生成失败再取普通缩略图；禁止组件猜文件名。 */
 export async function loadUniverseImage(artwork: { thumb: string; atlas_thumb?: string }, signal: AbortSignal) {
   if (artwork.atlas_thumb) {
     const small = await loadPlanetImage(artwork.atlas_thumb, signal, 20000)
@@ -103,7 +95,6 @@ export async function loadUniverseImage(artwork: { thumb: string; atlas_thumb?: 
   return loadPlanetImage(artwork.thumb, signal, 20000)
 }
 
-/** 大幅走马灯使用清晰档，失败再取普通缩略图，不拿星图小球档放大。 */
 export async function loadMontageImage(artwork: { thumb: string; montage_thumb?: string }, signal: AbortSignal) {
   if (artwork.montage_thumb) {
     const image = await loadPlanetImage(artwork.montage_thumb, signal, 12000)
@@ -112,14 +103,12 @@ export async function loadMontageImage(artwork: { thumb: string; montage_thumb?:
   return loadPlanetImage(artwork.thumb, signal, 12000)
 }
 
-/** 局部重绘不重置尺寸；贴片边缘渐隐并重叠，横向 wrap 保证经度首尾无缝。 */
 export function paintPlanetTexture(canvas: HTMLCanvasElement, images: readonly HTMLImageElement[]) {
   const ctx = canvas.getContext('2d')
   if (!ctx || !images.length) return
   const width = PLANET_TEXTURE_WIDTH / PLANET_COLUMNS
   const height = PLANET_TEXTURE_HEIGHT / PLANET_ROWS
   ctx.clearRect(0, 0, canvas.width, canvas.height)
-  // 预乘 alpha 加法合成相邻渐隐片，重叠区域权重相加为一，不残留硬边。
   ctx.globalCompositeOperation = 'lighter'
   const tile = document.createElement('canvas')
   tile.width = Math.ceil(width + OVERLAP * 2)
@@ -161,7 +150,6 @@ function drawCover(ctx: CanvasRenderingContext2D, image: HTMLImageElement, x: nu
   ctx.drawImage(image, (image.naturalWidth - sw) / 2, (image.naturalHeight - sh) / 2, sw, sh, x, y, width, height)
 }
 
-/** 球面坐标与 SphereGeometry 的 UV 一致，含渐隐外沿；用于确认整片已转到背面。 */
 export function planetSlotSamples(index: number): [number, number, number][] {
   const col = index % PLANET_COLUMNS
   const row = Math.floor(index / PLANET_COLUMNS)

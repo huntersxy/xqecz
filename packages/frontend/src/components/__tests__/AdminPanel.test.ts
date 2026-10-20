@@ -5,9 +5,6 @@ import AdminEmpty from '../admin/AdminEmpty.vue'
 import AdminSkeleton from '../admin/AdminSkeleton.vue'
 import AdminDataToolbar from '../admin/AdminDataToolbar.vue'
 
-// 波次 2（WP3）：AdminPanel 的 props / slots 向后兼容。
-// 12 个页签只传 title（或 title + desc + flat）并使用默认、actions 两个插槽，
-// 这里把这些老用法的渲染结构锁住，新增能力再断言「不传就是原样」。
 
 const mounted: { unmount: () => void }[] = []
 
@@ -35,7 +32,6 @@ describe('AdminPanel 向后兼容', () => {
     const wrapper = mountPanel()
 
     expect(wrapper.classes()).toEqual(['admin-panel'])
-    // 老用法只有 header + body 两个直接子节点，没有 tooltip/toolbar 之类的额外包裹
     expect(childClasses(wrapper)).toEqual(['admin-panel-head', 'admin-panel-body'])
 
     const header = wrapper.find('.admin-panel-head')
@@ -66,7 +62,6 @@ describe('AdminPanel 向后兼容', () => {
     const actions = wrapper.find('.admin-panel-head > .admin-panel-actions')
     expect(actions.exists()).toBe(true)
     expect(actions.find('.legacy-action').text()).toBe('刷新')
-    // actions 槽仍然在 body 之前，老的 Flex 布局假设不受影响
     expect(childClasses(wrapper)).toEqual(['admin-panel-head', 'admin-panel-body'])
   })
 
@@ -127,7 +122,6 @@ describe('AdminSkeleton', () => {
     const wrapper = track(mount(AdminSkeleton, { props: { variant: 'cards', rows: 0 } }))
 
     expect(wrapper.classes()).toContain('is-cards')
-    // rows 传 0 也要至少渲染一个占位，避免整块空白
     expect(wrapper.findAll('.admin-skeleton-card')).toHaveLength(1)
     expect(wrapper.find('.admin-skeleton-card .admin-skeleton-line').exists()).toBe(true)
   })

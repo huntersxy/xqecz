@@ -10,7 +10,6 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/web"
 )
 
-// The server owns placeholders; the user-declared AIGC marker survives both manual and automatic metadata paths.
 func (h *Handler) uploadMetadata(f *form, title string) (bool, string, []string, error) {
 	ai := f.value("is_ai_generated")
 	if ai != "" && ai != "true" && ai != "false" {

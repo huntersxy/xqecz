@@ -13,7 +13,6 @@ export function useSearchFilter() {
 
   const allTags = ref<string[]>([])
   const selectedTags = ref<string[]>(homeStore.selectedTags)
-  // 搜索关键字直接用 store 的 ref（单一真相源）
   const searchKeyword = computed({
     get: () => homeStore.searchKeyword,
     set: (v: string) => { homeStore.searchKeyword = v },
@@ -21,7 +20,6 @@ export function useSearchFilter() {
 
   const cachedTags = useStorage<{ tags: string[]; date: string } | null>('home_tags_cache', null)
 
-  // 展示顺序独立于每日缓存；只在加载或主动漫游时洗牌，筛选与重渲染不改顺序。
   const shuffledTags = ref<string[]>([])
   function reshuffleTags() {
     const tags = [...allTags.value]

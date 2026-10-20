@@ -37,7 +37,6 @@ describe('recommend strip paging', () => {
     expect(loader.displayStart.value).toBe(8)
     expect(mocks.recommend).toHaveBeenCalledTimes(1)
 
-    // 窗口走到 16/16：必须先拉第 2 页，不能把窗口推过池尾显示空条。
     await loader.refreshRecommend(8)
     expect(mocks.recommend).toHaveBeenLastCalledWith(16, 2)
     expect(loader.recommendContents.value).toHaveLength(32)
@@ -46,7 +45,6 @@ describe('recommend strip paging', () => {
     await loader.refreshRecommend(8)
     expect(loader.displayStart.value).toBe(24)
 
-    // 池已耗尽：回卷到 0，仍保留现有内容。
     await loader.refreshRecommend(8)
     expect(loader.displayStart.value).toBe(0)
     expect(loader.recommendContents.value).toHaveLength(32)

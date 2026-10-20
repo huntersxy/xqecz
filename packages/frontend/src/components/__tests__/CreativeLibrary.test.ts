@@ -73,7 +73,6 @@ describe('creative library', () => {
   it('shows character cards and filters them by search and kind', async () => {
     const w = await render()
     expect(w.findAll('.lib-card')).toHaveLength(2)
-    // 有参考图的角色用首张图作封面，没有的用占位图标。
     expect(w.get('.lib-card .test-image').attributes('data-id')).toBe('11')
     await w.get('input[type="search"]').setValue('雨宫')
     expect(w.findAll('.lib-card')).toHaveLength(1)

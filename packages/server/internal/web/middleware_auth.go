@@ -17,7 +17,6 @@ import (
 
 const SessionCookie = "session_id"
 
-// RequireAuth 与旧 AuthGuard 等价：优先校验 X-API-Key，其次校验 Session Cookie。
 func RequireAuth(deps app.Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if raw := strings.TrimSpace(c.GetHeader("X-API-Key")); raw != "" {
@@ -59,7 +58,6 @@ func RequireAuth(deps app.Deps) gin.HandlerFunc {
 	}
 }
 
-// OptionalAuth 与旧 OptionalAuthGuard 等价：仅识别 Session，失败不阻断。
 func OptionalAuth(deps app.Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		sid, _ := c.Cookie(SessionCookie)
@@ -82,7 +80,6 @@ func OptionalAuth(deps app.Deps) gin.HandlerFunc {
 	}
 }
 
-// RequireAdmin 与旧 AdminGuard 等价。
 func RequireAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, ok := IdentityOf(c)
@@ -94,7 +91,6 @@ func RequireAdmin() gin.HandlerFunc {
 	}
 }
 
-// RequireAPIKeyPermission 与旧 ApiKeyPermissionGuard 等价：仅约束密钥调用，Session 用户不受限。
 func RequireAPIKeyPermission(permission string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, ok := IdentityOf(c)
@@ -130,7 +126,6 @@ func authenticateAPIKey(ctx context.Context, deps app.Deps, raw string) (Identit
 		perms = nil
 	}
 
-	// 最后使用时间每分钟至多落库一次，避免高频请求打爆 DB。
 	if row.LastUsedAt == nil || time.Since(*row.LastUsedAt) > time.Minute {
 		_ = deps.DB.WithContext(ctx).Model(&store.APIKey{}).
 			Where("id = ?", row.ID).Update("last_used_at", time.Now()).Error

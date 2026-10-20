@@ -3,17 +3,12 @@ packages:
 allowBuilds:
   '@parcel/watcher': true
   sharp: true
-# 仅在开启 minimumReleaseAge（默认关闭）时生效；pnpm 的忽略构建列表由本文件 allowBuilds 接管
 minimumReleaseAgeExclude:
   - baseline-browser-mapping@2.11.23
 onlyBuiltDependencies:
   - '@parcel/watcher'
   - sharp
 
-# 传递依赖安全覆盖。
-# 上游把传递依赖精确锁死时，pnpm update 无法推进，只能在此钉住；
-# 每项都保持在自身大版本内，避免跨大版本行为变更。
-# 注意：pnpm 11 起不再读取 package.json 的 pnpm 字段，设置必须写在本文件。
 overrides:
   brace-expansion@1: '1.1.18'
   brace-expansion@2: '2.1.4'

@@ -21,7 +21,6 @@ onErrorCaptured((err: Error, instance, info) => {
   error.value = err
   errorInfo.value = info
 
-  // Prevent error from propagating further
   return false
 })
 

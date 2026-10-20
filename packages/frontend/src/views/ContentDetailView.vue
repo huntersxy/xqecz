@@ -30,17 +30,10 @@ let contentLoadSeq = 0
 const reportTarget = ref<Comment | null>(null)
 const showClaimModal = ref(false)
 
-/** 列表缓存里同 id 的条目：切作品时先用它顶上，不等接口。 */
 function cachedItem(id: number): Content | null {
   return cachedList.value.find((item) => item.id === id) || null
 }
 
-/**
- * 预取整图：悬停/聚焦缩略图，以及进入作品后预取左右邻居。
- * 必须和 MediaStage 用同一个解析（resolveMedia）才会命中浏览器缓存：
- * 来源（OpenList / R2 / 源站）还没确定时宁可不预取，也不能拿原始相对路径去请求——
- * 那会按页面域名解析成 `页面域名/uploads/...`，既 404 又白占请求。
- */
 const preloaded = new Set<string>()
 function preloadWork(item?: Content | null) {
   if (!item || mediaKindOf(item) !== 'image') return
@@ -61,9 +54,6 @@ function preloadNeighbours() {
   preloadWork(cachedList.value[idx + 1])
 }
 
-// ── 加载内容 ──
-// showLoading=false 表示手里已经有可显示的内容（列表缓存），这次只是补全详情，
-// 静默替换即可，绝不能把整屏切回骨架。
 async function loadContent(showLoading = true) {
   const seq = ++contentLoadSeq
   const id = currentId.value
@@ -88,8 +78,6 @@ async function loadContent(showLoading = true) {
   }
 }
 
-// 路由参数变化（缩略图点击、上一/下一个、浏览器导航）：
-// 先用列表缓存把标题/作者/媒体原地换掉，详情请求回来后再静默补全。整个过程不重建组件。
 watch(() => route.params.id, () => {
   const hit = cachedItem(currentId.value)
   if (hit) {
@@ -103,13 +91,11 @@ watch(() => route.params.id, () => {
 onMounted(() => {
   userStore.checkAuth()
   void loadContent()
-  // 背景滚动锁定由 main.css 的 `html:has(.cd-root)` 声明式接管：挂载即锁、卸载即解。
 })
 </script>
 
 <template>
   <div class="cd-root creative-theme">
-    <!-- 整屏分两栏：左侧是作品舞台，右侧是信息面板；返回键悬浮在舞台左上角 -->
     <div class="cd-shell">
       <button class="cd-back-btn" type="button" aria-label="返回" @click="goBack">
         <CdIcon name="arrow-left" />
@@ -138,7 +124,6 @@ onMounted(() => {
             {{ currentIndex + 1 }} / {{ cachedList.length }}
           </span>
 
-          <!-- 宽屏：舞台两侧的翻页键；窄屏改用缩略图条自带的前后键 -->
           <template v-if="previewItems.length > 0">
             <button v-if="hasPrev" class="cd-stage-arrow cd-stage-prev" type="button" aria-label="上一个" @click="goToPrev">
               <CdIcon name="chevron-left" />
@@ -171,13 +156,10 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* 详情页 = 左侧作品舞台 + 右侧信息面板，整屏铺满，没有顶栏/底栏占用竖向空间。
-   --creative-* 已统一为 --site-* 别名，无需在此重声明。 */
 .cd-root { position: fixed; inset: 0; z-index: 1000; color: var(--creative-ink); background: var(--creative-canvas); }
 .cd-shell { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; animation: cd-fade-in .2s ease-out; }
 @keyframes cd-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
-/* 悬浮控件共用的半透明胶囊：压在作品上也读得清，又不抢作品本身 */
 .cd-back-btn, .cd-counter, .cd-stage-arrow {
   border: 1px solid color-mix(in srgb, var(--creative-line) 80%, transparent);
   background: color-mix(in srgb, var(--creative-paper) 82%, transparent);

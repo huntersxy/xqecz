@@ -6,11 +6,6 @@ declare module 'vue-router' {
   }
 }
 
-/**
- * 路由表只声明「路径 → 页面」，不掺守卫与预热逻辑：
- * 守卫在 router/index.ts，首屏预热在 router/preload.ts。
- * 页面组件一律懒加载，首次访问才拉对应 chunk。
- */
 export const routes: RouteRecordRaw[] = [
   {
     path: '/',

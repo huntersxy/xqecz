@@ -11,8 +11,6 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/web"
 )
 
-// References are private admin assets, never ordinary content or mirror uploads.
-// Bound multipart input before decoding and remove staging files on every exit.
 func (h *Handler) uploadVisionReference(c *gin.Context) {
 	if !h.hasVision(c) {
 		return

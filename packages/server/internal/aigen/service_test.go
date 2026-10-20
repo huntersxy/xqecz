@@ -112,7 +112,6 @@ func TestReservationIdempotencyAndImmutableSuccess(t *testing.T) {
 	if a := balance(t, s, 1); a.Available != 8 || a.Reserved != 2 {
 		t.Fatal(a)
 	}
-	// Editing provider settings after submission cannot change this request.
 	p.Model = "changed-model"
 	if _, err = s.SaveProvider(ctx, 0, p, ""); err != nil {
 		t.Fatal(err)

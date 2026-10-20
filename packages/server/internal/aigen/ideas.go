@@ -20,8 +20,6 @@ type IdeaInput struct {
 	ReferenceRights bool     `json:"reference_rights"`
 }
 
-// A proposal publishes only a sanitized site-generation plan. No account key,
-// session, parent linkage or provider secret can enter its public snapshot.
 func (s *Service) CreateIdea(ctx context.Context, uid uint64, request IdeaInput) (Idea, error) {
 	request.Title = strings.TrimSpace(request.Title)
 	if !request.PublicConsent || !request.ReferenceRights || len([]rune(request.Title)) < 1 || len([]rune(request.Title)) > 150 || len([]rune(request.Description)) > 3000 || len(request.CharacterIDs) > 20 {
@@ -127,8 +125,6 @@ func (s *Service) Sponsor(ctx context.Context, uid, id uint64, key string, expec
 		if idea.Status != "waiting" {
 			return ErrBusy
 		}
-		// Locking the idea before spending prevents two sponsors creating two
-		// upstream calls. Failure release and re-opening happen together later.
 		task, err = s.insertTask(tx, uid, account, snap, cost, id)
 		if err != nil {
 			return err
@@ -177,10 +173,6 @@ func (s *Service) HideIdea(ctx context.Context, uid, id uint64, admin bool, note
 	return nil
 }
 
-// DeleteIdea permanently removes a proposal and its moderation events. Any
-// completed task is retained as an independent generation audit record; an
-// in-flight task is rejected so the worker cannot write a result back to a
-// deleted proposal.
 func (s *Service) DeleteIdea(ctx context.Context, id uint64) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var idea Idea

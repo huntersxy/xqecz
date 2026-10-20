@@ -22,7 +22,6 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// 显式启用时在真实库的单个事务中验证查询和删除；测试行始终回滚，不留下数据。
 func TestReplyChainLive(t *testing.T) {
 	if os.Getenv("XQECZ_COMMENT_LIVE") != "1" {
 		t.Skip("set XQECZ_COMMENT_LIVE=1 to run the rollback-only database regression")
@@ -97,7 +96,6 @@ func TestReplyChainLive(t *testing.T) {
 	}
 	t.Log("A/B/C/D 全部可见，直接父评论引用正确，顶层分页保持完整回复链")
 
-	// 回复其他内容下的父评论必须业务失败，且不产生额外行。
 	body, _ := json.Marshal(addReq{ContentID: other.ID, Text: "invalid", ParentID: &b.ID})
 	record := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(record)

@@ -18,7 +18,6 @@ func commentRow(id, parent uint64, text string) store.Comment {
 }
 
 func TestNestedRepliesRemainVisibleWithDirectParent(t *testing.T) {
-	// 故障复现：A <- B <- C <- D，输入乱序且另有 A 的直接回复 E。
 	a, b, c, d, e := commentRow(1, 0, "A"), commentRow(2, 1, "B"), commentRow(3, 2, "C"), commentRow(4, 3, "D"), commentRow(5, 1, "E")
 	users := map[uint64]store.User{2: {ID: 2, Username: "作者B"}}
 	threads := buildThreads([]store.Comment{a}, []store.Comment{d, e, c, b}, users)
@@ -45,7 +44,6 @@ func TestThreadsRespectPageAndContentBoundary(t *testing.T) {
 	if len(threads[0].Replies) != 2 {
 		t.Fatalf("只返回本页本内容的完整回复链: %+v", threads)
 	}
-	// 删除 B 后 C 被提升到顶层，D 仍显示在 C 下。
 	c := commentRow(3, 0, "C")
 	threads = buildThreads([]store.Comment{c}, []store.Comment{commentRow(7, 3, "D")}, nil)
 	if len(threads) != 1 || len(threads[0].Replies) != 1 || threads[0].Replies[0].Parent.ID != 3 {

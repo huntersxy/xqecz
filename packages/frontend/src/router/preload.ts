@@ -6,7 +6,6 @@ interface PreloadTask {
   delay: number
 }
 
-/** 首屏之后的空闲预热：只拉页面代码，不挂载页面、不请求私有数据、不起定时器。 */
 const idleQueue: PreloadTask[] = [
   { loader: () => import('../views/ContentDetailView.vue'), priority: 1, delay: 2000 },
   { loader: () => import('../views/LoginView.vue'), priority: 2, delay: 4000 },
@@ -33,10 +32,6 @@ export function scheduleIdlePreloads() {
   idleQueue.forEach(scheduleIdleLoad)
 }
 
-/**
- * 按导航意图预热页面代码：与路由懒加载用同一个 loader，同一路由只加载一次，
- * 失败则清掉记录，让真正的导航还能重试。
- */
 export function createRoutePreloader(router: Router) {
   const preloading = new Map<string, Promise<unknown>>()
 

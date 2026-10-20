@@ -12,7 +12,6 @@ const emit = defineEmits<{ 'update:modelValue': [value: string[]] }>()
 const draft = ref('')
 const input = ref<HTMLInputElement | null>(null)
 
-/** 提交当前草稿：去首尾空白、忽略空串与重复项。 */
 function commit() {
   const value = draft.value.trim()
   draft.value = ''
@@ -26,10 +25,8 @@ function remove(index: number) {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  // 中文输入法选词时的回车属于输入法，不能当作"确认标签"。
   if (event.isComposing) return
   if (event.key === 'Enter') {
-    // 位于表单内，回车默认会提交整张表单。
     event.preventDefault()
     commit()
   } else if (event.key === 'Backspace' && !draft.value && props.modelValue.length) {

@@ -31,7 +31,6 @@ const emit = defineEmits<{
   select: [key: string]
 }>()
 
-// 折叠状态按「分组标题」持久化；标题即稳定标识（分组集合由角色决定，不会重排）。
 const COLLAPSE_KEY = 'admin_nav_collapsed_groups'
 
 function readCollapsed(): string[] {
@@ -42,7 +41,6 @@ function readCollapsed(): string[] {
     if (!Array.isArray(parsed)) return []
     return parsed.filter((label): label is string => typeof label === 'string')
   } catch {
-    // 隐私模式 / 配额耗尽 / 历史脏数据：静默降级为全部展开。
     return []
   }
 }
@@ -61,7 +59,6 @@ function toggleGroup(label: string) {
   try {
     localStorage.setItem(COLLAPSE_KEY, JSON.stringify(next))
   } catch {
-    // 写不进去也不影响本次会话，只是下次进入回到默认展开。
   }
 }
 
@@ -69,14 +66,11 @@ const activeGroupLabel = computed(
   () => props.groups.find((group) => group.items.some((item) => item.key === props.active))?.label,
 )
 
-// 当前页签所在分组被折叠时，选中项不可见；这里只在「页签变化」时展开一次，
-// 不写回 localStorage——用户手动折叠的意图仍被保留。
 function revealActiveGroup() {
   const label = activeGroupLabel.value
   if (label && isCollapsed(label)) collapsed.value = collapsed.value.filter((item) => item !== label)
 }
 
-// ── M3 滑动指示块：绝对定位到当前项，尺寸来自实测（offsetTop/offsetHeight） ──
 const listEl = ref<HTMLElement | null>(null)
 const itemEls = new Map<string, HTMLElement>()
 const indicatorY = ref(0)
@@ -117,7 +111,6 @@ onMounted(() => {
   revealActiveGroup()
   reduceMotion.value = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
   scheduleMeasure()
-  // 侧栏宽度/字号变化会让实测值失效；不支持 ResizeObserver 时用一次挂载测量兜底。
   if (typeof ResizeObserver !== 'undefined' && listEl.value) {
     observer = new ResizeObserver(scheduleMeasure)
     observer.observe(listEl.value)
@@ -145,13 +138,11 @@ watch(
 
 function select(key: string) {
   emit('select', key)
-  // 站点侧栏在手机上是抽屉，选中后必须自己收起（PublicShell 持有抽屉状态）。
   closeShellSidebar()
 }
 </script>
 
 <template>
-  <!-- defer：PublicShell 的槽在路由内容之后才存在，等一个 tick 再解析目标。 -->
   <Teleport defer to="#public-shell-workspace">
     <nav class="admin-nav" aria-label="后台导航">
       <div ref="listEl" class="admin-nav-list">
@@ -221,8 +212,6 @@ function select(key: string) {
   color: var(--adm-muted, var(--admin-text-2, #6b6360));
 }
 
-/* 14 个页签 + 4 个分组要挤进 280px 侧栏：桌面指针设备用更紧凑的行高，
-   触屏仍保留 36px 触控高度（§7.2 要求 ≥36px）。 */
 @media (hover: hover) and (pointer: fine) {
   .admin-nav { --adm-nav-item-h: 32px; }
 }
@@ -234,7 +223,6 @@ function select(key: string) {
   gap: 3px;
 }
 
-/* M3：当前项的滑动指示块，只动 transform / height。 */
 .admin-nav-indicator {
   position: absolute;
   top: 0;
@@ -293,7 +281,6 @@ function select(key: string) {
   transform: rotate(-90deg);
 }
 
-/* M4：0fr ↔ 1fr 折叠，内层 overflow 裁剪，避免高度跳变。 */
 .admin-nav-group-body {
   display: grid;
   grid-template-rows: 1fr;

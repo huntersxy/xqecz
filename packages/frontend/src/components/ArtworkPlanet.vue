@@ -55,7 +55,6 @@ const failedUntil = new Map<string, number>()
 const refreshed = new Set<number>()
 
 function canRun() {
-  // KeepAlive 停用、离屏、隐藏标签页和全屏星图均暂停渲染与补图；恢复只经 updateAnimation。
   return active && inView && desktop?.matches && !universeOrigin.value && !document.hidden && !destroyed && !lostContext
 }
 
@@ -69,7 +68,7 @@ function explore() {
     try {
       image = renderer.domElement.toDataURL('image/png')
       atlas = (texture.image as HTMLCanvasElement).toDataURL('image/png')
-    } catch { /* A packaged fallback also works without WebGL. */ }
+    } catch { }
   }
   universeOrigin.value = { left: rect.left, top: rect.top, width: rect.width, height: rect.height, image, atlas }
   updateAnimation()
@@ -77,7 +76,6 @@ function explore() {
 function closeUniverse() { universeOrigin.value = undefined; updateAnimation() }
 function selectUniverse(id: number) { closeUniverse(); emit('select', id) }
 
-/** 容器尺寸变化时重设绘制缓冲；正交相机取景不变，只影响清晰度。 */
 function syncRenderSize() {
   if (!renderer || !ready.value || !host.value) return
   const rect = host.value.getBoundingClientRect()
@@ -92,7 +90,6 @@ function refill() {
     refillTimer ??= setTimeout(() => { refillTimer = undefined; refill() }, delay)
     return
   }
-  // 两个并发请求、三个预备图、十二个球面贴片；内存与作品总数无关。
   const excluded = new Set([...resident.map(item => item.url), ...queue.map(item => item.url), ...loadingUrls])
   const now = performance.now()
   failedUntil.forEach((until, url) => { if (until > now) excluded.add(url); else failedUntil.delete(url) })
@@ -133,7 +130,6 @@ function seedArtworks() {
 }
 
 function recycleBackside(time: number) {
-  // 未凑齐首批作品时不局部替换，避免装饰底图失败后出现稀疏的 resident 数组。
   if (!seeded || dragging.value || paused.value || reducedMotion.matches || time < resumeAt || time - lastSwap < 1400 || !queue.length) return
   globe.updateWorldMatrix(true, false)
   camera.getWorldPosition(direction).normalize()
@@ -214,7 +210,6 @@ async function initialize() {
     if (!canRun() || !canvas.value) return
     renderer = new THREE.WebGLRenderer({ canvas: canvas.value, alpha: true, antialias: true, powerPreference: 'low-power' })
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
-    // 画布尺寸跟随容器：首屏星球远大于星图入口，固定 180 会把贴图放糊。
     const initialRect = host.value?.getBoundingClientRect()
     renderer.setSize(Math.max(1, Math.round(initialRect?.width || 180)), Math.max(1, Math.round(initialRect?.height || 180)), false)
     renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -246,14 +241,12 @@ async function initialize() {
     controls.rotateSpeed = .65
     controls.addEventListener('start', onDragStart)
     controls.addEventListener('end', onDragEnd)
-    // 底图属于前端打包素材；它的失败不能阻断 ready、帧循环或后续作品补图。
     const fallback = await loadPlanetImage(heroArt, lifetime.signal)
     if (destroyed) return
     if (fallback) {
       resident.push(...Array.from({ length: PLANET_SLOTS }, () => ({ url: heroArt, image: fallback })))
       paintPlanetTexture(atlas, resident.map(item => item.image))
     } else {
-      // A missing decorative asset must not prevent rotation or artwork loading.
       const context = atlas.getContext('2d')
       if (context) {
         context.fillStyle = '#f5d9e2'
@@ -319,7 +312,6 @@ onBeforeUnmount(() => {
   disposeScene()
 })
 
-// 首屏把“双击进星图”的隐藏手势补成可见入口；星图浮层仍归本组件持有。
 defineExpose({ explore })
 </script>
 

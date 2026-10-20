@@ -19,10 +19,6 @@ const (
 	DefaultCacheTTL = 5 * time.Minute
 )
 
-// incrWithTTLScript keeps the hot counter path to one Redis round trip. The
-// previous INCR + EXPIRE pair allowed every request to issue a second command;
-// the key is only given a TTL when it is first created, preserving the old
-// expiry semantics without paying that extra network hop.
 var incrWithTTLScript = redis.NewScript(`
 local n = redis.call('INCR', KEYS[1])
 if n == 1 then
@@ -31,9 +27,6 @@ end
 return n
 `)
 
-// getSessionScript combines session lookup, sliding-expiry check and renewal.
-// Session validation runs on every authenticated request, so avoiding the
-// separate GET → TTL → EXPIRE sequence materially reduces Redis round trips.
 var getSessionScript = redis.NewScript(`
 local value = redis.call('GET', KEYS[1])
 if not value then
@@ -46,16 +39,10 @@ end
 return value
 `)
 
-// Client 包装 go-redis：统一给业务 key 加前缀（对齐旧 ioredis 的 keyPrefix 语义），
-// 并在 Redis 不可用时对读路径降级（缓存故障不影响业务）。
 type Client struct {
 	rdb    *redis.Client
 	prefix string
 
-	// jsonFlights coalesces concurrent misses for the same logical key. The
-	// Redis read still happens per request, but only the first request executes
-	// the database loader while a hot entry is expiring. Flights are scoped to a
-	// client so tests and processes with different prefixes cannot share data.
 	flightMu    sync.Mutex
 	jsonFlights map[string]*jsonFlight
 }
@@ -79,12 +66,9 @@ func Open(cfg config.Config) *Client {
 
 func (c *Client) Raw() *redis.Client { return c.rdb }
 
-// Key 拼接带前缀的完整 key，业务代码只写逻辑 key。
 func (c *Client) Key(key string) string { return c.prefix + key }
 
 func (c *Client) Ping(ctx context.Context) error { return c.rdb.Ping(ctx).Err() }
-
-// ---- 通用缓存 ----
 
 func (c *Client) Get(ctx context.Context, key string) (string, error) {
 	return c.rdb.Get(ctx, c.Key(key)).Result()
@@ -127,8 +111,6 @@ func (c *Client) GetJSON(ctx context.Context, key string, out any) (bool, error)
 	return true, nil
 }
 
-// GetOrSetJSON 读穿缓存：命中直接返回，未命中执行 loader 并写回。
-// Redis 不可用时退化为直查，与旧实现一致。
 func GetOrSetJSON[T any](ctx context.Context, c *Client, key string, ttl time.Duration, loader func() (T, error)) (T, error) {
 	var zero T
 	if c == nil {
@@ -156,9 +138,6 @@ func GetOrSetJSON[T any](ctx context.Context, c *Client, key string, ttl time.Du
 		}
 	}
 
-	// Only the leader runs the loader. Always publish its result and remove the
-	// flight, including loader errors, so a transient database failure is not
-	// retained as a permanently failed cache entry.
 	defer c.finishJSONFlight(key, flight)
 	data, err := loader()
 	if err != nil {
@@ -193,13 +172,10 @@ func (c *Client) finishJSONFlight(key string, flight *jsonFlight) {
 	c.flightMu.Unlock()
 }
 
-// ---- session ----
-
 func (c *Client) SetSession(ctx context.Context, sessionID string, userID uint64) error {
 	return c.Set(ctx, "session:"+sessionID, userID, SessionTTL)
 }
 
-// GetSession 读取会话，并在剩余 TTL 不足一半时滑动续期。
 func (c *Client) GetSession(ctx context.Context, sessionID string) (uint64, bool) {
 	key := c.Key("session:" + sessionID)
 	result, err := getSessionScript.Run(ctx, c.rdb, []string{key},
@@ -227,9 +203,6 @@ func (c *Client) DelSession(ctx context.Context, sessionID string) error {
 	return c.Del(ctx, "session:"+sessionID)
 }
 
-// ---- 浏览量 ----
-
-// IncrementView 记录当天浏览量，首次创建时设置 32 天过期。
 func (c *Client) IncrementView(ctx context.Context, contentID uint64) int64 {
 	key := "views:date:" + time.Now().Format("2006-01-02") + ":" + strconv.FormatUint(contentID, 10)
 	n, err := incrWithTTLScript.Run(ctx, c.rdb, []string{c.Key(key)}, viewKeyTTL.Milliseconds()).Int64()
@@ -239,14 +212,11 @@ func (c *Client) IncrementView(ctx context.Context, contentID uint64) int64 {
 	return n
 }
 
-// ---- 推荐 ZSet ----
-
 type ScoredItem struct {
 	ContentID uint64
 	Score     float64
 }
 
-// WriteRecommendList 原子替换推荐位：先写临时 key 再 RENAME，读取端不会看到半写入状态。
 func (c *Client) WriteRecommendList(ctx context.Context, items []ScoredItem) error {
 	if len(items) == 0 {
 		return nil
@@ -290,9 +260,6 @@ func (c *Client) GetRecommendTotal(ctx context.Context) int64 {
 	return n
 }
 
-// ---- 缓存失效 ----
-
-// DelByPattern 用 SCAN 精确匹配带前缀的真实 key 后批量删除。
 func (c *Client) DelByPattern(ctx context.Context, pattern string) {
 	var cursor uint64
 	for {
@@ -330,9 +297,6 @@ func (c *Client) ClearAllContentCaches(ctx context.Context) {
 	c.Del(ctx, "tags")
 }
 
-// ---- 限频与分布式锁 ----
-
-// IncrWithTTL 自增计数并在首次创建时设置过期时间。
 func (c *Client) IncrWithTTL(ctx context.Context, key string, ttl time.Duration) int64 {
 	n, err := incrWithTTLScript.Run(ctx, c.rdb, []string{c.Key(key)}, ttl.Milliseconds()).Int64()
 	if err != nil {

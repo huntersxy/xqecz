@@ -16,7 +16,6 @@ const blank = () => ({
   enabled: false,
   default: false,
   has_key: false,
-  // Kept for the existing API shape; image size choices belong to users.
   sizes: [],
   qualities: [] as string[],
   max_count: 1,

@@ -15,7 +15,6 @@ interface ApplyPayload {
   label?: string
 }
 
-// 这个弹窗只做一件事：一次点击把角色/模板导入输入区，不再有列表→详情的二级页面。
 const props = withDefaults(defineProps<{ appliedCharacters?: number[]; error?: string }>(), {
   appliedCharacters: () => [],
   error: '',
@@ -74,7 +73,6 @@ async function activate(row: CreativeResource) {
     })
     return
   }
-  // 必填变量没有默认值时不能静默导入空占位，先在原弹窗里补齐再导入。
   if (row.payload.variables.some((variable) => variable.required && !(variable.default ?? '').trim())) {
     fillId.value = row.id
     fillValues.value = defaultsOf(row)
@@ -252,7 +250,6 @@ onBeforeUnmount(() => controller.abort())
   gap: 12px;
   flex-wrap: wrap;
 }
-/* 分段控件沿用全站药丸语言，滑块跟着选中项滑动。 */
 .lib-kind {
   position: relative;
   display: grid;
@@ -330,7 +327,6 @@ onBeforeUnmount(() => controller.abort())
   outline-offset: 2px;
 }
 
-/* 角色卡：图片是主角，标题与一句简介只做索引。 */
 .lib-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
@@ -366,7 +362,6 @@ onBeforeUnmount(() => controller.abort())
   display: grid;
   place-items: center;
   width: 100%;
-  /* 角色多为全身立绘，竖版画幅比正方形更能看清人物。 */
   aspect-ratio: 4 / 5;
   overflow: hidden;
   border: 1px solid var(--creative-line);
@@ -508,7 +503,6 @@ onBeforeUnmount(() => controller.abort())
   white-space: nowrap;
 }
 
-/* 必填变量补齐：留在原弹窗内，不跳二级页。 */
 .lib-fill {
   display: flex;
   flex-direction: column;

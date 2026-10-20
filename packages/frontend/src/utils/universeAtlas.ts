@@ -5,7 +5,6 @@ const TILE = 512
 const COLUMNS = 4
 const CAPACITY = COLUMNS * COLUMNS
 
-/** 作品仍保留 512px 的球面效果。16 颗共用一张图集与绘制调用，避免每颗单独提交 GPU。 */
 export function createUniverseAtlas(scene: THREE.Scene) {
   const pages: { canvas: HTMLCanvasElement; context: CanvasRenderingContext2D; texture: THREE.CanvasTexture; geometry: THREE.BufferGeometry; material: THREE.MeshBasicMaterial; mesh: THREE.Mesh; ids: number[] }[] = []
   const entries = new Map<number, { page: number; slot: number; node: UniverseNode; url?: string; source?: string }>()
@@ -29,7 +28,6 @@ export function createUniverseAtlas(scene: THREE.Scene) {
       const z = r + 1, base = positions.length / 3
       positions.push(x-r,y-r,z, x+r,y-r,z, x+r,y+r,z, x-r,y+r,z)
       const col = entry.slot % COLUMNS, row = Math.floor(entry.slot / COLUMNS)
-      // 半像素内缩避免相邻图块在过滤时串色；不削减作品的绘制分辨率。
       const inset = .5 / (TILE * COLUMNS)
       const left = col/COLUMNS+inset, right=(col+1)/COLUMNS-inset
       const top=1-row/COLUMNS-inset, bottom=1-(row+1)/COLUMNS+inset

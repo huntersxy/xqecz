@@ -1,4 +1,3 @@
-// Package avatar 根据邮箱生成公开头像地址，不在公开响应中暴露邮箱。
 package avatar
 
 import (
@@ -11,7 +10,6 @@ import (
 
 var qqMailPattern = regexp.MustCompile(`^(\d{5,11})@qq\.com$`)
 
-// URL 为 QQ 邮箱返回 QQ 头像，其余邮箱返回 Gravatar，未设置邮箱时返回空串。
 func URL(email string, size int) string {
 	normalized := strings.ToLower(strings.TrimSpace(email))
 	if normalized == "" {

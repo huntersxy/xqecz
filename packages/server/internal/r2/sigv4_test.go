@@ -11,13 +11,8 @@ import (
 	"time"
 )
 
-// fixedTime 固定签名时刻，保证测试可复现。
 func fixedTime() time.Time { return time.Date(2015, 8, 30, 12, 36, 0, 0, time.UTC) }
 
-// expectedSignature 用**独立实现**的规范化流程算出应有的签名。
-//
-// 刻意不复用 sign() 内部的 canonicalURI/canonicalQuery/collapseSpaces：
-// 测试若与被测代码共用同一段逻辑，写错的地方会两边一起错，测了等于没测。
 func expectedSignature(t *testing.T, method, rawURL, payloadHash string, headers map[string]string, extra map[string]string, accessKey, secretKey string) (string, string) {
 	t.Helper()
 	if payloadHash == "" {
@@ -50,8 +45,6 @@ func expectedSignature(t *testing.T, method, rawURL, payloadHash string, headers
 	}
 	signed := strings.Join(names, ";")
 
-	// 独立编码路径：逐字节百分号编码（RFC 3986 未保留字符之外的都转义），
-	// 与 canonicalURI 的编码语义一致但实现互不共享。
 	path := ""
 	for i, seg := range strings.Split(req.URL.Path, "/") {
 		if i > 0 {
@@ -75,11 +68,6 @@ func expectedSignature(t *testing.T, method, rawURL, payloadHash string, headers
 	return hex.EncodeToString(hmacSHA256(k, []byte(toSign))), scope
 }
 
-// TestURLForKeepsSingleSlashBetweenBucketAndKey 钉死对象地址的拼接形状。
-//
-// 曾经的 bug：key 也走 canonicalURI（会给整条路径补前导斜杠），拼出 /bucket//key，
-// R2 于是把多余斜杠算进对象名（真实对象名变成 "/key"）：私有读写全对，
-// 公开地址却永远 404 —— 只有断言 URL 本身才能拦住这类「签名没错但地址错」的问题。
 func TestURLForKeepsSingleSlashBetweenBucketAndKey(t *testing.T) {
 	c, err := New(Config{Endpoint: "https://acc.r2.cloudflarestorage.com", AccessKey: "ak", SecretKey: "sk", Bucket: "xqecz"})
 	if err != nil {
@@ -98,7 +86,6 @@ func TestURLForKeepsSingleSlashBetweenBucketAndKey(t *testing.T) {
 	}
 }
 
-// TestEmptyPayloadHashMatchesSpec 空 body 的 SHA-256 是公开常量，先钉死它。
 func TestEmptyPayloadHashMatchesSpec(t *testing.T) {
 	sum := sha256.Sum256(nil)
 	if got := hex.EncodeToString(sum[:]); got != emptyPayloadHash {
@@ -106,8 +93,6 @@ func TestEmptyPayloadHashMatchesSpec(t *testing.T) {
 	}
 }
 
-// TestSignStructuralCorrectness 用独立实现逐项校验签名结构：
-// 规范化请求、待签串、签名密钥派生与 Authorization 头的组成。
 func TestSignStructuralCorrectness(t *testing.T) {
 	const (
 		accessKey = "AKIDEXAMPLE"
@@ -137,7 +122,6 @@ func TestSignStructuralCorrectness(t *testing.T) {
 			if tc.payload != "" {
 				payloadHash = hexSHA256([]byte(tc.payload))
 			}
-			// headers 参与签名的部分与生产实现保持一致：host + x-amz-* + content-type。
 			signedPayloadHash := payloadHash
 			if signedPayloadHash == "" {
 				signedPayloadHash = emptyPayloadHash
@@ -181,7 +165,6 @@ func TestSignStructuralCorrectness(t *testing.T) {
 	}
 }
 
-// TestSignDeterministic 同一时刻同一请求必须得到同一签名（否则无法重放/复现）。
 func TestSignDeterministic(t *testing.T) {
 	mk := func() string {
 		req, _ := http.NewRequest(http.MethodHead, "https://acc.r2.cloudflarestorage.com/bucket/a.webp", nil)
@@ -193,7 +176,6 @@ func TestSignDeterministic(t *testing.T) {
 	}
 }
 
-// encodeSegment 是测试侧独立实现的 RFC 3986 分段编码（与 canonicalURI 实现互不共享）。
 func encodeSegment(s string) string {
 	const unreserved = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~"
 	var b strings.Builder
@@ -207,7 +189,6 @@ func encodeSegment(s string) string {
 	return b.String()
 }
 
-// TestObjectKey 校验对象名拼接（前缀 + 相对路径，反斜杠归一）。
 func TestObjectKey(t *testing.T) {
 	c := &Client{cfg: Config{Prefix: "uploads"}}
 	if got := c.ObjectKey("ab12.webp"); got != "uploads/ab12.webp" {
@@ -226,7 +207,6 @@ func TestObjectKey(t *testing.T) {
 	}
 }
 
-// TestCanonicalURI 校验路径编码：保留分隔斜杠、转义特殊字符。
 func TestCanonicalURI(t *testing.T) {
 	cases := map[string]string{
 		"/uploads/a b.webp":    "/uploads/a%20b.webp",
@@ -242,7 +222,6 @@ func TestCanonicalURI(t *testing.T) {
 	}
 }
 
-// TestNewValidatesConfig 校验构造期的参数校验与默认值。
 func TestNewValidatesConfig(t *testing.T) {
 	if _, err := New(Config{}); err == nil {
 		t.Fatal("缺 endpoint 应报错")

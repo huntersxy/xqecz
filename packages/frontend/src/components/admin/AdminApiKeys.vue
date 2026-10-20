@@ -1,6 +1,4 @@
 <script setup lang="ts">
-// API 密钥：把原先的七列表格重排成「概览指标 + 密钥卡片流 + 接入说明侧栏」。
-// 列表只保留前缀，完整密钥仍只在创建弹层出现一次；启停开关与撤销都留在卡片上。
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { IconCheck, IconCopy, IconDelete, IconPlus } from '@arco-design/web-vue/es/icon'
 import AdminDataToolbar from './AdminDataToolbar.vue'
@@ -19,9 +17,7 @@ const showCreateModal = ref(false)
 const showKeyModal = ref(false)
 const createdKey = ref<ApiKeyCreated | null>(null)
 const creating = ref(false)
-// 正在切换状态的密钥：只锁住对应卡片上的开关，不锁整页
 const togglingIds = ref<number[]>([])
-// 正在撤销的密钥：卡片先淡出，接口失败再回到可见状态
 const leavingIds = ref<number[]>([])
 
 const createForm = ref({ name: '', permissions: ['upload'] as string[] })
@@ -31,13 +27,11 @@ const allPermissions = [
   { label: '删除内容', value: 'delete' },
 ]
 
-// 首屏加载才出骨架；已有数据时刷新只让工具条的按钮转圈，卡片保持可读
 const showSkeleton = computed(() => loading.value && keys.value.length === 0)
 
 const activeCount = computed(() => keys.value.filter(key => key.is_active).length)
 const inactiveCount = computed(() => keys.value.length - activeCount.value)
 
-// 最近使用：取全部密钥里最新的 last_used_at，没有任何调用记录时给「从未使用」
 const latestUsed = computed<ApiKey | null>(() => keys.value.reduce<ApiKey | null>((best, key) => {
   if (!key.last_used_at) return best
   if (!best || key.last_used_at > (best.last_used_at ?? 0)) return key
@@ -52,10 +46,8 @@ const latestUsedTitle = computed(() => {
   return used?.last_used_at ? fullTime(used.last_used_at) : ''
 })
 
-// 工具区计数：必须保持「共 2 个密钥，启用 1 个」这一形态（接口测试与文案约定都依赖它）
 const summary = computed(() => (keys.value.length ? `共 ${keys.value.length} 个密钥，启用 ${activeCount.value} 个` : '暂无密钥'))
 
-// 接口的 last_used_at 是 Unix 秒，部分环境返回的 created_at 是 ISO 字符串，两种都接
 function toDate(ts: number | string | null): Date | null {
   if (!ts) return null
   const date = typeof ts === 'string' && /^\d{4}-/.test(ts)
@@ -152,7 +144,6 @@ async function handleCreate() {
   }
 }
 
-// 撤销：确认后先让卡片淡出，同时立刻调接口；失败时把卡片放回来（不留假死状态）
 async function handleDelete(id: number, name: string) {
   if (isLeaving(id)) return
   const { confirm } = useConfirm()
@@ -185,11 +176,9 @@ async function toggleActive(key: ApiKey) {
   }
 }
 
-// 一次性密钥只在创建弹层里出现一次，复制后给按钮一个短暂的完成态
 const copied = ref(false)
 let copiedTimer: ReturnType<typeof setTimeout> | null = null
 
-// 卡片页脚的「复制前缀」：成功后就地给出 1.6s 的完成态
 const copiedPrefixId = ref<number | null>(null)
 let prefixTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -382,7 +371,6 @@ onBeforeUnmount(() => {
       </aside>
     </div>
 
-    <!-- 新建弹窗 -->
     <a-modal class="admin-theme creative-theme creative-dialog" v-model:visible="showCreateModal" title="新建 API 密钥" :ok-loading="creating" @ok="handleCreate" ok-text="创建" cancel-text="取消">
       <a-form layout="vertical" :model="createForm">
         <a-form-item label="名称" required>
@@ -394,7 +382,6 @@ onBeforeUnmount(() => {
       </a-form>
     </a-modal>
 
-    <!-- 显示完整 Key 弹窗：关闭后不可再次查看 -->
     <a-modal class="admin-theme creative-theme creative-dialog" v-model:visible="showKeyModal" title="API 密钥已创建" :footer="false">
       <div class="key-reveal-block">
         <p class="key-reveal-tip">请保存以下密钥，<strong>关闭后将无法再次查看</strong>：</p>
@@ -418,12 +405,10 @@ onBeforeUnmount(() => {
 <style lang="scss" scoped>
 @use './admin' as *;
 
-// 工具条自身有上下留白，外层 .admin-panel-toolbar 也有一层，抵消掉避免双倍
 :deep(.admin-panel-toolbar .admin-data-toolbar) {
   padding: 0;
 }
 
-// ── 卡片头：名称 + 状态徽标在左，启停开关在右 ──
 .key-head {
   display: flex;
   align-items: flex-start;
@@ -449,7 +434,6 @@ onBeforeUnmount(() => {
   margin-top: 2px;
 }
 
-// 前缀只露出来，复制走页脚按钮；选中时整段可选
 .key-prefix {
   display: block;
   max-width: 100%;
@@ -500,7 +484,6 @@ onBeforeUnmount(() => {
   margin-top: 2px;
 }
 
-// 停用的密钥收一点视觉重量，但不影响可读性
 .key-card.is-off .key-name {
   color: var(--adm-muted, var(--admin-text-2));
 }
@@ -511,7 +494,6 @@ onBeforeUnmount(() => {
   height: var(--adm-touch, 36px);
 }
 
-// ── 侧栏：接入说明卡 ──
 .key-side-title {
   margin: 0;
   color: var(--adm-ink, var(--admin-text));
@@ -567,7 +549,6 @@ onBeforeUnmount(() => {
   line-height: 1.6;
 }
 
-// 密钥弹层内容 teleport 至 body；--adm-* 挂在 body 上，依旧可用
 .key-reveal-tip {
   margin: 0 0 var(--adm-gap-sm, 8px);
   font-size: var(--adm-font-sm, 13px);
@@ -610,7 +591,6 @@ onBeforeUnmount(() => {
   }
 }
 
-// M9 同款一次性反馈：scale 1 → 1.15 → 1，非无限循环
 .key-copy-icon {
   animation: key-copied-pop var(--adm-dur-slow, 240ms) var(--adm-ease-out, cubic-bezier(0.22, 1, 0.36, 1)) 1;
 }
@@ -651,12 +631,10 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 768px) {
-  // 手机上密钥卡改单列，避免前缀与时间被挤成两行
   .key-board .key-list {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  // 触控高度 44px
   .key-foot :deep(.arco-btn) {
     min-height: var(--adm-touch, 44px);
   }

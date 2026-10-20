@@ -12,8 +12,6 @@ const buildDate = new Date().toISOString().split('T')[0]
 
 export default defineConfig(async ({ mode }) => {
   const isDev = mode === 'development'
-  // 开发/预览态代理目标：默认 Go 后端（http://localhost:3000），可用 VITE_PROXY_TARGET 覆盖。
-  // vite preview 的代理默认继承 server.proxy，因此生产预览同样走这里的配置。
   const proxyTarget = process.env.VITE_PROXY_TARGET || 'http://localhost:3000'
   const plugins: import('vite').PluginOption[] = [
     vue(),
@@ -24,7 +22,6 @@ export default defineConfig(async ({ mode }) => {
     }),
     Components({
       dts: 'src/components.d.ts',
-      // a- 前缀组件由 Arco 按需解析（组件库已全量迁移至 @arco-design/web-vue）
       resolvers: [ArcoResolver({ importStyle: false })],
     }),
   ]
@@ -64,7 +61,6 @@ export default defineConfig(async ({ mode }) => {
   }
 
   return {
-    // .env 统一放项目根目录一份（VITE_ 前缀的变量对客户端生效）
     envDir: fileURLToPath(new URL('../..', import.meta.url)),
     plugins,
     define: {
@@ -76,8 +72,6 @@ export default defineConfig(async ({ mode }) => {
       },
     },
     build: {
-      // 2026-07-29 恢复：此前 emptyOutDir: false 是为规避平台 safe-delete 拦截“批量清空 dist”，
-      // 但已引发“公告弹窗残留”事故（过期 chunk 未清理）。现改回 true，构建前整体清空 dist。
       emptyOutDir: true,
       rollupOptions: {
         output: {
@@ -93,13 +87,9 @@ export default defineConfig(async ({ mode }) => {
       },
     },
     server: {
-      // 自适应端口：dev 编排器（scripts/dev.mjs）注入预探测的空闲端口；
-      // 未注入时用 5173。strictPort 保持 false，被占时 Vite 自动向上顺延。
       port: Number(process.env.VITE_PORT) || 5173,
       strictPort: false,
       proxy: {
-        // Only public media from the fixed production host. Local thumbnails may
-        // be missing, and localhost is not a production CORS origin for canvas.
         '^/__planet-media/(thumbs|uploads|images)/': {
           target: 'https://api39.xiey.work',
           changeOrigin: true,

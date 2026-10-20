@@ -16,17 +16,9 @@ const props = defineProps<{ content: Content }>()
 
 const kind = computed(() => mediaKindOf(props.content))
 
-/**
- * 来源确定后才发请求，避免「先源站、测速后换镜像」把同一张图拉两遍。
- * 本机已有同网络的结论就同步渲染；没有才等一次镜像探测（冷启动唯一一次等待）。
- */
 const source = ref<MediaSource | null>(cachedImageSource())
 const resolved = computed(() => source.value !== null)
 
-/**
- * 候选地址，按优先级：当前来源 → 其余镜像 → 源站 → 生产服务器同路径。
- * 一个 <img> 只请求当前这一项，失败才换下一项，所以任何时刻最多一个在途请求。
- */
 const candidates = computed(() => {
   if (kind.value === 'text' || !source.value) return [] as string[]
   const { url, fallbacks } = resolveMedia(props.content, source.value)
@@ -48,18 +40,16 @@ async function resolveSource() {
   const mine = ++resolveSeq
   if (kind.value === 'text') return
   const { mirror, mirror2 } = mediaTiers(props.content)
-  if (!mirror && !mirror2) { source.value = 'origin'; return } // 没有镜像副本，无需探测
-  // 缓存里选中的那一级必须当前真的有地址，否则视为失效
+  if (!mirror && !mirror2) { source.value = 'origin'; return }
   const known = cachedImageSource()
   const usable = known === 'origin' || (known === 'mirror' && !!mirror) || (known === 'mirror2' && !!mirror2)
   if (known && usable) {
     source.value = known
   } else {
     const v = await probeMirror(mirror2, mirror)
-    if (mine !== resolveSeq) return // 期间切了内容，丢弃
+    if (mine !== resolveSeq) return
     source.value = v
   }
-  // 后台校验公网 IP：换网（典型是代理开关）才重新探测。图已经显示出来就不再换源，免得闪一下。
   const changed = await recheckNetwork()
   if (!changed || mine !== resolveSeq || phase.value === 'loaded') return
   const v = await probeMirror(mirror2, mirror)
@@ -74,7 +64,6 @@ watch(
 
 function onLoad() { phase.value = 'loaded' }
 
-/** 某一级取不到：给那一级记内存负标记，换下一个候选；候选用尽才算失败。 */
 function onError() {
   const failed = currentUrl.value
   const { mirror, mirror2 } = mediaTiers(props.content)
@@ -91,14 +80,12 @@ const renderedText = computed(() => {
   return t ? rewriteMediaInHtml(renderMarkdown(t)) : ''
 })
 
-// ── 查看原图 ──
 const imgEl = ref<HTMLImageElement | null>(null)
 let viewer: Viewer | null = null
 function openViewer() {
   const img = imgEl.value
   if (!img || phase.value !== 'loaded') return
   const c = props.content
-  // 原图同样跟随来源选择，避免「预览快、点开慢」的割裂
   const originUrl = pickImageUrl(c.origin ? getImageUrl(c.origin) : '', c.mirror_img || '', c.mirror2_img || '', source.value)
   if (originUrl) img.dataset.origin = originUrl
   viewer?.destroy()
@@ -117,7 +104,6 @@ onBeforeUnmount(() => { viewer?.destroy(); viewer = null })
     class="cd-media"
     :class="{ 'is-text': kind === 'text', 'has-ambient': kind === 'image' && phase === 'loaded' }"
   >
-    <!-- 虚化底：只在正图真正加载完成后才出现，且复用正图已缓存的同一地址，不额外请求 -->
     <img
       v-if="kind === 'image' && phase === 'loaded' && currentUrl"
       class="cd-ambient"
@@ -180,7 +166,6 @@ onBeforeUnmount(() => { viewer?.destroy(); viewer = null })
   position: relative; flex: 1 1 0; min-width: 0; min-height: 0; overflow: hidden;
   background: var(--creative-canvas);
 }
-/* 虚化底：向外扩一圈再模糊，边缘不留裁切线；只作氛围 */
 .cd-ambient {
   position: absolute; inset: -14%; width: 128%; height: 128%; object-fit: cover;
   filter: blur(58px) saturate(1.25); opacity: .5; transform: scale(1.06); pointer-events: none;
@@ -191,7 +176,6 @@ onBeforeUnmount(() => { viewer?.destroy(); viewer = null })
   content: ''; position: absolute; inset: 0; pointer-events: none;
   background: radial-gradient(118% 92% at 50% 46%, transparent 38%, color-mix(in srgb, var(--creative-canvas) 62%, transparent) 100%);
 }
-/* 作品区：上方避开悬浮的返回键/计数，左右避开翻页键 */
 .cd-media-frame {
   position: absolute; inset: 64px 76px 22px; z-index: 1;
   display: flex; align-items: center; justify-content: center; min-height: 0;
@@ -230,7 +214,6 @@ onBeforeUnmount(() => { viewer?.destroy(); viewer = null })
 @media (max-width: 768px) {
   .cd-media { flex: 0 0 auto; height: 46dvh; min-height: 200px; max-height: 56dvh; }
   .cd-media-frame { inset: 54px 14px 14px; }
-  /* 纯文字作品：高度随正文，整页滚动 */
   .cd-media.is-text { height: auto; max-height: none; }
   .cd-media.is-text .cd-media-frame { position: static; padding: 54px 14px 14px; }
   .cd-text-only { height: auto; overflow: visible; max-width: none; }

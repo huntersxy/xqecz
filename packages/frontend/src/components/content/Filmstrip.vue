@@ -54,13 +54,11 @@ function onThumbError(e: Event) {
   padding: 11px clamp(14px, 2.5vw, 30px);
   background: color-mix(in srgb, var(--creative-paper) 70%, transparent);
   border-top: 1px solid var(--creative-line); scrollbar-width: none;
-  /* 两侧渐隐：滚动到尽头时不像被硬切掉 */
   mask-image: linear-gradient(90deg, transparent 0, #000 26px, #000 calc(100% - 26px), transparent 100%);
 }
 .cd-film::-webkit-scrollbar { display: none; }
 .cd-film-group { display: flex; align-items: center; gap: 10px; width: max-content; margin-inline: auto; }
 .cd-film-track { display: flex; gap: 7px; }
-/* 宽屏用舞台两侧的大翻页键，这里的前后键只在窄屏出现 */
 .cd-film-nav { display: none; flex-shrink: 0; place-items: center; width: 30px; height: 30px; border: 1px solid var(--creative-line); border-radius: 8px; background: transparent; color: var(--creative-muted); cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
 .cd-film-nav:hover { color: var(--creative-accent); border-color: var(--creative-accent); background: var(--creative-soft); }
 .cd-film-thumb { flex-shrink: 0; width: 60px; height: 46px; padding: 0; overflow: hidden; border: 1px solid transparent; border-radius: 8px; background: var(--creative-canvas); cursor: pointer; transition: border-color .18s, opacity .18s, transform .18s; }

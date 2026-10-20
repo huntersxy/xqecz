@@ -47,7 +47,6 @@ const form = ref({
 })
 const file = ref<File | undefined>(undefined)
 const { autoMetadata, isAiGenerated, metadataOptions, canGenerate, metadataTitle, metadataTags, refreshMetadataOptions } = useAutoMetadata(() => file.value)
-// Home stays alive while an administrator edits settings elsewhere; refresh capabilities on every reopen.
 watch(() => props.open, open => { if (open) refreshMetadataOptions() })
 const uploading = ref(false)
 const progress = ref(0)

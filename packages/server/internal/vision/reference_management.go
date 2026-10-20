@@ -58,7 +58,6 @@ func loadReferenceNotes(dir string) (map[string]referenceNote, error) {
 	return notes, nil
 }
 
-// All writes commit with a same-directory rename, so model readers never observe a partial JPEG/JSON file.
 func atomicReferenceWrite(ctx context.Context, dir, name string, b []byte) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -111,7 +110,6 @@ func compressedReference(ctx context.Context, path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Dense images may exceed the reference budget at quality 85; reduce JPEG quality without enlarging or altering originals.
 	for _, q := range []int{75, 65, 55, 45} {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -245,7 +243,6 @@ func (s *Service) ReferenceImage(ctx context.Context, name string) ([]byte, erro
 	return base64.StdEncoding.DecodeString(strings.TrimPrefix(ref.DataURL, "data:image/jpeg;base64,"))
 }
 
-// Deleted/replaced images are recoverable private backups; the active library ignores the archive directory.
 func (s *Service) backupReferenceLocked(ctx context.Context, name string, remove bool) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -311,7 +308,6 @@ func (s *Service) RenameReference(ctx context.Context, name, newName string) (Re
 	if err != nil {
 		return Reference{}, err
 	}
-	// Keep the old note too: if rename fails its image and description are still intact.
 	if note, ok := notes[name]; ok {
 		notes[newName] = note
 		if err := saveReferenceNotes(ctx, s.referenceDir, notes); err != nil {

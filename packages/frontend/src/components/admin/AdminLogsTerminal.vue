@@ -27,8 +27,6 @@ const errorMessage = ref('')
 const lastUpdated = ref<string | null>(null)
 const terminal = ref<HTMLElement | null>(null)
 const nextCursor = ref<number | undefined>()
-// M10 呼吸点的两个刹车：页面不可见、系统要求减少动效。任一为真即暂停，
-// 样式里另有 animation-play-state 与 reduced-motion 兜底，JS 状态只负责切换类名。
 const pageHidden = ref(false)
 const reduceMotion = ref(false)
 let motionQuery: MediaQueryList | undefined
@@ -48,7 +46,6 @@ const connectionState = computed(() => {
   return autoRefresh.value ? 'live' : 'paused'
 })
 
-// 只有「实时跟随」才呼吸：暂停跟随时不该继续假装在收数据（§8.3：M10 是唯一允许无限循环的动画之一）。
 const breathPaused = computed(() => pageHidden.value || reduceMotion.value)
 
 const visibleEntries = computed(() => entries.value)
@@ -97,8 +94,6 @@ function normalizeEntry(entry: AdminLogEntry): NormalizedLogEntry {
   return {
     ...entry,
     level: normalizeLevel(entry.level),
-    // line is the already formatted, server-side redacted record. Keep message
-    // as the readable fallback for older responses without line.
     message: entry.line || entry.message,
   }
 }
@@ -128,7 +123,6 @@ async function load(silent = false) {
     await keepTerminalAtEnd()
   } catch (error: unknown) {
     if (controller.signal.aborted || disposed) return
-    // 保留旧日志，让临时网络问题不会把排障现场清空；错误状态在终端顶部明确提示。
     errorMessage.value = error instanceof Error ? error.message : '日志读取失败'
   } finally {
     if (requestController === controller) {
@@ -288,9 +282,6 @@ onBeforeUnmount(() => {
   &.is-paused { color: var(--adm-muted, var(--admin-text-2)); }
 }
 
-// ── M10：页头右上「实时」点 ──
-// 呼吸只改 box-shadow 与 opacity（不动 width/height，避免触发重排），
-// 且是整个后台仅有的两处无限循环之一（另一处是 M11 骨架扫光）。
 .logs-live {
   display: inline-flex;
   align-items: center;
@@ -320,7 +311,6 @@ onBeforeUnmount(() => {
   animation: adm-live-breath 2s var(--adm-ease-std, cubic-bezier(.4, 0, .2, 1)) infinite;
 }
 
-// 页面隐藏（切到别的标签页）时暂停：display 之外唯一能让 CSS 动画停表的方式。
 .logs-live-dot.is-paused { animation-play-state: paused; }
 
 @keyframes adm-live-breath {
@@ -340,9 +330,6 @@ onBeforeUnmount(() => {
   padding: var(--adm-gap-lg, 16px) var(--adm-gap-xl, 24px) var(--adm-gap-xl, 24px);
 }
 
-// 工具条吸顶（§10）：跟着页面滚动时始终压住终端窗口顶部。
-// .admin-panel 默认 overflow: hidden 会吃掉 sticky，故这里给 AdminPanel 传 flow 修饰类
-// （.admin-panel.is-flow { overflow: visible }），最近滚动祖先回到 #public-shell-workspace。
 .logs-toolbar {
   position: sticky;
   top: 0;
@@ -381,7 +368,6 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-// ── 终端窗口：保持深色拟真，等宽字体 / 行高 / 截断逻辑一律沿用 ──
 .logs-terminal-window {
   overflow: auto;
   max-height: min(620px, 62vh);
@@ -431,7 +417,6 @@ onBeforeUnmount(() => {
   gap: 10px;
   align-items: baseline;
   padding: 2px 0;
-  // M10 新行淡入：只有新 key 才会新建元素，增量轮询时老行不会重复闪。
   animation: adm-line-in var(--adm-dur-base, 220ms) var(--adm-ease-out, cubic-bezier(.22, 1, .36, 1)) both;
 }
 
@@ -470,7 +455,6 @@ onBeforeUnmount(() => {
   line-height: 1.7;
 }
 
-// 减少动效：呼吸点与行淡入都直接停掉（main.css 的全局兜底也会把它们压成 0.01ms）。
 @media (prefers-reduced-motion: reduce) {
   .logs-live-dot.is-breath,
   .logs-line { animation: none; }

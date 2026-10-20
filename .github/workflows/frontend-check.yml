@@ -1,6 +1,5 @@
 name: Frontend checks
 
-# 与后端发布独立；无生产凭据，不发布、不调用线上写接口。
 on:
   pull_request:
     paths:
@@ -50,8 +49,6 @@ jobs:
       - name: Unit and component regressions
         run: pnpm fe:test
       - name: Build with separate API and media origins
-        # 刻意非空：默认同源配置曾掩盖 /assets 被误发到媒体服务器的错误。
-        # 地址无需可达，真实纹理/CORS 与发布后验证仍由浏览器验收完成。
         env:
           VITE_API_BASE_URL: https://api.example.invalid/api
           VITE_MEDIA_BASE_URL: https://media.example.invalid

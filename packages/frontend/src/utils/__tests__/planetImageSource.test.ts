@@ -32,7 +32,6 @@ describe('planet image source', () => {
     }
     vi.stubGlobal('Image', MockImage)
     const owner = new AbortController()
-    // 外部 URL 不走本站兜底，隔离单个请求的取消/超时契约。
     const pending = loadPlanetImage('https://external.example.invalid/a.webp', owner.signal)
     expect(images).toHaveLength(1)
     if (reason === 'abort') owner.abort()

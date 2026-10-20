@@ -13,42 +13,31 @@ interface CachedPosition {
 export type FeedMode = 'recommended' | 'latest' | 'popular'
 
 export const useHomeStore = defineStore('home', () => {
-  // 搜索和筛选状态
   const searchKeyword = ref('')
   const selectedTags = ref<string[]>([])
-  // 当前列表模式：推荐流与最新/热门的时间/浏览量排序不是同一种请求，
-  // 放在 store 里才能在 KeepAlive 往返时保持 tab 与列表一致。
   const feedMode = ref<FeedMode>('latest')
   const page = ref(1)
   
-  // 推荐内容页码
   const recommendPage = ref(1)
   
-  // 滚动位置
   const scrollPosition = ref(0)
   
-  // 是否已经加载过数据（用于判断是否需要恢复状态）
   const hasLoaded = ref(false)
 
-  // 缓存列表数据（避免返回时重新请求）
   const cachedContents = ref<Content[]>([])
   const cachedTotal = ref(0)
   const cachedTotalPages = ref(1)
 
-  // 站点作品总数：只在未筛选的响应里更新，标题区统计不跟着标签/搜索缩小。
   const catalogTotal = ref(0)
 
-  // 缓存瀑布流布局（避免返回时重新计算）
   const cachedPositions = ref<Map<string | number, CachedPosition>>(new Map())
   const cachedContainerHeight = ref(0)
 
-  // 搜索触发器（每次 +1 通知订阅者重新查询）
   const searchTrigger = ref(0)
   function triggerSearch() {
     searchTrigger.value++
   }
 
-  // 保存状态
   function saveState(params: {
     searchKeyword: string
     selectedTags: string[]
@@ -74,7 +63,6 @@ export const useHomeStore = defineStore('home', () => {
     hasLoaded.value = true
   }
 
-  // 清除状态
   function clearState() {
     searchKeyword.value = ''
     selectedTags.value = []
@@ -91,7 +79,6 @@ export const useHomeStore = defineStore('home', () => {
     cachedContainerHeight.value = 0
   }
 
-  // 恢复滚动位置（需在 DOM 渲染后调用）
   function restoreScroll() {
     if (scrollPosition.value > 0) {
       window.scrollTo({ top: scrollPosition.value, behavior: 'instant' })

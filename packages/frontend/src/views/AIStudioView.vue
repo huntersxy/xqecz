@@ -78,9 +78,7 @@ const {
   moreLiked,
 } = studio
 
-// ── Layout state ─────────────────────────────────────────────────────────────
 const sidebarTab = ref<'workspace' | 'liked'>('workspace')
-// 进入工作台默认看全部结果，点任务历史或「单个任务」再回到舞台。
 const galleryOpen = ref(true)
 const activeTaskId = ref(0)
 const workspaceMenuOpen = ref(false)
@@ -147,7 +145,6 @@ const failedTaskRows = computed(() =>
 const activeTask = computed(() =>
   tasks.value.find((row) => ['queued', 'running', 'unknown'].includes(row.task.status)),
 )
-/** The task currently on stage: explicit history choice, or the owner of the shown asset. */
 const stageTask = computed(() => {
   const chosen = tasks.value.find((row) => row.task.id === activeTaskId.value)
   if (chosen) return chosen
@@ -157,7 +154,6 @@ const stageTask = computed(() => {
     null
   )
 })
-/** All results of the task on stage; "全部" must not mix other history rows. */
 const stageTaskAssets = computed(() => {
   if (stageTask.value?.assets.length) return stageTask.value.assets
   return selectedAsset.value ? [selectedAsset.value] : []
@@ -167,7 +163,6 @@ const stageTaskFailed = computed(() =>
   !!stageTask.value && ['failed', 'cancelled', 'unknown'].includes(stageTask.value.task.status),
 )
 const selectedIsLiked = computed(() => !!selectedAsset.value?.liked)
-/** "全部结果" gallery mirrors the task filters but never changes the stage task. */
 const galleryTasks = computed(() => shownTasks.value)
 const galleryItems = computed<GalleryItem[]>(() => {
   const items: GalleryItem[] = []
@@ -196,7 +191,6 @@ const mentionChoices = computed(() =>
     ),
 )
 
-// ── Workspace navigation ────────────────────────────────────────────────────
 function clearFilters() {
   search.value = ''
   status.value = ''
@@ -212,7 +206,6 @@ function selectTask(row: AITaskView) {
   closeShellSidebar()
 }
 function showGallery() {
-  // 两个视图共用同一套舞台+详情骨架，切到「全部结果」时要让详情栏有任务可显示。
   if (!stageTask.value) {
     const row = galleryTasks.value[0]
     if (row) selectTask(row)
@@ -270,12 +263,6 @@ async function commitRename() {
   await studio.run(() => studio.renameWorkspace(next))
 }
 
-// ── Draft editing ───────────────────────────────────────────────────────────
-/**
- * Grow the prompt with its content (the reference dock behaves this way).
- * Height is written inline so the fixed dock's ResizeObserver can reserve the
- * new footprint before the phone keyboard or the last task is covered.
- */
 function resizePrompt() {
   const el = promptArea.value
   if (!el) return
@@ -312,7 +299,6 @@ async function insertReferenceMention(index: number) {
 }
 function onPromptKeydown(event: KeyboardEvent) {
   if (event.isComposing) return
-  // Enter writes a new line; Shift/Ctrl/⌘ + Enter submits, matching the dock hint.
   if (event.key === 'Enter' && (event.shiftKey || event.ctrlKey || event.metaKey)) {
     event.preventDefault()
     if (canGenerate.value) void generate()
@@ -365,7 +351,6 @@ async function focusPrompt() {
   await nextTick()
   promptArea.value?.focus()
 }
-/** One click resets the draft without touching generated history. */
 function clearDraft() {
   if (composerLocked.value || !hasDraftContent.value) return
   prompt.value = ''
@@ -377,8 +362,6 @@ function clearDraft() {
 }
 async function generate() {
   if (!canGenerate.value) return
-  // One confirmation owns the submission; repeated keyboard/button input cannot
-  // replace the pending confirmation or enqueue a second task.
   confirming.value = true
   try {
     await studio.run(async () => {
@@ -396,7 +379,6 @@ async function generate() {
     confirming.value = false
   }
 }
-// All entry points share one upload gate; drops/pastes cannot mutate a pending draft.
 async function uploadFiles(files: FileList | File[] | null) {
   if (!files?.length || composerLocked.value) return
   uploading.value = true
@@ -424,7 +406,7 @@ function pasteImages(event: ClipboardEvent) {
   const files = Array.from(event.clipboardData?.files ?? []).filter((file) =>
     file.type.startsWith('image/'),
   )
-  if (!files.length) return // Plain text retains the native textarea paste behavior.
+  if (!files.length) return
   event.preventDefault()
   void uploadFiles(files)
 }
@@ -433,7 +415,6 @@ function dropImages(event: DragEvent) {
   void uploadFiles(event.dataTransfer?.files ?? null)
 }
 
-// ── Result actions ──────────────────────────────────────────────────────────
 async function likeSelected() {
   if (!selectedAsset.value) return
   await studio.run(() => studio.toggleLike(selectedAsset.value!))
@@ -486,8 +467,6 @@ async function archiveFailedTasks() {  const rows = failedTaskRows.value
   )
     return
   await studio.run(async () => {
-    // The API deliberately accepts only failed/cancelled tasks. Keep requests
-    // serial so a single conflict leaves the remaining records diagnosable.
     for (const row of rows) await aiApi.archiveTask(row.task.id)
     activeTaskId.value = 0
     await studio.refresh()
@@ -516,7 +495,6 @@ async function removeResult() {
   })
 }
 
-// ── Publishing / ideas / resources ──────────────────────────────────────────
 const proposal = ref({ title: '', description: '', public_consent: false, reference_rights: false })
 const publishForm = ref({
   title: '',
@@ -567,7 +545,6 @@ async function openPublish() {
     auto_metadata: true,
     public_consent: false,
   }
-  // 描述默认填入生成时的原始提示词（不含提示词增强后缀），发布前仍可修改。
   publishForm.value.description = defaultPublishDescription(
     studio.tasks.value,
     selectedAsset.value?.id,
@@ -636,20 +613,16 @@ async function applyResource(value: {
       quality.value = value.parameters.quality
     resourceOpen.value = false
   })
-  // 弹窗已关闭，额度/参考图上限一类的失败必须在这里就地反馈，否则只剩背后看不见的红条。
   if (error.value) resourceError.value = error.value
   else if (value.text || value.characters.length || value.assets.length)
     toast.success(`已导入${value.label ? `「${value.label}」` : '素材'}`)
 }
 
-// ── Reactive bridges ────────────────────────────────────────────────────────
 watch(sessionId, () => {
   mention.value = null
   awaitingTask.value = 0
   activeTaskId.value = 0
   galleryOpen.value = true
-  // Filters belong to the workspace that was open when they were typed; a
-  // switch must not leave an active query silently hiding the new history.
   search.value = ''
   status.value = ''
 })
@@ -961,7 +934,6 @@ watch(ready, (value) => {
 
       <div v-if="error" class="ws-error" role="alert">{{ error }}</div>
 
-      <!-- 全部结果是整宽瀑布流，不带任务详情；单个任务才有舞台 + 详情卡。 -->
       <Transition name="ws-view" mode="out-in">
         <StudioGallery
           v-if="galleryOpen"
@@ -1156,7 +1128,6 @@ watch(ready, (value) => {
                 <IconFile /><span>角色与模板</span>
               </button>
             </div>
-            <!-- 模型由后端按顺序自动路由，这里只保留用户真正会调的参数。 -->
             <div class="ws-composer-options">
               <button
                 type="button"
@@ -1209,8 +1180,6 @@ watch(ready, (value) => {
               Enter 换行 · Shift + Enter 生成
               <span v-if="provider?.max_references">· 可拖入或粘贴 PNG / JPEG / WebP</span>
             </span>
-            <!-- Draft-level actions stay visible; they are not result actions and
-                 must not be buried in the result overflow menu. -->
             <span class="ws-composer-secondary">
               <button
                 type="button"
@@ -1261,7 +1230,6 @@ watch(ready, (value) => {
 
   <StudioSizePicker v-model:visible="sizePickerOpen" :model-value="size" @select="size = $event" />
 
-  <!-- 素材弹窗：只保留角色/模板，点选即导入，没有二级页。 -->
   <a-modal
     v-model:visible="resourceOpen"
     class="creative-theme creative-dialog studio-picker"
@@ -1294,7 +1262,6 @@ watch(ready, (value) => {
     </div>
   </a-modal>
 
-  <!-- 投稿创意单独成窗，属于草稿动作，不再占用素材弹窗的位置。 -->
   <a-modal
     v-model:visible="ideaOpen"
     class="creative-theme creative-dialog"
@@ -1363,14 +1330,7 @@ watch(ready, (value) => {
 </template>
 
 <style scoped>
-/*
- * Workspace shell — 任务历史在 PublicShell 的真实侧栏里，页面只保留中间舞台与底部输入区；
- * 颜色只用全站 --site-* 与 --creative-*。
- * 「全部结果」是整宽瀑布流（与首页同一套布局算法），不带任务详情；
- * 「单个任务」是舞台 + 右侧详情卡。顶栏与输入区在两种视图下位置不变，只有中间区域淡入淡出切换。
- */
 @media (min-width: 821px) {
-  /* 工作台把侧栏之外的宽度都让给画廊，与首页同宽；选择器带 .is-workspace，只在 /studio 生效。 */
   :global(.public-shell.is-workspace .public-shell-content) {
     max-width: min(2240px, 100%);
     padding: 20px clamp(20px, 2.2vw, 40px) 24px;
@@ -1428,7 +1388,6 @@ watch(ready, (value) => {
   height: 16px;
 }
 
-/* ── Sidebar (teleported into PublicShell) ──────────────────────────────── */
 .ws-sidebar-content {
   display: flex;
   flex: 1;
@@ -1859,7 +1818,6 @@ watch(ready, (value) => {
   cursor: pointer;
 }
 
-/* ── Stage ───────────────────────────────────────────────────────────────── */
 .ws-main {
   position: relative;
   display: flex;
@@ -1917,7 +1875,6 @@ watch(ready, (value) => {
 .ws-stage-sub .is-accent {
   color: var(--site-accent);
 }
-/* 有进行中的任务时在顶栏给一枚小胶囊，不再占一整行把输入区顶下去。 */
 .ws-live {
   display: inline-flex;
   flex: 0 1 auto;
@@ -1949,7 +1906,6 @@ watch(ready, (value) => {
     transform: rotate(360deg);
   }
 }
-/* 分段开关：滑块在两个选项间平移，而不是各自闪一下背景。 */
 .ws-view-toggle {
   position: relative;
   display: grid;
@@ -2006,7 +1962,6 @@ watch(ready, (value) => {
   font-size: 12px;
   line-height: 1.5;
 }
-/* 全部结果 ⇄ 单个任务：旧视图淡出、新视图上浮淡入，位置与尺寸不变。 */
 .ws-view-enter-active,
 .ws-view-leave-active {
   transition:
@@ -2022,7 +1977,6 @@ watch(ready, (value) => {
   transform: translateY(-6px);
 }
 
-/* 单个任务：左侧舞台 + 右侧详情卡 */
 .ws-task {
   display: grid;
   flex: 1;
@@ -2176,7 +2130,6 @@ watch(ready, (value) => {
 .ws-result-strip :deep(.creative-image img) {
   object-fit: cover;
 }
-/* 结果操作条：一枚悬浮的胶囊，同一动作只在这里有一个入口。 */
 .ws-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2230,7 +2183,6 @@ watch(ready, (value) => {
   color: var(--site-accent);
 }
 
-/* ── Composer ────────────────────────────────────────────────────────────── */
 .ws-composer {
   position: relative;
   width: 100%;
@@ -2342,7 +2294,6 @@ button.ws-option:hover:not(:disabled),
   gap: 8px;
   cursor: pointer;
 }
-/* 开关：仍是原生 checkbox（可聚焦、可读屏），只重绘外观。 */
 .ws-option-toggle input {
   position: relative;
   flex: 0 0 auto;
@@ -2376,7 +2327,6 @@ button.ws-option:hover:not(:disabled),
 .ws-option-toggle input:disabled {
   cursor: not-allowed;
 }
-/* 数量步进器：取代原生下拉（弹出层样式不可控），点按即改，范围受供应商上限约束。 */
 .ws-stepper {
   display: inline-flex;
   align-items: center;
@@ -2426,7 +2376,6 @@ button.ws-option:hover:not(:disabled),
 .ws-stepper.is-single output {
   padding: 0 12px;
 }
-/* 窄屏：参数组换到单独一行，避免把工具按钮挤成滚动条。 */
 @media (max-width: 560px) {
   .ws-composer-bar { flex-wrap: wrap; }
   .ws-composer-options {
@@ -2470,7 +2419,6 @@ button.ws-option:hover:not(:disabled),
   width: 15px;
   height: 15px;
 }
-/* 窄屏工具按钮改用紧凑内边距；必须写在基础规则之后才生效。 */
 @media (max-width: 560px) {
   .ws-tool-btn {
     height: 30px;
@@ -2572,8 +2520,6 @@ button.ws-option:hover:not(:disabled),
   border-radius: 8px;
 }
 
-/* ── 素材弹窗：单栏角色墙 / modals ──────────────────────────────────────── */
-/* Teleport 弹层不在页面作用域内，外壳样式必须 :global，且整条弹窗包在里面。 */
 :global(.studio-picker .arco-modal) {
   max-width: calc(100vw - 32px);
   overflow: hidden;
@@ -2665,7 +2611,6 @@ button.ws-option:hover:not(:disabled),
   outline-offset: 2px;
 }
 
-/* 投稿创意独立弹窗的表单排版。 */
 .idea-form {
   display: flex;
   flex-direction: column;
@@ -2704,19 +2649,16 @@ button.ws-option:hover:not(:disabled),
   outline: 2px solid var(--site-accent);
   outline-offset: 2px;
 }
-/* 输入区不要激活高亮：光标与输入内容本身就足够指示焦点。 */
 .ai-studio .ws-composer-prompt textarea:focus,
 .ai-studio .ws-composer-prompt textarea:focus-visible {
   outline: none;
 }
 
-/* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 1320px) {
   .ws-task {
     grid-template-columns: minmax(0, 1fr) 272px;
   }
 }
-/* 中等宽度：详情卡落到舞台下方，整块任务视图自己滚动，不再把提示词和参考图藏掉。 */
 @media (max-width: 1100px) {
   .ws-task {
     display: block;
@@ -2761,7 +2703,6 @@ button.ws-option:hover:not(:disabled),
   .ws-stage-title strong {
     font-size: 18px;
   }
-  /* 窄屏副标题单行省略：画廊模式下「全部结果」与标题重复，直接不显示。 */
   .ws-stage-sub {
     display: block;
     overflow: hidden;
@@ -2856,7 +2797,6 @@ button.ws-option:hover:not(:disabled),
   .ws-composer.is-dragging {
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--site-accent) 55%, transparent);
   }
-  /* 卡片边界交给 .ws-composer，内层盒子退成纯内容区，参考图条因此落在卡内。 */
   .ws-composer-box {
     padding: 0 2px;
     border: 0;

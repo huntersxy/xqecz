@@ -38,8 +38,6 @@ func validateURL(raw string) error {
 	return nil
 }
 
-// Resolve and pin each connection to a verified public IP, preventing DNS
-// rebinding. Redirects and environment proxies cannot bypass this boundary.
 func safeHTTPClient(timeout time.Duration) *http.Client {
 	transport := &http.Transport{Proxy: nil, MaxResponseHeaderBytes: 64 << 10, ResponseHeaderTimeout: timeout, TLSHandshakeTimeout: 10 * time.Second, IdleConnTimeout: 30 * time.Second}
 	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {

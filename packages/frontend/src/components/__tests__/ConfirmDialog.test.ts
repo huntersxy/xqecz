@@ -4,7 +4,6 @@ import { flushPromises, mount } from '@vue/test-utils'
 import ConfirmDialog from '../ConfirmDialog.vue'
 
 const mockPendingConfirm = ref<{ title?: string; message: string } | null>(null)
-// 与真实 respond 一致：回应后待确认项被清空，浮层随之收起。
 const mockRespond = vi.fn((_: boolean) => { mockPendingConfirm.value = null })
 
 vi.mock('@/composables/useToast', () => ({

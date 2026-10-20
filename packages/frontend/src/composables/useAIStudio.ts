@@ -22,7 +22,6 @@ function rememberSize(value: string) {
   try {
     localStorage.setItem(REMEMBERED_SIZE_KEY, value)
   } catch {
-    // Storage is optional; the current session still retains the selection.
   }
 }
 
@@ -65,7 +64,6 @@ export function useAIStudio() {
       (p) => p.enabled && p.owner === 0,
     ),
   )
-  // 模型由后端按顺序自动路由：这里只用第一个可用供应商展示能力（尺寸/数量/参考图上限）。
   const provider = computed(() => availableProviders.value[0])
   const session = computed(() => sessions.value.find((s) => s.id === sessionId.value))
   const cost = computed(() =>
@@ -77,7 +75,6 @@ export function useAIStudio() {
     session_id: sessionId.value,
     idempotency_key: '',
     prompt: prompt.value,
-    // 0 表示交给后端按配置顺序自动路由，不再由用户选择模型。
     provider_id: 0,
     mode: 'site',
     size: size.value,
@@ -115,8 +112,6 @@ export function useAIStudio() {
     const signature = JSON.stringify({ name: savedName, draft })
     const operation = saveQueue.then(async () => {
       if (stopped) return
-      // Navigation must not wait for a network write when the draft is unchanged.
-      // Compare inside the queue so a completed autosave also covers a leave request.
       if (signature === savedDraft) return
       const current = sessions.value.find((s) => s.id === id)
       if (!current) return
@@ -145,18 +140,12 @@ export function useAIStudio() {
         saving = false
       }
     })
-    // A failed save is reported to its owner but must not poison all later saves.
     saveQueue = operation.then(
       () => undefined,
       () => undefined,
     )
     return operation
   }
-  /**
-   * Restore one workspace draft without touching its task list. Selection and
-   * history are filled by refresh() so switching never shows the previous
-   * workspace's image under the new prompt.
-   */
   function restore(row: AISession) {
     restoring = true
     sessionId.value = row.id
@@ -206,8 +195,6 @@ export function useAIStudio() {
     const all = nextTasks.flatMap((t) => t.assets)
     const current = selectedAsset.value
     if (current) {
-      // Keep a liked-only selection alive, but sync the task-backed copy so
-      // likes and archived state match the server after every poll.
       const fresh = all.find((a) => a.id === current.id)
       if (fresh) selectedAsset.value = fresh
     } else {
@@ -338,7 +325,6 @@ export function useAIStudio() {
     const row = await aiApi.upload(file, controller.signal)
     if (stopped) return
     if (!assets.value.some((a) => a.id === row.id)) assets.value.unshift(row)
-    // Uploaded assets stay in the library; only their originating draft receives the reference.
     if (sessionId.value === originSession) addReference(row.id)
   }
   async function archiveAsset(id: number) {
@@ -372,8 +358,6 @@ export function useAIStudio() {
       next === index
     )
       return
-    // Move into the target slot instead of swapping: intermediate images keep
-    // their relative order when a drag crosses more than one reference.
     const reference = references.value.splice(index, 1)[0]!
     references.value.splice(next, 0, reference)
   }
@@ -388,7 +372,6 @@ export function useAIStudio() {
       promptEnhancement.value = cfg.prompt_enhancement
     }
   }
-  /** Persist the current draft, then open another workspace. */
   async function switchSession(id: number) {
     if (id === sessionId.value || switching.value || !ready.value) return
     switching.value = true
@@ -404,7 +387,6 @@ export function useAIStudio() {
       switching.value = false
     }
   }
-  /** Create a workspace and switch to its empty draft. */
   async function createWorkspace(workspaceName = '新工作区') {
     if (switching.value || !ready.value) return
     switching.value = true
@@ -419,7 +401,6 @@ export function useAIStudio() {
       switching.value = false
     }
   }
-  /** Rename in place; save() carries the new name with the current draft. */
   async function renameWorkspace(next: string) {
     const trimmed = next.trim().slice(0, 100)
     if (!trimmed || trimmed === name.value) return

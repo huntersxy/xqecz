@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useUserStore } from '../user'
 
-// Mock API
 vi.mock('@/api', () => ({
   authApi: {
     login: vi.fn(),
@@ -85,7 +84,6 @@ describe('useUserStore', () => {
   it('should logout correctly', async () => {
     const { authApi } = await import('@/api')
 
-    // First login
     const mockUser = {
       id: 1,
       username: 'testuser',

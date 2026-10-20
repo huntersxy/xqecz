@@ -20,16 +20,13 @@ const statusMap: Record<string, { type: 'success' | 'warning' | 'danger'; label:
   rejected: { type: 'danger', label: '已拒绝' },
 }
 
-// 认领内容的封面：优先缩略图，没有缩略图退回原图，两者皆空才显示占位图标。
 function claimThumb(content?: { thumb?: string; img?: string } | null) {
   return content?.thumb || content?.img || ''
 }
 
-// 首屏加载才出骨架；翻页与刷新保留已有卡片，避免整块内容闪烁
 const showSkeleton = computed(() => admin.claims.loading && admin.claims.list.length === 0)
 const claimSummary = computed(() => `共 ${admin.claims.total} 条认领申请`)
 
-// M8：审核后让卡片先淡出 280ms 再刷新；命中 reduced-motion 时直达终态
 const LEAVE_MS = 280
 const leavingIds = ref<number[]>([])
 const timers = new Set<ReturnType<typeof setTimeout>>()
@@ -56,9 +53,7 @@ function scheduleLeave(id: number, refresh: () => unknown) {
         try {
           await refresh()
         } catch {
-          // 失败提示由 store 统一负责，这里只保证卡片能恢复
         } finally {
-          // 刷新成功时卡片已不在列表里；失败时清掉标记，卡片回到可见状态
           leavingIds.value = leavingIds.value.filter(item => item !== id)
         }
       })()
@@ -189,7 +184,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped lang="scss">
-// 工具条与表格页保持一致的零内边距
 :deep(.admin-panel-toolbar .admin-data-toolbar) {
   padding: 0;
 }
@@ -198,14 +192,11 @@ onBeforeUnmount(() => {
   width: 120px;
 }
 
-// 卡片网格与骨架的 16px 内边距对齐；认领卡带封面后可收窄，宽屏排三列避免大片留白
 .claim-grid {
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   padding: var(--adm-gap-lg, 16px);
 }
 
-// MediaImage 渲染成 a-image（外层 .arco-image + 内层 img），全局 .adm-card-media > img 命不中，
-// 这里把封面铺满媒体区；尺寸与占位风格仍由全局样式决定。
 .claim-media-img {
   display: block;
   width: 100%;
@@ -247,7 +238,6 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-// 申请理由：两行截断，完整文本放在 title 属性里
 .claim-reason {
   display: -webkit-box;
   -webkit-box-orient: vertical;

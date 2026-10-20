@@ -7,10 +7,6 @@ import type { AIAsset, AITaskView } from '@/types/schemas'
 import { formatImageSize } from '@/utils/imageSize'
 import { TASK_LABELS, clockOf, dayOf, statusClass } from '@/utils/studioTask'
 
-/**
- * 单个任务视图右侧的详情卡。「复用提示词 / 继续编辑」等结果操作只在舞台下方的操作条里有一个入口，
- * 这里只展示信息：状态、画幅参数、提示词（可复制）、参考图，以及仅对排队任务有意义的取消。
- */
 const props = defineProps<{
   task: AITaskView | null
   asset: AIAsset | null
@@ -24,7 +20,6 @@ const emit = defineEmits<{
 const expanded = ref(false)
 const references = computed(() => props.task?.references ?? [])
 const promptText = computed(() => props.task?.task.prompt ?? '')
-// 长提示词默认收起，避免把参考图与参数挤出可视区。
 const collapsible = computed(() => promptText.value.length > 140 || promptText.value.includes('\n'))
 watch(
   () => props.task?.task.id,
@@ -37,7 +32,6 @@ async function copyPrompt() {
     await navigator.clipboard.writeText(promptText.value)
     toast.success('提示词已复制')
   } catch {
-    // 剪贴板在非安全上下文或被拒绝时不可用：给出明确指引，不阻断其它操作。
     toast.error('复制失败，请手动选中提示词复制')
   }
 }

@@ -1,4 +1,3 @@
-// Command dbinfo 打印当前 MySQL 账号的权限与库表规模，供迁移期排查使用。
 package main
 
 import (
@@ -20,13 +19,12 @@ func main() {
 	cfg := config.Load()
 
 	db, err := sql.Open("mysql", mysqldsn.Format(mysqldsn.Options{
-		Host:     cfg.MySQL.Host,
-		Port:     cfg.MySQL.Port,
-		User:     cfg.MySQL.User,
-		Password: cfg.MySQL.Password,
-		Database: cfg.MySQL.Database,
-		TLS:      cfg.MySQL.TLS,
-		// 排查工具需要可读的 time.Time，故开启解析
+		Host:      cfg.MySQL.Host,
+		Port:      cfg.MySQL.Port,
+		User:      cfg.MySQL.User,
+		Password:  cfg.MySQL.Password,
+		Database:  cfg.MySQL.Database,
+		TLS:       cfg.MySQL.TLS,
 		ParseTime: true,
 	}))
 	if err != nil {

@@ -123,7 +123,6 @@ describe('SiteOverlay', () => {
     const inner = document.body.querySelector<HTMLElement>('.inner')!
     inner.focus()
     const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
-    // jsdom 没有布局，offsetParent 恒为 null；焦点已在该元素上时仍视为可聚焦。
     inner.dispatchEvent(tab)
     expect(document.activeElement).toBe(inner)
     wrapper.unmount()

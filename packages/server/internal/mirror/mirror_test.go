@@ -13,9 +13,6 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/r2"
 )
 
-// fakeStore 是内存版对象存储：记录调用次数与对象内容，用于断言镜像行为。
-// 加锁是必需的：PushAsync / ArchiveOriginalAsync 各起 goroutine，
-// 同一目标的推送与归档会并发落到这里，裸 map 会 concurrent map writes 直接崩掉。
 type fakeStore struct {
 	mu      sync.Mutex
 	objects map[string][]byte
@@ -25,8 +22,6 @@ type fakeStore struct {
 	putErr  error
 }
 
-// putCount / headCount / failWith 是并发安全的读改写入口，
-// 供跨 goroutine 的断言使用（同目标内推送与归档是并发的）。
 func (f *fakeStore) putCount() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -43,8 +38,6 @@ func newFakeStore() *fakeStore {
 	return &fakeStore{objects: map[string][]byte{}, md5s: map[string]string{}}
 }
 
-// Put 的第一个参数是桶内对象名：生产侧由 mirror 算好（含 uploads/ 与 original/ 命名空间），
-// 测试侧直接用这个名字记账，避免测试跟着生产实现一起算错。
 func (f *fakeStore) Put(key, absPath, contentType string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -77,7 +70,6 @@ func (f *fakeStore) Head(key string) (r2.ObjectMeta, bool, error) {
 }
 
 func md5Hex(b []byte) string {
-	// 测试辅助：与生产实现同款的 md5（只用于构造期望值）
 	res := md5Sum(b)
 	return res
 }
@@ -103,7 +95,6 @@ func writeFile(t *testing.T, dir, name string, data []byte) string {
 	return abs
 }
 
-// TestPushUploadsWhenMissing 本地有、R2 没有 → 上传。
 func TestPushUploadsWhenMissing(t *testing.T) {
 	store := newFakeStore()
 	s, dir := testSetup(t, store)
@@ -124,7 +115,6 @@ func TestPushUploadsWhenMissing(t *testing.T) {
 	}
 }
 
-// TestPushSkipsWhenRemoteMatches 远端内容与本地一致 → 只 HEAD，不重复 PUT。
 func TestPushSkipsWhenRemoteMatches(t *testing.T) {
 	store := newFakeStore()
 	s, dir := testSetup(t, store)
@@ -134,7 +124,6 @@ func TestPushSkipsWhenRemoteMatches(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := store.puts
-	// 换一个新的 Setup（清掉进程内缓存），模拟重启后再次扫描同一文件。
 	s2 := newWithStoreTarget(s.cfg, store)
 	uploaded, err := s2.Push("b.webp", abs)
 	if err != nil {
@@ -148,9 +137,6 @@ func TestPushSkipsWhenRemoteMatches(t *testing.T) {
 	}
 }
 
-// TestPushReuploadsAfterInPlaceCompression 是本次接入最关键的一条：
-// 压缩是**原地改写**（路径不变、内容变了），镜像必须识别出内容已变重传，
-// 否则 R2 上会永远停在未压缩的原图上。
 func TestPushReuploadsAfterInPlaceCompression(t *testing.T) {
 	store := newFakeStore()
 	s, dir := testSetup(t, store)
@@ -163,8 +149,6 @@ func TestPushReuploadsAfterInPlaceCompression(t *testing.T) {
 		t.Fatal("首次应为原图内容")
 	}
 
-	// 模拟 TinyPNG 原地替换（同一路径、更短的字节）。Setup 实例不变，
-	// 这是最容易出错的地方：任何「传过就跳过」的标记都会在这里骗过自己。
 	if err := os.WriteFile(abs, []byte("tiny"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -194,8 +178,6 @@ func TestPushReuploadsSameSizeWhenFileChanges(t *testing.T) {
 	if err := os.WriteFile(abs, []byte("after!"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	// Force a distinct timestamp even on filesystems with coarse mtime
-	// granularity; the content size intentionally remains unchanged.
 	if err := os.Chtimes(abs, stat.ModTime(), stat.ModTime().Add(time.Second)); err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +190,6 @@ func TestPushReuploadsSameSizeWhenFileChanges(t *testing.T) {
 	}
 }
 
-// TestPushNoopWhenLocalMissing 本地文件不存在（删除/入桶）→ 不上传也不报错。
 func TestPushNoopWhenLocalMissing(t *testing.T) {
 	store := newFakeStore()
 	s, dir := testSetup(t, store)
@@ -221,7 +202,6 @@ func TestPushNoopWhenLocalMissing(t *testing.T) {
 	}
 }
 
-// TestPushSkipsThumbnailsAndTemp 缩略图与隐藏临时文件都不镜像。
 func TestPushSkipsThumbnailsAndTemp(t *testing.T) {
 	store := newFakeStore()
 	s, dir := testSetup(t, store)
@@ -238,8 +218,6 @@ func TestPushSkipsThumbnailsAndTemp(t *testing.T) {
 	}
 }
 
-// TestPushTreatsCorruptedAsSkip 上传期间文件被原地改写 → 放弃本轮且不留下缓存标记，
-// 下一轮仍会重试（不能假装成功）。
 func TestPushTreatsCorruptedAsSkip(t *testing.T) {
 	store := newFakeStore()
 	store.failWith(r2.ErrCorrupted)
@@ -254,7 +232,6 @@ func TestPushTreatsCorruptedAsSkip(t *testing.T) {
 		t.Fatal("易变文件不应记为已上传")
 	}
 
-	// 恢复可上传后应能重试成功（说明上一轮没有写入「已同步」缓存）。
 	store.failWith(nil)
 	uploaded, err = s.Push("d.webp", abs)
 	if err != nil || !uploaded {
@@ -262,7 +239,6 @@ func TestPushTreatsCorruptedAsSkip(t *testing.T) {
 	}
 }
 
-// TestPushPropagatesRealErrors 真实错误必须冒泡，交给回填任务记录并重试。
 func TestPushPropagatesRealErrors(t *testing.T) {
 	store := newFakeStore()
 	store.failWith(errors.New("network down"))
@@ -274,7 +250,6 @@ func TestPushPropagatesRealErrors(t *testing.T) {
 	}
 }
 
-// TestDisabledSetupIsNoop 未配置凭据时全部方法都是安全空操作。
 func TestDisabledSetupIsNoop(t *testing.T) {
 	s := New(Target{}, "")
 	if s.Enabled() {
@@ -287,7 +262,6 @@ func TestDisabledSetupIsNoop(t *testing.T) {
 	if uploaded || err != nil {
 		t.Fatalf("未启用时 Push 应为空操作: uploaded=%v err=%v", uploaded, err)
 	}
-	// nil 接收者也不能 panic（镜像可能整体为 nil）。
 	var nilSetup *Setup
 	if nilSetup.Enabled() || nilSetup.PublicURL("a.webp") != "" {
 		t.Fatal("nil Setup 应安全")
@@ -297,27 +271,21 @@ func TestDisabledSetupIsNoop(t *testing.T) {
 	}
 }
 
-// TestPublicURLWithoutExposedBase 只配了凭据、没配公开域名时不给前端地址
-// （前端没有候选，据此退到下一级）。
 func TestPublicURLWithoutExposedBase(t *testing.T) {
 	s := newWithStore(config.R2Config{AccountID: "a", AccessKey: "k", SecretKey: "s", Bucket: "b"}, newFakeStore())
 	if got := s.PublicURL("a.webp"); got != "" {
 		t.Fatalf("未配置 PublicBase 时不应返回地址，实际 %q", got)
 	}
 	s.cfg.PublicBase = "https://file.example.com/"
-	// 公开地址的路径必须等于桶内对象名：本用例没配前缀，对象就叫 a.webp。
 	if got := s.PublicURL("a.webp"); got != "https://file.example.com/"+s.ObjectKey("a.webp") {
 		t.Fatalf("公开地址拼接有误: %q（对象名 %q）", got, s.ObjectKey("a.webp"))
 	}
-	// 配了前缀后，对象名与公开地址都必须带上它（生产环境即 uploads/）。
 	s.cfg.Prefix = "uploads"
 	if got := s.PublicURL("a.webp"); got != "https://file.example.com/uploads/a.webp" {
 		t.Fatalf("带前缀的公开地址有误: %q", got)
 	}
 }
 
-// TestPublicURLPathMatchesObjectKey 公开地址的路径必须与桶内对象名逐字一致。
-// 这两者曾各算各的（一个带前缀、一个不带），导致对象明明上传成功、公开地址却 404。
 func TestPublicURLPathMatchesObjectKey(t *testing.T) {
 	s := newWithStore(config.R2Config{
 		AccountID: "a", AccessKey: "k", SecretKey: "s", Bucket: "b",
@@ -331,7 +299,6 @@ func TestPublicURLPathMatchesObjectKey(t *testing.T) {
 	}
 }
 
-// TestObjectKeyKeepsUploadsLayout 对象名保持本地目录结构，便于对账。
 func TestObjectKeyKeepsUploadsLayout(t *testing.T) {
 	s := newWithStore(config.R2Config{Prefix: "uploads"}, newFakeStore())
 	if got := s.ObjectKey("ab12.webp"); got != "uploads/ab12.webp" {
@@ -343,33 +310,21 @@ func TestObjectKeyKeepsUploadsLayout(t *testing.T) {
 	}
 }
 
-// TestLocalMD5HashesContentNotName 名字不再是判据：即使文件名长得像内容寻址，
-// 也必须实读内容。前端上传前会把文件重命名为 <md5>.<ext>，但压缩是原地改写——
-// 改名不改路径，压缩之后文件名描述的仍是压缩前那一份，只有实读内容才是当前真相。
 func TestLocalMD5HashesContentNotName(t *testing.T) {
 	dir := t.TempDir()
 
-	// 名字声称是空串的 md5，内容却不是 → 必须以内容为准。
 	name := "d41d8cd98f00b204e9800998ecf8427e.webp"
 	abs := writeFile(t, dir, name, []byte("not-the-empty-string"))
 	if got, want := localMD5(abs), md5Sum([]byte("not-the-empty-string")); got != want {
 		t.Fatalf("内容寻址名不得沿用文件名：得到 %q，期望内容 md5 %q", got, want)
 	}
 
-	// 名字与内容恰好一致时，结果同样是内容 md5（两条路径在此重合）。
 	same := writeFile(t, dir, md5Sum([]byte("hello"))+".png", []byte("hello"))
 	if got, want := localMD5(same), md5Sum([]byte("hello")); got != want {
 		t.Fatalf("名字与内容一致时应得到内容 md5：得到 %q，期望 %q", got, want)
 	}
 }
 
-// TestPushReuploadsCompressedContentAddressedFile 是「原地压缩 + 内容寻址文件名」
-// 这个组合的回归用例，也是生产上一个真实漏判的复现：
-//
-// 文件名是上传时的内容寻址名（即**压缩前**原图的 md5），而远端此时存着同一份原图。
-// 若判重沿用文件名里的 md5，就会得出「本地 md5 == 远端 md5」的结论而误判已同步，
-// 压缩图永远推不上去——公开域名会一直供着未压缩的大图。必须以实读内容为准：
-// 远端仍在原图 → 内容已变 → 必须重传。
 func TestPushReuploadsCompressedContentAddressedFile(t *testing.T) {
 	store := newFakeStore()
 	s, dir := testSetup(t, store)
@@ -385,7 +340,6 @@ func TestPushReuploadsCompressedContentAddressedFile(t *testing.T) {
 		t.Fatal("首次应为原图内容")
 	}
 
-	// TinyPNG 原地替换：路径与文件名都不动，内容变短。文件名里的 md5 就此失信。
 	const compressed = "tiny"
 	if err := os.WriteFile(abs, []byte(compressed), 0o644); err != nil {
 		t.Fatal(err)
@@ -401,7 +355,6 @@ func TestPushReuploadsCompressedContentAddressedFile(t *testing.T) {
 		t.Fatalf("远端应换成压缩后的内容，实际 %q", string(store.objects["uploads/"+name]))
 	}
 
-	// 再扫一轮必须收敛：同一内容不得反复重传。
 	before := store.puts
 	s2 := newWithStoreTarget(s.cfg, store)
 	again, err := s2.Push(name, abs)
@@ -413,20 +366,16 @@ func TestPushReuploadsCompressedContentAddressedFile(t *testing.T) {
 	}
 }
 
-// TestArchiveOriginalKeepsBothCopies 是「原图与压缩图两份都保留」这条要求的核心断言：
-// 压缩前的原图归档到 uploads/original/<name>，压缩图仍占 uploads/<name>，互不覆盖。
 func TestArchiveOriginalKeepsBothCopies(t *testing.T) {
 	store := newFakeStore()
 	s, dir := testSetup(t, store)
 	s.binDir = filepath.Join(dir, "bin")
 
 	const name = "d41d8cd98f00b204e9800998ecf8427e.webp"
-	// 压缩后的现役文件（原地替换后的字节）。
 	abs := writeFile(t, dir, name, []byte("tiny-compressed"))
 	if _, err := s.Push(name, abs); err != nil {
 		t.Fatal(err)
 	}
-	// 压缩前的原图：被 MoveToBin 留在垃圾桶里，文件名不变。
 	if err := os.MkdirAll(s.binDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -443,8 +392,6 @@ func TestArchiveOriginalKeepsBothCopies(t *testing.T) {
 	}
 }
 
-// TestArchiveOriginalSkipsSecondTime 归档键由内容寻址文件名推得，重复调用幂等：
-// 第二次只走进程内状态，不再发请求（回填任务每轮扫一遍也不会产生额外流量）。
 func TestArchiveOriginalSkipsSecondTime(t *testing.T) {
 	store := newFakeStore()
 	s, dir := testSetup(t, store)
@@ -469,20 +416,17 @@ func TestArchiveOriginalSkipsSecondTime(t *testing.T) {
 	}
 }
 
-// TestArchiveKeyNamespace 归档落在 uploads/original/ 下，键名保持与本地文件名一致。
 func TestArchiveKeyNamespace(t *testing.T) {
 	s := newWithStore(config.R2Config{Prefix: "uploads"}, newFakeStore())
 	if got := s.ArchiveKey("ab12.webp"); got != "uploads/original/ab12.webp" {
 		t.Fatalf("ArchiveKey = %q", got)
 	}
-	// 空前缀时回落到 uploads，保证归档与现役对象仍在同一命名空间下。
 	noPrefix := newWithStore(config.R2Config{}, newFakeStore())
 	if got := noPrefix.ArchiveKey("ab12.webp"); got != "uploads/original/ab12.webp" {
 		t.Fatalf("空前缀 ArchiveKey = %q", got)
 	}
 }
 
-// TestFindInBin 垃圾桶查找：同名优先，其次兼容 MoveToBin 为防覆盖而加的时间戳前缀版本。
 func TestFindInBin(t *testing.T) {
 	dir := t.TempDir()
 	if _, ok := FindInBin(dir, "missing.webp"); ok {
@@ -494,7 +438,6 @@ func TestFindInBin(t *testing.T) {
 	if !ok || got != plain {
 		t.Fatalf("同名文件应优先命中，得到 %q ok=%v", got, ok)
 	}
-	// 只有时间戳前缀版本时也要能找回原件。
 	if got, ok := FindInBin(dir, "b.webp"); ok {
 		t.Fatalf("无任何匹配不应命中，得到 %q", got)
 	}
@@ -504,7 +447,6 @@ func TestFindInBin(t *testing.T) {
 	}
 }
 
-// TestMD5OfMetaHandlesMultipartETag 多段上传的 ETag 带 -N 后缀，不能当作内容 md5。
 func TestMD5OfMetaHandlesMultipartETag(t *testing.T) {
 	if got := md5OfMeta(r2.ObjectMeta{ETag: "abc-3"}); got != "" {
 		t.Fatalf("多段 ETag 不应被当成 md5，得到 %q", got)

@@ -17,31 +17,22 @@ import (
 )
 
 const (
-	// lockKey 让多实例部署时同一时刻只有一个实例在压缩（与推荐刷新同一套机制）。
 	lockKey = "lock:tinify-compress"
-	// lockTTL 是锁的兜底过期时间，取「单张最大文件压缩耗时的量级」即可：
-	// 进程在压缩中被强杀时无法执行 defer 释放，只能靠 TTL 自愈，故不宜过长。
 	lockTTL = 3 * time.Minute
 
-	// failCooldown 是单条内容压缩失败后的冷却期。
-	// 失败若不加冷却，下一轮仍会挑中同一条最大的图片反复调用 API，白白消耗配额
-	//（实测：垃圾桶目录权限问题上失败重试 4 次，等于 4 次无效 API 调用）。
 	failCooldown = 30 * time.Minute
 
-	// candidateBatch 候选批大小：一次多取几条，用于跳过处于冷却期的内容。
 	candidateBatch = 20
 )
 
-// Worker 是 TinyPNG 压缩任务的调度器：每 CompressEvery 处理一张最大的待压缩图片。
 type Worker struct {
 	deps   app.Deps
 	client *Client
 
 	mu     sync.Mutex
-	failed map[uint64]time.Time // 内容 id → 最近一次失败时间
+	failed map[uint64]time.Time
 }
 
-// NewWorker 构造任务；未配置 TINIFY_API_KEY 时返回休眠状态的任务（Enabled() == false）。
 func NewWorker(deps app.Deps) *Worker {
 	w := &Worker{deps: deps, failed: map[uint64]time.Time{}}
 	if deps.Cfg.TinyPNGAPIKey != "" {
@@ -50,10 +41,8 @@ func NewWorker(deps app.Deps) *Worker {
 	return w
 }
 
-// Enabled 表示压缩任务是否可用（缺 Key 时为 false，任务静默跳过，不报错）。
 func (w *Worker) Enabled() bool { return w.client != nil }
 
-// Start 启动周期任务：等到第一个间隔才执行，避免与启动期的其他任务争抢资源。
 func (w *Worker) Start(ctx context.Context) {
 	if !w.Enabled() {
 		slog.Info("tinypng 压缩任务未启用（未配置 TINIFY_API_KEY）")
@@ -69,8 +58,6 @@ func (w *Worker) Start(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				// 退出时主动释放锁：main 在 ctx 结束时会直接退出进程，
-				// 压缩 goroutine 可能来不及执行 CompressOne 的 defer，导致锁残留到 TTL 到期。
 				w.deps.Redis.ReleaseLock(context.Background(), lockKey)
 				return
 			case <-ticker.C:
@@ -82,13 +69,12 @@ func (w *Worker) Start(ctx context.Context) {
 	}()
 }
 
-// CompressOne 取当前体积最大的待压缩图片处理一次；没有候选时直接返回。
 func (w *Worker) CompressOne(ctx context.Context) error {
 	if !w.Enabled() {
 		return nil
 	}
 	if !w.deps.Redis.AcquireLock(ctx, lockKey, lockTTL) {
-		return nil // 另一实例正在压缩
+		return nil
 	}
 	defer w.deps.Redis.ReleaseLock(ctx, lockKey)
 
@@ -100,23 +86,19 @@ func (w *Worker) CompressOne(ctx context.Context) error {
 	abs := w.absPath(*row.FilePath)
 	st, err := os.Stat(abs)
 	if err != nil {
-		// 文件已不在（可能被删除或移动）：标记已处理，避免每分钟重复尝试。
 		slog.Warn("待压缩文件不存在，标记跳过", "id", row.ID, "file", *row.FilePath)
 		return w.markProcessed(ctx, row.ID, row.FileSize)
 	}
-	// 以磁盘真实体积为准：小于阈值的不压缩（顺带修正库里过期的 file_size）。
 	if st.Size() < w.deps.Cfg.CompressMinSize {
 		return w.markProcessed(ctx, row.ID, st.Size())
 	}
 
 	newSize, binPath, err := w.shrinkInPlace(ctx, abs, st.Size())
 	if err != nil {
-		// 进入冷却期，避免下一轮又挑中同一条反复消耗 API 配额。
 		w.markFailed(row.ID)
 		return err
 	}
 
-	// 压缩未变小：保留原图，仅标记已处理，避免持续消耗配额。
 	if newSize >= st.Size() {
 		slog.Info("压缩无收益，保留原图", "id", row.ID, "orig", st.Size(), "got", newSize)
 		return w.markProcessed(ctx, row.ID, st.Size())
@@ -129,11 +111,6 @@ func (w *Worker) CompressOne(ctx context.Context) error {
 	w.deps.Redis.ClearContentCache(ctx, row.ID)
 	w.deps.Redis.ClearContentListCache(ctx)
 
-	// 两份都推给镜像链的每个目标，各按各的对象名：
-	//   - 压缩后的图（abs 上已是压缩后的字节）→ <prefix>/<name>，前端按此加载；
-	//   - 压缩前的原图（binPath 即垃圾桶里的同名原件）→ <prefix>/original/<name> 归档。
-	// 归档键由文件名推得（内容寻址），重复调用幂等；失败只记日志，
-	// 回填任务会从垃圾桶补传，不会出现「原图只在本地」的静默缺口。
 	if w.deps.Mirror != nil && row.FilePath != nil && *row.FilePath != "" {
 		w.deps.Mirror.PushAsync(*row.FilePath, abs)
 		if binPath != "" {
@@ -148,8 +125,6 @@ func (w *Worker) CompressOne(ctx context.Context) error {
 	return nil
 }
 
-// pickCandidate 选出体积最大的待压缩图片：跳过 GIF（动图不支持）、已压缩过的记录，
-// 以及处于失败冷却期的内容。
 func (w *Worker) pickCandidate(ctx context.Context) (store.Content, bool, error) {
 	var rows []store.Content
 	err := w.deps.DB.WithContext(ctx).
@@ -191,11 +166,6 @@ func (w *Worker) markFailed(id uint64) {
 	w.failed[id] = time.Now()
 }
 
-// shrinkInPlace 原地替换为压缩结果：先落临时文件，成功后才把原图移入垃圾桶再改名，
-// 任一步失败都保留原图，不会出现「原图没了、新图没写上」的空缺。
-//
-// 第三个返回值是原图在垃圾桶里的落地路径（未发生替换时为空串），
-// 调用方据此把压缩前的原图归档到镜像侧的 original/ 命名空间。
 func (w *Worker) shrinkInPlace(ctx context.Context, abs string, origSize int64) (int64, string, error) {
 	body, _, err := w.client.Shrink(ctx, abs)
 	if err != nil {
@@ -223,7 +193,6 @@ func (w *Worker) shrinkInPlace(ctx context.Context, abs string, origSize int64) 
 		return 0, "", io.ErrUnexpectedEOF
 	}
 	if written >= origSize {
-		// 结果没有更小：丢弃临时文件，交由调用方保留原图。
 		_ = os.Remove(tmp)
 		return written, "", nil
 	}
@@ -236,21 +205,16 @@ func (w *Worker) shrinkInPlace(ctx context.Context, abs string, origSize int64) 
 		_ = os.Remove(tmp)
 		return 0, "", err
 	}
-	// 原文件属主可能被替换，保持与目录一致的权限，避免 Web 进程读不到。
 	_ = os.Chmod(abs, 0o644)
-	// MoveToBin 保留文件名（仅当目标已存在才加毫秒时间戳前缀），这里按文件名回找落地路径。
 	binPath, _ := mirror.FindInBin(w.deps.Cfg.BinDir, filepath.Base(abs))
 	return written, binPath, nil
 }
 
-// markProcessed 记录「已处理」并把 file_size 校准为磁盘真实值。
-// 未压缩变小的图片同样标记，否则每轮都会被重新挑中而白白消耗配额。
 func (w *Worker) markProcessed(ctx context.Context, id uint64, size int64) error {
 	return w.deps.DB.WithContext(ctx).Model(&store.Content{}).Where("id = ?", id).
 		Updates(map[string]any{"file_size": size, "compressed_at": time.Now()}).Error
 }
 
-// absPath 把库里的相对路径还原为绝对路径（thumbs/、images/ 前缀各自对应独立目录）。
 func (w *Worker) absPath(rel string) string {
 	switch {
 	case strings.HasPrefix(rel, "thumbs/"):

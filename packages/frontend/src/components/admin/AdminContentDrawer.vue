@@ -13,7 +13,6 @@ import type { User } from '@/types'
 import { IconUpload, IconSearch } from '@arco-design/web-vue/es/icon'
 
 const admin = useAdminStore()
-// 桌面用居中大弹窗（1040px），手机上占满整屏，避免窄屏把双栏表单压扁。
 const isMobile = useMediaQuery('(max-width: 820px)')
 const dialogWidth = computed(() => (isMobile.value ? '100%' : 1040))
 
@@ -54,7 +53,6 @@ watch(() => admin.drawerOpen, async (open) => {
     editFileKind.value = ''
     if (editFilePreview.value) URL.revokeObjectURL(editFilePreview.value)
     editFilePreview.value = ''
-    // 编辑入口直接从编辑页签打开，免得用户再点一次页签
     tabKey.value = admin.drawerMode === 'edit' ? 'edit' : 'preview'
     loadUsers()
   }
@@ -65,7 +63,7 @@ async function loadUsers() {
   try {
     const r = await adminApi.getUsers({ page_size: 200 })
     if (r.code === 200) allUsers.value = r.data.list
-  } catch { /* */ } finally { usersLoading.value = false }
+  } catch { } finally { usersLoading.value = false }
 }
 
 async function handleSave() {
@@ -99,7 +97,6 @@ function onFileChange(_fileList: FileItem[], fileItem: FileItem) {
     toast.error('仅支持图片或视频文件')
     return
   }
-  // 与后端保持一致：单文件最大 20MB
   if (raw.size > 20 * 1024 * 1024) {
     toast.error('文件大小不能超过 20MB')
     return
@@ -295,7 +292,6 @@ onBeforeUnmount(() => {
 <style lang="scss">
 @use './admin' as *;
 
-// 弹窗 Teleport 到 body，作用域属性不跟随，这里用全局类名前缀隔离（只有 .content-dialog 内生效）。
 .content-dialog {
   .arco-modal {
     max-width: 96vw;
@@ -321,7 +317,6 @@ onBeforeUnmount(() => {
   }
 }
 
-// 弹窗本身不滚：头部固定、页签条固定、内容区自己滚、底部操作条常驻
 .dialog-body {
   display: flex;
   flex-direction: column;
@@ -349,7 +344,6 @@ onBeforeUnmount(() => {
   }
 }
 
-// 预览：左侧媒体固定比例，右侧文字铺满剩余宽度
 .preview-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
@@ -468,7 +462,6 @@ onBeforeUnmount(() => {
   }
 }
 
-// 编辑：正文编辑器占主栏，媒体与标签放侧栏，避免整页一根长条
 .edit-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
@@ -507,7 +500,6 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
-// 编辑页签里的媒体缩略图：让用户看清将替换的是什么，而不是只有一行文字
 .edit-media-current {
   position: relative;
   margin-bottom: var(--adm-gap-sm, 8px);
@@ -569,7 +561,6 @@ onBeforeUnmount(() => {
   margin: 0;
 }
 
-// 修改作者：搜索在顶部，用户按两列铺开
 .author-pane {
   display: flex;
   flex-direction: column;
@@ -662,7 +653,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 820px) {
-  // 手机占满整屏，别在底部留一条能看到页面的缝
   .content-dialog .arco-modal {
     width: 100vw !important;
     max-width: 100vw;

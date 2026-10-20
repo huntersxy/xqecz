@@ -146,7 +146,7 @@ describe('getPreviewText', () => {
   it('truncates long text with maxLength', () => {
     const longText = 'a'.repeat(200)
     const result = getPreviewText(longText, 50)
-    expect(result.length).toBeLessThanOrEqual(53) // 50 + '...'
+    expect(result.length).toBeLessThanOrEqual(53)
     expect(result.endsWith('...')).toBe(true)
   })
 

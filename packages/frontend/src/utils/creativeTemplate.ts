@@ -1,6 +1,4 @@
 import type { CreativeVariable } from '@/types/schemas'
-// Replace original tokens once. A literal value containing another token must
-// not be recursively expanded or treated as an expression.
 export function previewCreativeTemplate(
   body: string,
   variables: CreativeVariable[],

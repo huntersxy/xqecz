@@ -8,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// 通配规则的边界用例：一旦放行过宽，任何拿到通配域子域的人都能带凭据读接口。
 func TestOriginPolicyWildcard(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -16,30 +15,25 @@ func TestOriginPolicyWildcard(t *testing.T) {
 		origin string
 		want   bool
 	}{
-		// 精确条目：行为与改动前保持一致
 		{"exact match", []string{"https://xq.xiey.work"}, "https://xq.xiey.work", true},
 		{"exact mismatch", []string{"https://xq.xiey.work"}, "https://evil.com", false},
 		{"exact does not match different port", []string{"https://xq.xiey.work"}, "https://xq.xiey.work:8443", false},
 
-		// 通配：正常放行
 		{"wildcard subdomain", []string{"*.edgeone.cool"}, "https://a.edgeone.cool", true},
 		{"wildcard nested subdomain", []string{"*.edgeone.cool"}, "https://a.b.edgeone.cool", true},
 		{"wildcard case-insensitive", []string{"*.edgeone.cool"}, "https://A.EdgeOne.Cool", true},
 		{"wildcard ignores port", []string{"*.edgeone.cool"}, "https://a.edgeone.cool:8443", true},
 		{"wildcard any scheme", []string{"*.edgeone.cool"}, "http://a.edgeone.cool", true},
 
-		// 通配：必须拒绝的边界
 		{"wildcard does not cover bare domain", []string{"*.edgeone.cool"}, "https://edgeone.cool", false},
 		{"wildcard requires dot boundary", []string{"*.edgeone.cool"}, "https://notedgeone.cool", false},
 		{"wildcard rejects suffix injection in userinfo", []string{"*.edgeone.cool"},
 			"https://a.edgeone.cool@evil.com", false},
 		{"wildcard rejects other tld", []string{"*.edgeone.cool"}, "https://a.edgeone.com", false},
 
-		// 写了 scheme 就必须一致
 		{"scheme pinned allows", []string{"https://*.edgeone.cool"}, "https://a.edgeone.cool", true},
 		{"scheme pinned rejects http", []string{"https://*.edgeone.cool"}, "http://a.edgeone.cool", false},
 
-		// 混合配置与退化输入。注意 config.Load() 已按逗号拆好，这里传的是拆分后的条目。
 		{"mixed exact and wildcard", []string{" https://xq.xiey.work ", " *.edgeone.cool "},
 			"https://xq.xiey.work", true},
 		{"mixed exact keeps other host denied", []string{" https://xq.xiey.work ", " *.edgeone.cool "},
@@ -58,7 +52,6 @@ func TestOriginPolicyWildcard(t *testing.T) {
 	}
 }
 
-// 处理器层：放行时必须回显具体 origin 并带 credentials；拒绝时不能出现任何 ACAO。
 func TestCORSHandlerHeaders(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := CORS([]string{"https://xq.xiey.work", "*.edgeone.cool"})

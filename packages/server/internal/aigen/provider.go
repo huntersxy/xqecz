@@ -30,10 +30,6 @@ type KnownFailure struct{ Message string }
 
 func (e KnownFailure) Error() string { return e.Message }
 
-// ProviderResponseError records a non-success HTTP response whose generation
-// outcome is unknown. The response prefix stays out of Error(): providers may
-// echo prompts or credentials there, and Error() reaches logs. The admin
-// diagnostic reads Snippet and redacts it before persisting.
 type ProviderResponseError struct {
 	StatusCode int
 	Snippet    string
@@ -48,8 +44,6 @@ func (e *ProviderResponseError) Error() string {
 
 const providerFailureSnippetLimit = 512
 
-// readResponseSnippet keeps a bounded prefix of a failed provider response.
-// Broken or empty bodies simply yield an empty diagnostic fragment.
 func readResponseSnippet(body io.Reader) string {
 	if body == nil {
 		return ""
@@ -238,7 +232,6 @@ func (p OpenAIProvider) Generate(ctx context.Context, cfg ProviderConfig, key st
 			if parseErr != nil {
 				return nil, errors.New("供应商图片 URL 无效")
 			}
-			// Signed query parameters are allowed on results, never credentials or redirects.
 			check := *u
 			check.RawQuery = ""
 			if validateURL(check.String()) != nil {
@@ -248,7 +241,6 @@ func (p OpenAIProvider) Generate(ctx context.Context, cfg ProviderConfig, key st
 			if reqErr != nil {
 				return nil, reqErr
 			}
-			// Use a separate protected client: never forward the provider API key to a result host.
 			resultClient := safeHTTPClient(45 * time.Second)
 			resultResp, fetchErr := resultClient.Do(fetch)
 			if fetchErr != nil {

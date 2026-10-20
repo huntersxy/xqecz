@@ -1,5 +1,3 @@
-// Package creative owns the editable public catalog; AI task snapshots never
-// point at mutable template text or resource versions.
 package creative
 
 import (
@@ -94,8 +92,6 @@ func Validate(row Resource) (Payload, error) {
 	return p, nil
 }
 
-// Expand substitutes literal user values, never executable expressions. Only
-// defined variables are accepted; optional empty values stay plain strings.
 func Expand(p Payload, values map[string]string) (string, error) {
 	expanded := map[string]string{}
 	for _, v := range p.Variables {

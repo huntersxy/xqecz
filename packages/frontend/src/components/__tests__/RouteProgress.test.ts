@@ -38,7 +38,6 @@ describe('RouteProgress', () => {
   it('shows while a slow navigation is pending, then completes and hides', async () => {
     const router = makeRouter()
     let release!: () => void
-    // 守卫按注册顺序串行执行：进度条先挂载，阻塞守卫排在它后面，才能模拟「懒加载等待」。
     const wrapper = await mountBar(router)
     router.beforeEach((to) => to.path === '/slow'
       ? new Promise<void>((resolve) => { release = resolve })

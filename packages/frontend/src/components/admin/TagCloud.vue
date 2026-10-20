@@ -17,7 +17,6 @@ const emit = defineEmits<{
   add: [tag: string]
 }>()
 
-// 自定义标签输入
 const customTagInput = ref('')
 const showCustomInput = ref(false)
 const inputRef = ref<HTMLInputElement | null>(null)
@@ -28,7 +27,6 @@ function handleAddCustom() {
   if (!trimmed) return
   const allTags = new Set([...props.tags, ...props.selectedTags])
   if (allTags.has(trimmed)) {
-    // 如果已存在，直接选中
     if (!props.selectedTags.includes(trimmed)) {
       emit('toggle', trimmed)
     }
@@ -47,17 +45,14 @@ function toggleCustomInput() {
   }
 }
 
-// 未选中的标签保持首页的纸白、暖灰与酒红色板，不再混入 Arco 默认的多色标签。
 const colorSchemes = [
   { bg: 'color-mix(in srgb, var(--site-accent) 8%, var(--site-paper))', border: 'color-mix(in srgb, var(--site-accent) 20%, var(--site-line))', text: 'var(--site-accent)', hover: 'color-mix(in srgb, var(--site-accent) 14%, var(--site-paper))' },
   { bg: 'var(--site-soft)', border: 'var(--site-line)', text: 'var(--site-muted)', hover: 'color-mix(in srgb, var(--site-soft) 74%, var(--site-accent-soft))' },
   { bg: 'var(--site-paper)', border: 'var(--site-line)', text: 'var(--site-ink)', hover: 'var(--site-soft)' },
 ]
 
-// 选中状态沿用首页的浅底与酒红边线，清楚区分状态但不铺满高饱和色。
 const selectedScheme = { bg: 'var(--site-paper)', border: 'var(--site-accent)', text: 'var(--site-accent)', hover: 'var(--site-accent-soft)' }
 
-// 根据标签名称生成稳定的哈希值，用于确定大小和颜色
 function getTagHash(tag: string): number {
   let hash = 0
   for (let i = 0; i < tag.length; i++) {
@@ -67,7 +62,6 @@ function getTagHash(tag: string): number {
   return Math.abs(hash)
 }
 
-// 根据哈希值计算标签大小等级 (0-4)
 function getSizeLevel(tag: string, index: number): number {
   const hash = getTagHash(tag)
   const combined = (hash + index * 7) % 100
@@ -78,7 +72,6 @@ function getSizeLevel(tag: string, index: number): number {
   return 0
 }
 
-// 大小等级对应的 Tailwind 类
 const sizeClasses: Record<number, string> = {
   0: 'text-xs px-2.5 py-1',
   1: 'text-[0.8rem] px-3 py-1.5',
@@ -87,7 +80,6 @@ const sizeClasses: Record<number, string> = {
   4: 'text-base px-[18px] py-2',
 }
 
-// 获取标签动态颜色样式（CSS 变量，无法用 Tailwind）
 function getTagColorStyle(tag: string, index: number, isSelected: boolean) {
   const hash = getTagHash(tag)
   const colorScheme = isSelected ? selectedScheme : colorSchemes[hash % colorSchemes.length]
@@ -99,7 +91,6 @@ function getTagColorStyle(tag: string, index: number, isSelected: boolean) {
   }
 }
 
-// 计算标签动画延迟
 function getAnimationDelay(index: number): string {
   return `${(index % 20) * 30}ms`
 }
@@ -133,7 +124,6 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
       </div>
     </TransitionGroup>
 
-    <!-- 自定义标签输入 -->
     <template v-if="allowCustom">
       <div v-if="showCustomInput" class="custom-tag-input-wrap">
         <input
@@ -170,7 +160,6 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
 </template>
 
 <style lang="scss" scoped>
-// 标签动态颜色（CSS 变量驱动，无法用 Tailwind 实现）
 .tag-item {
   border: 1.5px solid var(--tag-border);
   background: var(--tag-bg);
@@ -210,7 +199,6 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
   }
 }
 
-// 动画 keyframes
 @keyframes tag-pop {
   0% {
     opacity: 0;
@@ -231,7 +219,6 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
   }
 }
 
-// TransitionGroup 动画（§8：只过渡 opacity 与 transform，不用 all）
 .tag-fade {
   &-enter-active {
     transition: opacity 0.3s ease-out, transform 0.3s ease-out;
@@ -256,7 +243,6 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
   }
 }
 
-// 响应式：移动端缩小（Tailwind 类已覆盖 sm:/lg: 断点，此处仅覆盖无法用 Tailwind 的动画部分）
 @media (max-width: 640px) {
   .tag-item {
     font-size: 0.7rem !important;
@@ -264,7 +250,6 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
   }
 }
 
-// §8.4：用户要求减少动态效果时，标签进场与增删动画一律关掉
 @media (prefers-reduced-motion: reduce) {
   .tag-item {
     animation: none !important;
@@ -277,7 +262,6 @@ const displayTags = computed(() => props.tags.slice(0, props.maxTags))
   }
 }
 
-// 自定义标签输入
 .custom-tag-input-wrap {
   display: inline-flex;
   align-items: center;

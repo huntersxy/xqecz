@@ -23,10 +23,6 @@ function randomGenerator(seed: number) {
 interface Cloud { x: number; y: number; width: number; height: number; angle: number }
 type Coordinate = Omit<UniverseNode, 'artwork'>
 
-/**
- * 只负责坐标与碰撞，不能读取 DOM、发请求或创建 Three 对象。
- * seed 控制一次探索的随机性；坐标按作品 id 保留，追加分页不能使已有星球跳位。
- */
 export class UniverseLayout {
   private coordinates = new Map<number, Coordinate>()
   private cells = new Map<string, Coordinate[]>()
@@ -60,7 +56,6 @@ export class UniverseLayout {
       let x: number
       let y: number
       if (attempt < 384 && clustered) {
-        // Bounded bell-shaped sampling produces uneven clusters without remote outliers.
         const dx = (random() + random() + random() - 1.5) * cloud.width
         const dy = (random() + random() + random() - 1.5) * cloud.height
         x = cloud.x + dx * Math.cos(cloud.angle) - dy * Math.sin(cloud.angle)
@@ -111,7 +106,6 @@ export function visibleUniverseNodes(nodes: readonly UniverseNode[], x: number, 
     .slice(0, limit)
 }
 
-/** 默认打开看清作品；全景按钮单独展示边界，不让少量偏远节点把首屏缩成点阵。 */
 export function universeOpeningView(nodes: readonly UniverseNode[], aspect: number) {
   const images = nodes.filter(node => node.artwork.thumb)
   const candidates = images.length ? images : nodes

@@ -11,7 +11,6 @@ import {
 import { pollApi } from '@/api'
 import { PollDetailSchema, type PollDetail } from '@/types/schemas'
 
-/** Both inline and full-page ballots use server totals; aborting a view never undoes a submitted vote. */
 export function usePollBallot(id: Ref<number>) {
   const detail = shallowRef<PollDetail | null>(null)
   const loading = ref(false)
@@ -101,7 +100,6 @@ export function usePollBallot(id: Ref<number>) {
     },
     { immediate: true },
   )
-  // KeepAlive must refresh personal selection as well as totals after a cancelled/finished request.
   onActivated(() => {
     if (controller?.signal.aborted && id.value) void loadDetail()
   })

@@ -71,7 +71,6 @@ type dashboardData struct {
 	RecentUsers    []gin.H                `json:"recentUsers"`
 }
 
-// dashboard 返回仪表盘聚合数据（60 秒缓存；fresh=1 时跳过读缓存）。
 func (h *Handler) dashboard(c *gin.Context) {
 	ctx := c.Request.Context()
 	if c.Query("fresh") != "1" {
@@ -90,7 +89,6 @@ func (h *Handler) dashboard(c *gin.Context) {
 	web.OK(c, data, "ok")
 }
 
-// computeDashboard 每张表只发一条条件聚合查询，避免并发占用连接池。
 func (h *Handler) computeDashboard(ctx context.Context) (dashboardData, error) {
 	db := h.deps.DB.WithContext(ctx)
 	today := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, time.Local)
@@ -149,7 +147,6 @@ func (h *Handler) computeDashboard(ctx context.Context) (dashboardData, error) {
 		return dashboardData{}, err
 	}
 
-	// 热门标签只统计已通过内容，避免待审与垃圾数据污染。
 	var tagRows []store.Content
 	if err := db.Select("tags").Where("audit_status = ?", "approved").Find(&tagRows).Error; err != nil {
 		return dashboardData{}, err
@@ -168,7 +165,6 @@ func (h *Handler) computeDashboard(ctx context.Context) (dashboardData, error) {
 	for _, t := range order {
 		ranked = append(ranked, dashboardTagCount{Tag: t, Count: tagCount[t]})
 	}
-	// 稳定排序：同数量时保持首次出现顺序，保证结果可复现。
 	sort.SliceStable(ranked, func(i, j int) bool { return ranked[i].Count > ranked[j].Count })
 	if len(ranked) > 10 {
 		ranked = ranked[:10]

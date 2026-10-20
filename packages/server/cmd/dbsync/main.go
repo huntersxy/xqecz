@@ -1,11 +1,3 @@
-// Command dbsync 把源库结构（可选数据）复制到目标库，用于本地开发影子库。
-//
-// 用法：
-//
-//	go run ./cmd/dbsync -target xqv2_dev            # 仅结构
-//	go run ./cmd/dbsync -target xqv2_dev -with-data # 结构 + 数据
-//
-// 源库连接信息取自项目根 .env（MYSQL_*、MYSQL_DATABASE）。
 package main
 
 import (

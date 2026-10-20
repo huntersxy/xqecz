@@ -11,13 +11,9 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-// Open 建立 MySQL 连接。DSN 与旧 TypeORM 连接参数对齐（utf8mb4 / parseTime / 本地时区），
-// 加密模式由 cfg.MySQL.TLS 决定（托管实例如 TiDB Cloud 强制加密）。
 func Open(cfg config.Config) (*gorm.DB, error) {
 	connectTimeout := cfg.MySQL.ConnectTimeout
 	if connectTimeout <= 0 {
-		// Keep older in-process callers working while the environment-backed
-		// field now has the accurate ConnectTimeout name.
 		connectTimeout = cfg.MySQL.ConnMaxLifetime
 	}
 	dsn := mysqldsn.Format(mysqldsn.Options{
@@ -32,10 +28,8 @@ func Open(cfg config.Config) (*gorm.DB, error) {
 	})
 
 	gormCfg := &gorm.Config{
-		// 表名由各模型显式声明，禁用复数化推断，避免与既有表结构错位。
-		NamingStrategy: schema.NamingStrategy{SingularTable: true},
-		Logger:         logger.Default.LogMode(logger.Warn),
-		// 关闭默认事务包裹（单条写操作无必要），减少一次往返。
+		NamingStrategy:         schema.NamingStrategy{SingularTable: true},
+		Logger:                 logger.Default.LogMode(logger.Warn),
 		SkipDefaultTransaction: true,
 	}
 

@@ -6,16 +6,10 @@ import SparkMD5 from 'spark-md5'
 
 const MEDIA_BASE = import.meta.env.VITE_MEDIA_BASE_URL || ''
 
-/** 服务端公开媒体目录的单一判定；新增目录须同步静态路由、代理和媒体契约测试。 */
 export function isContentMediaPath(path: string): boolean {
   return /^\/(thumbs|uploads|images)\//.test(path)
 }
 
-/**
- * 仅给 API 返回的媒体路径补媒体域名，保持幂等。
- * Vite import / public 素材属于前端，绝对地址（含签名参数）、blob/data 也保持原样。
- * 不可再用 startsWith('/') 判断媒体，否则生产配置会把 /assets/... 发到后端。
- */
 export function getImageUrl(image?: string): string {
   if (!image) return ''
   if (image.startsWith('http://') || image.startsWith('https://')) return image
@@ -25,15 +19,8 @@ export function getImageUrl(image?: string): string {
   return image
 }
 
-/** 生产服务器远程媒体兜底地址：开发环境图片 404 时，回退到该域名同路径重试。 */
 export const REMOTE_MEDIA_BASE = 'https://api39.xiey.work'
 
-/**
- * 生成本站媒体在生产服务器的同路径兜底 URL。
- * 仅对本站媒体目录（相对路径 / localhost / 生产域名）生效。
- * 前端素材、外部图床、头像、blob/data 不参与回退；禁止将网站域名当作媒体源站。
- * 已是生产地址或无法解析时同样返回空串，表示“没有可兜底的地址”。
- */
 export function getRemoteFallbackUrl(url: string, origin?: string): string {
   if (!url) return ''
   const baseOrigin =
@@ -47,8 +34,6 @@ export function getRemoteFallbackUrl(url: string, origin?: string): string {
   }
   if (!/^https?:$/.test(u.protocol) || !isContentMediaPath(u.pathname)) return ''
   const remoteHost = new URL(REMOTE_MEDIA_BASE).hostname
-  // 部署时若设了 VITE_MEDIA_BASE_URL（指向 API 源站，与页面跨域），媒体地址就不在页面源站下，
-  // 不认这个域名的话整条兜底链会静默返回空串、直接变坏图。
   let mediaHost = ''
   if (MEDIA_BASE) {
     try {
@@ -69,36 +54,26 @@ export function getRemoteFallbackUrl(url: string, origin?: string): string {
   return target === url ? '' : target
 }
 
-/**
- * 根据邮箱生成头像 URL：QQ 邮箱用 QQ 头像接口，其余回退 Gravatar。
- * @param email 用户邮箱
- * @param size 头像尺寸，默认 80
- */
 export function getAvatarUrl(email: string, size: number = 80): string {
   if (!email.trim()) return ''
-  // QQ 邮箱 → QQ 头像接口
   const qqMatch = /^(\d{5,11})@qq\.com$/i.exec(email.trim())
   if (qqMatch) {
     return `https://q.qlogo.cn/headimg_dl?dst_uin=${qqMatch[1]}&spec=100`
   }
-  // 其余走 Gravatar
   const hash = md5Hex(email.trim().toLowerCase())
   return `https://www.gravatar.com/avatar/${hash}?d=identicon&s=${size}`
 }
 
-// 简单 MD5 hex。Gravatar 需要小写 hex MD5 —— 复用顶部 import 的 SparkMD5。
 function md5Hex(input: string): string {
   return SparkMD5.hash(input)
 }
 
 export function formatTime(ts: number | string, useLocaleDate: boolean = false): string {
   if (!ts) return ''
-  // ISO 字符串（如 '2026-07-15T03:08:20.763Z'）直接解析；数字或纯数字字符串走 Unix 秒
   const d = typeof ts === 'string' && /^\d{4}-/.test(ts) ? dayjs(ts) : dayjs.unix(typeof ts === 'string' ? Number.parseInt(ts, 10) : ts)
   return useLocaleDate ? d.format('YYYY/MM/DD') : d.format('YYYY/MM/DD HH:mm:ss')
 }
 
-/** 把字节数格式化为可读体积（1 位小数，B 取整）。 */
 export function formatFileSize(bytes?: number): string {
   if (!bytes || bytes <= 0) return ''
   if (bytes < 1024) return `${bytes} B`
@@ -106,7 +81,6 @@ export function formatFileSize(bytes?: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-/** 从 URL 中取扩展名（大写、去点）；无扩展名返回空串。 */
 export function getUrlExtension(url?: string): string {
   if (!url) return ''
   const path = url.split('?')[0].split('#')[0]
@@ -116,7 +90,6 @@ export function getUrlExtension(url?: string): string {
   return base.slice(dot + 1).toUpperCase()
 }
 
-/** 追加下载参数（保留已有查询参数）。 */
 export function withDownloadFlag(url: string): string {
   if (!url) return ''
   return url.includes('?') ? `${url}&download=1` : `${url}?download=1`
@@ -128,16 +101,10 @@ export function getPreviewText(content: string, maxLength: number = 100): string
   return plainText.length > maxLength ? plainText.substring(0, maxLength) + '...' : plainText
 }
 
-/**
- * 系统是否要求「减少动态效果」。
- * CSS 侧已由 main.css 的媒体查询统一压掉过渡时长，但 JS 里显式传 `behavior: 'smooth'`
- * 的滚动会绕过 CSS（显式参数优先于 scroll-behavior），故这类调用点必须自行判定。
- */
 export function prefersReducedMotion(): boolean {
   return globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 }
 
-/** 平滑滚动的 behavior：按系统偏好降级为瞬时。配合 scrollIntoView / scrollTo 使用。 */
 export function scrollBehavior(): ScrollBehavior {
   return prefersReducedMotion() ? 'auto' : 'smooth'
 }
@@ -150,11 +117,8 @@ export function renderMarkdown(text: string): string {
   }
 }
 
-/**
- * 计算文件内容的 MD5（spark-md5 分片读取，避免大文件一次性载入内存）。
- */
 async function fileMd5(file: File): Promise<string> {
-  const CHUNK = 4 * 1024 * 1024 // 4MB 分片
+  const CHUNK = 4 * 1024 * 1024
   const spark = new SparkMD5.ArrayBuffer()
   for (let offset = 0; offset < file.size; offset += CHUNK) {
     const buf = await file.slice(offset, offset + CHUNK).arrayBuffer()
@@ -163,10 +127,6 @@ async function fileMd5(file: File): Promise<string> {
   return spark.end()
 }
 
-/**
- * 上传前把文件重命名为 `<md5>.<ext>`（内容寻址）。
- * 后端按此文件名扁平落盘到 data/uploads/，同内容文件天然去重。
- */
 export async function renameFileToMd5(file: File): Promise<File> {
   const md5 = await fileMd5(file)
   const dot = file.name.lastIndexOf('.')
@@ -174,11 +134,6 @@ export async function renameFileToMd5(file: File): Promise<File> {
   return new File([file], `${md5}.${ext}`, { type: file.type, lastModified: file.lastModified })
 }
 
-/**
- * 把普通对象转为 FormData：跳过 null/undefined/空串/空数组；
- * 数组按元素重复 append（适配后端同名多值字段，如 tags）；File 直接 append；
- * 其余（number/boolean）转字符串。消除各 api 里手搓的 `if (x) fd.append(...)` 样板。
- */
 export function toFormData(obj: Record<string, unknown>): FormData {
   const fd = new FormData()
   for (const [key, value] of Object.entries(obj)) {

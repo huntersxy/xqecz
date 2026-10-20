@@ -1,15 +1,4 @@
 #!/bin/bash
-# 合并 data/images → data/uploads：统一命名为「内容 md5.webp」，缩略图同步改名，
-# 并生成/执行数据库 file_path、thumb_path 的同步更新。
-#
-# 背景：2026-08-05 的内容模型统一删掉了 compressed_path 列，但未归一存储路径，
-# 导致 284 条存量记录的展示文件仍指向 images/*_tinified.webp（旧 TinyPNG 压缩图）。
-# 本脚本把 images 里的文件按内容 md5 归位到 uploads，使新老数据路径规则一致。
-#
-# 用法：merge-images-into-uploads.sh [dry-run|apply]
-#   dry-run（默认）：只计算并输出计划/待执行 SQL，不动文件也不改库
-#   apply         ：移动文件、改名缩略图，并在一个事务里更新数据库
-# 依赖：mysql 客户端、md5sum；数据库连接取自 /www/wwwroot/xqecz-golang/.env
 set -euo pipefail
 
 MODE="${1:-dry-run}"
@@ -77,7 +66,6 @@ while IFS=$'\t' read -r id fp tp; do
       new_tp="$cand"
       thumb_renamed=$((thumb_renamed + 1))
     else
-      # 缩略图缺失（历史遗留死链）：保留原值，仅记录，避免把库里值改成 NULL 造成语义变化
       thumb_missing=$((thumb_missing + 1))
     fi
   fi
@@ -87,7 +75,6 @@ while IFS=$'\t' read -r id fp tp; do
   processed=$((processed + 1))
 done < "$WORK/rows.tsv"
 
-# images 中未被任何记录引用的孤儿文件：同样按 md5 归位到 uploads，保持目录清空
 orphan=0
 if [ -d "$DATA_DIR/images" ]; then
   while IFS= read -r f; do

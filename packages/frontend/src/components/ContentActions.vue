@@ -22,7 +22,7 @@ async function loadInteractionStatus() {
       isFavorited.value = res.data.favorited
       likeCount.value = res.data.like_count
     }
-  } catch { /* 未登录或网络错误，保持默认值 */ }
+  } catch { }
 }
 
 watch(
@@ -44,7 +44,7 @@ async function toggleLike() {
       isLiked.value = res.data.liked
       likeCount.value = res.data.like_count
     }
-  } catch { /* 忽略 */ }
+  } catch { }
 }
 
 async function toggleFavorite() {
@@ -52,7 +52,7 @@ async function toggleFavorite() {
   try {
     const res = await contentApi.toggleFavorite(props.content.id)
     if (res.code === 200) isFavorited.value = res.data.favorited
-  } catch { /* 忽略 */ }
+  } catch { }
 }
 
 async function shareContent() {
@@ -60,18 +60,15 @@ async function shareContent() {
   try {
     if (navigator.share) await navigator.share({ title: props.content.title || '', url })
     else if (navigator.clipboard) await navigator.clipboard.writeText(url)
-  } catch { /* 用户取消分享，忽略 */ }
+  } catch { }
 }
 
-// ── 下载 ──
-// origin 是作品文件；兼容旧数据时只回退到视频或非缩略图的图片。
 const originalFile = computed(() => {
   const { origin, video, img, thumb } = props.content
   return origin || video || (img !== thumb ? img : '')
 })
 const downloadUrl = computed(() => withDownloadFlag(getImageUrl(originalFile.value)))
 const isVideo = computed(() => !!props.content.video)
-// 大小直接使用详情接口，不为展示元信息额外请求媒体。
 const sizeText = computed(() => formatFileSize(props.content.file_size))
 const originExt = computed(() => getUrlExtension(originalFile.value))
 
@@ -136,7 +133,6 @@ const originExt = computed(() => getUrlExtension(originalFile.value))
 .cd-action:disabled { cursor: not-allowed; color: var(--creative-muted); }
 .cd-action:disabled .cd-action-icon { color: color-mix(in srgb, var(--creative-accent) 70%, var(--creative-muted)); }
 
-/* 下载是这页最主要的出口：整行强调色卡片，附文件类型与大小 */
 .cd-download-action {
   display: flex; align-items: center; gap: 12px; padding: 9px 14px 9px 10px; text-decoration: none;
   border: 1px solid color-mix(in srgb, var(--creative-accent) 22%, var(--creative-line)); border-radius: 14px;

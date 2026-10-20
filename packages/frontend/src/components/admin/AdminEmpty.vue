@@ -1,14 +1,9 @@
 <script setup lang="ts">
-// 空态（§10）：标题 + 可选说明 + 主行动。比 a-empty 多一层 actions 插槽，
-// 供「列表为空 / 筛选无结果 / 首次使用引导」三种场景共用，避免每页各写一套。
 import { IconEmpty } from '@arco-design/web-vue/es/icon'
 
 interface Props {
-  /** 主文案；不传时用「暂无数据」兜底 */
   title?: string
-  /** 补充说明，一行以内 */
   desc?: string
-  /** 嵌在表格 / 卡片里时收紧上下留白 */
   compact?: boolean
 }
 

@@ -22,7 +22,6 @@ watch(() => props.open, async (open) => {
   if (open) {
     opener = document.activeElement as HTMLElement | null
     await nextTick()
-    // 优先聚焦表单控件，其次是第一个可聚焦元素
     const target = panel.value?.querySelector<HTMLElement>('textarea, input') ?? panel.value?.querySelector<HTMLElement>(FOCUSABLE)
     target?.focus()
   } else {
@@ -34,7 +33,6 @@ watch(() => props.open, async (open) => {
 onBeforeUnmount(() => { opener?.focus?.() })
 
 function onKeydown(e: KeyboardEvent) {
-  // 对话框开着时，按键只属于对话框：不能让 Esc/方向键冒泡到详情页触发返回或翻页
   e.stopPropagation()
   if (e.key === 'Escape') {
     if (!props.busy) emit('close')

@@ -34,9 +34,6 @@ func TestGetOrSetJSONCoalescesConcurrentMisses(t *testing.T) {
 		}(i)
 	}
 	<-start
-	// Give the other goroutines a chance to observe the in-flight entry before
-	// releasing the leader. The loader remains blocked, so no second loader can
-	// legitimately complete during this window.
 	time.Sleep(20 * time.Millisecond)
 	close(release)
 	wg.Wait()

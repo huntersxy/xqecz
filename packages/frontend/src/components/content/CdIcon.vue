@@ -1,8 +1,4 @@
 <script setup lang="ts">
-/**
- * 详情页专用的内联图标（24×24 描边）。
- * 不依赖任何组件库；`filled` 用于已点亮的喜欢/收藏。
- */
 export type CdIconName =
   | 'arrow-left' | 'chevron-left' | 'chevron-right' | 'heart' | 'star' | 'share'
   | 'download' | 'calendar' | 'eye' | 'copy' | 'reply' | 'trash' | 'flag'

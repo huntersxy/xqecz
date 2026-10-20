@@ -1,4 +1,3 @@
-// Package admin 实现管理端接口：审核、用户管理、统计、举报与认领处理、缩略图批处理。
 package admin
 
 import (
@@ -27,7 +26,6 @@ func New(deps app.Deps, contentHandler *content.Handler) *Handler {
 	return &Handler{deps: deps, content: contentHandler}
 }
 
-// Register 挂载 /admin 路由（全部要求登录 + 管理员）。
 func Register(api *gin.RouterGroup, deps app.Deps, contentHandler *content.Handler) {
 	h := New(deps, contentHandler)
 	g := api.Group("/admin", web.RequireAuth(deps), web.RequireAdmin())
@@ -97,7 +95,6 @@ func (h *Handler) audit(c *gin.Context) {
 		web.Fail(c, 500, "服务异常")
 		return
 	}
-	// 与旧实现一致：审核后经详情路径返回最新内容（沿用其缓存与浏览量语义）。
 	item, err := h.content.DetailInternal(ctx, id)
 	if err != nil {
 		web.Fail(c, 500, "服务异常")
@@ -185,8 +182,6 @@ func (h *Handler) users(c *gin.Context) {
 		pageSize = 20
 	}
 	if pageSize > 200 {
-		// 管理列表支持分页，但不允许单次请求把整张用户表装入内存。
-		// 200 也覆盖内容编辑器的批量作者选择请求。
 		pageSize = 200
 	}
 	keyword := strings.TrimSpace(c.Query("keyword"))
@@ -196,7 +191,6 @@ func (h *Handler) users(c *gin.Context) {
 		db = db.Where("username LIKE ?", "%"+keyword+"%")
 	}
 	var total int64
-	// Session 复用同一组条件：Count 与 Find 共用同一份 where，否则总数与列表会不一致。
 	if err := db.Session(&gorm.Session{}).Count(&total).Error; err != nil {
 		web.Fail(c, 500, "服务异常")
 		return
@@ -301,12 +295,10 @@ func (h *Handler) deleteUser(c *gin.Context) {
 		web.Fail(c, 500, "服务异常")
 		return
 	}
-	// 作者信息参与内容装饰，删除用户后失效全部内容缓存。
 	h.deps.Redis.ClearAllContentCaches(ctx)
 	web.OK(c, nil, "用户已删除")
 }
 
-// reports 返回未处理举报（附带评论原文与举报人用户名）。
 func (h *Handler) reports(c *gin.Context) {
 	ctx := c.Request.Context()
 	type row struct {
@@ -376,7 +368,6 @@ func (h *Handler) claims(c *gin.Context) {
 		pageSize = 20
 	}
 	if pageSize > 200 {
-		// 与用户列表保持一致，限制单页装饰与序列化成本。
 		pageSize = 200
 	}
 
@@ -398,8 +389,6 @@ func (h *Handler) claims(c *gin.Context) {
 	}
 
 	contents, users := h.loadClaimRefs(ctx, rows)
-	// 认领页已经一次性取出了内容行；批量装饰可把每条内容原本各自的
-	// 作者与点赞查询合并为一组查询，避免页面大小放大数据库往返次数。
 	contentRows := make([]store.Content, 0, len(contents))
 	contentSeen := make(map[uint64]struct{}, len(contents))
 	for _, r := range rows {
@@ -549,7 +538,6 @@ func (h *Handler) refreshRecommend(c *gin.Context) {
 	web.OK(c, nil, "推荐位已刷新")
 }
 
-// updateUserField 更新单个用户字段，用户不存在时返回错误。
 func (h *Handler) updateUserField(ctx context.Context, id uint64, column string, value int8) (store.User, error) {
 	db := h.deps.DB.WithContext(ctx)
 	var u store.User

@@ -1,5 +1,3 @@
-// Package media 提供缩略图、星图/走马灯派生图的生成与垃圾桶搬运，
-// 均为进程内纯计算；原 Worker 的 gRPC 边界取消后其能力并入本服务。
 package media
 
 import (
@@ -20,36 +18,21 @@ import (
 	"sync"
 	"time"
 
-	// 纯 Go、零 CGO 的 WebP 编解码实现（原 Worker 使用的同一实现）。
 	"github.com/deepteams/webp"
 	xdraw "golang.org/x/image/draw"
 
-	// 标准库之外的解码器（WebP/BMP/TIFF），均为纯 Go。
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/tiff"
 	_ "golang.org/x/image/webp"
 )
 
-// ThumbMaxWidth 是缩略图的目标宽度。
 const ThumbMaxWidth = 800
 
-// ffmpegAvailable 启动时探测一次 ffmpeg 是否存在，之后走缓存。
 var ffmpegAvailable = sync.OnceValue(func() bool {
 	_, err := exec.LookPath("ffmpeg")
 	return err == nil
 })
 
-// GenerateThumbnail 生成缩略图（目标宽度 ThumbMaxWidth），返回相对 data 目录的
-// 路径（thumbs/<stem>_thumb.webp）。
-//
-// 图片：ffmpeg 可用时优先用 ffmpeg；缺失或失败时降级为纯 Go 解码缩放。
-// 两条路径的缩放口径不同：ffmpeg 的 scale=800:-1 一定输出 800 宽（小图会被放大），
-// 纯 Go 路径取 min(源宽, 800)（小图保持原尺寸）。
-// 视频：只能依赖 ffmpeg 抽帧，缺失即返回错误（由调用方降级，不阻断上传）。
-//
-// 两种实现都只写同目录临时文件，成功后才原子改名覆盖正式缩略图。
-// 因此任何失败（源图损坏、ffmpeg 超时、编码中断）都不会在 thumbs/ 里留下半截或 0 字节
-// 的文件，也不会破坏该内容原有的可用缩略图。
 func GenerateThumbnail(ctx context.Context, absPath, contentType, thumbDir string) (string, error) {
 	if err := os.MkdirAll(thumbDir, 0o755); err != nil {
 		return "", fmt.Errorf("create thumb dir: %w", err)
@@ -57,7 +40,6 @@ func GenerateThumbnail(ctx context.Context, absPath, contentType, thumbDir strin
 
 	outPath := filepath.Join(thumbDir, thumbName(absPath, "webp"))
 
-	// 临时文件保留 .webp 后缀：ffmpeg 依赖输出扩展名推断封装格式。
 	tmp, err := os.CreateTemp(thumbDir, ".thumb-*.webp")
 	if err != nil {
 		return "", fmt.Errorf("create temp thumb: %w", err)
@@ -67,7 +49,6 @@ func GenerateThumbnail(ctx context.Context, absPath, contentType, thumbDir strin
 		_ = os.Remove(tmpPath)
 		return "", err
 	}
-	// 改名成功后临时文件已不存在，这里的清理只会命中失败路径。
 	defer func() { _ = os.Remove(tmpPath) }()
 
 	if contentType == "video" {
@@ -85,12 +66,10 @@ func GenerateThumbnail(ctx context.Context, absPath, contentType, thumbDir strin
 		if ffErr = runFFmpeg(ctx, absPath, tmpPath); ffErr == nil {
 			return commitThumb(ctx, tmpPath, outPath, thumbDir)
 		}
-		// ffmpeg（-y）在解码前就会建出输出文件，失败时先清掉它再降级。
 		_ = os.Remove(tmpPath)
 	}
 	if err := generateWithGo(absPath, tmpPath); err != nil {
 		if ffErr != nil {
-			// 两个实现都失败时把 ffmpeg 的原因一并抛出，避免被静默吞掉。
 			return "", fmt.Errorf("%w (ffmpeg: %v)", err, ffErr)
 		}
 		return "", err
@@ -98,19 +77,16 @@ func GenerateThumbnail(ctx context.Context, absPath, contentType, thumbDir strin
 	return commitThumb(ctx, tmpPath, outPath, thumbDir)
 }
 
-// commitThumb 把生成好的临时缩略图原子替换为正式文件，并返回相对 data 目录的路径。
 func commitThumb(ctx context.Context, tmpPath, outPath, thumbDir string) (string, error) {
 	if _, err := os.Stat(tmpPath); err != nil {
 		return "", fmt.Errorf("thumbnail not produced: %w", err)
 	}
-	// 临时文件属主可能与目录不一致，统一权限，避免 Web 进程读不到。
 	if err := os.Chmod(tmpPath, 0o644); err != nil {
 		return "", err
 	}
 	if err := os.Rename(tmpPath, outPath); err != nil {
 		return "", fmt.Errorf("commit thumbnail: %w", err)
 	}
-	// 普通缩略图成功后派生星图小图；派生失败不能使正常上传/重建失败。
 	if _, err := EnsureAtlasThumbnail(ctx, thumbDir, filepath.Base(outPath)); err != nil {
 		slog.Warn("星图缩略图生成失败", "file", filepath.Base(outPath), "err", err)
 	}
@@ -120,13 +96,11 @@ func commitThumb(ctx context.Context, tmpPath, outPath, thumbDir string) (string
 	return relThumb(thumbDir, outPath), nil
 }
 
-// thumbName 由源文件名推导缩略图名。
 func thumbName(absPath, ext string) string {
 	stem := strings.TrimSuffix(filepath.Base(absPath), filepath.Ext(absPath))
 	return stem + "_thumb." + ext
 }
 
-// runFFmpeg 取首帧并缩放到宽 800（不足则放大），输出 WebP（质量 85）。
 func runFFmpeg(ctx context.Context, absPath, outPath string) error {
 	ffCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
@@ -151,7 +125,6 @@ func runFFmpeg(ctx context.Context, absPath, outPath string) error {
 	return nil
 }
 
-// relThumb 把绝对输出路径转为相对 data 目录的斜杠路径。
 func relThumb(thumbDir, outPath string) string {
 	rel, err := filepath.Rel(filepath.Dir(thumbDir), outPath)
 	if err != nil {
@@ -160,8 +133,6 @@ func relThumb(thumbDir, outPath string) string {
 	return filepath.ToSlash(rel)
 }
 
-// generateWithGo 纯 Go 路径：解码 → 合成白底 → 缩放到源宽与 800 中的较小值 → 编码 WebP。
-// 不依赖任何外部二进制，ffmpeg 缺失时仍能生成图片缩略图。
 func generateWithGo(absPath, outPath string) error {
 	f, err := os.Open(absPath)
 	if err != nil {
@@ -180,7 +151,6 @@ func generateWithGo(absPath, outPath string) error {
 		return fmt.Errorf("invalid image dimensions")
 	}
 
-	// 合成到白底，避免透明区域编码后发黑。
 	rgba := image.NewRGBA(image.Rect(0, 0, srcW, srcH))
 	draw.Draw(rgba, rgba.Bounds(), image.NewUniform(color.White), image.Point{}, draw.Src)
 	draw.Draw(rgba, rgba.Bounds(), img, b.Min, draw.Over)

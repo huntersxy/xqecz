@@ -2,7 +2,6 @@ package content
 
 import "testing"
 
-// TestListCacheKey 校验列表缓存键的规范化：顺序无关、非法排序回落、参数不同则键不同。
 func TestListCacheKey(t *testing.T) {
 	a := listOpts{Page: 2, PageSize: 20, Tag: "x", AuditStatuses: []string{"pending", "approved"}, Keyword: "k", SortBy: "created_at", Order: "desc"}
 	b := listOpts{Page: 2, PageSize: 20, Tag: "x", AuditStatuses: []string{"approved", "pending"}, Keyword: "k", SortBy: "created_at", Order: "desc"}
@@ -25,7 +24,6 @@ func TestListCacheKey(t *testing.T) {
 	}
 }
 
-// TestNormalizeBounds 校验分页与排序参数的边界收敛。
 func TestNormalizeBounds(t *testing.T) {
 	o := listOpts{Page: 0, PageSize: 0, SortBy: "view_count", Order: "ASC"}
 	o.normalize()

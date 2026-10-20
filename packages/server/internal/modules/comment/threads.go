@@ -7,8 +7,6 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/store"
 )
 
-// buildThreads 将任意深度回复铺在所属顶层的一层 replies 中，保留直接 parent_id 和引用。
-// 广度遍历避免深链的递归栈溢出；seen 同时防御损坏数据中的环或重复记录。
 func buildThreads(tops, replies []store.Comment, users map[uint64]store.User) []TopDTO {
 	children := map[uint64][]store.Comment{}
 	for _, row := range replies {

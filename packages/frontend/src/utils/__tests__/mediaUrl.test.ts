@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 afterEach(() => { vi.unstubAllEnvs(); vi.resetModules() })
 
-// 同源开发环境掩盖过素材误加媒体域名的问题；两种配置必须执行同一份契约。
 describe.each(['', 'https://media.example.invalid'])('media URL contract (base=%s)', mediaBase => {
   beforeEach(() => { vi.stubEnv('VITE_MEDIA_BASE_URL', mediaBase); vi.resetModules() })
 

@@ -8,7 +8,6 @@ export function hasAIGCTag(tags: readonly string[]): boolean {
   return tags.some(isAIGCTag)
 }
 
-// Merge at submission/display time without mutating the manual draft; unchecking only removes the checkbox-owned addition.
 export function mergeAIGCTag(tags: readonly string[], declared: boolean): string[] {
   const result: string[] = []
   let seen = false

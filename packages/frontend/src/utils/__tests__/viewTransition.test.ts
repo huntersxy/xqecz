@@ -2,11 +2,6 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { nextTick, ref, watch } from 'vue'
 import { revealOriginFrom, revealRadius, withRevealTransition } from '@/utils/viewTransition'
 
-/**
- * jsdom 既不实现 startViewTransition 也不实现 Element.animate，
- * 两个都从外部按用例定义；过渡回调通过 holder 取回，避免被 TS 的
- * 控制流收窄成「永远是 null」。
- */
 type TransitionInit = (fn: () => Promise<void>) => { ready: Promise<unknown> }
 
 function stubStartViewTransition(init: TransitionInit) {
@@ -100,9 +95,7 @@ describe('withRevealTransition', () => {
     })
     const animate = stubAnimate()
 
-    // 与 theme store 同构：更新走响应式，改 DOM 落在调度微任务里
     const mode = ref('light')
-    // applied 代表「此刻 DOM 上的主题」，watcher 只在变化时写，初值即改动前的状态
     let applied = 'light'
     watch(mode, (v) => { applied = v }, { flush: 'pre' })
 

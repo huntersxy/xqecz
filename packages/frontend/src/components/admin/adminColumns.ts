@@ -23,8 +23,6 @@ export const REASON_COL: TableColumnData = {
 export const CLAIMER_COL: TableColumnData = {
   title: '认领者', slotName: 'claimer', width: 110,
 }
-// 以下为波次 2（WP3）新增：把各页签里重复写的列定义收成常量，供波次 3 的表格重制直接引用。
-// 只新增，上方的既有常量一个不动（各页签当前的内联列定义也保持不变）。
 export const TAGS_COL: TableColumnData = {
   title: '标签', slotName: 'tags', width: 180,
 }

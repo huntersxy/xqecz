@@ -1,4 +1,3 @@
-// Package apikey 实现 API 密钥的创建、列表、更新与删除。
 package apikey
 
 import (
@@ -23,7 +22,6 @@ type Handler struct {
 
 func New(deps app.Deps) *Handler { return &Handler{deps: deps} }
 
-// Register 挂载 /api-keys 路由。
 func Register(api *gin.RouterGroup, deps app.Deps) {
 	h := New(deps)
 	g := api.Group("/api-keys", web.RequireAuth(deps))
@@ -69,7 +67,7 @@ func (h *Handler) create(c *gin.Context) {
 	}
 
 	payload := decorate(row)
-	payload["key"] = raw // 完整密钥仅在创建时返回一次
+	payload["key"] = raw
 	web.OK(c, payload, "API 密钥已创建")
 }
 
@@ -177,7 +175,6 @@ func (h *Handler) remove(c *gin.Context) {
 	web.OK(c, nil, "密钥已删除")
 }
 
-// decorate 输出密钥对外字段（完整密钥与哈希均不外泄）。
 func decorate(row store.APIKey) gin.H {
 	var perms []string
 	if err := json.Unmarshal([]byte(row.Permissions), &perms); err != nil || perms == nil {

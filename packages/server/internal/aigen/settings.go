@@ -177,8 +177,6 @@ func validateProvider(p ProviderConfig) error {
 	return nil
 }
 
-// BYOK can select only an administrator-approved provider. Users never get a
-// URL input, and a queued task captures the configuration and encrypted key.
 func (s *Service) SaveProvider(ctx context.Context, uid uint64, row ProviderConfig, key string) (ProviderConfig, error) {
 	key = strings.TrimSpace(key)
 	if len(key) > 500 || strings.ContainsAny(key, "\r\n") {
@@ -241,9 +239,6 @@ func (s *Service) SaveProvider(ctx context.Context, uid uint64, row ProviderConf
 	return row, err
 }
 
-// SetSiteProviderEnabled changes only the site's dispatch availability. The
-// encrypted key is retained so an administrator can re-enable a provider
-// without re-entering credentials; enabling still requires a configured key.
 func (s *Service) SetSiteProviderEnabled(ctx context.Context, id uint64, enabled bool) error {
 	var row ProviderConfig
 	if err := s.db.WithContext(ctx).Where("id = ? AND user_id = 0", id).First(&row).Error; err != nil {
@@ -259,10 +254,6 @@ func (s *Service) SetSiteProviderEnabled(ctx context.Context, id uint64, enabled
 	return s.db.WithContext(ctx).Model(&ProviderConfig{}).Where("id = ? AND user_id = 0", id).Updates(updates).Error
 }
 
-// DeleteSiteProvider removes a site provider only when no queued/running task
-// still needs its dispatch row and no BYOK row points at it. Completed task
-// snapshots remain self-contained, while active work receives a clear action
-// error instead of failing later with a missing provider.
 func (s *Service) DeleteSiteProvider(ctx context.Context, id uint64) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var row ProviderConfig
@@ -338,8 +329,6 @@ func mergeBYOK(own, allowed ProviderConfig) ProviderConfig {
 	return result
 }
 
-// Capabilities always come from the current approved provider, while the
-// private name/key remain owned by the user. Never display stale BYOK copies.
 func (s *Service) VisibleProviders(ctx context.Context, uid uint64) ([]ProviderConfig, error) {
 	rows := []ProviderConfig{}
 	err := s.db.WithContext(ctx).Where("user_id = 0 OR (user_id = ? AND cipher_key <> ?)", uid, "").Order("`default` desc,id asc").Find(&rows).Error

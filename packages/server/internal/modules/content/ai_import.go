@@ -9,8 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// PublishAI reuses normal content creation, review, thumbnail and cache behavior.
-// The caller links its immutable asset inside this transaction to prevent reposts.
 func (h *Handler) PublishAI(ctx context.Context, uid uint64, title, text string, tags []string, autoMetadata bool, rel, absolute string, size int64, admin, aiEnhanced bool, link func(*gorm.DB, uint64) error) (Item, error) {
 	if autoMetadata {
 		if h.deps.Vision == nil {

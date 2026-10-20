@@ -1,7 +1,5 @@
 import type { CreativeResource } from '@/types/schemas'
 
-// All consumers use the same relationship traversal. Legacy presets remain
-// readable, while new role resources keep their own images directly together.
 export function resolveCreativeResource(row: CreativeResource, resources: CreativeResource[]) {
   const assets = new Set<number>(),
     characters = new Set<number>(),

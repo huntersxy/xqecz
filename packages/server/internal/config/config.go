@@ -10,57 +10,38 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/project"
 )
 
-// Config 汇总进程运行所需配置。单一来源为项目根 .env，与旧 API/Worker 一致。
 type Config struct {
-	Root        string
-	Env         string
-	Port        int
-	CORSOrigins []string
-	UploadDir   string
-	ThumbDir    string
-	ImagesDir   string
-	// BinDir 是压缩/清理后原图的垃圾桶目录，保留而非直接删除，便于人工回溯。
-	BinDir string
-	// Optional first-start seed. Durable provider settings are managed in the database.
+	Root           string
+	Env            string
+	Port           int
+	CORSOrigins    []string
+	UploadDir      string
+	ThumbDir       string
+	ImagesDir      string
+	BinDir         string
 	AIImageBaseURL string
 	AIImageAPIKey  string
 	AIImageModel   string
 	AIImageDir     string
 
-	// R2 对象存储镜像：原图与压缩图各存一份，缩略图仍只留在本地。
-	// 四项凭据任一为空即整体停用（与 TinyPNG 同样的「缺配置即休眠」策略），
-	// 便于本地开发与未开通 R2 的环境照常运行。
 	R2 R2Config
 
-	// OpenList 是自建媒体源（广州机），前端**首选**它、R2 作次选
-	// （取用顺序见 utils/imageSource.ts）：OpenList 落在自己的机器上，
-	// 出网走固定带宽；R2 走 Cloudflare，国内常被拖慢。两者都没有按量计费的
-	// 免费额度，故不再有「额度闸门」这类开关。
 	OpenList OpenListConfig
 
-	// TinyPNG 定时压缩：API Key 为空时该任务自动休眠（不报错），便于本地与无配额环境。
-	TinyPNGAPIKey string
-	// CompressMinSize 以下的图片不压缩（字节）。
+	TinyPNGAPIKey   string
 	CompressMinSize int64
-	// CompressEvery 压缩任务的执行间隔，每轮只处理一张最大的待压缩图片。
-	CompressEvery time.Duration
+	CompressEvery   time.Duration
 
 	MySQL struct {
-		Host     string
-		Port     int
-		User     string
-		Password string
-		Database string
-		PoolSize int
-		// ConnectTimeout 是建立 MySQL TCP 连接的超时；对应 MYSQL_CONNECT_TIMEOUT。
-		ConnectTimeout time.Duration
-		// ConnMaxLifetime 保留用于兼容旧的进程内配置调用；它曾错误地承载
-		// MYSQL_CONNECT_TIMEOUT，新的代码应使用 ConnectTimeout。
+		Host            string
+		Port            int
+		User            string
+		Password        string
+		Database        string
+		PoolSize        int
+		ConnectTimeout  time.Duration
 		ConnMaxLifetime time.Duration
-		// TLS 是连接的加密模式，直接透传给 go-sql-driver 的 tls DSN 参数：
-		// 空 = 不加密（自建 MySQL 默认），true = 校验服务端证书，skip-verify = 加密但不校验。
-		// TiDB Cloud Serverless 强制加密（明文连接报 1105 insecure transport），必须设为 true。
-		TLS string
+		TLS             string
 	}
 
 	Redis struct {
@@ -72,7 +53,6 @@ type Config struct {
 	}
 }
 
-// Load 读取项目根 .env（不覆盖已存在的环境变量）并组装配置。
 func Load() Config {
 	root := project.FindRoot(".")
 	var c Config
@@ -89,13 +69,10 @@ func Load() Config {
 	c.AIImageAPIKey = strings.TrimSpace(os.Getenv("AI_IMAGE_API_KEY"))
 	c.AIImageModel = strings.TrimSpace(os.Getenv("AI_IMAGE_MODEL"))
 
-	// R2 镜像：凭据不全即停用（本地开发常未开通）。
 	c.R2 = loadR2()
 
-	// 自建 OpenList 媒体源：基址或 token 缺失即停用（与 R2 同一策略）。
 	c.OpenList = loadOpenList()
 
-	// 压缩链路：Key 缺失即停用（本地开发常无配额）；阈值与节奏可按需覆盖。
 	c.TinyPNGAPIKey = strings.TrimSpace(os.Getenv("TINIFY_API_KEY"))
 	c.CompressMinSize = int64(envInt("COMPRESS_MIN_KB", 400)) << 10
 	c.CompressEvery = time.Duration(envInt("COMPRESS_INTERVAL_SECONDS", 60)) * time.Second
@@ -115,14 +92,12 @@ func Load() Config {
 	c.MySQL.PoolSize = envInt("MYSQL_POOL_SIZE", 10)
 	c.MySQL.ConnectTimeout = time.Duration(envInt("MYSQL_CONNECT_TIMEOUT", 10)) * time.Second
 	c.MySQL.ConnMaxLifetime = c.MySQL.ConnectTimeout
-	// 空值保持不加密，兼容既有自建 MySQL；托管实例（TiDB Cloud 等）按需开启。
 	c.MySQL.TLS = strings.TrimSpace(os.Getenv("MYSQL_TLS"))
 
 	c.Redis.Host = env("REDIS_HOST", "127.0.0.1")
 	c.Redis.Port = envInt("REDIS_PORT", 6379)
 	c.Redis.Password = os.Getenv("REDIS_PASSWORD")
 	c.Redis.DB = envInt("REDIS_DB", 0)
-	// 与旧 ioredis keyPrefix 对齐：所有业务 key 统一加前缀。
 	c.Redis.Prefix = env("REDIS_PREFIX", "xqecz:")
 
 	return c

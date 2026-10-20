@@ -1,5 +1,3 @@
-// WP5b：投票 / 认领 / 举报三块后台列表的空态、数据渲染与处理动作。
-// 网络层用最小 mock，store 用真实实现，通过 spy 观察组件是否调对了 store 方法。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
@@ -12,7 +10,6 @@ import { useAdminStore } from '@/stores/admin'
 import { formatTime } from '@/utils'
 import type { Claim, CommentReport, Poll } from '@/types'
 
-// stores/admin.ts 在模块顶层执行 useConfirm()，必须同时给出 toast / useConfirm。
 const confirmMock = vi.hoisted(() => vi.fn(async () => true))
 const toastMock = vi.hoisted(() => ({
   success: vi.fn(),
@@ -26,7 +23,6 @@ vi.mock('@/composables/useToast', () => ({
   useConfirm: () => ({ pendingConfirm: { value: null }, confirm: confirmMock, respond: vi.fn() }),
 }))
 
-// 组件挂载时会触发 load*；本文件只验证视图与动作接线，不碰真实网络。
 vi.mock('@/api', () => ({
   adminApi: { handleClaim: vi.fn(async () => ({ data: null })) },
   contentApi: {},
@@ -92,7 +88,6 @@ beforeEach(() => {
   confirmMock.mockReset()
   confirmMock.mockResolvedValue(true)
 
-  // jsdom 没有 matchMedia；prefersReducedMotion 依赖它，matches=false 走 M8 退场后刷新的路径
   vi.stubGlobal('matchMedia', vi.fn((media: string) => ({
     matches: false,
     media,
@@ -108,7 +103,6 @@ beforeEach(() => {
   setActivePinia(pinia)
   admin = useAdminStore()
 
-  // 挂载时的自动加载拦掉，测试自行摆放数据与 loading
   vi.spyOn(admin, 'loadPolls').mockResolvedValue(undefined)
   vi.spyOn(admin, 'loadClaims').mockResolvedValue(undefined)
   vi.spyOn(admin, 'loadReports').mockResolvedValue(undefined)
@@ -179,7 +173,6 @@ describe('投票管理面板', () => {
 
     await wrapper.find('.poll-delete').trigger('click')
     await flushPromises()
-    // 确认后先走 M8 的 280ms 离场，再调接口；用 waitFor 等这段定时器
     expect(wrapper.find('.adm-card').classes()).toContain('is-leaving')
     await vi.waitFor(() => {
       expect(deletePoll).toHaveBeenCalledWith(7)

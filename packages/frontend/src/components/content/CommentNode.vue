@@ -20,13 +20,11 @@ const emit = defineEmits<{
 
 const userStore = useUserStore()
 
-// 仅本人或管理员可删除/举报
 const canManage = computed(() =>
   userStore.isLoggedIn &&
   (userStore.user?.is_admin || props.comment.user_id === userStore.user?.id),
 )
 
-// 删除是不可逆操作：点一次先变成「确认删除？」，再点才真正发出
 const confirming = ref(false)
 function onDelete() {
   if (!confirming.value) { confirming.value = true; return }

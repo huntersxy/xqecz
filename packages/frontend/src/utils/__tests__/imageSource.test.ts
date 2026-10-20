@@ -13,8 +13,6 @@ import {
 } from '@/utils/imageSource'
 
 const R2 = 'https://img.xqecz.bond/uploads/ab12.webp'
-// 首选镜像（自建 OpenList）的直链：免签，因此不带任何查询参数。
-// 注意 URL 里那个 `/d` 是实例的免签直链前缀，少了它 OpenList 只会回 SPA 首页 HTML。
 const QN = 'https://drive.xiey.work/d/uploads/ab12.webp'
 const LOCAL = 'https://api39.xiey.work/uploads/ab12.webp'
 const STORE_KEY = 'xqecz:image-source-v3'
@@ -35,7 +33,6 @@ function readStore(): Record<string, unknown> | null {
   return raw ? JSON.parse(raw) : null
 }
 
-/** 让 fetch 按 url 决定响应；同时记录调用参数供断言。 */
 function stubFetch(handler: (url: string, init?: RequestInit) => Response | never) {
   const calls: { url: string; init?: RequestInit }[] = []
   vi.stubGlobal(
@@ -209,7 +206,6 @@ describe('recheckNetwork（IP 变了才推翻旧结论）', () => {
     expect(cachedImageSource()).toBe('mirror')
     stubFetch(() => new Response('ip=5.6.7.8\nloc=CN\n'))
     await expect(recheckNetwork()).resolves.toBe(true)
-    // 记录已被换网清掉，负标记也一并作废；重新 seed 后 mirror2 恢复资格。
     seed({ openlist: true, r2: true, ip: '5.6.7.8' })
     expect(cachedImageSource()).toBe('mirror2')
   })
@@ -245,7 +241,6 @@ describe('markUnreachable（渲染层兜底：内存负标记，60s 冷却）', 
     expect(cachedImageSource()).toBe('mirror2')
     markUnreachable('mirror2')
     expect(cachedImageSource()).toBe('mirror')
-    // 不落盘：持久结论保持原样，判死只归探测管。
     expect(readStore()?.openlist).toBe(true)
     expect(readStore()?.r2).toBe(true)
   })
@@ -345,7 +340,6 @@ describe('localNetFingerprint', () => {
     const a = localNetFingerprint()
     expect(typeof a).toBe('string')
     expect(a).toBe(localNetFingerprint())
-    // 段位：onLine | effectiveType | rtt 桶 | downlink 桶
     expect(a.split('|')).toHaveLength(4)
   })
 })

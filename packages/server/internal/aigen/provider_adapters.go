@@ -16,8 +16,6 @@ import (
 	"time"
 )
 
-// ProviderRouter keeps the task executor independent from a provider's wire
-// protocol. Unknown/legacy rows intentionally retain the OpenAI Images path.
 type ProviderRouter struct{ Client *http.Client }
 
 func adapterOptions(cfg ProviderConfig) map[string]any {
@@ -31,9 +29,6 @@ func adapterOptions(cfg ProviderConfig) map[string]any {
 	return options
 }
 
-// applyImageOptions only forwards documented, scalar adapter options. Keeping
-// this allowlist prevents an admin-entered JSON blob from changing auth or URL
-// behavior while still covering the common reference-project knobs.
 func applyImageOptions(payload map[string]any, cfg ProviderConfig) {
 	options := adapterOptions(cfg)
 	if len(options) == 0 {
@@ -155,8 +150,6 @@ func limitImageBytes(b []byte) ([]byte, error) {
 	return b, nil
 }
 
-// collectImageValues accepts the response shapes used by OpenAI-compatible
-// chat gateways without treating arbitrary assistant text as an image.
 func collectImageValues(value any, imageContext bool, out *[]string) {
 	switch v := value.(type) {
 	case map[string]any:
@@ -344,7 +337,6 @@ func imageSize(size string) (int, int, bool) {
 }
 
 func geminiAspectRatio(width, height int) string {
-	// Gemini accepts a fixed ratio set; choose the closest common ratio.
 	ratio := float64(width) / float64(height)
 	best, distance := "1:1", 1e9
 	for _, candidate := range []struct {

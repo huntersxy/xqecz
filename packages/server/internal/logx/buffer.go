@@ -6,9 +6,6 @@ import (
 	"time"
 )
 
-// Entry is the bounded, in-memory representation exposed to the admin log
-// viewer. It intentionally contains only the already-rendered line and no
-// request context or credentials beyond what the caller logged.
 type Entry struct {
 	ID      uint64    `json:"id"`
 	Time    time.Time `json:"time"`
@@ -17,9 +14,6 @@ type Entry struct {
 	Line    string    `json:"line"`
 }
 
-// Buffer is a fixed-size ring. Appending is non-blocking for readers and old
-// entries are discarded once capacity is reached; logs are diagnostics, not a
-// durable audit trail.
 type Buffer struct {
 	mu      sync.RWMutex
 	entries []Entry
@@ -62,9 +56,6 @@ func (b *Buffer) countLocked() int {
 	return len(b.entries)
 }
 
-// Snapshot returns entries newer than after. With after==0 it returns the
-// newest limit entries; limit is clamped by the caller-independent buffer
-// capacity. The boolean reports whether an old cursor fell off the ring.
 func (b *Buffer) Snapshot(after uint64, limit int) (entries []Entry, latest uint64, truncated bool) {
 	if b == nil {
 		return nil, 0, false
@@ -102,8 +93,6 @@ func (b *Buffer) Snapshot(after uint64, limit int) (entries []Entry, latest uint
 	return entries, latest, truncated
 }
 
-// Levels returns a stable, sorted set of levels present in a snapshot. It is
-// useful to callers that want to build a filter without parsing rendered text.
 func Levels(entries []Entry) []string {
 	seen := make(map[string]struct{}, len(entries))
 	for _, entry := range entries {

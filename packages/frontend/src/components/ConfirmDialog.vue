@@ -6,8 +6,6 @@ import SiteButton from '@/components/SiteButton.vue'
 import SiteIcon from '@/components/SiteIcon.vue'
 
 const { pendingConfirm, respond } = useConfirm()
-// pendingConfirm 是 Ref：浮层的开合直接由「有没有待确认项」决定。
-// 遮罩、Esc、右上角关闭都走 update:modelValue(false)，统一视为取消。
 const open = computed({
   get: () => !!pendingConfirm.value,
   set: (value) => { if (!value) respond(false) },

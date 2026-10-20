@@ -1,6 +1,3 @@
-// Command rediskeys 按模式列出业务 Redis 键，供迁移期核对缓存写入。
-//
-// 用法：go run ./cmd/rediskeys "content*"
 package main
 
 import (

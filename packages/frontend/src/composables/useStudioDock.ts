@@ -1,8 +1,5 @@
 import { computed, onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
 
-/** The phone dock owns its measured footprint and follows the visible viewport.
- * Keep the reservation in sync with references/settings; keyboard resizing must
- * never hide the submit row or strand the last task underneath the fixed panel. */
 export function useStudioDock(composer: Ref<HTMLElement | undefined>) {
   const height = ref(0)
   const viewportHeight = ref(0)
@@ -13,8 +10,6 @@ export function useStudioDock(composer: Ref<HTMLElement | undefined>) {
   function measure() {
     frame = 0
     height.value = Math.ceil(composer.value?.getBoundingClientRect().height ?? 0)
-    // Pinch zoom retains the native fixed-position behavior; only a viewport at
-    // its normal scale represents browser chrome or the on-screen keyboard.
     const visible = viewport?.scale === 1 ? viewport : null
     viewportHeight.value = visible?.height ?? window.innerHeight
     bottom.value = visible

@@ -33,8 +33,6 @@ func (s *Service) AssetPath(asset Asset) (string, error) {
 	return filepath.Join(s.dir, asset.FileName), nil
 }
 
-// Stream to a private temporary file; the actual decoder chooses the extension,
-// not the upload MIME header or filename. Bound pixels as well as compressed bytes.
 func (s *Service) saveImage(reader io.Reader, uid, taskID uint64) (Asset, error) {
 	asset := Asset{UserID: uid, TaskID: taskID, DownloadAllowed: true}
 	f, err := os.CreateTemp(s.dir, ".image-*")

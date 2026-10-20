@@ -17,21 +17,18 @@ const props = defineProps<Props>()
 
 let viewerInstance: Viewer | null = null
 
-/** 源站上的大图地址。 */
 const localUrl = computed(() => {
   if (props.content.img) return getImageUrl(props.content.img)
   if (props.content.video) return getImageUrl(props.content.video)
   return ''
 })
 
-/** R2 上的同一份副本（后端给的是绝对地址）；未接入 R2 时为空。 */
 const mirrorUrl = computed(() => {
   if (props.content.img) return props.content.mirror_img || ''
   if (props.content.video) return props.content.mirror_video || ''
   return ''
 })
 
-/** 首选镜像（自建 OpenList）上的同一份副本；未配公开域名时为空。 */
 const mirror2Url = computed(() => {
   if (props.content.img) return props.content.mirror2_img || ''
   if (props.content.video) return props.content.mirror2_video || ''
@@ -44,19 +41,12 @@ const mediaKind = computed<'image' | 'video' | 'text'>(() => {
   return 'text'
 })
 
-/**
- * 来源确定后才渲染。原先「先用源站渲染、测速完再换源」会让同一张图被请求两次
- * （源站一次 + 镜像一次），Network 面板里就是 api39 → 镜像 → api39 的来回跳。
- * 现在：本机已有同一网络的结论就同步渲染（零等待、零重复请求）；
- * 没有结论才等一次镜像探测——这是冷启动唯一的一次等待。
- */
 const source = ref<MediaSource | null>(cachedImageSource())
 const resolved = computed(() => source.value !== null)
 
 const mediaUrl = computed(() =>
   source.value ? pickImageUrl(localUrl.value, mirrorUrl.value, mirror2Url.value, source.value) : '',
 )
-/** 兜底链：当前这级挂掉后按序退到下一级（OpenList → R2 → 源站）。 */
 const fallbackUrl = computed(() =>
   fallbackChain(localUrl.value, mirrorUrl.value, mirror2Url.value, source.value),
 )
@@ -68,12 +58,9 @@ async function resolveSource() {
   const qn = mirror2Url.value
   const seq = ++resolveSeq
   if (!r2 && !qn) {
-    // 两级都没地址（镜像未启用 / 该内容没有副本）：立即用源站，不必探测。
     source.value = 'origin'
     return
   }
-  // 缓存里选中的那一级必须**当前真的有地址**，否则视为失效（比如首选未配公开
-  // 域名后 mirror2_* 变空，而本机还留着上次「首选可达」的结论）。
   const known = cachedImageSource()
   const usable =
     known === 'origin' ||
@@ -83,10 +70,9 @@ async function resolveSource() {
     source.value = known
   } else {
     const v = await probeMirror(qn, r2)
-    if (seq !== resolveSeq) return // 期间切了内容则丢弃，避免张冠李戴
+    if (seq !== resolveSeq) return
     source.value = v
   }
-  // 后台校验公网 IP：网络变了（典型是代理开/关）就推翻旧结论再探一次。
   const changed = await recheckNetwork()
   if (!changed || seq !== resolveSeq || (!mirrorUrl.value && !mirror2Url.value)) return
   const v = await probeMirror(mirror2Url.value, mirrorUrl.value)
@@ -94,16 +80,9 @@ async function resolveSource() {
   source.value = v
 }
 
-/**
- * 渲染层发现某一级取不到：给**那一级**记内存负标记（不落盘，60s 冷却后自动
- * 恢复资格——渲染失败可能是瞬时抖动，判死交给探测），并立刻往下退一级。
- * 只标死失败的那一级——OpenList 挂了不连累 R2，R2 挂着也不影响 OpenList 的结论，
- * 它正是链上该顶上的下一级。
- */
 function onMirrorBroken(failedUrl: string) {
   if (failedUrl && failedUrl === mirror2Url.value) {
     markUnreachable('mirror2')
-    // 首选失败 → 退次选（R2），没有次选才回源站。
     if (source.value === 'mirror2') source.value = mirrorUrl.value ? 'mirror' : 'origin'
     return
   }
@@ -125,7 +104,6 @@ const renderedText = computed(() => {
 function openViewerInline() {
   const img = document.querySelector('.cd-media-image img') as HTMLImageElement | null
   if (!img || !img.complete || img.naturalWidth === 0) return
-  // 查看原图同样跟随来源选择，避免「预览快、点开慢」的割裂。
   const originUrl = pickImageUrl(
     props.content.origin ? getImageUrl(props.content.origin) : '',
     props.content.mirror_img || '',
@@ -146,7 +124,6 @@ defineExpose({ mediaKind, mediaUrl })
 
 <template>
   <section class="cd-media-wrap" :class="{ 'has-ambient': mediaKind === 'image' && !!mediaUrl }">
-    <!-- 环境底：同一张图放大模糊后铺满舞台，竖构图两侧不再是空白纸面 -->
     <div
       v-if="mediaKind === 'image' && mediaUrl"
       class="cd-media-ambient"
@@ -204,10 +181,8 @@ defineExpose({ mediaKind, mediaUrl })
 .cd-media-wrap {
   position: relative;
   flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center;
-  /* 上方避开悬浮的返回键/计数，左右避开舞台翻页键 */
   background: var(--creative-canvas); padding: 64px 76px 22px; overflow: hidden;
 }
-/* 舞台环境层：向外扩一圈再模糊，边缘不留生硬的裁切线；只作氛围，不参与交互 */
 .cd-media-ambient {
   position: absolute; inset: -14%;
   background-size: cover;
@@ -217,7 +192,6 @@ defineExpose({ mediaKind, mediaUrl })
   transform: scale(1.06);
   pointer-events: none;
 }
-/* 外缘自然淡回画布色，避免整块彩色背景压过作品本体 */
 .cd-media-wrap.has-ambient::after {
   content: '';
   position: absolute; inset: 0;
@@ -229,13 +203,10 @@ defineExpose({ mediaKind, mediaUrl })
   );
 }
 .cd-media-image { position: relative; z-index: 1; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: zoom-in; min-height: 0; }
-/* 冷启动唯一一次等待：镜像可达性尚未有结论时不渲染媒体，避免「先源站后换源」的重复请求 */
 .cd-media-loading, .cd-media-error { width: 100%; height: 100%; min-height: 12rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: var(--creative-muted); cursor: default; }
 .cd-media-loading p, .cd-media-error p { margin: 0; font-size: 12px; line-height: 1.6; }
 .cd-media-loading-planet { width: 52px; height: 52px; color: var(--creative-accent); }
 .cd-media-error > svg { width: 36px; height: 36px; color: var(--creative-muted); }
-/* Arco <Image> 的 .arco-image 包裹层：填满媒体区并居中，作为内部 .arco-image-img 的百分比高度基准 */
-/* 标题已在详情页头部展示，关闭 Arco 自动生成的空图片页脚遮罩。 */
 .cd-media-image :deep(.arco-image-footer) { display: none; }
 .cd-image {
   width: 100%;
@@ -246,7 +217,6 @@ defineExpose({ mediaKind, mediaUrl })
   align-items: center;
   justify-content: center;
 }
-/* 关键：约束内部真实 .arco-image-img，等比缩放至完整可见（适应/contain），不裁切、不溢出 */
 .cd-image :deep(.arco-image-img) {
   display: block;
   max-width: 100%;

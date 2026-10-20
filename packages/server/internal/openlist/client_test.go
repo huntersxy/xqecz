@@ -15,15 +15,13 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/objstore"
 )
 
-// putServer 起一个假 OpenList，把收到的 PUT 落到内存里。
-// 回调里可对请求做断言（头、鉴权、body 长度）。
 type putServer struct {
 	*httptest.Server
 	gotBody    []byte
 	gotPath    string
 	gotAuth    string
 	gotType    string
-	statusCode int // 0 表示回 200
+	statusCode int
 	apiBody    string
 }
 
@@ -62,12 +60,6 @@ func newClient(t *testing.T, endpoint string) *Client {
 	return c
 }
 
-// TestPutSucceedsAndReportsNil 是本包最关键的一条回归：
-//
-// 曾经的实现在请求体里直接传 *os.File，net/http 在请求结束后会 Close 它，
-// 于是上传成功后那次「文件是否被就地改写」的校验 stat 必然报
-// `file already closed`，Put 被误判失败。上层因此不记账，每轮回填把全量
-// 媒体重推一遍，生产日志表现为 scanned=309 uploaded=0 failed=309。
 func TestPutSucceedsAndReportsNil(t *testing.T) {
 	ps := newPutServer(t)
 	dir := t.TempDir()
@@ -91,15 +83,11 @@ func TestPutSucceedsAndReportsNil(t *testing.T) {
 	if ps.gotType != "image/webp" {
 		t.Errorf("Content-Type 应为 image/webp，实际 %q", ps.gotType)
 	}
-	// File-Path 送转义形态，服务端会解码；此处断言它匹配期望路径
-	// （EscapedPath 保留 `/`，只转义段内字符）。
 	if want := (&url.URL{Path: "/uploads/a.webp"}).EscapedPath(); ps.gotPath != want {
 		t.Errorf("File-Path 头不符：got %q want %q", ps.gotPath, want)
 	}
 }
 
-// TestPutAfterRequestLeavesFileStatable 直接钉住根因：请求体被包成
-// NopCloser 后，Transport 不会关掉我们持有的句柄，句柄在 Put 返回后仍可用。
 func TestPutAfterRequestLeavesFileStatable(t *testing.T) {
 	ps := newPutServer(t)
 	dir := t.TempDir()
@@ -108,7 +96,6 @@ func TestPutAfterRequestLeavesFileStatable(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 复刻 Put 的请求体构造，验证包装语义（不依赖 Client 内部细节）。
 	f, err := os.Open(path)
 	if err != nil {
 		t.Fatal(err)
@@ -130,8 +117,6 @@ func TestPutAfterRequestLeavesFileStatable(t *testing.T) {
 	}
 }
 
-// TestPutDetectsMidUploadRewrite 上传期间文件被就地改写 → ErrCorrupted，
-// 让上层下一轮重传而不是把半旧的内容记成已同步。
 func TestPutDetectsMidUploadRewrite(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "c.bin")
@@ -142,7 +127,6 @@ func TestPutDetectsMidUploadRewrite(t *testing.T) {
 	ps := &putServer{apiBody: `{"code":200,"message":"success"}`}
 	ps.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.Copy(io.Discard, r.Body)
-		// 模拟压缩任务在请求处理期间原地覆盖同一个文件。
 		if err := os.WriteFile(path, []byte("after-after-after"), 0o644); err != nil {
 			t.Errorf("改写失败：%v", err)
 		}
@@ -158,8 +142,6 @@ func TestPutDetectsMidUploadRewrite(t *testing.T) {
 	}
 }
 
-// TestPutSurfacesAPIError OpenList 的业务失败写在 body 的 code 里、
-// HTTP 状态码仍是 200——这种必须被判成错误。
 func TestPutSurfacesAPIError(t *testing.T) {
 	ps := newPutServer(t)
 	ps.apiBody = `{"code":500,"message":"failed to put"}`
@@ -180,7 +162,6 @@ func TestPutSurfacesAPIError(t *testing.T) {
 	}
 }
 
-// TestPutMissingFile 本地文件不存在时立即报错，不发请求。
 func TestPutMissingFile(t *testing.T) {
 	ps := newPutServer(t)
 	c := newClient(t, ps.URL)
@@ -189,12 +170,6 @@ func TestPutMissingFile(t *testing.T) {
 	}
 }
 
-// TestHeadSuccessAndMissing 覆盖两条 Head 分支：拿到 size/modified，
-// 以及「不存在」用 (零值, false, nil) 表达而非错误。
-//
-// 这里的响应体是**实盘抓下来的原样形状**（2026-10-06 从生产
-// https://drive.xiey.work/api/fs/get 取得）：元数据嵌在 data 下，
-// hashinfo 恒为 "null"（Local 驱动没有远端哈希）。
 func TestHeadSuccessAndMissing(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -223,12 +198,9 @@ func TestHeadSuccessAndMissing(t *testing.T) {
 	if !found {
 		t.Fatal("应当判定为存在")
 	}
-	// size 在 data 下；按扁平解会得到 0，而 0 会让 sameObject 恒判「不同步」，
-	// 于是每轮回填都把全量媒体重推一遍。
 	if meta.ContentLen != 813433 {
 		t.Errorf("ContentLen 不符：got %d want 813433", meta.ContentLen)
 	}
-	// OpenList 的 Local 驱动没有远端哈希，幂等判定只能靠字节数。
 	if meta.MetaMD5 != "" || meta.ETag != "" {
 		t.Errorf("OpenList 不应给出哈希，实际 md5=%q etag=%q", meta.MetaMD5, meta.ETag)
 	}
@@ -245,8 +217,6 @@ func TestHeadSuccessAndMissing(t *testing.T) {
 	}
 }
 
-// TestNewRejectsIncompleteConfig 端点或 token 缺失时必须构造失败，
-// 上层据此整体停用该镜像目标。
 func TestNewRejectsIncompleteConfig(t *testing.T) {
 	if _, err := New(Config{Token: "t"}); err == nil {
 		t.Error("缺少 endpoint 应报错")
@@ -256,7 +226,6 @@ func TestNewRejectsIncompleteConfig(t *testing.T) {
 	}
 }
 
-// TestObjectKeyAndFsPath key 结构与 R2 保持一致，挂载点固定落在 `/`。
 func TestObjectKeyAndFsPath(t *testing.T) {
 	c := newClient(t, "http://127.0.0.1:5244")
 	if got, want := c.ObjectKey("/ab/cd.webp"), "uploads/ab/cd.webp"; got != want {
@@ -265,7 +234,6 @@ func TestObjectKeyAndFsPath(t *testing.T) {
 	if got, want := fsPath("uploads/ab/cd.webp"), "/uploads/ab/cd.webp"; got != want {
 		t.Errorf("fsPath = %q want %q", got, want)
 	}
-	// 无 prefix 时是裸 key。
 	raw, err := New(Config{Endpoint: "http://127.0.0.1:5244", Token: "t"})
 	if err != nil {
 		t.Fatal(err)

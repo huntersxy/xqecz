@@ -16,9 +16,6 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/config"
 )
 
-// 这些用例锁死 2026-09-14 那次事故的修复：客户端声明的文件名不可信，
-// 任何上传都不能在被覆盖前就动到磁盘上已存在的文件。
-
 func md5Of(b []byte) string {
 	sum := md5.Sum(b)
 	return hex.EncodeToString(sum[:])
@@ -28,7 +25,6 @@ func newUploadHandler(dir string) *Handler {
 	return &Handler{deps: app.Deps{Cfg: config.Config{UploadDir: dir}}}
 }
 
-// uploadPart 构造一个与线上同形态的 multipart 文件分区（客户端指定 filename）。
 func uploadPart(t *testing.T, filename string, body []byte) (*multipart.Part, func()) {
 	t.Helper()
 	var buf bytes.Buffer
@@ -67,8 +63,6 @@ func assertNoUploadTemp(t *testing.T, dir string) {
 	}
 }
 
-// TestSavePartDoesNotClobberExistingFile 复刻线上事故：拿已有内容的文件名，
-// 再传一份只有 128KiB 的截断片段。原文件必须一字节未变。
 func TestSavePartDoesNotClobberExistingFile(t *testing.T) {
 	dir := t.TempDir()
 	h := newUploadHandler(dir)
@@ -108,7 +102,6 @@ func TestSavePartDoesNotClobberExistingFile(t *testing.T) {
 	assertNoUploadTemp(t, dir)
 }
 
-// TestSavePartReusesIdenticalContent 同名且内容一致时走复用，不产生重复文件。
 func TestSavePartReusesIdenticalContent(t *testing.T) {
 	dir := t.TempDir()
 	h := newUploadHandler(dir)
@@ -145,7 +138,6 @@ func TestSavePartReusesIdenticalContent(t *testing.T) {
 	assertNoUploadTemp(t, dir)
 }
 
-// TestSavePartRepairsTruncatedExistingFile 内容校验通过时，允许把磁盘上的半截文件修好。
 func TestSavePartRepairsTruncatedExistingFile(t *testing.T) {
 	dir := t.TempDir()
 	h := newUploadHandler(dir)
@@ -176,7 +168,6 @@ func TestSavePartRepairsTruncatedExistingFile(t *testing.T) {
 	assertNoUploadTemp(t, dir)
 }
 
-// TestSavePartOversizeLeavesNoFile 超限整单放弃，磁盘上不留任何残文件。
 func TestSavePartOversizeLeavesNoFile(t *testing.T) {
 	dir := t.TempDir()
 	h := newUploadHandler(dir)
@@ -196,7 +187,6 @@ func TestSavePartOversizeLeavesNoFile(t *testing.T) {
 	}
 }
 
-// TestSavePartRandomNameForPlainUpload 非内容寻址的来源仍按随机名兜底落盘。
 func TestSavePartRandomNameForPlainUpload(t *testing.T) {
 	dir := t.TempDir()
 	h := newUploadHandler(dir)

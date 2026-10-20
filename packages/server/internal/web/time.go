@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-// Time 序列化为与 JavaScript Date.toJSON() 一致的 UTC 毫秒格式，
-// 使前端拿到的时间字符串与旧后端逐字节相同。
 type Time time.Time
 
 func (t Time) MarshalJSON() ([]byte, error) {
@@ -15,7 +13,6 @@ func (t Time) MarshalJSON() ([]byte, error) {
 	return []byte(strconv.Quote(s)), nil
 }
 
-// UnmarshalJSON 解析 UTC 毫秒格式，供详情缓存往返使用。
 func (t *Time) UnmarshalJSON(b []byte) error {
 	s := strings.Trim(string(b), "\"")
 	if s == "" || s == "null" {
@@ -30,5 +27,4 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// TimeOf 把数据库时间转换为响应时间。
 func TimeOf(t time.Time) Time { return Time(t) }

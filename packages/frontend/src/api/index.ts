@@ -37,7 +37,6 @@ import type {
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
-// 防止 401 处理过程中再次触发 401（如 logout 自身返回 401）造成死循环
 let handling401 = false
 
 const api = ofetch.create({
@@ -63,12 +62,11 @@ const api = ofetch.create({
         try {
           await Promise.all([
             import('@/stores/user')
-              .then((m) => { try { m.useUserStore().logout() } catch { /* 忽略，避免循环 */ } })
+              .then((m) => { try { m.useUserStore().logout() } catch { } })
               .catch(() => {}),
             import('@/router').then((m) => {
               const router = m.default
               const cur = router.currentRoute.value
-              // Only protected routes redirect after session expiry; public browsing stays available.
               if (cur.meta.requiresAuth && cur.path !== '/login') {
                 router.push({ path: '/login', query: { redirect: cur.fullPath } })
               }
@@ -80,16 +78,13 @@ const api = ofetch.create({
       }
       return
     }
-    // 不再吞掉后端返回的业务错误文案，统一透出给用户
     const msg =
       pickServerMessage((response as unknown as { _data?: unknown })._data) ||
       `请求失败 (${status})`
     console.error('[API]', status, msg)
-    // 不在这里 message.error — 由 request() catch 统一弹出，避免重复 toast
   },
 })
 
-// 从后端返回体里提取可读错误文案（兼容 {message} 与 {data:{message}} 两种结构）
 function pickServerMessage(body: unknown): string | null {
   if (body && typeof body === 'object') {
     const b = body as Record<string, unknown>
@@ -105,12 +100,9 @@ function pickServerMessage(body: unknown): string | null {
   return null
 }
 
-// 统一的业务错误类型：name='ApiError' 便于调用方区分「后端业务错误」与「网络/取消错误」。
-// request() 与 upload 的 onload 非 2xx 分支共用，保证错误通道一致。
 function apiError(msg: string, status?: number): Error {
   const e = new Error(msg) as Error & { status?: number }
   e.name = 'ApiError'
-  // 带上 HTTP 状态，调用方可据此区分「未登录(401)」与其它业务失败，而不用去猜文案。
   if (status !== undefined) e.status = status
   return e
 }
@@ -122,9 +114,7 @@ export async function request<T>(
   try {
     return (await api(url, options)) as unknown as Promise<ApiResponse<T>>
  } catch (err) {
-    // Leaving an admin panel cancels its owned requests; this is not a user-visible failure.
     if (options.signal?.aborted) throw err
-    // 把后端文案包进 Error，供调用方 catch 后直接展示
     const e = err as {
       response?: { _data?: unknown; status?: number }
       status?: number
@@ -136,8 +126,6 @@ export async function request<T>(
       pickServerMessage(e.response?._data) ||
       e.message ||
       '请求失败'
-    // 401（未登录/会话过期）由 onResponseError 统一处理（登出 + 受保护页跳转），
-    // 这里不弹 toast，避免访客打开公开页（如首页 checkAuth）时出现"未登录"提示
     const status = e.status ?? e.response?.status
     if (status !== 401) {
       toast.error(msg)
@@ -172,8 +160,6 @@ export const authApi = {
     }),
 }
 
-// XHR 直传（带进度回调）：upload / quickUpload 共用。
-// 非 2xx 解析后端业务文案后走统一 ApiError 通道，与 request() 的错误语义一致。
 function xhrUpload(
   path: string,
   formData: FormData,
@@ -206,13 +192,12 @@ function xhrUpload(
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve(JSON.parse(xhr.responseText))
       } else {
-        // 解析后端业务错误文案（code==HTTP status，body 含 message），走统一错误通道
         let msg = `上传失败 (${xhr.status})`
         try {
           const parsed = JSON.parse(xhr.responseText)
           const m = pickServerMessage(parsed)
           if (m) msg = m
-        } catch { /* 响应体非 JSON，使用兜底文案 */ }
+        } catch { }
         reject(apiError(msg))
       }
     }
@@ -250,7 +235,6 @@ export const contentApi = {
     return xhrUpload('/content/upload', formData, onProgress, signal)
   },
 
-  // 游客快速上传：title 必填 + (content 或 file) 至少一个；内容不分类，媒体按文件识别。
   quickUpload: async (
     data: QuickUploadData,
     onProgress?: (percent: number) => void,
@@ -281,8 +265,6 @@ export const contentApi = {
     })
   },
 
-  // 详情接口。options.silent=true 时附加 ?silent=1：后端既不计浏览量，
-  // 也按旧语义跳过缓存读（只写不读），会多几次回表。当前调用方都走默认值。
   detail: (id: number, options?: { silent?: boolean }) =>
     request<Content>(`/content/${id}`, { query: options?.silent ? { silent: 1 } : {} }),
 

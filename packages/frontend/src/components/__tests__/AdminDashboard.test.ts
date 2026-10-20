@@ -4,7 +4,6 @@ import AdminDashboard from '@/components/admin/AdminDashboard.vue'
 import { ContentSchema } from '@/types'
 import type { DashboardStats } from '@/types'
 
-// 只替换接口与 store，组件其余依赖走真实实现
 const { getDashboard, openDrawer } = vi.hoisted(() => ({
   getDashboard: vi.fn(),
   openDrawer: vi.fn(),
@@ -13,7 +12,6 @@ const { getDashboard, openDrawer } = vi.hoisted(() => ({
 vi.mock('@/api', () => ({ adminApi: { getDashboard } }))
 vi.mock('@/stores/admin', () => ({ useAdminStore: () => ({ openDrawer }) }))
 
-// 完整 DashboardStats 夹具：字段与后端 /admin/dashboard 一致
 const baseStats: DashboardStats = {
   content: { total: 100, approved: 70, pending: 12, rejected: 18, today: 3 },
   users: { total: 60, admins: 2, banned: 1, today: 1 },
@@ -52,7 +50,6 @@ function renderDashboard() {
 }
 
 beforeEach(() => {
-  // 默认开启 reduced-motion：KPI 数字直达终值，避免用例依赖 rAF 时序
   vi.stubGlobal('matchMedia', (query: string) => ({
     matches: query === '(prefers-reduced-motion: reduce)',
     media: query,

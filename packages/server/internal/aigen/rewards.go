@@ -13,9 +13,6 @@ const DailyCreditCap int64 = 5
 
 var rewardLocation = time.FixedZone("Asia/Shanghai", 8*60*60)
 
-// GrantDailyLogin also runs when a cookie session is restored. The account lock
-// serializes tabs and login retries; reserved daily credits still occupy the cap
-// so a failed generation can return its original credits without losing any.
 func GrantDailyLogin(ctx context.Context, db *gorm.DB, uid uint64, now time.Time) error {
 	day := now.In(rewardLocation).Format("2006-01-02")
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -43,8 +40,6 @@ func GrantDailyLogin(ctx context.Context, db *gorm.DB, uid uint64, now time.Time
 	})
 }
 
-// RewardApproval belongs to the same transaction as the audit status update.
-// A content ID earns once even after rejection, reapproval, or author changes.
 func RewardApproval(tx *gorm.DB, uid, contentID uint64) error {
 	if uid == 0 {
 		return nil

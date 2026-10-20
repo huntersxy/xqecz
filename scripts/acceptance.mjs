@@ -1,13 +1,3 @@
-// 全接口验收：对运行中的后端跑一遍公开 / 登录 / 管理员 / API 密钥链路，结束后清理测试数据。
-//
-// 用法：
-//   pnpm accept                       # 默认打 http://127.0.0.1:3000
-//   XQECZ_BASE=http://host:port pnpm accept
-//
-// 说明：
-//   - 需要 Go 工具链（用 packages/server 的 dbsql 工具清理测试数据；管理员账号经二进制 admin 子命令创建）；
-//   - 所有写入的测试数据在结束时删除（内容/评论/投票/密钥/用户 + 上传文件），失败也会尽力清理；
-//   - 不依赖 curl，全部走 Node 内置 fetch，避免命令行编码差异。
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, rmSync } from 'node:fs'
@@ -37,7 +27,6 @@ function sql(statement) {
   return (r.stdout || '').trim()
 }
 
-// 用二进制自身的 admin 子命令创建管理员（部署机没有 Go 工具链，这条路径是官方支持的）。
 function createAdmin() {
   const bin = existsSync(join(serverDir, 'xqecz-server.exe'))
     ? join(serverDir, 'xqecz-server.exe')
@@ -74,13 +63,11 @@ function pickCookie(cookie, name) {
   return (cookie || '').split('; ').find((c) => c.startsWith(name + '=')) || ''
 }
 
-// 通过 Go 侧小工具按模式列出业务 Redis 键（用于验证限频计数一类的缓存副作用）。
 function redisKeys(pattern) {
   const r = spawnSync('go', ['run', './cmd/rediskeys', pattern], { cwd: serverDir, encoding: 'utf8' })
   return (r.stdout || '') + (r.stderr || '')
 }
 
-// 构造一张 1x1 PNG 并按前端约定重命名为 <md5>.png
 function buildUpload() {
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
   const md5 = createHash('md5').update(png).digest('hex')
@@ -108,7 +95,6 @@ async function measure(path, times) {
 async function main() {
   console.log('验收目标：' + BASE + '\n')
 
-  // ── 公开读路径 ──
   const health = await api('/api/health')
   record('健康检查', health.status === 200 && health.body && health.body.data && health.body.data.ok === true)
 
@@ -147,7 +133,6 @@ async function main() {
   const guard = await api('/api/content/my')
   record('未登录访问受保护接口返回 401', guard.status === 401)
 
-  // ── 登录态 ──
   sql("DELETE FROM api_keys WHERE user_id IN (SELECT id FROM users WHERE username='" + USER + "')")
   sql("DELETE FROM users WHERE username='" + USER + "'")
   const reg = await api('/api/auth/register', { method: 'POST', json: { username: USER, email: 'accept@example.com', password: 'accept123' } })
@@ -160,7 +145,6 @@ async function main() {
   const me = await api('/api/auth/me', { cookie: userCookie })
   record('当前用户', me.body && me.body.data && me.body.data.username === USER)
 
-  // ── 上传与互动 ──
   const fd = buildUpload()
   fd.append('title', '验收测试内容')
   fd.append('content', '验收正文')
@@ -177,7 +161,6 @@ async function main() {
   const withThumb = await api('/api/content/' + contentId + '?silent=1')
   record('异步生成缩略图', Boolean(withThumb.body && withThumb.body.data && withThumb.body.data.thumb.indexOf('/thumbs/') === 0), withThumb.body && withThumb.body.data ? withThumb.body.data.thumb : '')
 
-  // 静态文件由同一进程托管（/uploads、/thumbs）
   const originRes = await fetch(BASE + relPath)
   record('静态文件 /uploads 可访问', originRes.status === 200 && Number(originRes.headers.get('content-length') || 0) > 0, relPath)
   const thumbUrl = withThumb.body && withThumb.body.data ? withThumb.body.data.thumb : ''
@@ -187,7 +170,6 @@ async function main() {
   const mine = await api('/api/content/my?page_size=50', { cookie: userCookie })
   record('我的内容（登录态列表）', Boolean(mine.body && mine.body.code === 200 && mine.body.data.list.some((it) => it.id === contentId)))
 
-  // 游客快速上传：落库 user_id=0，并在有文件时按 IP 计数（限频依据）
   const qfd = buildUpload()
   qfd.append('title', '验收游客上传')
   qfd.append('content', '游客正文')
@@ -212,7 +194,6 @@ async function main() {
   const claim = await api('/api/content/' + contentId + '/claim', { method: 'POST', cookie: userCookie, json: { reason: TAG } })
   record('提交认领', claim.body && claim.body.code === 200)
 
-  // ── 投票（游客身份，含 visitor_id 下发）──
   const pollCreate = await api('/api/poll/create', { method: 'POST', cookie: userCookie, json: { title: '验收投票', options: ['甲', '乙'] } })
   created.pollId = pollCreate.body && pollCreate.body.data ? pollCreate.body.data.id : null
   record('创建投票', pollCreate.body && pollCreate.body.code === 200 && Boolean(created.pollId))
@@ -227,7 +208,6 @@ async function main() {
   const badVote = await api('/api/poll/' + created.pollId + '/vote', { method: 'POST', json: { option_index: 99 }, cookie: visitor })
   record('非法选项被拒', badVote.status === 400 && badVote.body.code === 400)
 
-  // ── API 密钥 ──
   const keyCreate = await api('/api/api-keys', { method: 'POST', cookie: userCookie, json: { name: TAG, permissions: ['read'] } })
   created.keyId = keyCreate.body && keyCreate.body.data ? keyCreate.body.data.id : null
   const rawKey = keyCreate.body && keyCreate.body.data ? keyCreate.body.data.key : ''
@@ -239,7 +219,6 @@ async function main() {
   const keyDenied = await api('/api/content/upload', { method: 'POST', headers: { 'X-API-Key': rawKey } })
   record('密钥缺权限被拒', keyDenied.status === 403 && keyDenied.body.code === 403)
 
-  // ── 管理员链路 ──
   const adminPassword = createAdmin()
   const adminLogin = await api('/api/auth/login', { method: 'POST', json: { username: ADMIN, password: adminPassword } })
   const adminCookie = adminLogin.cookie
@@ -269,7 +248,6 @@ async function main() {
   const adminDenied = await api('/api/admin/dashboard', { cookie: userCookie })
   record('普通用户访问管理端返回 403', adminDenied.status === 403)
 
-  // 举报闭环：普通用户举报 → 管理端可见 → 处理后消失
   const commentId = addComment.body && addComment.body.data ? addComment.body.data.id : null
   const report = await api('/api/comment/report', { method: 'POST', cookie: userCookie, json: { comment_id: commentId, reason: TAG } })
   record('举报评论', report.body && report.body.code === 200)
@@ -283,7 +261,6 @@ async function main() {
     record('处理后从待办列表消失', Boolean(afterReports.body && !afterReports.body.data.some((r) => r.id === myReport.id)))
   }
 
-  // 认领闭环：第二个用户认领 → 管理员通过 → 内容作者转移
   await api('/api/auth/register', { method: 'POST', json: { username: '__accept_user2__', email: 'accept2@example.com', password: 'accept123' } })
   const login2 = await api('/api/auth/login', { method: 'POST', json: { username: '__accept_user2__', password: 'accept123' } })
   const user2 = login2.body && login2.body.data ? login2.body.data.user : null
@@ -300,13 +277,11 @@ async function main() {
     record('认领通过后作者已转移', Boolean(owned.body && owned.body.data && user2 && owned.body.data.user.id === user2.id), '作者 id=' + (owned.body && owned.body.data ? owned.body.data.user.id : '?'))
   }
 
-  // 管理端改作者：把作者改回原用户（后续删除链路依赖归属，这条也顺带覆盖 PUT /admin/content/:id/author）
   const originalUserId = me.body ? me.body.data.id : 0
   const authorChange = await api('/api/admin/content/' + contentId + '/author', { method: 'PUT', cookie: adminCookie, json: { user_id: originalUserId } })
   const restored = await api('/api/content/' + contentId + '?silent=1')
   record('管理端改作者', Boolean(authorChange.body && authorChange.body.code === 200 && restored.body && restored.body.data.user.id === originalUserId), 'oldUserId=' + (authorChange.body && authorChange.body.data ? authorChange.body.data.oldUserId : '?'))
 
-  // 未过审内容的可见性：匿名 404、管理员可见
   const rejectedId = sql("SELECT id FROM contents WHERE audit_status='rejected' LIMIT 1").split('\n').pop().trim()
   if (/^\d+$/.test(rejectedId)) {
     const anonView = await api('/api/content/' + rejectedId + '?silent=1')
@@ -314,17 +289,11 @@ async function main() {
     record('未过审内容：匿名 404 / 管理员可见', anonView.status === 404 && adminView.status === 200, 'id=' + rejectedId)
   }
 
-  // 批量缩略图：只验证触发与状态机（后台逐条处理，不在验收里等待完成）
   const batch = await api('/api/admin/content/regenerate-all-thumbnails', { method: 'POST', cookie: adminCookie })
   record('批量重建缩略图（触发）', Boolean(batch.body && batch.body.code === 200 && typeof batch.body.data.total === 'number'), 'total=' + (batch.body ? batch.body.data.total : '?') + ' running=' + (batch.body ? Boolean(batch.body.data.running) : '?'))
   const batchStatus = await api('/api/admin/content/regenerate-all-thumbnails/status', { cookie: adminCookie })
   record('批量任务状态可查询', Boolean(batchStatus.body && ['idle', 'running', 'done', 'error'].includes(batchStatus.body.data.status)), 'status=' + (batchStatus.body ? batchStatus.body.data.status : '?'))
 
-  // ── 时延采样 ──
-  // 三条路径的外部往返次数不同，读数差异主要来自到云 MySQL/Redis 的网络距离：
-  //   列表：命中读穿缓存 = 1 次 Redis 往返
-  //   详情（匿名非 silent）：命中缓存 + 浏览量写库 + 浏览量计数 = 1 次 Redis + 2 次往返
-  //   详情（silent）：按旧语义跳过缓存读，回表组装 = 3 次 MySQL + 1 次缓存写
   const listLatency = await measure('/api/content/list?page_size=20', 30)
   const detailCachedLatency = await measure('/api/content/' + firstId, 30)
   const detailSilentLatency = await measure('/api/content/' + firstId + '?silent=1', 20)
@@ -332,7 +301,6 @@ async function main() {
   record('详情时延（缓存命中）', true, 'p50=' + detailCachedLatency.p50.toFixed(1) + 'ms p95=' + detailCachedLatency.p95.toFixed(1) + 'ms')
   record('详情时延（silent 直查）', true, 'p50=' + detailSilentLatency.p50.toFixed(1) + 'ms p95=' + detailSilentLatency.p95.toFixed(1) + 'ms')
 
-  // ── 删除链路 ──
   const del = await api('/api/content/' + contentId, { method: 'DELETE', cookie: userCookie })
   record('删除内容（物理删除）', del.body && del.body.code === 200)
   const gone = await api('/api/content/' + contentId + '?silent=1')
@@ -361,7 +329,7 @@ async function cleanup() {
     console.log('清理 SQL 失败：' + e.message)
   }
   for (const f of created.files) {
-    try { rmSync(f, { force: true }) } catch { /* 忽略 */ }
+    try { rmSync(f, { force: true }) } catch { }
   }
   const leftover = sql("SELECT (SELECT COUNT(*) FROM users WHERE username IN ('" + USER + "','" + ADMIN + "','__accept_user2__')) AS u, (SELECT COUNT(*) FROM contents WHERE title IN ('验收测试内容','验收游客上传')) AS c")
   console.log(leftover)

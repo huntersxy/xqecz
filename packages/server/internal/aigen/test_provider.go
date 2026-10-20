@@ -6,8 +6,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// The UI explicitly confirms that testing generates one image and can incur
-// upstream charges. It uses the same durable queue; only the site credit fee is waived for admin diagnostics.
 func (s *Service) QueueTest(ctx context.Context, uid, id uint64, site bool, key string) (Task, error) {
 	if len(key) < 16 || len(key) > 80 {
 		return Task{}, ErrInvalid
@@ -20,8 +18,6 @@ func (s *Service) QueueTest(ctx context.Context, uid, id uint64, site bool, key 
 	if err != nil {
 		return Task{}, err
 	}
-	// Provider tests must exercise the same user-controlled automatic mode as
-	// the studio; legacy provider size lists are retained only for API shape.
 	input.Size = "auto"
 	input.ProviderRevision = provider.Revision
 	snap, _, err := s.prepare(ctx, uid, input, prepareOptions{})

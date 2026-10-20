@@ -208,8 +208,6 @@ func (h *Handler) assetMetadata(c *gin.Context) {
 		DownloadAllowed bool   `json:"download_allowed"`
 		Archived        bool   `json:"archived"`
 	}
-	// Metadata errors belong to the asset editor, not the generation/session
-	// validation boundary. Keep the site's HTTP 200 + business-code contract.
 	message := ""
 	switch {
 	case bind(c, &req) != nil:
@@ -247,8 +245,6 @@ func (h *Handler) assetMetadata(c *gin.Context) {
 		fail(c, result.Error)
 		return
 	}
-	// MySQL may report zero affected rows for unchanged metadata; the asset
-	// existence was checked above, so this remains a successful idempotent save.
 	ok(c, nil)
 }
 func (h *Handler) deleteAdminAsset(c *gin.Context) {

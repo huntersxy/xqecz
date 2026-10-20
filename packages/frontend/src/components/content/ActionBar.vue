@@ -15,7 +15,6 @@ const isLiked = ref(false)
 const isFavorited = ref(false)
 const pending = ref(false)
 
-// 切作品后，上一个作品还在路上的响应不能写进新作品的状态
 let seq = 0
 
 async function loadInteractionStatus() {
@@ -29,7 +28,7 @@ async function loadInteractionStatus() {
       isFavorited.value = res.data.favorited
       likeCount.value = res.data.like_count
     }
-  } catch { /* 网络错误时保持默认值 */ }
+  } catch { }
 }
 
 watch(
@@ -77,18 +76,15 @@ async function shareContent() {
       await navigator.clipboard.writeText(url)
       toast.success('链接已复制')
     }
-  } catch { /* 用户取消分享，忽略 */ }
+  } catch { }
 }
 
-// ── 下载 ──
-// origin 是作品文件；兼容旧数据时只回退到视频或非缩略图的图片。
 const originalFile = computed(() => {
   const { origin, video, img, thumb } = props.content
   return origin || video || (img !== thumb ? img : '')
 })
 const downloadUrl = computed(() => withDownloadFlag(getImageUrl(originalFile.value)))
 const isVideo = computed(() => !!props.content.video)
-// 大小直接用详情接口，不为展示元信息额外请求媒体
 const sizeText = computed(() => formatFileSize(props.content.file_size))
 const originExt = computed(() => getUrlExtension(originalFile.value))
 </script>
@@ -146,7 +142,6 @@ const originExt = computed(() => getUrlExtension(originalFile.value))
 .cd-action:disabled { cursor: not-allowed; color: var(--creative-muted); }
 .cd-action:disabled .cd-action-icon { color: color-mix(in srgb, var(--creative-accent) 70%, var(--creative-muted)); }
 
-/* 下载是这页最主要的出口：整行强调色卡片，附文件类型与大小 */
 .cd-download-action {
   display: flex; align-items: center; gap: 12px; padding: 9px 14px 9px 10px; text-decoration: none;
   border: 1px solid color-mix(in srgb, var(--creative-accent) 22%, var(--creative-line)); border-radius: 14px;

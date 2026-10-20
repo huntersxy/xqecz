@@ -88,7 +88,6 @@ function cancelReply() {
   commentText.value = ''
 }
 
-// 二次确认已在 CommentNode 内完成，这里直接删
 async function deleteComment(commentId: number) {
   try {
     const res = await commentApi.delete(commentId)
@@ -121,7 +120,6 @@ defineExpose({ loadComments })
       </nav>
     </div>
 
-    <!-- 评论输入 -->
     <div v-if="isLoggedIn" class="cd-comment-input-wrap">
       <Transition name="cd-reply-state">
         <div v-if="replyTarget" class="cd-reply-hint">
@@ -157,7 +155,6 @@ defineExpose({ loadComments })
       </RouterLink>
     </div>
 
-    <!-- 评论列表 -->
     <div v-if="loading" class="cd-comment-status" role="status"><span class="cd-spin" aria-hidden="true"></span>正在接收信号…</div>
     <div v-else-if="loadError" class="cd-comment-status" role="status">评论加载失败<button type="button" @click="loadComments(currentPage)">重试</button></div>
     <div v-if="comments.length > 0" class="cd-comment-list">

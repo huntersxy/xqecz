@@ -25,13 +25,11 @@ const controller = new AbortController()
 const labels: Record<VisionJob['status'], string> = { pending: '等待生成', running: '生成中', succeeded: '已完成', failed: '失败', cancelled: '人工已修改 / 已删除' }
 const jobStatusType: Record<VisionJob['status'], StatusType> = { pending: 'warning', running: 'info', succeeded: 'success', failed: 'danger', cancelled: 'neutral' }
 
-// 页头状态点：把「生成开关」这一最常被问的状态放到标题旁，省得滚到表单里找复选框
 const enabledState = computed<{ type: StatusType; label: string }>(() => {
   if (!settings.value) return { type: 'neutral', label: '配置载入中' }
   return settings.value.enabled ? { type: 'success', label: '后台生成已启用' } : { type: 'neutral', label: '后台生成已停用' }
 })
 
-// 顶部概览 / 侧栏计数都从同一份队列数据推导，不再单独请求接口
 const jobSuccess = computed(() => jobs.value.filter(job => job.status === 'succeeded').length)
 const jobFailed = computed(() => jobs.value.filter(job => job.status === 'failed').length)
 const staleRefs = computed(() => references.value.filter(ref => ref.needs_description || !ref.description).length)
@@ -71,7 +69,6 @@ function preset() {
   settings.value.disable_thinking = true
   settings.value.token_parameter = 'max_tokens'
 }
-// 「清除 API Key」只做标记，仍由保存动作带 clear_api_key 提交，语义与原来的复选框一致
 function clearApiKey() {
   if (!settings.value) return
   apiKey.value = ''
@@ -114,7 +111,6 @@ onBeforeUnmount(() => controller.abort())
 
     <div v-else class="adm-board vision-board">
       <div class="adm-board-main">
-        <!-- 概览：启用 / 模型 / 参考图 / 最近任务，先回答「现在是什么状态」再看表单 -->
         <div class="adm-stat-grid vision-stats">
           <div class="adm-stat">
             <span class="adm-stat-label">启用状态</span>
@@ -138,7 +134,6 @@ onBeforeUnmount(() => controller.abort())
           </div>
         </div>
 
-        <!-- 卡 1：接口与生成 -->
         <section class="adm-card vision-card" aria-labelledby="vision-api-title">
           <div class="vision-card-head">
             <div class="vision-card-head-text">
@@ -179,7 +174,6 @@ onBeforeUnmount(() => controller.abort())
           </a-form>
         </section>
 
-        <!-- 卡 2：提示词与编目 -->
         <section class="adm-card vision-card" aria-labelledby="vision-prompt-title">
           <div class="vision-card-head">
             <div class="vision-card-head-text">
@@ -203,7 +197,6 @@ onBeforeUnmount(() => controller.abort())
           </a-form>
         </section>
 
-        <!-- 卡 3：参考库（开关 + 子组件缩略图栅格） -->
         <section class="adm-card vision-card">
           <div class="vision-reference-switches">
             <div class="vision-switch-row">
@@ -221,7 +214,6 @@ onBeforeUnmount(() => controller.abort())
           <AdminReferenceLibrary :references="references" :has-key="!!settings.has_api_key" @update="references = $event" />
         </section>
 
-        <!-- 卡 4：任务队列 -->
         <section class="adm-card vision-card" aria-labelledby="vision-jobs-title">
           <div class="vision-card-head">
             <div class="vision-card-head-text">
@@ -295,7 +287,6 @@ onBeforeUnmount(() => controller.abort())
 <style lang="scss" scoped>
 @use './admin' as *;
 
-// 工具条自身有上下留白，外层 .admin-panel-toolbar 也有一层，抵消掉避免双倍
 :deep(.admin-panel-toolbar .admin-data-toolbar) {
   padding: 0;
 }
@@ -308,7 +299,6 @@ onBeforeUnmount(() => controller.abort())
   padding-top: var(--adm-gap-md, 12px);
 }
 
-// 模型 ID / 基址这类长字符串在指标块里单行省略，避免撑破四宫格
 .vision-stat-text {
   display: block;
   overflow: hidden;
@@ -363,7 +353,6 @@ onBeforeUnmount(() => controller.abort())
   @include numeric;
 }
 
-// ── 表单：两列小栅格，标签小号在上、值在下 ──
 .vision-form {
   padding: var(--adm-gap-md, 12px) var(--adm-gap-lg, 16px) var(--adm-gap-lg, 16px);
 
@@ -423,7 +412,6 @@ onBeforeUnmount(() => controller.abort())
   line-height: 1.6;
 }
 
-// ── 参考库开关区 ──
 .vision-reference-switches {
   display: flex;
   flex-direction: column;
@@ -439,7 +427,6 @@ onBeforeUnmount(() => controller.abort())
   line-height: 1.7;
 }
 
-// ── 任务队列：紧凑行（状态点 + 时间 + 缩略位 + 重试）──
 .vision-jobs {
   margin: 0;
   padding: 0;
@@ -463,8 +450,6 @@ onBeforeUnmount(() => controller.abort())
   }
 }
 
-// 任务接口只回作品 ID，没有图片地址；这里保留 3:4 的缩略位
-// 让每行有稳定的视觉锚点，也不会为 30 行任务凭空发 30 个 404 请求。
 .vision-job-thumb {
   display: grid;
   flex: 0 0 auto;
@@ -527,7 +512,6 @@ onBeforeUnmount(() => controller.abort())
   flex: 0 0 auto;
 }
 
-// ── 侧栏 ──
 .vision-side .adm-card-content {
   gap: 10px;
 }
@@ -586,7 +570,6 @@ onBeforeUnmount(() => controller.abort())
   @include focus-ring(2px);
 }
 
-// 保存 / 试连都是几秒级的网络请求，光靠按钮禁用看不出还在跑，补一句明确的进行中文案。
 .vision-busy {
   margin: 0;
   color: var(--adm-muted, var(--admin-text-3));
@@ -621,7 +604,6 @@ onBeforeUnmount(() => controller.abort())
     padding-right: var(--adm-gap-md, 12px);
   }
 
-  // 手机档点击区 ≥ 44px
   .vision-actions-vert :deep(.arco-btn) {
     min-height: var(--adm-touch, 44px);
   }

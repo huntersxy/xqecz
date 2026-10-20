@@ -2,7 +2,6 @@ import { onBeforeUnmount, onDeactivated, ref, shallowRef } from 'vue'
 import { pollApi } from '@/api'
 import { PollListResponseSchema, type Poll } from '@/types/schemas'
 
-/** Homepage and public pagination share request ownership; a departed view cannot replace a newer list. */
 export function usePollList(pageSize: number) {
   const rows = shallowRef<Poll[]>([])
   const total = ref(0)
@@ -13,7 +12,6 @@ export function usePollList(pageSize: number) {
   let pendingPage: number | undefined
 
   async function load(page = 1) {
-    // KeepAlive fires mounted and activated together on its first entry.
     if (loading.value && pendingPage === page && !controller?.signal.aborted) return
     controller?.abort()
     const owner = new AbortController()

@@ -3,7 +3,6 @@ import { contentApi } from '@/api'
 import type { MetadataOptions } from '@/types'
 import { hasAIGCTag, mergeAIGCTag } from '@/utils/contentTags'
 
-// One owner for all upload entrances: switching off restores the untouched manual draft.
 export function useAutoMetadata(file: () => File | undefined) {
   const autoMetadata = ref(false)
   const isAiGenerated = ref(false)

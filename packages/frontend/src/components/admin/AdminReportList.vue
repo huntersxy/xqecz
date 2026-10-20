@@ -12,11 +12,9 @@ import { useConfirm } from '@/composables/useToast'
 
 const admin = useAdminStore()
 
-// 首屏加载才出骨架；刷新保留已有卡片，避免整块内容闪烁
 const showSkeleton = computed(() => admin.reportsLoading && admin.reports.length === 0)
 const reportSummary = computed(() => `共 ${admin.reports.length} 条举报`)
 
-// M8：处理 / 删除后让卡片先淡出 280ms 再刷新；命中 reduced-motion 时直达终态
 const LEAVE_MS = 280
 const leavingIds = ref<number[]>([])
 const timers = new Set<ReturnType<typeof setTimeout>>()
@@ -43,9 +41,7 @@ function scheduleLeave(id: number, refresh: () => unknown) {
         try {
           await refresh()
         } catch {
-          // 失败提示由 store 统一负责，这里只保证卡片能恢复
         } finally {
-          // 刷新成功时卡片已不在列表里；失败时清掉标记，卡片回到可见状态
           leavingIds.value = leavingIds.value.filter(item => item !== id)
         }
       })()
@@ -148,12 +144,10 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped lang="scss">
-// 工具条与表格页保持一致的零内边距
 :deep(.admin-panel-toolbar .admin-data-toolbar) {
   padding: 0;
 }
 
-// 卡片网格与骨架的 16px 内边距对齐
 .report-grid {
   padding: var(--adm-gap-lg, 16px);
 }
@@ -186,7 +180,6 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-// 被举报评论：两行截断，完整文本放在 title 属性里
 .report-quote {
   display: -webkit-box;
   -webkit-box-orient: vertical;

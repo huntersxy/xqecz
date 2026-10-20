@@ -185,7 +185,6 @@ func TestVisionUploadOutboxAndAdminAuthorization(t *testing.T) {
 		}
 		createdID = result.Data.ID
 	}
-	// New task timestamps obey the existing UTC-millisecond wire contract.
 	jobRequest := httptest.NewRequest("GET", "/api/admin/vision/jobs", nil)
 	jobRequest.AddCookie(&http.Cookie{Name: web.SessionCookie, Value: "fixture-admin"})
 	jobResponse := httptest.NewRecorder()
@@ -203,7 +202,6 @@ func TestVisionUploadOutboxAndAdminAuthorization(t *testing.T) {
 			}
 		}
 	}
-	// Editing explicitly revokes the job, even if a later edit restores its placeholder.
 	for _, title := range []string{"人工修改", vision.PlaceholderTitle} {
 		req := multipartRequest(t, fmt.Sprintf("/api/content/%d", createdID), "fixture-author", "", map[string]string{"title": title})
 		req.Method = http.MethodPut
@@ -218,7 +216,6 @@ func TestVisionUploadOutboxAndAdminAuthorization(t *testing.T) {
 			t.Fatal(job)
 		}
 	}
-	// Auto metadata cannot bypass the media contract for text or videos.
 	for _, mime := range []string{"", "video/mp4"} {
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, multipartRequest(t, "/api/content/quick-upload", "", mime, map[string]string{"auto_metadata": "true", "title": "title", "content": "text"}))
@@ -246,7 +243,6 @@ func TestVisionUploadOutboxAndAdminAuthorization(t *testing.T) {
 			t.Fatalf("%s %d", session, w.Code)
 		}
 	}
-	// A failed outbox insert must roll back its content, not leave a silently abandoned placeholder.
 	deps.DB.Migrator().DropTable(&vision.Job{})
 	var before, after int64
 	deps.DB.Model(&store.Content{}).Count(&before)
@@ -258,8 +254,6 @@ func TestVisionUploadOutboxAndAdminAuthorization(t *testing.T) {
 	}
 }
 
-// Opt-in browser fixture exercises real handlers against disposable SQLite and in-memory Redis.
-// It never loads .env or contacts the production databases or a real model provider.
 func TestVisionBrowserFixture(t *testing.T) {
 	address := os.Getenv("XQECZ_VISION_FIXTURE_ADDR")
 	if address == "" {

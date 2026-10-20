@@ -1,4 +1,3 @@
-// Package cli 提供服务端二进制的运维子命令（不依赖 Go 工具链，部署机可直接调用）。
 package cli
 
 import (
@@ -15,8 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// RunAdmin 创建管理员账号或重置其密码。
-// 用法：xqecz-server admin -username admin [-email a@b.com] [-reset]
 func RunAdmin(cfg config.Config, args []string) {
 	fs := flag.NewFlagSet("admin", flag.ExitOnError)
 	username := fs.String("username", "admin", "管理员用户名")

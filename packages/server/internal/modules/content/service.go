@@ -17,7 +17,6 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// 批量缩略图任务的 Redis 键与节奏（与旧实现一致）。
 const (
 	regenLockKey    = "lock:regen-all-thumbs"
 	regenStatusKey  = "task:regen-all-thumbs:status"
@@ -27,7 +26,6 @@ const (
 	regenJobTimeout = 6 * time.Hour
 )
 
-// ListOpts 是列表查询参数（管理端与内部复用）。
 type ListOpts struct {
 	Page          int
 	PageSize      int
@@ -40,7 +38,6 @@ type ListOpts struct {
 	UserID        uint64
 }
 
-// ListPage 执行列表查询（含读穿缓存）。
 func (h *Handler) ListPage(ctx context.Context, o ListOpts) (Page, error) {
 	return h.query(ctx, listOpts{
 		Page: o.Page, PageSize: o.PageSize, Tag: o.Tag,
@@ -49,7 +46,6 @@ func (h *Handler) ListPage(ctx context.Context, o ListOpts) (Page, error) {
 	})
 }
 
-// RowByID 取单行原始记录（不存在时 ok=false）。
 func (h *Handler) RowByID(ctx context.Context, id uint64) (store.Content, bool, error) {
 	var row store.Content
 	err := h.deps.DB.WithContext(ctx).First(&row, id).Error
@@ -62,7 +58,6 @@ func (h *Handler) RowByID(ctx context.Context, id uint64) (store.Content, bool, 
 	return row, true, nil
 }
 
-// DetailInternal 走与公开详情一致的缓存与浏览量计数路径，供管理端审核后返回最新详情。
 func (h *Handler) DetailInternal(ctx context.Context, id uint64) (Item, error) {
 	key := "content:" + strconv.FormatUint(id, 10)
 	var cached Item
@@ -83,7 +78,6 @@ func (h *Handler) DetailInternal(ctx context.Context, id uint64) (Item, error) {
 	return item, nil
 }
 
-// SetAuditStatus 更新审核状态并失效缓存；通过时触发推荐刷新。
 func (h *Handler) SetAuditStatus(ctx context.Context, id uint64, status string) error {
 	if err := h.deps.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var row store.Content
@@ -108,7 +102,6 @@ func (h *Handler) SetAuditStatus(ctx context.Context, id uint64, status string) 
 	return nil
 }
 
-// UpdateAuthor 变更内容作者，返回原作者 id 与新作者用户名。
 func (h *Handler) UpdateAuthor(ctx context.Context, contentID, userID uint64) (uint64, string, error) {
 	db := h.deps.DB.WithContext(ctx)
 	var row store.Content
@@ -128,23 +121,18 @@ func (h *Handler) UpdateAuthor(ctx context.Context, contentID, userID uint64) (u
 	return oldUserID, u.Username, nil
 }
 
-// DecorateOne 把单行内容装饰为对外形状（管理端认领列表等复用）。
 func (h *Handler) DecorateOne(ctx context.Context, row store.Content, includeViewCount bool) Item {
 	return decorate(row, h.userMapFor(ctx, []store.Content{row}), h.likeCount(ctx, row.ID), includeViewCount)
 }
 
-// DecorateMany 批量把内容装饰为对外形状。
-// 管理端仪表盘等需要展示多条内容时应使用此入口，避免逐条查询作者和点赞数。
 func (h *Handler) DecorateMany(ctx context.Context, rows []store.Content, includeViewCount bool) ([]Item, error) {
 	return h.decorateRowsWith(ctx, rows, includeViewCount)
 }
 
-// RefreshRecommend 立即重算推荐位。
 func (h *Handler) RefreshRecommend(ctx context.Context) error {
 	return h.rec.Refresh(ctx)
 }
 
-// RegenerateThumbnail 为单条内容重建缩略图。
 func (h *Handler) RegenerateThumbnail(ctx context.Context, id uint64) (Item, error) {
 	var row store.Content
 	if err := h.deps.DB.WithContext(ctx).First(&row, id).Error; err != nil {
@@ -170,18 +158,12 @@ func (h *Handler) RegenerateThumbnail(ctx context.Context, id uint64) (Item, err
 	return h.DecorateOne(ctx, updated, false), nil
 }
 
-// errNoOriginalFile 表示内容没有原始文件，无法生成缩略图。
 var errNoOriginalFile = errors.New("无原始文件")
 
-// ErrNoOriginalFile 供调用方判定错误类型。
 func ErrNoOriginalFile() error { return errNoOriginalFile }
 
-// thumbSweepLimit 是启动补图单次处理上限，避免历史积压过多时启动期 CPU 风暴。
 const thumbSweepLimit = 200
 
-// SweepMissingThumbnails 为「有原文件但缺缩略图」的内容补图。
-// 旧实现在启动迁移里做同样的事；与批量重建共用同一把 Redis 锁，多实例只有一个执行，
-// 也不会与手工触发的批量任务打架。任何失败只记日志，不影响服务。
 func (h *Handler) SweepMissingThumbnails(ctx context.Context) {
 	if !h.deps.Redis.AcquireLock(ctx, regenLockKey, regenLockTTL) {
 		slog.Info("跳过启动补图：已有缩略图任务在进行")
@@ -200,7 +182,6 @@ func (h *Handler) SweepMissingThumbnails(ctx context.Context) {
 		return
 	}
 	if len(rows) == 0 {
-		// 无待补内容时不产生日志噪音（正常情况下每次启动都会走到这里）。
 		return
 	}
 
@@ -226,13 +207,11 @@ func (h *Handler) SweepMissingThumbnails(ctx context.Context) {
 		ok++
 	}
 	if ok > 0 {
-		// 缩略图嵌入列表卡片，补图后失效列表缓存。
 		h.deps.Redis.ClearContentListCache(ctx)
 	}
 	slog.Info("启动补图完成", "ok", ok, "fail", fail, "scanned", len(rows))
 }
 
-// RegenResult 是批量缩略图接口的即时返回。
 type RegenResult struct {
 	OK      int64 `json:"ok"`
 	Fail    int64 `json:"fail"`
@@ -241,7 +220,6 @@ type RegenResult struct {
 	Running bool  `json:"running,omitempty"`
 }
 
-// RegenStatus 是批量缩略图任务的进度快照。
 type RegenStatus struct {
 	Status     string `json:"status"`
 	Total      int64  `json:"total"`
@@ -253,7 +231,6 @@ type RegenStatus struct {
 	Error      string `json:"error,omitempty"`
 }
 
-// RegenerateAllThumbnails 立即返回、后台异步处理；多实例用 Redis 锁 + 心跳防重。
 func (h *Handler) RegenerateAllThumbnails(ctx context.Context) RegenResult {
 	if !h.deps.Redis.AcquireLock(ctx, regenLockKey, regenLockTTL) {
 		return RegenResult{Running: true}
@@ -288,7 +265,6 @@ func (h *Handler) runRegenerateAll(rows []store.Content, startedAt int64) {
 	ctx, cancel := context.WithTimeout(context.Background(), regenJobTimeout)
 	defer cancel()
 
-	// 心跳续期：长任务不会被其它实例重复触发。
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -341,7 +317,6 @@ func (h *Handler) runRegenerateAll(rows []store.Content, startedAt int64) {
 		Status: "done", Total: int64(len(rows)), OK: ok, Fail: fail,
 		StartedAt: &startedAt, FinishedAt: &finishedAt,
 	})
-	// 缩略图嵌入列表卡片，全部结束后统一失效列表缓存。
 	h.deps.Redis.ClearContentListCache(ctx)
 	slog.Info("批量缩略图完成", "ok", ok, "fail", fail, "total", len(rows))
 }
@@ -350,7 +325,6 @@ func (h *Handler) writeRegenStatus(ctx context.Context, st RegenStatus) {
 	_ = h.deps.Redis.SetJSON(ctx, regenStatusKey, st, regenStatusTTL)
 }
 
-// RegenerateAllStatus 返回批量缩略图任务进度（无任务时为 idle）。
 func (h *Handler) RegenerateAllStatus(ctx context.Context) RegenStatus {
 	var st RegenStatus
 	if hit, _ := h.deps.Redis.GetJSON(ctx, regenStatusKey, &st); hit && st.Status != "" {
@@ -359,13 +333,10 @@ func (h *Handler) RegenerateAllStatus(ctx context.Context) RegenStatus {
 	return RegenStatus{Status: "idle"}
 }
 
-// absUploadPath 把相对路径还原为共享上传目录下的绝对路径。
 func (h *Handler) absUploadPath(rel string) string {
 	return filepath.Join(h.deps.Cfg.UploadDir, filepath.FromSlash(rel))
 }
 
-// absMediaPath 按前缀还原媒体文件的绝对路径：
-// thumbs/ 与 images/ 各自对应独立目录，其余（裸文件名）落在 uploads。
 func (h *Handler) absMediaPath(rel string) string {
 	switch {
 	case strings.HasPrefix(rel, "thumbs/"):

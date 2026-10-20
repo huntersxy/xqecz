@@ -1,15 +1,8 @@
 <script setup lang="ts">
-// 加载骨架（M11）：用静态占位 + 一道扫光，替代会让整块内容空转的 spin。
-// §8.3 只允许 M10/M11 无限循环，所以这里显式提供暂停能力：页面不可见时停、回来再继续；
-// 命中 prefers-reduced-motion 时直接不起动画（样式里处理，JS 不参与）。
 interface Props {
-  /** rows：表格 / 列表的行骨架；cards：卡片（含手机卡片列表）骨架 */
   variant?: 'rows' | 'cards'
-  /** 占位行 / 卡片数量 */
   rows?: number
-  /** rows 模式每行的占位单元格数量 */
   columns?: number
-  /** 读屏播报文案 */
   label?: string
 }
 
@@ -20,7 +13,6 @@ const props = withDefaults(defineProps<Props>(), {
   label: '正在加载',
 })
 
-// 骨架只是占位，行数与列数收个上限，避免调用方传大数字把页面撑爆
 const rowCount = computed(() => Math.min(20, Math.max(1, props.rows)))
 const colCount = computed(() => Math.min(8, Math.max(1, props.columns)))
 
@@ -37,7 +29,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => document.removeEventListener('visibilitychange', syncPaused))
 
-// 宽度按固定序列错开，避免每行等长产生「栅栏感」；用下标取模保证每次渲染完全一致
 const widths = ['46%', '72%', '58%', '34%', '64%', '42%', '56%', '38%']
 
 function cellWidth(row: number, col: number) {
@@ -147,8 +138,6 @@ function cellWidth(row: number, col: number) {
   }
 }
 
-// 扫光：一条高光带用 transform 扫过整行，只动 transform（§8.1 第 2 条），
-// 不用 background-position 动画，避免每帧重绘。
 .admin-skeleton-row,
 .admin-skeleton-card {
   position: relative;

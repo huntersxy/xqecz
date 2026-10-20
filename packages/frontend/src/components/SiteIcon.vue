@@ -1,8 +1,4 @@
 <script setup lang="ts">
-/**
- * 站点通用内联图标（24×24 描边），不依赖任何组件库。
- * 颜色跟随 currentColor，尺寸默认 1em，调用方用 font-size 或 width/height 调整。
- */
 export type SiteIconName =
   | 'menu' | 'close' | 'sun' | 'moon' | 'plus' | 'bulb' | 'users' | 'chart'
   | 'upload' | 'user' | 'refresh' | 'image' | 'image-broken' | 'arrow-right'

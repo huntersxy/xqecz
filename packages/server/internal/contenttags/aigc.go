@@ -1,4 +1,3 @@
-// Package contenttags owns user-declared content tag markers shared by upload and generated metadata.
 package contenttags
 
 import (
@@ -21,7 +20,6 @@ func HasAIGC(tags []string) bool {
 	return false
 }
 
-// WithAIGC preserves manual tags and canonicalizes the marker once. Unchecking does not erase a manually supplied marker.
 func WithAIGC(tags []string, declared bool) []string {
 	out := make([]string, 0, len(tags)+1)
 	seen := false
@@ -41,7 +39,6 @@ func WithAIGC(tags []string, declared bool) []string {
 	return out
 }
 
-// MergeGenerated treats AIGC as a user declaration, never a model inference. The marker is outside the generated tag limit.
 func MergeGenerated(generated, declared []string) []string {
 	out := make([]string, 0, len(generated)+1)
 	for _, tag := range generated {

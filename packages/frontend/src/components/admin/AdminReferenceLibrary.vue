@@ -14,7 +14,6 @@ const busy = ref(false), error = ref(''), name = ref(''), file = ref<File>()
 const uploadInput = ref<HTMLInputElement>()
 const previews = ref<Record<string, string>>({})
 const drafts = ref<Record<string, { name: string; description: string }>>({})
-// 编辑区默认聚焦第一张参照图；点缩略图下的角色名切换，不改变任何接口语义。
 const selectedName = ref('')
 const viewing = ref<VisionReference>()
 let previewGeneration = 0
@@ -63,7 +62,7 @@ async function describeMissing() {
     for (const ref of props.references.filter(r => r.needs_description || !r.description)) {
       if (controller.signal.aborted) return
       data(await adminApi.describeVisionReference(ref, controller.signal))
-      await refresh() // Persist and show each successful conversion even if a later role fails.
+      await refresh()
     }
   })
 }
@@ -88,7 +87,7 @@ watch(() => props.references, async refs => {
       const blob = await adminApi.visionReferenceImage(r.name, controller.signal)
       if (controller.signal.aborted || generation !== previewGeneration) return
       previews.value[r.name] = URL.createObjectURL(blob)
-    } catch { /* Private previews are optional; the editable reference remains available. */ }
+    } catch { }
   }))
 }, { immediate: true })
 onMounted(() => document.addEventListener('keydown', onKeydown))
@@ -203,7 +202,6 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <!-- 大图预览：teleport 到 body，避开卡片 overflow 裁剪；令牌挂在 body 上所以配色仍然生效 -->
     <Teleport to="body">
       <div v-if="viewing" class="reference-viewer" role="dialog" aria-modal="true" :aria-label="viewing.name + '角色设定图预览'">
         <button type="button" class="reference-viewer-backdrop" aria-label="关闭预览" @click="closePreview" />
@@ -225,8 +223,6 @@ onBeforeUnmount(() => {
 <style lang="scss" scoped>
 @use './admin' as *;
 
-// 本组件嵌在「视觉模型」页的参考库卡片里，外框与底色由外层 .adm-card 提供，
-// 这里只负责缩略图栅格、悬浮工具与编辑区，不再自带一层边框。
 .reference-library {
   display: flex;
   flex-direction: column;
@@ -297,7 +293,6 @@ onBeforeUnmount(() => {
   line-height: 1.7;
 }
 
-// ── 缩略图栅格：统一 120px 起排、3:4 画框 ──
 .reference-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -354,7 +349,6 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 
-// 悬浮工具：默认淡出，hover / 键盘 focus 时浮出；触屏在窄屏下常显（媒体查询里放开）
 .reference-tools {
   position: absolute;
   right: 6px;
@@ -401,7 +395,6 @@ onBeforeUnmount(() => {
 
   &.is-danger { color: var(--adm-danger, var(--admin-danger)); }
 
-  // 原生 file input 铺满整个胶囊，点「替换」任意位置都能选图
   input[type='file'] {
     position: absolute;
     inset: 0;
@@ -489,7 +482,6 @@ onBeforeUnmount(() => {
   @include numeric;
 }
 
-// ── 选中参照图的编辑区 ──
 .reference-editor {
   display: flex;
   flex-direction: column;
@@ -550,7 +542,6 @@ onBeforeUnmount(() => {
   gap: var(--adm-gap-sm, 8px);
 }
 
-// ── 大图预览（teleport 到 body）──
 .reference-viewer {
   position: fixed;
   inset: 0;
@@ -617,7 +608,6 @@ onBeforeUnmount(() => {
   .reference-uploader { align-items: stretch; flex-direction: column; }
   .reference-uploader :deep(.arco-input-wrapper) { max-width: none; }
 
-  // 触屏没有 hover：工具常显，且点击区补到 44px
   .reference-tools {
     opacity: 1;
     transform: none;

@@ -157,8 +157,6 @@ func TestNetworkBoundary(t *testing.T) {
 	client.CloseIdleConnections()
 }
 
-// Opt-in live validation uses the explicitly supplied provider and real key.
-// No credentials enter source, logs, or the production database.
 func TestLiveProvider(t *testing.T) {
 	key := os.Getenv("XQECZ_AI_LIVE_KEY")
 	if key == "" {

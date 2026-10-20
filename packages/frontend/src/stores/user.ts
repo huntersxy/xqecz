@@ -57,14 +57,11 @@ export const useUserStore = defineStore('user', () => {
         loginDay = today()
       }
     } catch {
-      // API 调用失败时保持当前状态不变
     } finally {
       isLoading.value = false
     }
   }
 
-  // Returning to an already logged-in tab on another day counts as logging in.
-  // The server owns the actual date, cap and once-only grant.
   function refreshDailyLogin() {
     if (isLoggedIn.value && loginDay !== today()) return checkAuth()
   }

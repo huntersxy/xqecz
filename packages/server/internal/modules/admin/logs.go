@@ -23,9 +23,6 @@ type logEntryResponse struct {
 	Line    string   `json:"line"`
 }
 
-// logs exposes only the bounded in-memory diagnostic stream. It deliberately
-// has no file or database fallback: a missing buffer means this process was
-// started without the optional viewer, and the endpoint returns an empty set.
 func (h *Handler) logs(c *gin.Context) {
 	limit := atoiDefault(c.Query("limit"), defaultLogLimit)
 	if limit < 1 {

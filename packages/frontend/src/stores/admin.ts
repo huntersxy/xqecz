@@ -85,7 +85,6 @@ const apiDeleteComment = (commentId: number) =>
 const apiRegenerateThumbnail = (id: number) =>
   runAdmin(() => adminApi.regenerateThumbnail(id), '封面更新成功', '封面更新失败')
 
-// 批量缩略图后台任务轮询句柄（模块级，避免重复启动轮询）。
 let regenStatusTimer: ReturnType<typeof setTimeout> | undefined
 
 async function apiRegenerateAllThumbnails() {
@@ -103,7 +102,6 @@ async function apiRegenerateAllThumbnails() {
   } catch (e: unknown) { toast.error((e as Error).message || '操作失败') }
 }
 
-// 后台任务收尾：每 2s 轮询一次状态，完成后 toast 最终结果；最多轮询 10 分钟自动停止。
 function pollRegenerateAllStatus() {
   if (regenStatusTimer) return
   let polls = 0
@@ -121,7 +119,7 @@ function pollRegenerateAllStatus() {
         toast.error(st.error || '批量缩略图后台任务异常')
         return
       }
-    } catch { /* 网络抖动忽略，继续轮询 */ }
+    } catch { }
     regenStatusTimer = setTimeout(check, 2000)
   }
   regenStatusTimer = setTimeout(check, 2000)
@@ -152,7 +150,6 @@ export const useAdminStore = defineStore('admin', () => {
   const uploadProgress = ref(0)
   const uploading = ref(false)
 
-  // 侧边导航待办角标：独立于各列表分页状态，不随筛选/翻页漂移
   const pendingCounts = reactive({ content: 0, claims: 0, reports: 0 })
 
   async function loadPendingCounts() {
@@ -165,7 +162,7 @@ export const useAdminStore = defineStore('admin', () => {
       pendingCounts.content = c.data.total
       pendingCounts.claims = cl.data.total
       pendingCounts.reports = r.data.filter((x) => !x.handled).length
-    } catch { /* 角标加载失败静默降级 */ }
+    } catch { }
   }
 
   async function loadTags() {
@@ -253,7 +250,6 @@ export const useAdminStore = defineStore('admin', () => {
     if (createPollForm.value.options.length > 2) createPollForm.value.options.splice(i, 1)
   }
 
-  // 内容统一模型：内容 = 标题 + 正文 + 可选媒体文件，不再有类型分类。
   async function uploadContent(data: {
     title: string; content?: string; tags: string[]; file?: File; userId: number; auto_metadata?: boolean; is_ai_generated?: boolean
   }): Promise<boolean> {

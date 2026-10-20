@@ -1,11 +1,3 @@
-// WP2：/admin 侧栏导航、站点壳与路由接线的行为测试。
-// 前两个 describe 是波次 0 骨架里 9 条 it.todo 的实体化；后面补 AdminView 的
-// URL 契约（深链 / 刷新 / 返回键 / 越权）与 App.vue 的稳定 key。
-//
-// 关于「实例不重建」：直接 mount(AdminView) 时它不在 RouterView 里，query 变化本来
-// 就不会重挂载，所以组件层测试只能证明「切换页签没有在 AdminView 内部重建导航」；
-// App.vue 那条 :key 是否真的稳定，必须挂真实 App + RouterView 才能测出来
-// （见最后一个 describe，用 onMounted 计数的探针组件覆盖）。
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
@@ -25,7 +17,6 @@ import type { User } from '@/types'
 type NavItem = { key: string; title: string; icon: Component; badge?: number }
 type NavGroup = { label: string; items: NavItem[] }
 
-// ── 外部依赖：只拦网络与确认弹窗，其余用真实实现 ─────────────────────────────
 vi.mock('@/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api')>()
   const page = async () => ({ data: { list: [], total: 0, page: 1, page_size: 1, total_page: 1 } })
@@ -37,13 +28,11 @@ vi.mock('@/api', async (importOriginal) => {
   }
 })
 
-// stores/admin.ts 在模块顶层执行 useConfirm()，必须给全 toast / useConfirm 两个导出。
 vi.mock('@/composables/useToast', () => ({
   toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
   useConfirm: () => ({ pendingConfirm: ref(null), confirm: vi.fn(async () => true), respond: vi.fn() }),
 }))
 
-// ── 页签内容用轻量桩替换：本文件只关心导航 / URL / 挂载次数 ──────────────────
 const stubPage = (name: string, marker: string) =>
   defineComponent({
     name,
@@ -54,7 +43,6 @@ const stubPage = (name: string, marker: string) =>
 
 const AdminViewStubs = {
   AdminDashboard: stubPage('AdminDashboard', 'dashboard'),
-  // mode 区分 my / pending / all 三个复用 AdminContentList 的页签
   AdminContentList: defineComponent({
     name: 'AdminContentList',
     props: ['mode'],
@@ -62,7 +50,6 @@ const AdminViewStubs = {
       return () => h('div', { 'data-stub': 'content', 'data-mode': props.mode })
     },
   }),
-  // 审核与认领合并页：内部两个列表已由各自组件承担，这里只验证页签能渲染
   AdminReviewPanel: stubPage('AdminReviewPanel', 'review'),
   AdminUploadPanel: stubPage('AdminUploadPanel', 'upload'),
   AdminUserTable: stubPage('AdminUserTable', 'users'),
@@ -75,11 +62,9 @@ const AdminViewStubs = {
   AdminApiKeys: stubPage('AdminApiKeys', 'api-keys'),
   AdminApiDocs: stubPage('AdminApiDocs', 'api-docs'),
   AdminContentDrawer: stubPage('AdminContentDrawer', 'drawer'),
-  // 不桩掉 Transition 的话，mode="out-in" 的离场时机依赖样式计算，jsdom 下不可靠。
   transition: true,
 }
 
-// ── fixture ────────────────────────────────────────────────────────────────
 const icon: Component = () => h('i', { 'data-test-icon': 'true' })
 
 function fixtureGroups(): NavGroup[] {
@@ -106,7 +91,6 @@ function fixtureGroups(): NavGroup[] {
 const adminUser = { id: 1, username: 'root', email: 'root@example.com', is_admin: true } as unknown as User
 const normalUser = { id: 2, username: 'reader', email: 'reader@example.com', is_admin: false } as unknown as User
 
-// ── 通用挂载 / 清理 ─────────────────────────────────────────────────────────
 const mountedWrappers: VueWrapper[] = []
 
 function track<T extends VueWrapper>(wrapper: T): T {
@@ -245,7 +229,6 @@ beforeEach(() => {
     removeListener: vi.fn(),
     dispatchEvent: vi.fn(),
   }))
-  // App.vue 的离场钩子会调用它；jsdom 的 scrollTo 只打一条 not-implemented 噪声。
   Object.defineProperty(window, 'scrollTo', { value: vi.fn(), writable: true, configurable: true })
 })
 
@@ -254,7 +237,6 @@ afterEach(() => {
     try {
       wrapper.unmount()
     } catch {
-      // 已经手动卸载过，忽略重复卸载。
     }
   }
   document.body.innerHTML = ''
@@ -270,7 +252,6 @@ describe('AdminNav 后台导航', () => {
 
       expect(navGroupLabels()).toEqual(['总览', '内容', '管理', '系统'])
 
-      // 逐个点击并按事件顺序收集 key：既验证分组顺序，也验证每个 item 的 key 没有串位。
       const nav = wrapper.findComponent(AdminNav)
       const clickedKeys: string[] = []
       for (const button of navItemButtons()) {
@@ -368,7 +349,6 @@ describe('AdminNav 后台导航', () => {
       expect(groupToggle('管理').classList.contains('is-collapsed')).toBe(true)
       expect(groupBody('管理').classList.contains('is-collapsed')).toBe(true)
 
-      // 重新挂载（≈ 刷新页面）：折叠状态从 localStorage 读回。
       first.unmount()
       mountNav({ active: 'dashboard' })
       await settle()
@@ -391,7 +371,6 @@ describe('AdminNav 后台导航', () => {
         expect(groupToggle(label).getAttribute('aria-expanded')).toBe('true')
       }
 
-      // 写回失败不应把异常抛给调用方，当前会话内的折叠仍然生效。
       await clickGroupToggle('管理')
       expect(groupToggle('管理').getAttribute('aria-expanded')).toBe('false')
       expect(getItem).toHaveBeenCalled()
@@ -432,7 +411,6 @@ describe('AdminNav 后台导航', () => {
       await settle()
 
       expect(document.querySelector('#public-shell-workspace .admin-nav')).not.toBeNull()
-      // Teleport 之后内容不在原组件的 DOM 子树里，这是「槽内渲染」而非「页面内渲染」的证据。
       expect(wrapper.find('.admin-nav').exists()).toBe(false)
     })
   })
@@ -446,7 +424,6 @@ describe('AdminView 页签与 URL 契约', () => {
     expect(first.wrapper.find('[data-stub="users"]').exists()).toBe(true)
     expect(navItemByTitle('用户管理').getAttribute('aria-current')).toBe('page')
 
-    // 刷新 ≈ 卸载后带着同一个 URL 重新创建 pinia + router + 组件。
     first.wrapper.unmount()
     const second = await mountAdminView('/admin?tab=users')
     expect(second.store.activeTab).toBe('users')
@@ -505,8 +482,6 @@ describe('AdminView 页签与 URL 契约', () => {
     expect(navRoot()).toBe(navNodeBefore)
     expect(contentApi.getTags).toHaveBeenCalledTimes(1)
 
-    // 注意：这里 AdminView 是直接 mount 的，没有经过 App.vue 的 RouterView，
-    // query 变化本来就不会换实例。整壳 key 的稳定性由下面的 App 测试负责。
   })
 })
 
@@ -563,7 +538,6 @@ describe('App.vue 的 /admin 稳定 key', () => {
     expect(probeMounts.admin).toBe(1)
     expect(document.querySelector('[data-probe="admin"]')).not.toBeNull()
 
-    // 关键回归：?tab= 变化不再让整壳（AdminView / AdminNav）重挂载。
     await router.push('/admin?tab=users')
     await settle()
     expect(probeMounts.admin).toBe(1)
@@ -576,7 +550,6 @@ describe('App.vue 的 /admin 稳定 key', () => {
     await settle()
     expect(probeMounts.admin).toBe(1)
 
-    // 非 /admin 路由仍以 route.fullPath 为 key：同 path 不同 query 照旧重建。
     await router.push('/plain?page=1')
     await settle()
     expect(probeMounts.plain).toBe(1)

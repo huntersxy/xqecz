@@ -4,8 +4,6 @@ import (
 	"testing"
 )
 
-// chainFixture 造一条双目标链（装配顺序 R2 在前、OpenList 在后），各用一个假存储，
-// 便于分别断言谁被推送了。顺序只影响 Setups 的排列，不代表优先级。
 func chainFixture(t *testing.T) (*Chain, *fakeStore, *fakeStore) {
 	t.Helper()
 	primaryStore, secondaryStore := newFakeStore(), newFakeStore()
@@ -29,11 +27,6 @@ func TestChainR2URLAlwaysPrimary(t *testing.T) {
 	}
 }
 
-// TestChainOpenListURLWhenConfigured OpenList 那一级配了公开域名就该下发地址。
-// 这里同时锁住两点：① 地址是 `PublicBase + "/" + key` 的形态——PublicBase 带 `/d`
-// 是实例的免签直链前缀，少了它 OpenList 只会回 SPA 首页 HTML；
-// ② 地址**不带任何签名参数**——七牛时代的时间戳防盗链已随之下线，
-// OpenList 的直链靠服务端 sign_all=false 免签开放。
 func TestChainOpenListURLWhenConfigured(t *testing.T) {
 	c, _, _ := chainFixture(t)
 	got := c.OpenListURL("a.webp")
@@ -45,8 +38,6 @@ func TestChainOpenListURLWhenConfigured(t *testing.T) {
 	}
 }
 
-// TestChainOpenListURLWithoutPublicBase 只配了连接参数、没配公开域名时
-// 这一级不给候选——前端因此直接落到 R2，不会被引到一个不存在的地址上。
 func TestChainOpenListURLWithoutPublicBase(t *testing.T) {
 	c, _, _ := chainFixture(t)
 	c.secondary.cfg.PublicBase = ""
@@ -55,7 +46,6 @@ func TestChainOpenListURLWithoutPublicBase(t *testing.T) {
 	}
 }
 
-// TestChainOpenListURLDisabledWhenUnconfigured 凭据不全（未配 token）时该级停用。
 func TestChainOpenListURLDisabledWhenUnconfigured(t *testing.T) {
 	c, _, _ := chainFixture(t)
 	c.secondary.cfg.Token = ""
@@ -71,7 +61,6 @@ func TestChainSetupsFiltersDisabledTargets(t *testing.T) {
 		t.Fatalf("两个目标都启用时应回 2 个，实际 %d", len(c.Setups()))
 	}
 
-	// 只配 R2：第二级用空 Target 构造（Enabled()==false）
 	only := NewChain(newWithStoreTarget(Target{
 		Name: "r2", Driver: DriverR2, Endpoint: "https://r2.example", AccessKey: "a",
 		SecretKey: "b", Bucket: "b",
@@ -96,7 +85,6 @@ func TestChainDisabledIsSafe(t *testing.T) {
 	}
 }
 
-// TestChainBothTargetsPushed 推送侧不分主次：两个目标都该收到。
 func TestChainBothTargetsPushed(t *testing.T) {
 	dir := t.TempDir()
 	abs := writeFile(t, dir, "x.webp", []byte("bytes"))
@@ -105,13 +93,11 @@ func TestChainBothTargetsPushed(t *testing.T) {
 	c.PushAsync("x.webp", abs)
 	c.ArchiveOriginalAsync("x.webp", abs)
 
-	// PushAsync 起 goroutine，等两个目标都收到为止（有超时保护）。
 	waitFor(t, func() bool {
 		return primaryStore.putCount() > 0 && secondaryStore.putCount() > 0
 	}, "两个目标都应收到推送")
 }
 
-// TestChainSecondaryAbsentIsFine 第二级停用时 push 不应 panic，R2 照常收到。
 func TestChainSecondaryAbsentIsFine(t *testing.T) {
 	dir := t.TempDir()
 	abs := writeFile(t, dir, "y.webp", []byte("bytes"))

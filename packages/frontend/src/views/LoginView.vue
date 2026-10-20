@@ -8,8 +8,6 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
-// 路由守卫会把触发登录的页面放进 ?redirect=；登录后要回到那里，
-// 例如从顶栏「工作台」进入时直接回到 /studio。只接受站内绝对路径。
 function nextPath() {
   const redirect = route.query.redirect
   return typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
@@ -23,7 +21,6 @@ const email = ref('')
 const password = ref('')
 const isLoading = ref(false)
 
-// 缺邮箱弹窗
 const showEmailModal = ref(false)
 const newEmail = ref('')
 const emailModalError = ref('')
@@ -160,7 +157,6 @@ function switchMode() {
 .auth-kicker > span, .auth-card-kicker > span { margin-left: 8px; color: var(--creative-accent); }
 .auth-story h1 { margin: 22px 0 18px; font-size: clamp(28px, 3.2vw, 39px); line-height: 1.6; letter-spacing: .025em; font-family: var(--creative-title-font); font-weight: 600; color: var(--creative-ink); }
 .auth-story h1 i, .auth-card h2 i { color: var(--creative-accent); font-style: normal; }
-/* 标题按行组织：三行各自 nowrap，字号跟随故事栏宽度，避免在“宇宙”中间断行。 */
 .auth-story h1 > span { display: block; white-space: nowrap; }
 .auth-story > p { font-size: 13px; color: var(--creative-muted); line-height: 2; }
 .auth-art { position: relative; height: 240px; margin: 30px 0 22px; max-width: 360px; }
@@ -230,8 +226,6 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .auth-copy-enter-from { opacity: 0; transform: translateY(4px); }
 .auth-copy-leave-to { opacity: 0; transform: translateY(-4px); }
 
-/* The auth route follows the gallery's quiet editorial surface: one paper panel,
-   a warm canvas, and a restrained accent leave the form as the primary action. */
 .auth-gallery-page {
   min-height: 100%;
   padding: clamp(36px, 7vw, 84px) clamp(20px, 6vw, 84px) 96px;
@@ -246,7 +240,6 @@ button:disabled { cursor: not-allowed; opacity: .6; }
   align-items: end;
 }
 .auth-gallery-page .auth-story {
-  /* 故事栏宽度由外层栅格决定，标题字号必须跟它走而不是跟视口走。 */
   container-type: inline-size;
   padding-bottom: 12px;
 }
@@ -324,8 +317,6 @@ button:disabled { cursor: not-allowed; opacity: .6; }
   margin-top: 10px;
   letter-spacing: .04em;
 }
-/* 侧栏占掉 280px 后，两栏在笔记本宽度已经把故事栏挤到放不下标题；
-   在 1280 以下改成单栏，故事在上、表单在下。 */
 @media (max-width: 1280px) {
   .auth-gallery-page {
     padding-top: 34px;
@@ -338,7 +329,6 @@ button:disabled { cursor: not-allowed; opacity: .6; }
   .auth-gallery-page .auth-story h1 {
     font-size: clamp(30px, 10cqi, 44px);
   }
-  /* 单栏时装饰卡片在表单上方只会把表单推到首屏之外，收起来。 */
   .auth-gallery-page .auth-art {
     display: none;
   }

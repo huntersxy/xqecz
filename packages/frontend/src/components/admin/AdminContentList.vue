@@ -1,6 +1,4 @@
 <script setup lang="ts">
-// 后台「内容」页签（我的内容 / 所有内容 / 待审核内容）：卡片流呈现。
-// 数据加载、审核、删除、抽屉、分页与旧 AdminContentTable 逐条一致，只把表格换成卡片网格（§6.4）。
 import { useUserStore } from '@/stores/user'
 import { useAdminStore } from '@/stores/admin'
 import MediaImage from '@/components/MediaImage.vue'
@@ -23,7 +21,6 @@ const userStore = useUserStore()
 const admin = useAdminStore()
 const isMobile = useMediaQuery('(max-width: 768px)')
 
-// M8：卡片退场 280ms 后再刷新，延迟逻辑写在组件内，不改 store。
 const LEAVE_MS = 280
 const leavingIds = ref<number[]>([])
 const timers = new Set<ReturnType<typeof setTimeout>>()
@@ -36,7 +33,6 @@ const panelTitle = computed(() =>
   props.mode === 'my' ? '我的内容' : props.mode === 'pending' ? '待审核内容' : '所有内容',
 )
 
-// 页头说明只讲这一页做什么；计数放到工具区，避免两处重复（§10 骨架）。
 const panelDesc = computed(() => {
   if (props.mode === 'my') return '你发布的内容与审核状态，可编辑或删除'
   if (props.mode === 'pending') return '待审核内容，通过或拒绝后自动移出列表'
@@ -64,7 +60,6 @@ function auditType(status?: Content['audit_status']) {
 }
 const auditLabel: Record<string, string> = { approved: '已通过', pending: '审核中', rejected: '已拒绝' }
 
-// 卡片徽标只在有审核状态时渲染，v-if 之外再兜一层，模板里不必处理 undefined 索引。
 function auditText(status?: Content['audit_status']) {
   return status ? auditLabel[status] ?? '' : ''
 }
@@ -92,7 +87,6 @@ function refresh() {
   void load(data.value.page)
 }
 
-// 退场后刷新：刷新结束（成功或失败）都清掉标记——成功时卡片已消失，失败时卡片恢复原样。
 function scheduleLeave(id: number, page: number) {
   if (disposed) return
   if (prefersReducedMotion()) {
@@ -122,8 +116,6 @@ function onPageChange(current: number) {
   void load(current)
 }
 
-// 整卡点击开抽屉；键盘 Enter / 空格等价（§7.5）。
-// 卡片底部的按钮冒泡上来的回车不再开抽屉，否则一次回车会既审核又开抽屉。
 function onCardKey(event: KeyboardEvent, record: Content) {
   if (event.key !== 'Enter' && event.key !== ' ') return
   const target = event.target as HTMLElement | null
@@ -308,26 +300,20 @@ onBeforeUnmount(() => {
 <style lang="scss" scoped>
 @use './admin' as *;
 
-// 卡片网格、卡片本体、状态徽标、媒体区、卡片操作行都由 AdminPanel.vue 的全局块统一定义
-// （.adm-card*），这里只补本页特有的间距、按钮尺寸与媒体填充，避免同一套卡片样式各页签各编译一份。
 .content-list {
   padding: var(--adm-gap-lg, 16px) var(--adm-gap-xl, 24px);
 }
 
-// 整卡可点击：指针反馈与键盘焦点环（§7.5）。布局仍完全取自全局 .adm-card。
 .content-list .adm-card {
   cursor: pointer;
 
   @include focus-ring(1px);
 }
 
-// 手机卡片更窄时操作行允许换行，避免按钮被卡片裁切。
 .content-list .adm-card-actions {
   flex-wrap: wrap;
 }
 
-// MediaImage 渲染成 a-image（外层 .arco-image + 内层 img），全局 .adm-card-media > img 命不中，
-// 这里把图片铺满 4:3 媒体区；媒体区尺寸与占位风格仍由全局样式决定。
 .adm-media-img {
   display: block;
   width: 100%;
@@ -354,8 +340,6 @@ onBeforeUnmount(() => {
   max-width: 100%;
 }
 
-// 卡片底部操作：桌面 36px、手机 44px（--adm-touch 已在 768 断点切换）；
-// 字号取 13px 而不是 Arco small 的 12px，保证可读性（§6.2）。
 .arco-btn.content-action {
   height: var(--adm-touch, 36px);
   padding: 0 var(--adm-gap-md, 12px);
@@ -382,7 +366,6 @@ onBeforeUnmount(() => {
     padding: var(--adm-gap-md, 12px);
   }
 
-  // 两列卡片时 44px 触控目标放不进一行：通过 / 拒绝仍并排，更多操作换到第二行右对齐。
   .arco-btn.content-action {
     padding: 0 10px;
   }

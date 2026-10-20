@@ -38,8 +38,6 @@ export interface AuditRequest {
   remark?: string
 }
 
-// 内容统一模型：上传不再有类型概念，内容 = 标题 + 正文 + 可选媒体文件。
-// 描述字段统一用 `content`（对应后端 contents.content / DB column）。
 export interface UploadContentData {
   title: string
   content?: string
@@ -50,7 +48,6 @@ export interface UploadContentData {
   is_ai_generated?: boolean
 }
 
-// 游客快速上传：title 必填；text（content）与 file 至少一个（前端校验，后端兜底）。
 export interface QuickUploadData {
   title: string
   nickname: string
@@ -106,8 +103,6 @@ export interface CreatePollData {
   options: string[]
 }
 
-// ── API Key 类型 ──
-
 export interface ApiKey {
   id: number
   name: string
@@ -119,7 +114,7 @@ export interface ApiKey {
 }
 
 export interface ApiKeyCreated extends ApiKey {
-  key: string // 完整 key，仅创建时返回一次
+  key: string
 }
 
 export interface CreateApiKeyData {
@@ -132,8 +127,6 @@ export interface UpdateApiKeyData {
   permissions?: string[]
   is_active?: boolean
 }
-
-// ── API 响应类型（契约单一来源，前端不再内联匿名结构）──
 
 export interface CommentListResponse {
   list: Comment[]
@@ -182,13 +175,11 @@ export interface ClaimListResponse {
   total_page: number
 }
 
-// 管理端运行日志：服务端只返回已经格式化且脱敏的记录，前端不暴露环境变量、请求头或凭据。
 export type AdminLogLevel = 'debug' | 'info' | 'warn' | 'error'
 
 export interface AdminLogEntry {
   id?: string | number
   time: string
-  // API 兼容 slog 大写级别与前端约定的小写级别；展示层会统一归一化。
   level: AdminLogLevel | Uppercase<AdminLogLevel>
   message: string
   line?: string
@@ -201,8 +192,6 @@ export interface AdminLogsResponse {
   truncated?: boolean
   server_time?: string
 }
-
-// ── 仪表盘统计 ──
 
 interface DashboardContentStats {
   total: number

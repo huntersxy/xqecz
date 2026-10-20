@@ -1,4 +1,3 @@
-// Read-only contract checks against an isolated backend; no settings or content mutations.
 import { describe, expect, it } from 'vitest'
 import { MetadataOptionsSchema, VisionSettingsSchema, VisionJobSchema, VisionReferenceSchema } from '@/types/schemas'
 import { ContentSchema } from '@/types'

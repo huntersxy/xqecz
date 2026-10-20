@@ -24,7 +24,6 @@ type Reference struct {
 	NeedsDescription bool   `json:"needs_description"`
 }
 
-// ImportReferences creates JPEG copies. The source set is never rewritten or deleted.
 func ImportReferences(ctx context.Context, source, dest string) ([]Reference, error) {
 	entries, err := os.ReadDir(source)
 	if err != nil {

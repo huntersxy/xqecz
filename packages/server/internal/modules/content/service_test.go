@@ -13,8 +13,6 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// 公开列表卡片展示眼睛图标与浏览量，接口必须把 view_count 带出去；
-// 这是测试"默认装饰不含 view_count"之外的另一条口径。
 func TestPublicListIncludesViewCount(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	if err != nil {

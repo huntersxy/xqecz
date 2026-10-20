@@ -35,8 +35,6 @@ let gesture:
 let frame = 0,
   suppressPreview = 0
 
-// Pointer capture keeps mouse and touch on the same path. Cancel without changing
-// the draft when capture is lost, the session changes, or submission locks it.
 function resetGesture() {
   if (frame) cancelAnimationFrame(frame)
   frame = 0
@@ -108,11 +106,8 @@ function scrollAtEdge() {
   const bounds = rail.value.getBoundingClientRect()
   const direction = gesture.x < bounds.left + 32 ? -1 : gesture.x > bounds.right - 32 ? 1 : 0
   const previous = rail.value.scrollLeft
-  // A transformed dragged tile can enlarge scrollWidth; clamp to the rail's
-  // original extent so edge scrolling cannot chase its own moving preview.
   rail.value.scrollLeft = Math.max(0, Math.min(gesture.maxScroll, previous + direction * 8))
   locateTarget()
-  // Only keep a frame loop while the rail can actually scroll at an edge.
   if (direction && rail.value.scrollLeft !== previous) frame = requestAnimationFrame(scrollAtEdge)
 }
 function move(event: PointerEvent) {
@@ -252,8 +247,6 @@ onBeforeUnmount(resetGesture)
 </template>
 
 <style scoped>
-/* Compact thumbnail rail: the image itself is the drag target, the numeric
-   badge inserts a mention, and the remove control sits in the corner. */
 .composer-references {
   gap: 8px;
   padding-bottom: 4px;

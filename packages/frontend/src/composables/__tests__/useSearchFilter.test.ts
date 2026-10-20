@@ -2,21 +2,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ref } from 'vue'
 import { useSearchFilter } from '../useSearchFilter'
 
-// Mock @vueuse/core
 const mockStorageValue = ref<{ tags: string[]; date: string } | null>(null)
 vi.mock('@vueuse/core', () => ({
   useStorage: vi.fn(() => mockStorageValue),
   useDebounceFn: vi.fn((fn) => fn),
 }))
 
-// Mock contentApi
 vi.mock('@/api', () => ({
   contentApi: {
     getTags: vi.fn(),
   },
 }))
 
-// Mock useHomeStore
 vi.mock('@/stores/home', () => ({
   useHomeStore: vi.fn(() => ({
     selectedTags: [],
@@ -82,7 +79,6 @@ describe('useSearchFilter', () => {
   it('should use cached tags when available', async () => {
     const mockTags = ['cached1', 'cached2']
 
-    // Set the mock storage value before using the composable
     mockStorageValue.value = {
       tags: mockTags,
       date: new Date().toDateString(),

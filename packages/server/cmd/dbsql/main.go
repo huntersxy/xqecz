@@ -1,6 +1,3 @@
-// Command dbsql 在项目库上执行一条 SQL，供迁移期排查与测试数据清理使用。
-//
-// 用法：go run ./cmd/dbsql "DELETE FROM users WHERE username = '__probe__'"
 package main
 
 import (

@@ -5,11 +5,6 @@ import { MapControls } from 'three/addons/controls/MapControls.js'
 import { createUniverseImages, type UniverseImageProgress } from './universeImages'
 import { universeOpeningView, type UniverseNode } from './artworkUniverse'
 
-/**
- * 拥有整个场景的渲染器、GPU 资源、监听器与加载任务；调用方卸载时必须 dispose。
- * 当前版本体验优先：预加载并保留全作品缩略图，不再限制可见贴图数和驻留数。
- * setActive 只暂停帧循环，dispose 才释放资源；图片地址一律交给 loadPlanetImage。
- */
 export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: UniverseNode | undefined) => void, onProgress: (progress: UniverseImageProgress) => void = () => {}, onViewChange: () => void = () => {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true })
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
@@ -150,7 +145,6 @@ export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: 
     if (image) {
       const crop = Math.min(image.naturalWidth, image.naturalHeight)
       ctx.drawImage(image, (image.naturalWidth - crop) / 2, (image.naturalHeight - crop) / 2, crop, crop, 20, 20, 472, 472)
-      // 淡球面光影保留作品色彩；不像旧版重阴影把作品压成灰色小点。
       const shade = ctx.createRadialGradient(192, 155, 50, 256, 256, 246)
       shade.addColorStop(0, 'rgba(255,255,255,.12)'); shade.addColorStop(.68, 'rgba(0,0,0,0)'); shade.addColorStop(1, 'rgba(19,10,28,.42)')
       ctx.fillStyle = shade; ctx.fillRect(0, 0, 512, 512)
@@ -169,7 +163,6 @@ export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: 
     artworkAtlas.paint(node, tile, image?.src)
     frames.invalidate()
   }
-  // 在开场动画期间就启动全部缩略图，拖动/缩放不卸载作品，不再出现 64 张的比例天花板。
   const images = createUniverseImages((node, image) => paintArtwork(node, image), onProgress)
   function setActive(value: boolean) {
     active = value
@@ -209,7 +202,6 @@ export function createUniverseScene(canvas: HTMLCanvasElement, onSelect: (node: 
   resize()
   return {
     update, enter, fit, zoom, focus, project, setActive,
-    // 预览复用成功加载的最终地址，避免缩略图已回退成功、详情卡却再次请求失效源。
     imageSource: (id: number) => artworkAtlas.imageSource(id),
     dispose() {
       disposed = true; active = false; images.dispose(); frames.dispose()

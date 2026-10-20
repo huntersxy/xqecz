@@ -32,8 +32,6 @@ export interface GenerationInput {
   enhance_prompt: boolean
 }
 type Options = Parameters<typeof request>[1]
-// Mutations never retry automatically. Their stable client key is retained by
-// the workbench until the durable task has been acknowledged.
 async function checked<T>(url: string, schema: z.ZodType<T>, options: Options = {}): Promise<T> {
   const result = await request<unknown>(url, { ...options, retry: 0 })
   if (result.code !== 200) {

@@ -16,7 +16,6 @@ import (
 func TestAtlasDimensionsSizeAndReuse(t *testing.T) {
 	dir := t.TempDir()
 	name := "sample_thumb.webp"
-	// 内容是高频彩色细节，验证真实编码体积而非只检查扩展名。
 	source := filepath.Join(dir, name)
 	writeSourcePNG(t, source, 800, 1200)
 	before, _ := os.Stat(source)

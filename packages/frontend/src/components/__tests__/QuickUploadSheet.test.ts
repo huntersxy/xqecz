@@ -49,7 +49,6 @@ describe('QuickUploadSheet', () => {
     wrapper.findComponent(TagInput).vm.$emit('update:modelValue', ['校园'])
     const ai = wrapper.findAll('input[type="checkbox"]')[1]!
     await ai.setValue(true)
-    // The checkbox-owned marker must never be inserted into the editable manual draft.
     expect(wrapper.findComponent(TagInput).props('modelValue')).toEqual(['校园'])
     await ai.setValue(false)
     await wrapper.find('form').trigger('submit'); await flushPromises()

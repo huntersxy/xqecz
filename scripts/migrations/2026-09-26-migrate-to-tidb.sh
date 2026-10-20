@@ -1,28 +1,8 @@
 #!/bin/sh
-# 把 xqecz 业务库从 MySQL/MariaDB 迁移到 TiDB（含 TiDB 结构兼容修正）。
-#
-# 用法（在能同时访问两端的主机上执行，两端凭据用环境变量给出）：
-#   SRC_HOST=... SRC_PORT=3306 SRC_USER=... SRC_PASS=... SRC_DB=xqv2 \
-#   TGT_HOST=... TGT_PORT=4000 TGT_USER=... TGT_PASS=... TGT_DB=xqecz \
-#   sh scripts/migrations/2026-09-26-migrate-to-tidb.sh
-#
-# TiDB 到 TiDB（源与目标都是托管实例）时源端必须显式开 TLS：
-#   SRC_SSL=--ssl sh scripts/migrations/2026-09-26-migrate-to-tidb.sh
-#
-# 依赖 mysql / mysqldump CLI（Alpine: apk add mariadb-client；Debian: apt install mariadb-client）。
-# 安全性：默认「不删目标库」；目标库已存在同名表时会因 CREATE TABLE 失败而中止，
-#         避免误覆盖。确认要重建时显式传 RECREATE=1。
-#
-# TiDB 与 MySQL/MariaDB 的两处差异由本脚本修正：
-#   1. TEXT/BLOB/JSON 列不允许 DEFAULT（TiDB 报 1101）→ 去掉该默认值，列类型与 NOT NULL 语义不变。
-#   2. MariaDB 私有的 /*M! 、/*! 客户端指令行 TiDB 无法解析 → 丢弃。
-# 校验：迁移后逐表按主键有序导出并比对 md5，任一张表不一致即非零退出。
 set -eu
 
 : "${SRC_HOST:?}" "${SRC_USER:?}" "${SRC_DB:?}"
 : "${TGT_HOST:?}" "${TGT_USER:?}" "${TGT_DB:?}"
-# 源端 TLS：默认关（自建 MySQL/MariaDB 常无证书）；源是托管 TiDB（强制加密）时传 SRC_SSL=--ssl。
-# 目标端不加开关，让客户端自行协商，TiDB 走 TLS、自建库退明文。
 SRC_SSL="${SRC_SSL:---skip-ssl}"
 TGT_SSL="${TGT_SSL:-}"
 SRC_PORT="${SRC_PORT:-3306}"
@@ -32,9 +12,6 @@ RECREATE="${RECREATE:-0}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-# 密码参数用显式 if 赋值：`[ -n "$X" ] && A=.. || B=..` 这种复合短路在 ash
-# （Alpine 的 /bin/sh）下会因退出码让赋值被跳过，导致密码静默丢失、仅报
-# "Access denied ... (using password: NO)"，极难定位。
 SRC_PASS_ARG=""
 if [ -n "${SRC_PASS:-}" ]; then SRC_PASS_ARG="-p${SRC_PASS}"; fi
 TGT_PASS_ARG=""
@@ -74,8 +51,6 @@ if [ "$RECREATE" = "1" ]; then
   tgt -e "DROP DATABASE IF EXISTS \`$TGT_DB\`; CREATE DATABASE \`$TGT_DB\`;"
 else
   tgt -e "CREATE DATABASE IF NOT EXISTS \`$TGT_DB\`;"
-  # 非 RECREATE 时目标库必须没有同名业务表，否则 dump 里的 CREATE TABLE 会失败中断，
-  # 避免在已有数据上做半截覆盖。
   existing=$(tgt -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$TGT_DB' AND table_name IN ($(echo "$TABLES" | sed "s/[^ ]*/'&'/g" | tr ' ' ','))")
   if [ "$existing" != "0" ]; then
     echo "   目标库 $TGT_DB 已存在 $existing 张同名业务表；如确认重建请加 RECREATE=1 重跑。" >&2

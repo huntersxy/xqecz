@@ -14,9 +14,6 @@ import (
 
 var grantBatchKey = regexp.MustCompile(`^[a-zA-Z0-9-]{16,80}$`)
 
-// One transaction creates every recipient's credit and ledger receipt. A retry
-// reuses those receipts, including the original all-users snapshot, so newly
-// registered users cannot silently receive an already completed grant again.
 func (s *Service) GrantBatch(ctx context.Context, actor uint64, ids []uint64, all bool, amount int64, key, note string) (int, error) {
 	if amount < 1 || amount > 10000 || !grantBatchKey.MatchString(key) || len([]rune(note)) > 300 || (all && len(ids) > 0) || (!all && len(ids) == 0) {
 		return 0, ErrInvalid
@@ -42,9 +39,6 @@ func (s *Service) GrantBatch(ctx context.Context, actor uint64, ids []uint64, al
 		if err := q.Find(&users).Error; err != nil {
 			return err
 		}
-		// All batches lock accounts in the same order, including the actor used
-		// to serialize retries. Two administrators granting everyone cannot invert
-		// actor/recipient locks and deadlock each other.
 		lockIDs := []uint64{actor}
 		for _, user := range users {
 			lockIDs = append(lockIDs, user.ID)
@@ -60,8 +54,6 @@ func (s *Service) GrantBatch(ctx context.Context, actor uint64, ids []uint64, al
 			accounts[id] = account
 		}
 		var previous []Ledger
-		// A locking read sees a retry's predecessor even if this transaction's
-		// earlier user-list snapshot was taken before that predecessor committed.
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("`key` LIKE ?", prefix+"%").Order("user_id asc").Find(&previous).Error; err != nil {
 			return err
 		}

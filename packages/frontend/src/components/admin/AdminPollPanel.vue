@@ -1,6 +1,4 @@
 <script setup lang="ts">
-// 投票管理：把「一行一条」的列表重排成「概览指标 + 卡片流 + 排行侧栏」。
-// 信息层级：票数最大（观众最关心），标题其次，描述与选项做二级信息，删除收进卡片页脚。
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { IconDelete, IconPlus } from '@arco-design/web-vue/es/icon'
 import AdminDataToolbar from './AdminDataToolbar.vue'
@@ -14,10 +12,8 @@ import type { Poll } from '@/types'
 
 const admin = useAdminStore()
 
-// 首屏加载才出骨架；已有数据时刷新只让工具条的按钮转圈，卡片保持可读
 const showSkeleton = computed(() => admin.pollsLoading && admin.polls.length === 0)
 
-// 顶部概览：投票数 / 总票数 / 最高票（带对应标题）
 const totalVotes = computed(() => admin.polls.reduce((sum, p) => sum + (p.vote_count || 0), 0))
 const topPoll = computed<Poll | null>(() =>
   admin.polls.reduce<Poll | null>((best, p) => (!best || p.vote_count > best.vote_count ? p : best), null),
@@ -29,7 +25,6 @@ function voteShare(count: number) {
   return totalVotes.value > 0 ? Math.round((count / totalVotes.value) * 100) : 0
 }
 
-// M8：删除先让卡片淡出 280ms，再调接口并刷新；命中 reduced-motion 时直达终态
 const LEAVE_MS = 280
 const leavingIds = ref<number[]>([])
 const timers = new Set<ReturnType<typeof setTimeout>>()
@@ -47,12 +42,10 @@ async function performDelete(id: number) {
   try {
     await admin.deletePoll(id)
   } catch {
-    // 失败提示由 store 统一负责
   }
   try {
     await admin.loadPolls()
   } catch {
-    // 刷新失败时卡片回到可见状态，不把「正在删除」的样式卡死
   }
   clearLeaving(id)
 }
@@ -215,7 +208,6 @@ onBeforeUnmount(() => {
 <style lang="scss" scoped>
 @use './admin' as *;
 
-// 工具条自身有上下留白，外层 .admin-panel-toolbar 也有一层，抵消掉避免双倍
 :deep(.admin-panel-toolbar .admin-data-toolbar) {
   padding: 0;
 }
@@ -234,7 +226,6 @@ onBeforeUnmount(() => {
   }
 }
 
-// ── 卡片头：大号票数 + 创建时间 ──
 .poll-head {
   display: flex;
   flex-wrap: wrap;
@@ -266,7 +257,6 @@ onBeforeUnmount(() => {
   font-size: var(--adm-font-sm, 13px);
 }
 
-// 视觉上把票数拆成「数字 + 单位」，读屏与文本断言只认这一份完整文案
 .poll-count-sr {
   position: absolute;
   width: 1px;
@@ -297,7 +287,6 @@ onBeforeUnmount(() => {
   }
 }
 
-// 描述两行截断；没有描述时整段不渲染，不留空行
 .poll-desc {
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -346,7 +335,6 @@ onBeforeUnmount(() => {
   @include numeric;
 }
 
-// ── 侧栏：票数排行 ──
 .poll-side-title {
   margin: 0;
   color: var(--adm-ink, var(--admin-text));
@@ -416,7 +404,6 @@ onBeforeUnmount(() => {
     font-size: 24px;
   }
 
-  // 手机档点击区 ≥ 44px
   .poll-delete {
     min-height: var(--adm-touch, 44px);
   }

@@ -1,7 +1,4 @@
 <script setup lang="ts">
-// 审核与认领合并页（用户要求）：待审内容在上、认领申请在下。
-// 两个列表各自加载、各自分页、各自处理，共用一个页签与一个 URL（?tab=review）。
-// 旧链接 ?tab=pending / ?tab=claims 由 useAdminTabQuery 的 TAB_ALIASES 规范化到这里。
 </script>
 
 <template>

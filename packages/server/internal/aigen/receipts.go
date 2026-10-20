@@ -28,8 +28,6 @@ func (s *Service) receiptPath(id uint64) string {
 	return filepath.Join(s.dir, fmt.Sprintf(".task-%d-result.json", id))
 }
 
-// Journal already-paid, validated outputs before the DB settlement. Restart
-// recovery can commit this receipt without ever repeating an upstream request.
 func (s *Service) writeReceipt(task Task, status, message string, assets []Asset) error {
 	receipt := resultReceipt{TaskID: task.ID, UserID: task.UserID, Status: status, Message: message, Assets: []receiptAsset{}}
 	for _, asset := range assets {

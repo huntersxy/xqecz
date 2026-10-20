@@ -1,7 +1,4 @@
 <script setup lang="ts">
-// 后台仪表盘（playbook §10）：待处理带 → KPI 行 → 审核分布 / 热门标签 → 最新内容 / 最新用户。
-// 只消费 DashboardStats 既有字段，不改接口；视觉一律走 --adm-* 令牌，旧 --admin-* 仅作后备值。
-// 动效：M2 错峰进场、M6 KPI 数字滚动、M7 条形 scaleX、M9 待处理数字一次性放大。
 import { computed, onMounted, ref } from 'vue'
 import { Tooltip } from '@arco-design/web-vue'
 import {
@@ -29,7 +26,6 @@ import AdminStatus from './AdminStatus.vue'
 const emit = defineEmits<{ select: [key: string] }>()
 
 const admin = useAdminStore()
-// 首帧即骨架，避免「空态一闪」再变内容
 const loading = ref(true)
 const stats = ref<DashboardStats | null>(null)
 
@@ -48,7 +44,6 @@ async function load(force = false) {
   try {
     stats.value = (await adminApi.getDashboard(force)).data
   } catch {
-    // request() 已统一 toast，这里只负责收尾加载态
   } finally {
     loading.value = false
   }
@@ -58,7 +53,6 @@ onMounted(() => {
   void load()
 })
 
-// ── 待处理带：三类待办，点击深链到对应页签 ──
 const pendingItems = computed(() => {
   const s = stats.value
   if (!s) return []
@@ -71,7 +65,6 @@ const pendingItems = computed(() => {
 
 const pendingTotal = computed(() => pendingItems.value.reduce((sum, item) => sum + item.count, 0))
 
-// ── KPI 六项：字段与文案沿用改版前，最后一项没有目标页签 ──
 const totalContents = computed(() => stats.value?.content.total ?? 0)
 const pendingContents = computed(() => stats.value?.content.pending ?? 0)
 const totalUsers = computed(() => stats.value?.users.total ?? 0)
@@ -79,7 +72,6 @@ const unhandledReports = computed(() => stats.value?.reports.unhandled ?? 0)
 const totalPolls = computed(() => stats.value?.polls.total ?? 0)
 const totalViews = computed(() => stats.value?.views ?? 0)
 
-// M6：数字从旧值滚动到新值；reduced-motion 下 useCountUp 直接给终值、不建动画帧
 const countedContents = useCountUp(totalContents)
 const countedPending = useCountUp(pendingContents)
 const countedUsers = useCountUp(totalUsers)
@@ -100,7 +92,6 @@ const kpiCards = computed(() => {
   ]
 })
 
-// ── 审核分布：单根堆叠条 + 三行图例 ──
 const auditRows = computed(() => {
   const content = stats.value?.content
   if (!content) return []
@@ -112,22 +103,18 @@ const auditRows = computed(() => {
 })
 
 const auditTotal = computed(() => auditRows.value.reduce((sum, row) => sum + row.count, 0))
-// 只渲染有数值的段；总计数多于三类之和时用占位段补齐
 const auditSegments = computed(() => auditRows.value.filter((row) => row.count > 0))
 const auditGap = computed(() => Math.max(0, (stats.value?.content.total ?? 0) - auditTotal.value))
 const auditSummary = computed(
   () => '内容审核分布：' + auditRows.value.map((row) => row.label + ' ' + row.count + ' 篇').join('，'),
 )
 
-// ── 热门标签 ──
 const maxTag = computed(() => Math.max(1, ...(stats.value?.topTags.map((tag) => tag.count) ?? [])))
 
 function tagRatio(count: number) {
-  // M7：以 0~1 比例驱动 scaleX（只动 transform），极小值也保留可见长度
   return Math.max(count / maxTag.value, 0.04)
 }
 
-// ── 最新内容 / 最新用户 ──
 function auditType(status?: string): 'success' | 'warning' | 'danger' {
   if (status === 'approved') return 'success'
   if (status === 'pending') return 'warning'
@@ -162,10 +149,8 @@ function go(key: string) {
       </Tooltip>
     </template>
 
-    <!-- 加载态：只补位不抢眼，首帧即骨架避免空态闪烁 -->
     <AdminSkeleton v-if="loading && !stats" variant="cards" :rows="6" label="正在加载仪表盘数据" />
 
-    <!-- 空数据态 -->
     <AdminEmpty v-else-if="!stats" title="暂无数据" desc="站点统计暂时取不到，点刷新再试一次。">
       <template #actions>
         <a-button type="primary" size="small" @click="load(true)">重新加载</a-button>
@@ -173,7 +158,6 @@ function go(key: string) {
     </AdminEmpty>
 
     <template v-else>
-      <!-- 待处理带：三类待办各自深链到对应页签 -->
       <section class="adm-pending" aria-label="待处理事项">
         <div class="adm-pending-head">
           <span class="adm-pending-title">待处理</span>
@@ -195,7 +179,6 @@ function go(key: string) {
               <component :is="item.count > 0 ? item.icon : IconCheck" />
             </span>
             <span class="adm-pending-label">{{ item.label }}</span>
-            <!-- M9：:key 随数值变化重建节点，只播一次 1 → 1.15 → 1 -->
             <strong
               :key="item.key + '-' + item.count"
               class="adm-pending-count"
@@ -204,7 +187,6 @@ function go(key: string) {
         </div>
       </section>
 
-      <!-- KPI 行：有目标页签的整卡可点，总浏览量无对应页签故 disabled -->
       <div class="adm-kpi-grid">
         <button
           v-for="(card, index) in kpiCards"
@@ -363,10 +345,7 @@ function go(key: string) {
 </template>
 
 <style lang="scss" scoped>
-/* 四个内容块直接挂在 .admin-panel-body 下，让 AdminPanel 的 adm-stagger（M2）
-   按子节点顺序错峰；块间距由各自 margin-top 负责，不加额外包裹层。 */
 
-/* ── 待处理带 ── */
 .adm-pending {
   display: flex;
   align-items: center;
@@ -460,7 +439,6 @@ function go(key: string) {
   font-weight: 600;
   font-variant-numeric: var(--adm-numeric, tabular-nums);
   color: var(--adm-danger, var(--admin-danger));
-  /* M9：仅数值变化时重放（:key 重建节点），一次性 1 → 1.15 → 1，不循环 */
   animation: adm-count-bump 240ms var(--adm-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 
   .adm-pending-item.is-clear & {
@@ -482,7 +460,6 @@ function go(key: string) {
   }
 }
 
-/* ── KPI 行 ── */
 .adm-kpi-grid,
 .adm-dash-grid {
   margin-top: var(--adm-gap-lg, 16px);
@@ -509,7 +486,6 @@ function go(key: string) {
   font-family: inherit;
   text-align: left;
   cursor: pointer;
-  /* M2：KPI 卡按 --i 逐张错峰；数据刷新不重建节点，因此只播一次 */
   animation: adm-rise var(--adm-dur-slow, 360ms) var(--adm-ease-out, cubic-bezier(0.22, 1, 0.36, 1)) backwards;
   animation-delay: calc(var(--adm-stagger, 40ms) * var(--i, 0));
   transition:
@@ -593,7 +569,6 @@ function go(key: string) {
     transform var(--adm-dur-fast, 120ms) var(--adm-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
-/* ── 卡片（审核分布 / 热门标签 / 最新内容 / 最新用户） ── */
 .adm-dash-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
@@ -648,7 +623,6 @@ function go(key: string) {
   white-space: nowrap;
 }
 
-/* 审核分布：单根堆叠条（M7：scaleX 进场，不做宽度过渡） */
 .adm-audit-bar {
   display: flex;
   gap: 2px;
@@ -789,7 +763,6 @@ function go(key: string) {
   }
 }
 
-/* 热门标签：条形用 scaleX(var(--ratio)) 表达占比（M7） */
 .adm-tag-list {
   display: grid;
   gap: 7px;
@@ -863,7 +836,6 @@ function go(key: string) {
   text-align: right;
 }
 
-/* ── 最新内容 / 最新用户列表 ── */
 .adm-list {
   display: grid;
   margin-top: var(--adm-gap-md, 12px);
@@ -981,7 +953,6 @@ button.adm-list-item {
   }
 }
 
-/* ── 响应式：只保留 820 / 768 两档 ── */
 @media (max-width: 820px) {
   .adm-kpi-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1019,14 +990,12 @@ button.adm-list-item {
     grid-template-columns: 20px minmax(0, 80px) minmax(0, 1fr) auto;
   }
 
-  /* 窄屏不丢状态信息：竖排徽标改为横排 */
   .adm-item-status.is-column {
     flex-direction: row;
     align-items: center;
   }
 }
 
-/* JS 驱动的 M6 已由 useCountUp 自行短路，这里补齐 CSS 侧的动效关闭 */
 @media (prefers-reduced-motion: reduce) {
   .adm-kpi,
   .adm-audit-seg,

@@ -22,8 +22,6 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// Job is a transactional outbox: upload and its generation intent commit together.
-// Leases survive crashes; the claim token prevents an expired worker overwriting a newer attempt.
 type Job struct {
 	ContentID     uint64    `gorm:"primaryKey;autoIncrement:false" json:"content_id"`
 	Status        string    `gorm:"size:20;index:vision_due" json:"status"`
@@ -59,7 +57,6 @@ type Service struct {
 }
 
 func New(db *gorm.DB, redis *cache.Client, uploadDir string, referenceDir ...string) *Service {
-	// Settings contain a secret: never let GORM interpolate their payload into a logged SQL statement.
 	dir := filepath.Join(filepath.Dir(uploadDir), "vision-references")
 	if len(referenceDir) > 0 {
 		dir = referenceDir[0]
@@ -67,7 +64,6 @@ func New(db *gorm.DB, redis *cache.Client, uploadDir string, referenceDir ...str
 	return &Service{db: db.Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)}), redis: redis, uploadDir: uploadDir, referenceDir: dir}
 }
 
-// Init migrates only the two feature-owned tables, never the existing application schema.
 func (s *Service) Init(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -83,7 +79,6 @@ func (s *Service) config(ctx context.Context) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	// Explicit wire envelope keeps APIKey out of Config's public JSON representation.
 	var payload struct {
 		Config Config `json:"config"`
 		Key    string `json:"key"`
@@ -203,7 +198,6 @@ func (s *Service) tick(ctx context.Context) error {
 		return nil
 	}
 	now := time.Now().UTC()
-	// A repeatedly crashed task also reaches a terminal state instead of cycling forever.
 	if err := s.db.WithContext(ctx).Model(&Job{}).Where("status = ? AND next_at <= ? AND attempts >= 3", "running", now).
 		Updates(map[string]any{"status": "failed", "error": "任务多次中断，可由管理员重试", "lease": ""}).Error; err != nil {
 		return err
@@ -234,7 +228,7 @@ func (s *Service) tick(ctx context.Context) error {
 	result, err := s.generateJob(ctx, cfg, job)
 	if ctx.Err() != nil {
 		return ctx.Err()
-	} // Keep the lease; restart safely recovers after expiry.
+	}
 	if err == nil {
 		return s.complete(ctx, job, result)
 	}
@@ -264,7 +258,6 @@ func (s *Service) generateJob(ctx context.Context, cfg Config, job Job) (Result,
 	if !matches(row, job) {
 		return Result{}, errConflict
 	}
-	// FilePath originates in savePart, but reject traversal before reading even if the DB was edited externally.
 	if filepath.Base(job.FilePath) != job.FilePath || strings.ContainsAny(job.FilePath, "/\\") {
 		return Result{}, errors.New("原图路径无效")
 	}
@@ -327,7 +320,6 @@ func (s *Service) complete(ctx context.Context, job Job, result Result) error {
 	tags, _ := json.Marshal(contenttags.MergeGenerated(result.Tags, declared))
 	changed := false
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Match the lock order of content edit/delete: content first, then its outbox job.
 		var row store.Content
 		rowErr := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&row, job.ContentID).Error
 		if rowErr != nil && !isMissing(rowErr) {
@@ -340,7 +332,6 @@ func (s *Service) complete(ctx context.Context, job Job, result Result) error {
 			}
 			return err
 		}
-		// Lock and compare in Go: MySQL's default collation is case-insensitive, while a human edit must match byte-for-byte.
 		if rowErr == nil && matches(row, job) {
 			r := tx.Model(&store.Content{}).Where("id = ?", job.ContentID).Updates(map[string]any{"title": result.Title, "tags": string(tags)})
 			if r.Error != nil {
@@ -365,7 +356,6 @@ func (s *Service) complete(ctx context.Context, job Job, result Result) error {
 	return nil
 }
 
-// Test runs the same vision/JSON/tag pipeline on an inline sample without writing content or jobs.
 func (s *Service) Test(ctx context.Context) (Result, error) {
 	cfg, err := s.config(ctx)
 	if err != nil {

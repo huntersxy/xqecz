@@ -14,8 +14,6 @@ const route = useRoute()
 const router = useRouter()
 const preloadRoute = createRoutePreloader(router)
 
-// 在常驻外壳委托导航意图，覆盖侧栏、顶栏和内容区链接，也覆盖动态作品卡片。
-// 只预热页面代码，不挂载、不取数据；pointerover 支持触屏按下前的路径。
 function onNavigationIntent(event: Event) {
   if (!(event.target instanceof Element)) return
   const target = event.target.closest<HTMLElement>('a[href], [data-preload-route]')
@@ -43,18 +41,14 @@ watch(searchKeyword, (value) => {
   searchDraft.value = value
 })
 
-// 顶栏只切换「工作台 / 作品广场」；后台与发现页归入现有入口，不在顶栏重复铺路由。
 const pageTab = computed(() => {
   if (route.path === '/studio' || route.path.startsWith('/studio/') || route.path.startsWith('/admin')) return 'studio'
   if (route.path === '/login' || route.path.startsWith('/quick-upload')) return 'none'
   return 'browse'
 })
-// 后台复用同一个侧栏工作区槽：AdminNav Teleport 进 #public-shell-workspace，
-// 站点外壳其余的 DOM 顺序、导航项与手机抽屉逻辑全部不动。
 const adminMode = computed(
   () => route.path === '/admin' || route.path.startsWith('/admin/'),
 )
-// 工作台是独立应用外壳：站点侧栏改成抽屉，把横向空间让给历史/舞台/详情。
 const workspaceMode = computed(
   () => adminMode.value || route.path === '/studio' || route.path.startsWith('/studio/'),
 )
@@ -80,10 +74,6 @@ function submitSearch() {
   if (route.path !== '/') void router.push('/')
 }
 
-/**
- * 顶栏的 "/" 提示必须真的可用：输入框旁的 kbd 是承诺，不是装饰。
- * 只在焦点不在可编辑控件时接管，避免用户在搜索框或正文里打字时被抢走斜杠。
- */
 function isEditableTarget(target: EventTarget | null) {
   const el = target as HTMLElement | null
   if (!el) return false
@@ -105,8 +95,6 @@ function onGlobalKeydown(event: KeyboardEvent) {
 
 onMounted(() => {
   window.addEventListener('keydown', onGlobalKeydown)
-  // The studio sidebar is teleported into this shell; it closes the mobile
-  // drawer through this event because it cannot inject this component's state.
   window.addEventListener(SHELL_SIDEBAR_CLOSE_EVENT, closeMobile)
 })
 onBeforeUnmount(() => {
@@ -156,10 +144,6 @@ onBeforeUnmount(() => {
         </RouterLink>
       </nav>
 
-      <!-- Always in the DOM so the studio Teleport can resolve it even when the
-           hash router has not committed /studio yet; hidden elsewhere by CSS.
-           It sits below the shared nav so switching between /studio and
-           the gallery never moves the entries both pages share. -->
       <div id="public-shell-workspace" class="public-shell-workspace"></div>
 
       <div class="public-shell-bottom">
@@ -299,7 +283,6 @@ body[arco-theme='dark'] .public-shell {
 .public-shell-nav a:hover { color: var(--shell-ink); background: var(--shell-soft); transform: translateX(2px); }
 .public-shell-nav a:hover .site-icon { transform: scale(1.1); }
 .public-shell-nav a.is-active { color: var(--shell-accent); background: color-mix(in srgb, var(--shell-accent) 12%, var(--shell-paper)); font-weight: 600; }
-/* 当前项左侧指示条：从中心向上下展开，切换页面时有「落位」的感觉。 */
 .public-shell-nav a::before {
   content: '';
   position: absolute;
@@ -337,9 +320,6 @@ body[arco-theme='dark'] .public-shell {
 .public-shell-user small { margin-top: 3px; color: var(--shell-muted); font-size: 10px; }
 .public-shell-main { flex: 1; min-width: 0; background: var(--shell-canvas); }
 .public-shell-topbar { display: flex; align-items: center; gap: 24px; min-height: 76px; padding: 0 44px; border-bottom: 1px solid var(--shell-line); background: color-mix(in srgb, var(--shell-canvas) 94%, transparent); }
-/* 浏览页顶栏吸顶并带毛玻璃，滚动长瀑布流时搜索与入口始终在手边。
-   工作台 / 后台自己管理纵向布局（100dvh 分栏、内部滚动），不吸顶以免挤占它们的高度。
-   z-index 20 低于侧栏(30)与详情浮层(1000)，不会盖住它们。 */
 @media (min-width: 821px) {
   .public-shell:not(.is-workspace) .public-shell-topbar {
     position: sticky;
@@ -365,7 +345,6 @@ body[arco-theme='dark'] .public-shell {
   width: 330px;
   min-width: 120px;
   min-height: 40px;
-  /* 搜索是顶栏唯一的自适应项：窄屏挤压它而不是把标签与操作挤出视口。 */
   margin-left: auto;
   padding: 0 12px;
   border: 1px solid var(--shell-line);
@@ -375,7 +354,6 @@ body[arco-theme='dark'] .public-shell {
   transition: border-color .2s ease, box-shadow .2s ease, flex-basis .28s var(--ease-out, ease), width .28s var(--ease-out, ease);
 }
 .public-shell-search .site-icon { width: 15px; height: 15px; }
-/* 聚焦时描边换成强调色并带一圈柔光，同时略微加宽，输入时有"展开"的感觉。 */
 .public-shell-search:focus-within {
   border-color: color-mix(in srgb, var(--shell-accent) 55%, var(--shell-line));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--shell-accent) 12%, transparent);
@@ -384,7 +362,6 @@ body[arco-theme='dark'] .public-shell {
 @media (min-width: 1100px) {
   .public-shell-search:focus-within { flex-basis: 400px; width: 400px; }
 }
-/* 主题开关统一放顶栏右侧，桌面与手机都只有这一个入口。 */
 .public-shell-search input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--shell-ink); font: inherit; font-size: 11px; }
 .public-shell-search kbd { padding: 2px 5px; border: 1px solid var(--shell-line); border-radius: 4px; color: var(--shell-muted); font-size: 10px; }
 .public-shell-theme-main { flex: 0 0 auto; border: 1px solid var(--shell-line); }
@@ -395,7 +372,6 @@ body[arco-theme='dark'] .public-shell {
 .public-shell-menu,
 .public-shell-scrim,
 .public-shell-drawer-close { display: none; }
-/* 工作台路由把任务侧栏 Teleport 进真实侧栏；侧栏本身在桌面保持首页骨架。 */
 .public-shell-workspace {
   display: flex;
   flex: 1;
@@ -408,7 +384,6 @@ body[arco-theme='dark'] .public-shell {
 .public-shell:not(.is-workspace) .public-shell-workspace {
   display: none;
 }
-/* 后台导航比工作台更长：只有槽自己滚动，「发现」留在原位不跟着滚。 */
 .public-shell.is-admin .public-shell-workspace {
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -416,11 +391,8 @@ body[arco-theme='dark'] .public-shell {
 @media (max-width: 820px) {
   .public-shell-sidebar { position: fixed; inset: 0 auto 0 0; width: min(82vw, 300px); overflow-y: auto; overscroll-behavior: contain; transform: translateX(-104%); transition: transform .24s cubic-bezier(.22,1,.36,1); box-shadow: 12px 0 32px rgba(31,24,27,.14); }
   .public-shell.is-mobile-open .public-shell-sidebar { transform: translateX(0); }
-  /* 手机下整个侧栏已经是滚动抽屉，槽再抢滚动区会出现两层滚动条。 */
   .public-shell.is-admin .public-shell-workspace { flex: 0 0 auto; overflow: visible; }
   .public-shell-scrim { position: fixed; inset: 0; z-index: 25; display: block; border: 0; background: rgba(32,25,27,.32); }
-  /* 手机顶栏分两行：第一行导航与账号，第二行搜索。早先单行里搜索、主题和登录
-     会把 "作品 / 发现" 挤成竖排并溢出视口。 */
   .public-shell-topbar {
     position: sticky;
     top: 0;
@@ -437,7 +409,6 @@ body[arco-theme='dark'] .public-shell {
     background: var(--shell-canvas);
   }
   .public-shell-menu { display: grid; grid-area: menu; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--shell-muted); }
-  /* 抽屉盖住了顶栏的菜单按钮，抽屉内必须有可见的关闭入口。 */
   .public-shell-drawer-close { position: absolute; top: 18px; right: 16px; z-index: 1; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid var(--shell-line); border-radius: 50%; background: var(--shell-paper); color: var(--shell-muted); cursor: pointer; }
   .public-shell-tabs { grid-area: tabs; gap: 16px; }
   .public-shell-tabs a { font-size: 18px; }

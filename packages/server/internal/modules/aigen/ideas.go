@@ -83,7 +83,6 @@ func (h *Handler) ideaView(c *gin.Context, row core.Idea) any {
 	if row.SponsorID != 0 {
 		view["sponsor"] = h.author(c, row.SponsorID)
 	}
-	// Moderation and billing notes stay in the administrator-only events route.
 	return view
 }
 func (h *Handler) idea(c *gin.Context) {

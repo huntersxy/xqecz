@@ -158,11 +158,9 @@ describe('studio workspace and composer', () => {
     expect(w.find('[aria-label="切换会话"]').exists()).toBe(false)
     expect(w.text()).not.toContain('自备 API Key')
     expect(w.text()).not.toContain('管理员 · 生成不消耗站点额度')
-    // 尺寸、数量、提示词增强常驻输入区，不再藏进「生成设置」弹层。
     expect(w.get('[aria-label="画面尺寸"]').text()).toContain('自动')
     expect(w.get('[aria-label="输出数量"]').exists()).toBe(true)
     expect(w.text()).toContain('提示词增强')
-    // 模型由后端按顺序自动路由：界面不再提供供应商/模型选择。
     expect(w.find('[aria-label="供应商与模型"]').exists()).toBe(false)
     expect(w.find('[aria-label="生成设置"]').exists()).toBe(false)
   })
@@ -173,7 +171,6 @@ describe('studio workspace and composer', () => {
     expect(tools).toContain('上传参考图')
     expect(tools).not.toContain('图片库')
     expect(tools).toContain('角色与模板')
-    // 数量用步进器，不再是原生下拉；范围 1..max_count（测试供应商上限为 2）。
     expect(w.find('select[aria-label="输出数量"]').exists()).toBe(false)
     const group = w.get('[aria-label="输出数量"]')
     expect(group.get('output').text()).toBe('1 张')
@@ -205,7 +202,6 @@ describe('studio workspace and composer', () => {
     expect((w.get('textarea').element as HTMLTextAreaElement).value).toBe('白澋冰：银白长发，冷色眼瞳')
     expect(w.findAll('.composer-reference')).toHaveLength(1)
     expect(api.toastSuccess).toHaveBeenCalledWith('已导入「白澋冰」')
-    // 导入成功即关闭，没有二次确认页。
     expect(w.findComponent({ name: 'CreativeLibrary' }).exists()).toBe(false)
   })
 
@@ -293,13 +289,11 @@ describe('studio workspace and composer', () => {
   it('shows all results as a full-width waterfall without the task detail card', async () => {
     api.tasks.mockResolvedValue([task(1), task(2, 1)])
     const w = await render()
-    // 全部结果：只有瀑布流，没有任务详情卡，也没有单任务舞台。
     expect(w.find('.ws-gallery').exists()).toBe(true)
     expect(w.find('.ws-detail').exists()).toBe(false)
     expect(w.find('.ws-canvas').exists()).toBe(false)
     expect(w.find('.ws-actions').exists()).toBe(false)
     await showTask(w)
-    // 单个任务：舞台 + 详情卡。
     expect(w.find('.ws-gallery').exists()).toBe(false)
     expect(w.get('.ws-detail').attributes('aria-label')).toBe('任务详情')
     await button(w, '全部结果').trigger('click')
@@ -315,7 +309,6 @@ describe('studio workspace and composer', () => {
     expect(w.get('.ws-detail').text()).toContain('画面 1')
     expect(w.get('.ws-detail').text()).toContain('规格')
     expect(w.get('.ws-detail').text()).toContain('模型')
-    // 切回全部结果再切到单个任务，仍然是同一个任务，不会丢选择。
     await button(w, '全部结果').trigger('click')
     await flushPromises()
     await showTask(w)
@@ -356,7 +349,6 @@ describe('studio workspace and composer', () => {
     api.tasks.mockResolvedValue([task(1), task(2, 1)])
     const w = await render()
     expect(w.findAll('.ws-history-item')).toHaveLength(2)
-    // The workbench opens on the all-results gallery.
     expect(w.find('.ws-gallery').exists()).toBe(true)
     await showTask(w)
     expect(w.find('.ws-gallery').exists()).toBe(false)
@@ -368,8 +360,6 @@ describe('studio workspace and composer', () => {
     await w.get('.ws-result-strip').findAll('button')[0]!.trigger('click')
     expect(w.get('.ws-canvas-image .test-image').attributes('data-id')).toBe('2')
     await w.get('.ws-result-strip').findAll('button')[1]!.trigger('click')
-    // Result actions live on the stage; selecting a result no longer opens a
-    // second copy of the same image behind a modal.
     expect(w.get('.ws-canvas-image').element.tagName).toBe('DIV')
     expect(w.find('.test-modal').exists()).toBe(false)
     await w

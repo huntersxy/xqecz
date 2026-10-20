@@ -53,7 +53,6 @@ function clearForm() {
   isAiGenerated.value = false
 }
 
-// 视频阈值保持原 15MB
 const VIDEO_SIZE_LIMIT = 15 * 1024 * 1024
 
 function validate(): string | null {
@@ -73,7 +72,6 @@ async function handleSubmit() {
     toast.warning(err)
     return
   }
-  // 类型由后端根据 file 推断；admin.uploadContent 已不再需要 type 字段
   const ok = await admin.uploadContent({
     title: metadataTitle(form.value.title.trim()),
     auto_metadata: autoMetadata.value,
@@ -91,7 +89,6 @@ async function handleSubmit() {
   <AdminPanel flat title="上传内容" desc="发布图片、视频或文字内容，正文支持 Markdown 排版。">
     <div class="upload-wrap">
       <a-form layout="vertical" :model="form" class="upload-board">
-        <!-- 01 基本信息（主栏） -->
         <section class="upload-card upload-card-base" aria-labelledby="up-base">
           <header class="upload-card-head">
             <span class="upload-card-num" aria-hidden="true">01</span>
@@ -134,7 +131,6 @@ async function handleSubmit() {
           </div>
         </section>
 
-        <!-- 02 媒体（侧栏，桌面吸顶） -->
         <aside class="upload-card upload-card-media" aria-labelledby="up-media">
           <header class="upload-card-head">
             <span class="upload-card-num" aria-hidden="true">02</span>
@@ -202,7 +198,6 @@ async function handleSubmit() {
           </div>
         </aside>
 
-        <!-- 03 正文 Markdown（主栏） -->
         <section class="upload-card upload-card-content" aria-labelledby="up-content">
           <header class="upload-card-head">
             <span class="upload-card-num" aria-hidden="true">03</span>
@@ -223,7 +218,6 @@ async function handleSubmit() {
         </section>
       </a-form>
 
-      <!-- 底部吸附操作条 -->
       <div class="upload-actions">
         <a-progress
           v-if="admin.uploading"
@@ -252,7 +246,6 @@ async function handleSubmit() {
   width: 100%;
 }
 
-// 两栏：基本信息 + 正文在主栏，媒体吸在右栏；窄屏回到 01 → 02 → 03 的单列顺序
 .upload-board {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
@@ -337,7 +330,6 @@ async function handleSubmit() {
   display: none;
 }
 
-// 标签云有 60+ 个标签，限高滚动，否则把整页拉成一根长条
 .upload-tagcloud {
   max-height: 220px;
   overflow-y: auto;
@@ -436,7 +428,6 @@ async function handleSubmit() {
   margin-top: var(--adm-gap-md, 12px);
 }
 
-// 发布检查：把四项必填状态压成一张小表，省得提交才报错
 .upload-check {
   margin: var(--adm-gap-lg, 16px) 0 0;
   padding-top: var(--adm-gap-md, 12px);

@@ -1,7 +1,3 @@
-// 契约冒烟：把「运行中的后端」的真实响应交给前端自己的 zod schema 校验。
-//
-// 只在设置了 XQECZ_LIVE_API 时执行（例如 XQECZ_LIVE_API=http://localhost:5173/api），
-// 因此 CI（无后端）会自动跳过，不会拖慢或污染流水线。
 import { describe, expect, it } from 'vitest'
 import { ContentSchema, RecommendContentSchema } from '@/types'
 import { CommentSchema, PollDetailSchema, PollListResponseSchema } from '@/types/schemas'

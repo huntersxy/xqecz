@@ -304,8 +304,6 @@ onBeforeUnmount(() => {
   }
 }
 
-/* Ideas are presented like an editorial index: the prompt is the headline,
-   references are supporting material, and controls stay in a quiet toolbar. */
 .ideas-gallery-page {
   max-width: 1440px;
   margin-top: clamp(24px, 4vw, 48px);
@@ -357,7 +355,6 @@ onBeforeUnmount(() => {
   width: 100%;
   max-width: none;
 }
-/* 搜索框、下拉与按钮必须同高，否则一行筛选看起来像三个不同组件拼在一起。 */
 .ideas-gallery-page .idea-filters .arco-input-wrapper,
 .ideas-gallery-page .idea-filters :deep(.arco-select-view-single),
 .ideas-gallery-page .idea-filters .arco-btn {

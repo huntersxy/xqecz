@@ -4,10 +4,6 @@ import type { UniverseNode } from './artworkUniverse'
 export interface UniverseImageProgress { total: number; ready: number; failed: number; pending: number }
 type Entry = { url: string; state: 'pending' | 'ready' | 'failed' }
 
-/**
- * 体验优先：展开期间预加载全作品缩略图，不按视口限量，不淘汰已完成图片。
- * 相同 URL 共享一次请求；取消和过期结果检查属于正确性，不能随性能限制一起移除。
- */
 export function createUniverseImages(onImage: (node: UniverseNode, image: HTMLImageElement | null) => void, onProgress: (progress: UniverseImageProgress) => void) {
   const abort = new AbortController()
   const entries = new Map<number, Entry>()
