@@ -143,8 +143,10 @@ async function save() {
           :min="0"
           :max="8"
           :disabled="form.edit_transport === 'none'" /></a-form-item
-      ><a-form-item label="请求超时（秒）"
-        ><a-input-number v-model="form.timeout_seconds" :min="10" :max="300" /></a-form-item
+      ><a-form-item label="请求超时"
+        ><p class="provider-size-note">
+          所有渠道单次请求固定 30 分钟超时；失败会自动重试，最多 3 次，最终失败自动返还额度。
+        </p></a-form-item
       ><a-form-item label="供应商并发上限"
         ><a-input-number v-model="form.concurrency" :min="1" :max="2"
       /></a-form-item>
@@ -157,7 +159,7 @@ async function save() {
       <template #extra>仅填写供应商文档明确支持的非密配置；API Key 始终单独加密保存。</template>
     </a-form-item>
     <p class="creative-note">
-      只有经供应商文档或测试确认后才启用参考图接口、画质与数量。站点不会自动重试可能已经收费的请求。
+      只有经供应商文档或测试确认后才启用参考图接口、画质与数量。生成失败会自动重试并返还额度。
     </p>
     <a-checkbox v-model="form.enabled">启用</a-checkbox
     ><a-checkbox v-model="form.default">默认供应商</a-checkbox>

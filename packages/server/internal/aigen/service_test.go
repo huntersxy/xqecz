@@ -23,17 +23,17 @@ import (
 )
 
 type fakeProvider struct {
-	calls atomic.Int32
-	err   error
-	check func(Input, []string)
+	calls    atomic.Int32
+	failures atomic.Int32
+	err      error
+	check    func(Input, []string)
 }
 
 func (p *fakeProvider) Generate(_ context.Context, _ ProviderConfig, _ string, input Input, files []string) ([]Image, error) {
-	p.calls.Add(1)
 	if p.check != nil {
 		p.check(input, files)
 	}
-	if p.err != nil {
+	if p.calls.Add(1) <= p.failures.Load() {
 		return nil, p.err
 	}
 	return []Image{{Bytes: testPNG()}}, nil
@@ -130,7 +130,7 @@ func TestReservationIdempotencyAndImmutableSuccess(t *testing.T) {
 	if a := balance(t, s, 1); a.Available != 8 || a.Reserved != 0 {
 		t.Fatal(a)
 	}
-	if err = s.complete(done, "running", "succeeded", "", nil, true, 0); !errors.Is(err, ErrConflict) {
+	if err = s.complete(done, "running", "succeeded", "", nil, 0); !errors.Is(err, ErrConflict) {
 		t.Fatal(err)
 	}
 	var ledger int64
@@ -209,13 +209,16 @@ func TestUserImageSizeIsNotBoundByProviderList(t *testing.T) {
 	}
 }
 
-func TestFailureUnknownRecoveryAndManualSettlement(t *testing.T) {
+func TestFailuresRetryThenRefundWithRecordedAttempts(t *testing.T) {
+	quietSlog(t)
 	for _, tc := range []struct {
-		name                string
-		err                 error
-		status              string
-		available, reserved int64
-	}{{"rejected", KnownFailure{"rejected"}, "failed", 10, 0}, {"timeout", context.DeadlineExceeded, "unknown", 8, 2}} {
+		name string
+		err  error
+		word string
+	}{
+		{"rejected", KnownFailure{"provider rejected"}, "provider rejected"},
+		{"timeout", context.DeadlineExceeded, "供应商请求超时（30 分钟未返回）"},
+	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s, fake, p, session := testService(t)
 			grant(t, s, 1, 10)
@@ -224,44 +227,85 @@ func TestFailureUnknownRecoveryAndManualSettlement(t *testing.T) {
 				t.Fatal(err)
 			}
 			fake.err = tc.err
+			fake.failures.Store(generationAttempts)
 			s.runOne(context.Background())
 			s.db.First(&task, task.ID)
-			if task.Status != tc.status {
+			if task.Status != "failed" {
 				t.Fatal(task)
 			}
-			if a := balance(t, s, 1); a.Available != tc.available || a.Reserved != tc.reserved {
+			if task.Attempts != generationAttempts {
+				t.Fatalf("attempts = %d", task.Attempts)
+			}
+			if !strings.Contains(task.Error, tc.word) || !strings.Contains(task.Error, "额度已返还") {
+				t.Fatalf("error = %q", task.Error)
+			}
+			if fake.calls.Load() != generationAttempts {
+				t.Fatalf("provider calls = %d", fake.calls.Load())
+			}
+			if a := balance(t, s, 1); a.Available != 10 || a.Reserved != 0 {
 				t.Fatal(a)
 			}
-			if task.Status == "unknown" {
-				if err = s.Resolve(context.Background(), 20, task.ID, false, "supplier confirmed no execution"); err != nil {
-					t.Fatal(err)
+			var snapshot taskSnapshot
+			if err = json.Unmarshal([]byte(task.Snapshot), &snapshot); err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range []string{"attempt: 1/4", "attempt: 4/4", "category: ", "error: "} {
+				if !strings.Contains(snapshot.Diagnostic, want) {
+					t.Fatalf("diagnostic lacks %q:\n%s", want, snapshot.Diagnostic)
 				}
-				if a := balance(t, s, 1); a.Available != 10 || a.Reserved != 0 {
-					t.Fatal(a)
-				}
-				if err = s.Resolve(context.Background(), 20, task.ID, false, "duplicate"); !errors.Is(err, ErrConflict) {
-					t.Fatal(err)
-				}
+			}
+			var releases int64
+			s.db.Model(&Ledger{}).Where("task_id = ? AND kind = ?", task.ID, "release").Count(&releases)
+			if releases != 1 {
+				t.Fatalf("release ledger = %d", releases)
 			}
 		})
 	}
-	s, _, p, session := testService(t)
+}
+
+func TestRetrySucceedsAfterTransientFailures(t *testing.T) {
+	quietSlog(t)
+	s, fake, p, session := testService(t)
 	grant(t, s, 1, 10)
-	task, _ := s.Submit(context.Background(), 1, inputFor(p, session, "crashed-key-000001"))
-	s.db.Model(&task).Updates(map[string]any{"status": "running", "updated_at": time.Now().Add(-11 * time.Minute)})
-	s.recoverStale(context.Background())
-	s.db.First(&task, task.ID)
-	if task.Status != "unknown" {
-		t.Fatal(task)
-	}
-	if a := balance(t, s, 1); a.Reserved != 2 {
-		t.Fatal(a)
-	}
-	if err := s.Resolve(context.Background(), 20, task.ID, true, "upstream billing confirmed"); err != nil {
+	task, err := s.Submit(context.Background(), 1, inputFor(p, session, "retry-success-0001"))
+	if err != nil {
 		t.Fatal(err)
+	}
+	fake.err = context.DeadlineExceeded
+	fake.failures.Store(2)
+	s.runOne(context.Background())
+	s.db.First(&task, task.ID)
+	if task.Status != "succeeded" || task.Attempts != 3 || fake.calls.Load() != 3 {
+		t.Fatal(task, fake.calls.Load())
 	}
 	if a := balance(t, s, 1); a.Available != 8 || a.Reserved != 0 {
 		t.Fatal(a)
+	}
+}
+
+func TestStaleRunningTaskRefundsWithDiagnostic(t *testing.T) {
+	quietSlog(t)
+	s, _, p, session := testService(t)
+	grant(t, s, 1, 10)
+	task, err := s.Submit(context.Background(), 1, inputFor(p, session, "crashed-key-000001"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.db.Model(&task).Updates(map[string]any{"status": "running", "updated_at": time.Now().Add(-staleTaskAfter - time.Minute)})
+	s.recoverStale(context.Background())
+	s.db.First(&task, task.ID)
+	if task.Status != "failed" {
+		t.Fatal(task)
+	}
+	if a := balance(t, s, 1); a.Available != 10 || a.Reserved != 0 {
+		t.Fatal(a)
+	}
+	var snapshot taskSnapshot
+	if err = json.Unmarshal([]byte(task.Snapshot), &snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(snapshot.Diagnostic, "attempt: interrupted") {
+		t.Fatalf("diagnostic = %s", snapshot.Diagnostic)
 	}
 }
 
@@ -270,6 +314,7 @@ func TestArchiveTaskOnlyTerminalFailures(t *testing.T) {
 	grant(t, s, 1, 10)
 	ctx := context.Background()
 	fake.err = KnownFailure{"provider rejected the request"}
+	fake.failures.Store(generationAttempts)
 	task, err := s.Submit(ctx, 1, inputFor(p, session, "archive-failure-0001"))
 	if err != nil {
 		t.Fatal(err)
@@ -287,6 +332,7 @@ func TestArchiveTaskOnlyTerminalFailures(t *testing.T) {
 	}
 
 	fake.err = nil
+	fake.failures.Store(0)
 	succeeded, err := s.Submit(ctx, 1, inputFor(p, session, "archive-success-0001"))
 	if err != nil {
 		t.Fatal(err)
@@ -498,7 +544,7 @@ func TestPaidReceiptRecoveryDoesNotRepeatProvider(t *testing.T) {
 	if err = s.writeReceipt(task, "succeeded", "", []Asset{asset}); err != nil {
 		t.Fatal(err)
 	}
-	s.db.Model(&task).Updates(map[string]any{"status": "running", "updated_at": time.Now().Add(-11 * time.Minute)})
+	s.db.Model(&task).Updates(map[string]any{"status": "running", "updated_at": time.Now().Add(-staleTaskAfter - time.Minute)})
 	s.recoverStale(ctx)
 	s.recoverStale(ctx)
 	s.db.First(&task, task.ID)
@@ -515,8 +561,8 @@ func TestPaidReceiptRecoveryDoesNotRepeatProvider(t *testing.T) {
 	}
 }
 
-func TestPartialResultsStayPrivateAndHoldReservation(t *testing.T) {
-	s, _, p, session := testService(t)
+func TestPartialResultsAreDiscardedAndRefunded(t *testing.T) {
+	s, fake, p, session := testService(t)
 	grant(t, s, 1, 10)
 	p.MaxCount = 2
 	var err error
@@ -534,10 +580,13 @@ func TestPartialResultsStayPrivateAndHoldReservation(t *testing.T) {
 	s.db.First(&task, task.ID)
 	var assets []Asset
 	s.db.Where("task_id = ?", task.ID).Find(&assets)
-	if task.Status != "unknown" || len(assets) != 1 || assets[0].Public {
+	if task.Status != "failed" || len(assets) != 0 {
 		t.Fatal(task.Status, assets)
 	}
-	if a := balance(t, s, 1); a.Available != 6 || a.Reserved != 4 {
+	if fake.calls.Load() != generationAttempts {
+		t.Fatal(fake.calls.Load())
+	}
+	if a := balance(t, s, 1); a.Available != 10 || a.Reserved != 0 {
 		t.Fatal(a)
 	}
 	for _, name := range []string{".encryption-key", "../secret.png", ".task-1-result.json"} {

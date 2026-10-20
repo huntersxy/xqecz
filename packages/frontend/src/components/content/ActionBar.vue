@@ -4,7 +4,7 @@ import { contentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { toast } from '@/composables/useToast'
 import { formatFileSize, getImageUrl, getUrlExtension, withDownloadFlag } from '@/utils'
-import CdIcon from './CdIcon.vue'
+import SiteIcon from '@/components/SiteIcon.vue'
 import type { Content } from '@/types'
 
 const props = defineProps<{ content: Content }>()
@@ -98,7 +98,7 @@ const originExt = computed(() => getUrlExtension(originalFile.value))
         :aria-label="isLiked ? '取消点赞' : '点赞'" :title="userStore.isLoggedIn ? '点亮这颗星球' : '登录后即可点亮'"
         @click="toggle('like')"
       >
-        <CdIcon name="heart" :filled="isLiked" class="cd-action-icon" />
+        <SiteIcon name="heart" :filled="isLiked" class="cd-action-icon" />
         <span>{{ isLiked ? '已喜欢' : '喜欢' }}</span>
         <span class="cd-like-count">{{ likeCount }}</span>
       </button>
@@ -108,15 +108,15 @@ const originExt = computed(() => getUrlExtension(originalFile.value))
         :aria-label="isFavorited ? '取消收藏' : '收藏'" :title="userStore.isLoggedIn ? '收进你的星图' : '登录后即可收进星图'"
         @click="toggle('favorite')"
       >
-        <CdIcon name="star" :filled="isFavorited" class="cd-action-icon" />
+        <SiteIcon name="star" :filled="isFavorited" class="cd-action-icon" />
         <span>{{ isFavorited ? '已收藏' : '收藏' }}</span>
       </button>
       <button type="button" class="cd-action cd-share-action" @click="shareContent">
-        <CdIcon name="share" /> <span>分享</span>
+        <SiteIcon name="share" /> <span>分享</span>
       </button>
     </div>
     <a v-if="downloadUrl" :href="downloadUrl" rel="noopener" class="cd-download-action" aria-label="下载作品">
-      <span class="cd-download-icon"><CdIcon name="download" /></span>
+      <span class="cd-download-icon"><SiteIcon name="download" /></span>
       <span class="cd-download-label"><span>下载作品</span><small>{{ originExt || (isVideo ? 'VIDEO' : '作品文件') }}<template v-if="sizeText"> · {{ sizeText }}</template></small></span>
     </a>
     <p v-if="!userStore.isLoggedIn" class="cd-action-hint">登录后即可点亮、收藏作品</p>
@@ -133,7 +133,7 @@ const originExt = computed(() => getUrlExtension(originalFile.value))
   transition: background .2s, color .2s, border-color .2s, transform .2s;
 }
 .cd-share-action { flex: 0 0 auto; color: var(--creative-muted); }
-.cd-action > .cd-icon { font-size: 16px; }
+.cd-action > .site-icon { font-size: 16px; }
 .cd-action-icon { color: var(--creative-accent); }
 .cd-like-count { min-width: 18px; padding: 2px 5px; border-radius: 5px; background: var(--creative-paper); color: var(--creative-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
 .cd-action:hover:not(:disabled) { color: var(--creative-accent); border-color: color-mix(in srgb, var(--creative-accent) 35%, var(--creative-line)); background: var(--creative-soft); }

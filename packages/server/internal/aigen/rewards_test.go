@@ -69,7 +69,7 @@ func TestDailyCreditsReservationRefundAndRefill(t *testing.T) {
 	if a := balance(t, s, 1); a.Available != 13 {
 		t.Fatal("reserved credits bypassed cap", a)
 	}
-	if err := s.complete(task, "queued", "failed", "test", nil, false, 0); err != nil {
+	if err := s.complete(task, "queued", "failed", "test", nil, 0); err != nil {
 		t.Fatal(err)
 	}
 	if a := balance(t, s, 1); a.DailyAvailable != 5 || a.DailyReserved != 0 || a.Available != 15 {
@@ -79,7 +79,7 @@ func TestDailyCreditsReservationRefundAndRefill(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.complete(task, "queued", "succeeded", "", nil, true, 0); err != nil {
+	if err := s.complete(task, "queued", "succeeded", "", nil, 0); err != nil {
 		t.Fatal(err)
 	}
 	if err := GrantDailyLogin(ctx, s.db, 1, now.AddDate(0, 0, 6)); err != nil {

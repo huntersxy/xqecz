@@ -9,7 +9,7 @@ import {
 } from '@/utils/imageSource'
 import { mediaCandidates, mediaKindOf, mediaTiers, noteFailed, noteLoaded, rewriteMediaInHtml } from '@/utils/contentMedia'
 import SketchPlanet from '@/components/SketchPlanet.vue'
-import CdIcon from './CdIcon.vue'
+import SiteIcon from '@/components/SiteIcon.vue'
 import type { Content } from '@/types'
 
 const props = defineProps<{ content: Content }>()
@@ -119,9 +119,9 @@ onBeforeUnmount(() => { viewer?.destroy(); viewer = null })
           <p>{{ kind === 'video' ? '正在加载作品视频…' : '正在加载作品图片…' }}</p>
         </div>
         <div v-else-if="phase === 'failed'" class="cd-media-state is-error" role="status">
-          <CdIcon name="image-broken" class="cd-media-broken" />
+          <SiteIcon name="image-broken" class="cd-media-broken" />
           <p>{{ kind === 'video' ? '视频加载失败，请稍后重试' : '图片加载失败，请稍后重试' }}</p>
-          <button type="button" class="cd-retry" @click="retry"><CdIcon name="refresh" />重试</button>
+          <button type="button" class="cd-retry" @click="retry"><SiteIcon name="refresh" />重试</button>
         </div>
 
         <template v-if="resolved && currentUrl && phase !== 'failed'">

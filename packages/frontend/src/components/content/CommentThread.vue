@@ -4,7 +4,7 @@ import { RouterLink } from 'vue-router'
 import { commentApi } from '@/api'
 import { toast } from '@/composables/useToast'
 import CommentNode from './CommentNode.vue'
-import CdIcon from './CdIcon.vue'
+import SiteIcon from '@/components/SiteIcon.vue'
 import type { Comment } from '@/types'
 
 const props = defineProps<{ contentId: number; isLoggedIn: boolean }>()
@@ -111,11 +111,11 @@ defineExpose({ loadComments })
       <span class="cd-comments-title">评论 <span class="cd-comment-count">{{ totalComments }}</span></span>
       <nav v-if="totalPages > 1" class="cd-pager" aria-label="评论分页">
         <button type="button" class="cd-pager-btn" aria-label="上一页" :disabled="currentPage <= 1 || loading" @click="loadComments(currentPage - 1)">
-          <CdIcon name="chevron-left" />
+          <SiteIcon name="chevron-left" />
         </button>
         <span class="cd-pager-info">{{ currentPage }} / {{ totalPages }}</span>
         <button type="button" class="cd-pager-btn" aria-label="下一页" :disabled="currentPage >= totalPages || loading" @click="loadComments(currentPage + 1)">
-          <CdIcon name="chevron-right" />
+          <SiteIcon name="chevron-right" />
         </button>
       </nav>
     </div>
@@ -139,7 +139,7 @@ defineExpose({ loadComments })
       <div class="cd-comment-input-footer">
         <span class="cd-comment-shortcut">Ctrl + Enter 发送</span>
         <button type="button" class="cd-comment-submit" :disabled="submitting" :aria-busy="submitting" @click="submitComment">
-          <CdIcon name="send" />
+          <SiteIcon name="send" />
           <span>{{ replyTarget ? '发送回复' : '发表评论' }}</span>
         </button>
       </div>
@@ -151,7 +151,7 @@ defineExpose({ loadComments })
       </div>
       <RouterLink to="/login" class="cd-login-link">
         <span>去登录</span>
-        <CdIcon name="chevron-right" />
+        <SiteIcon name="chevron-right" />
       </RouterLink>
     </div>
 

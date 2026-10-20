@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { IconLink } from '@arco-design/web-vue/es/icon'
 import AdminDataToolbar from './AdminDataToolbar.vue'
 import AdminEmpty from './AdminEmpty.vue'
@@ -8,7 +8,8 @@ import AdminSkeleton from './AdminSkeleton.vue'
 import AdminStatus from './AdminStatus.vue'
 import MediaImage from '@/components/MediaImage.vue'
 import { useAdminStore } from '@/stores/admin'
-import { formatTime, prefersReducedMotion } from '@/utils'
+import { formatTime } from '@/utils'
+import { useLeavingList } from '@/composables/useLeavingList'
 
 const admin = useAdminStore()
 
@@ -27,38 +28,10 @@ function claimThumb(content?: { thumb?: string; img?: string } | null) {
 const showSkeleton = computed(() => admin.claims.loading && admin.claims.list.length === 0)
 const claimSummary = computed(() => `共 ${admin.claims.total} 条认领申请`)
 
-const LEAVE_MS = 280
-const leavingIds = ref<number[]>([])
-const timers = new Set<ReturnType<typeof setTimeout>>()
-let disposed = false
-
-function isLeaving(id: number) {
-  return leavingIds.value.includes(id)
-}
+const { isLeaving, scheduleLeave } = useLeavingList()
 
 async function load() {
   await admin.loadClaims(1, statusFilter.value || undefined)
-}
-
-function scheduleLeave(id: number, refresh: () => unknown) {
-  if (disposed) return
-  if (prefersReducedMotion()) {
-    void refresh()
-    return
-  }
-  if (!leavingIds.value.includes(id)) leavingIds.value = [...leavingIds.value, id]
-  timers.add(
-    setTimeout(() => {
-      void (async () => {
-        try {
-          await refresh()
-        } catch {
-        } finally {
-          leavingIds.value = leavingIds.value.filter(item => item !== id)
-        }
-      })()
-    }, LEAVE_MS),
-  )
 }
 
 async function handleClaim(id: number, action: 'approve' | 'reject') {
@@ -70,12 +43,6 @@ function onTableChange(current: number) {
 }
 
 onMounted(load)
-
-onBeforeUnmount(() => {
-  disposed = true
-  timers.forEach(timer => clearTimeout(timer))
-  timers.clear()
-})
 </script>
 
 <template>

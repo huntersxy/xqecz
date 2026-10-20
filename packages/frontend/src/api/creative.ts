@@ -133,8 +133,6 @@ export const aiApi = {
   adminTasks: (query: Record<string, unknown> = {}, signal?: AbortSignal) =>
     checked('/admin/ai/tasks', z.array(AITaskViewSchema), { query, signal }),
   deleteAdminTask: (id: number) => checked(`/admin/ai/tasks/${id}`, nil, { method: 'DELETE' }),
-  resolve: (id: number, consumed: boolean, note: string) =>
-    checked(`/admin/ai/tasks/${id}/resolve`, nil, { method: 'POST', body: { consumed, note } }),
   grant: (userId: number, amount: number, note: string, key: string) =>
     checked('/admin/ai/grants', nil, {
       method: 'POST',

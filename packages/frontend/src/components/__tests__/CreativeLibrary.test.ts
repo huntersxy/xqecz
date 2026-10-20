@@ -42,10 +42,10 @@ const row = (
   },
 })
 const wrappers: ReturnType<typeof mount>[] = []
-async function render(appliedCharacters: number[] = []) {
+async function render(appliedCharacters: number[] = [], appliedAssets: number[] = []) {
   const w = mount(CreativeLibrary, {
     attachTo: document.body,
-    props: { appliedCharacters },
+    props: { appliedCharacters, appliedAssets },
     global: {
       stubs: {
         CreativeImage: { props: ['id'], template: '<span class="test-image" :data-id="id" />' },
@@ -90,6 +90,7 @@ describe('creative library', () => {
     const applied = w.emitted('apply')!
     expect(applied).toHaveLength(1)
     expect(applied[0]![0]).toMatchObject({
+      text: '',
       action: 'append',
       assets: [11],
       characters: [1],
@@ -98,13 +99,22 @@ describe('creative library', () => {
     expect(w.find('.lib-detail').exists()).toBe(false)
   })
 
-  it('marks characters already in the draft as imported and locks them', async () => {
-    const w = await render([1])
+  it('marks characters whose references are all in the draft as imported and locks them', async () => {
+    const w = await render([], [11])
     const card = w.findAll('.lib-card')[0]!
     expect(card.attributes('disabled')).toBeDefined()
     expect(card.text()).toContain('已导入')
     await card.trigger('click')
     expect(w.emitted('apply')).toBeUndefined()
+  })
+
+  it('unlocks a character once its references leave the draft', async () => {
+    const w = await render([1], [])
+    const card = w.findAll('.lib-card')[0]!
+    expect(card.attributes('disabled')).toBeUndefined()
+    expect(card.text()).not.toContain('已导入')
+    await card.trigger('click')
+    expect(w.emitted('apply')).toHaveLength(1)
   })
 
   it('expands a template on click and imports its prompt', async () => {

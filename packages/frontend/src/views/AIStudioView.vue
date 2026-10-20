@@ -143,7 +143,7 @@ const failedTaskRows = computed(() =>
   shownTasks.value.filter((row) => ['failed', 'cancelled'].includes(row.task.status)),
 )
 const activeTask = computed(() =>
-  tasks.value.find((row) => ['queued', 'running', 'unknown'].includes(row.task.status)),
+  tasks.value.find((row) => ['queued', 'running'].includes(row.task.status)),
 )
 const stageTask = computed(() => {
   const chosen = tasks.value.find((row) => row.task.id === activeTaskId.value)
@@ -368,7 +368,7 @@ async function generate() {
       if (
         !pending.value &&
         !(await confirm(
-          `本次生成 ${count.value} 张图片，预留 ${cost.value} 额度。确认开始？`,
+          `本次生成 ${count.value} 张图片，将消耗 ${cost.value} 额度，失败自动返还。确认开始？`,
         ))
       )
         return
@@ -902,11 +902,9 @@ watch(ready, (value) => {
           <span v-else class="ws-stage-sub">把画面写下来</span>
         </div>
         <div v-if="activeTask" class="ws-live" role="status">
-          <IconLoading v-if="activeTask.task.status !== 'unknown'" class="ws-spin" />
+          <IconLoading class="ws-spin" />
           <span>
-            任务 #{{ activeTask.task.id }} · {{ labels[activeTask.task.status] }}{{
-              activeTask.task.status === 'unknown' ? '，预留额度待管理员核查' : '，离开页面仍会继续'
-            }}
+            任务 #{{ activeTask.task.id }} · {{ labels[activeTask.task.status] }}，离开页面仍会继续
           </span>
         </div>
         <div class="ws-view-toggle" role="radiogroup" aria-label="查看方式" :class="{ 'is-task': !galleryOpen }">
@@ -960,7 +958,7 @@ watch(ready, (value) => {
                 <IconImage />
                 <strong>{{ labels[stageTask.task.status] }}</strong>
                 <p v-if="stageTask.task.error">{{ stageTask.task.error }}</p>
-                <p v-else-if="stageTask.task.status === 'unknown'">结果待核查，预留额度待管理员确认。</p>
+                <p v-else-if="stageTask.task.status === 'unknown'">生成失败，额度已自动返还。</p>
                 <div class="ws-state-actions">
                   <button type="button" class="ws-text-btn" @click="reusePrompt(stageTask)">复用提示词重试</button>
                   <button
@@ -1244,7 +1242,7 @@ watch(ready, (value) => {
         <header class="picker-head">
           <div class="picker-heading">
             <h2>角色 / 模板</h2>
-            <p class="picker-note">点选即导入外观描述与参考图，无需二次确认。</p>
+            <p class="picker-note">点选即导入角色参考图或提示词，无需二次确认。</p>
           </div>
           <button type="button" class="picker-close" aria-label="关闭" @click="resourceOpen = false">
             <IconClose />
@@ -1254,6 +1252,7 @@ watch(ready, (value) => {
           <CreativeLibrary
             v-if="resourceOpen"
             :applied-characters="characterIds"
+            :applied-assets="references.map((reference) => reference.asset_id)"
             :error="resourceError"
             @apply="applyResource"
           />

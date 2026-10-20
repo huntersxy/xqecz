@@ -46,10 +46,6 @@ const providerOpen = ref(false),
   editingResource = ref<CreativeResource | null>(null),
   assetOpen = ref(false),
   editingAsset = ref<AIAsset | null>(null),
-  resolveOpen = ref(false),
-  resolveId = ref(0),
-  consumed = ref(false),
-  resolveNote = ref(''),
   grantForm = ref({ users: [] as number[], scope: 'selected', amount: 1, note: '' }),
   grantKey = ref(newKey()),
   fileInput = ref<HTMLInputElement>(),
@@ -59,8 +55,6 @@ const assetError = ref(''),
 const promptEnhancementSaving = ref(false)
 const assetLicenseChoice = ref('')
 const previewAsset = ref<{ id: number; title: string } | null>(null)
-const resolveError = ref(''),
-  resolveBusy = ref(false)
 watch(assetLicenseChoice, (value) => {
   if (editingAsset.value && value && value !== 'other') editingAsset.value.license = value
 })
@@ -142,9 +136,7 @@ const menuIcons: Record<string, Component> = {
 }
 
 const enabledProviderCount = computed(() => providers.value.filter((p) => p.enabled).length)
-const unknownTaskCount = computed(
-  () => tasks.value.filter((t) => t.task.status === 'unknown').length,
-)
+const failedTaskCount = computed(() => tasks.value.filter((t) => t.task.status === 'failed').length)
 const sponsorCount = computed(() => tasks.value.filter((t) => t.task.idea_id > 0).length)
 const characterCount = computed(() => resources.value.filter((r) => r.kind !== 'template').length)
 const templateCount = computed(() => resources.value.filter((r) => r.kind === 'template').length)
@@ -269,7 +261,7 @@ const taskLabels: Record<string, string> = {
   running: '正在生成',
   succeeded: '生成成功',
   failed: '生成失败',
-  unknown: '结果待核查',
+  unknown: '历史待核查',
   cancelled: '已取消',
 }
 const adapterLabels: Record<AIProvider['adapter'], string> = {
@@ -287,7 +279,7 @@ const ideaStatusLabels: Record<string, string> = {
   waiting: '等待审核',
   generating: '生成中',
   realized: '已实现',
-  unknown: '结果待核查',
+  unknown: '历史待核查',
   unavailable: '不可用',
   hidden: '已下架',
   withdrawn: '已撤回',
@@ -403,13 +395,6 @@ function editAsset(row: AIAsset) {
       ? 'other'
       : ''
   assetOpen.value = true
-}
-function startResolve(id: number) {
-  resolveId.value = id
-  consumed.value = false
-  resolveNote.value = ''
-  resolveError.value = ''
-  resolveOpen.value = true
 }
 async function saved() {
   providerOpen.value = false
@@ -543,26 +528,6 @@ async function deleteAsset(id: number) {
     await load()
   })
 }
-async function resolve() {
-  if (resolveBusy.value) return
-  const note = resolveNote.value.trim()
-  resolveError.value = ''
-  if (Array.from(note).length < 3 || Array.from(note).length > 300) {
-    resolveError.value = '核查依据与说明须填写 3–300 个字'
-    return
-  }
-  resolveBusy.value = true
-  try {
-    await aiApi.resolve(resolveId.value, consumed.value, note)
-    if (stopped) return
-    resolveOpen.value = false
-    await run(load)
-  } catch (e) {
-    if (!stopped) resolveError.value = (e as Error).message
-  } finally {
-    resolveBusy.value = false
-  }
-}
 onMounted(() => void run(load))
 onBeforeUnmount(() => {
   stopped = true
@@ -613,7 +578,7 @@ onBeforeUnmount(() => {
           <div class="adm-stat">
             <span class="adm-stat-label">生图任务</span>
             <strong class="adm-stat-value">{{ tasks.length }}</strong>
-            <span class="adm-stat-hint">{{ unknownTaskCount }} 条待核查结算</span>
+            <span class="adm-stat-hint">{{ failedTaskCount }} 条失败已自动返还</span>
           </div>
           <div class="adm-stat">
             <span class="adm-stat-label">创意投稿</span>
@@ -897,7 +862,7 @@ onBeforeUnmount(() => {
           <header class="adm-ai-pane-head">
             <div>
               <h2>生图任务</h2>
-              <p>任务、结果图与原始参考图并排可查；未知状态的订单需要人工核查结算。</p>
+              <p>任务、结果图与原始参考图并排可查；失败任务会自动返还额度，原始报错仅管理员可见。</p>
             </div>
             <div class="adm-ai-filter-row">
               <a-input
@@ -979,6 +944,7 @@ onBeforeUnmount(() => {
                   <span>{{ row.task.model }}</span>
                   <span>{{ row.task.size }} · {{ row.task.count }} 张</span>
                   <span>{{ row.task.cost }} 额度</span>
+                  <span v-if="row.task.attempts > 1">{{ row.task.attempts }} 次尝试</span>
                   <RouterLink v-if="row.task.idea_id" :to="'/ideas/' + row.task.idea_id"
                     >创意 #{{ row.task.idea_id }}</RouterLink
                   >
@@ -1004,7 +970,7 @@ onBeforeUnmount(() => {
                   <pre>{{ row.task.prompt }}</pre>
                 </details>
                 <details v-if="row.diagnostic" class="admin-task-diagnostic">
-                  <summary>排查诊断 · 仅管理员可见</summary>
+                  <summary>原始报错记录 · 仅管理员可见</summary>
                   <pre>{{ row.diagnostic }}</pre>
                   <a-button size="small" @click="copyDiagnostic(row.diagnostic)">复制诊断</a-button>
                 </details>
@@ -1032,12 +998,6 @@ onBeforeUnmount(() => {
               </div>
 
               <footer class="adm-card-foot">
-                <a-button
-                  v-if="row.task.status === 'unknown'"
-                  size="small"
-                  @click="startResolve(row.task.id)"
-                  >核查结算</a-button
-                >
                 <a-button
                   size="small"
                   status="danger"
@@ -1123,7 +1083,7 @@ onBeforeUnmount(() => {
               </div>
               <footer class="adm-card-foot">
                 <RouterLink class="adm-ai-link" :to="'/ideas/' + row.idea.id">预览</RouterLink>
-                <a-button size="small" @click="showEvents(row.idea.id)">操作与核查记录</a-button>
+                <a-button size="small" @click="showEvents(row.idea.id)">操作记录</a-button>
                 <a-button v-if="row.sponsorable" size="small" @click="sponsorIdea(row)"
                   >赞助</a-button
                 >
@@ -1176,7 +1136,7 @@ onBeforeUnmount(() => {
             :desc="
               tasks.length
                 ? '换个关键词再试。'
-                : '用户赞助创意后会在这里生成对应任务与核查记录。'
+                : '用户赞助创意后会在这里生成对应任务与错误记录。'
             "
           />
           <div v-else class="adm-card-grid is-wide adm-stagger">
@@ -1202,12 +1162,6 @@ onBeforeUnmount(() => {
                 </p>
               </div>
               <footer class="adm-card-foot">
-                <a-button
-                  v-if="row.task.status === 'unknown'"
-                  size="small"
-                  @click="startResolve(row.task.id)"
-                  >核查结算</a-button
-                >
                 <RouterLink class="adm-ai-link is-push" :to="'/ideas/' + row.task.idea_id"
                   >查看创意</RouterLink
                 >
@@ -1464,7 +1418,7 @@ onBeforeUnmount(() => {
       <a-modal
         v-model:visible="eventsOpen"
         class="admin-theme creative-theme creative-dialog ai-dialog"
-        title="创意操作与核查记录"
+        title="创意操作记录"
         :footer="false"
         ><div class="ai-dialog-body">
           <div v-for="event in events" :key="event.id" class="studio-task">
@@ -1545,34 +1499,6 @@ onBeforeUnmount(() => {
             >保存</a-button
           ></div
         ></a-modal
-      >
-      <a-modal
-        v-model:visible="resolveOpen"
-        class="admin-theme creative-theme creative-dialog ai-dialog"
-        title="核查结果不明的任务"
-        :footer="false"
-        :mask-closable="!resolveBusy"
-        :esc-to-close="!resolveBusy"
-        :closable="!resolveBusy"
-        ><div class="ai-dialog-body">
-        <p>先在供应商侧核查实际执行与计费情况，再释放或结算预留额度。此操作不会重新请求生图。</p>
-        <a-checkbox v-model="consumed" :disabled="resolveBusy"
-          >已确认产生供应商费用，结算预留额度</a-checkbox
-        ><label class="creative-field"
-          >核查依据与说明（必填，3–300 个字）<a-textarea
-            v-model="resolveNote"
-            :textarea-attrs="{ 'aria-label': '核查依据与说明', 'aria-invalid': !!resolveError }"
-            :disabled="resolveBusy"
-            :auto-size="{ minRows: 3, maxRows: 8 }"
-            placeholder="请填写供应商侧核查到的执行与计费情况"
-          /><span class="creative-note"
-            >{{ Array.from(resolveNote.trim()).length }} / 300 字</span
-          ></label
-        >
-        <p v-if="resolveError" role="alert" class="admin-ai-alert">{{ resolveError }}</p>
-        <a-button type="primary" size="small" :loading="resolveBusy" @click="resolve">{{
-          consumed ? '确认结算' : '确认未消耗，释放预留'
-        }}</a-button></div></a-modal
       >
   </AdminPanel>
 </template>

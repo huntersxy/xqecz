@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { formatTime } from '@/utils'
 import UserAvatar from '@/components/UserAvatar.vue'
-import CdIcon from './CdIcon.vue'
+import SiteIcon from '@/components/SiteIcon.vue'
 import type { Comment } from '@/types'
 
 const props = withDefaults(defineProps<{
@@ -52,15 +52,15 @@ function onDelete() {
 
       <div class="cd-comment-actions">
         <button v-if="userStore.isLoggedIn" type="button" class="cd-comment-act cd-comment-reply" @click="emit('select-reply', comment)">
-          <CdIcon name="reply" />回复
+          <SiteIcon name="reply" />回复
         </button>
         <template v-if="canManage">
           <button type="button" class="cd-comment-act cd-comment-delete" :class="{ 'is-danger': confirming }" @click="onDelete">
-            <CdIcon name="trash" />{{ confirming ? '确认删除？' : '删除' }}
+            <SiteIcon name="trash" />{{ confirming ? '确认删除？' : '删除' }}
           </button>
           <button v-if="confirming" type="button" class="cd-comment-act" @click="confirming = false">取消</button>
           <button v-else type="button" class="cd-comment-act cd-comment-report" @click="emit('report-comment', comment)">
-            <CdIcon name="flag" />举报
+            <SiteIcon name="flag" />举报
           </button>
         </template>
       </div>

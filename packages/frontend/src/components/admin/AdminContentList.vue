@@ -8,7 +8,7 @@ import AdminSkeleton from './AdminSkeleton.vue'
 import AdminEmpty from './AdminEmpty.vue'
 import AdminStatus from './AdminStatus.vue'
 import { useMediaQuery } from '@vueuse/core'
-import { prefersReducedMotion } from '@/utils'
+import { useLeavingList } from '@/composables/useLeavingList'
 import type { Content } from '@/types'
 import {
   IconEdit, IconDelete, IconRefresh, IconCheck, IconClose, IconMore,
@@ -21,10 +21,7 @@ const userStore = useUserStore()
 const admin = useAdminStore()
 const isMobile = useMediaQuery('(max-width: 768px)')
 
-const LEAVE_MS = 280
-const leavingIds = ref<number[]>([])
-const timers = new Set<ReturnType<typeof setTimeout>>()
-let disposed = false
+const { isLeaving, scheduleLeave } = useLeavingList()
 
 const storeMap = { my: admin.myContent, all: admin.allContent, pending: admin.pendingContent }
 const data = computed(() => storeMap[props.mode])
@@ -68,15 +65,6 @@ function tagsOf(record: Content) {
   return record.tags ?? []
 }
 
-function isLeaving(id: number) {
-  return leavingIds.value.includes(id)
-}
-
-function trackTimer(timer: ReturnType<typeof setTimeout>) {
-  timers.add(timer)
-  return timer
-}
-
 async function load(page = 1) {
   if (props.mode === 'my') await admin.loadMyContent(page)
   else if (props.mode === 'all') await admin.loadAllContent(page)
@@ -87,29 +75,14 @@ function refresh() {
   void load(data.value.page)
 }
 
-function scheduleLeave(id: number, page: number) {
-  if (disposed) return
-  if (prefersReducedMotion()) {
-    void load(page)
-    return
-  }
-  if (!leavingIds.value.includes(id)) leavingIds.value = [...leavingIds.value, id]
-  trackTimer(setTimeout(() => {
-    void (async () => {
-      await load(page)
-      leavingIds.value = leavingIds.value.filter(item => item !== id)
-    })()
-  }, LEAVE_MS))
-}
-
 async function handleAudit(id: number, status: 'approved' | 'rejected') {
   if (!userStore.user) return
   const ok = await admin.auditContent(id, status, userStore.user.id)
-  if (ok) scheduleLeave(id, data.value.page)
+  if (ok) scheduleLeave(id, () => load(data.value.page))
 }
 
 function handleDelete(id: number) {
-  admin.confirmDelete(id, () => scheduleLeave(id, data.value.page))
+  admin.confirmDelete(id, () => scheduleLeave(id, () => load(data.value.page)))
 }
 
 function onPageChange(current: number) {
@@ -124,16 +97,7 @@ function onCardKey(event: KeyboardEvent, record: Content) {
   admin.openDrawer(record, 'view')
 }
 
-function clearTimers() {
-  timers.forEach(timer => clearTimeout(timer))
-  timers.clear()
-}
-
 onMounted(() => { void load() })
-onBeforeUnmount(() => {
-  disposed = true
-  clearTimers()
-})
 </script>
 
 <template>

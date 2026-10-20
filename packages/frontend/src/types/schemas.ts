@@ -84,6 +84,7 @@ export const AITaskSchema = z.object({
   parent_asset_id: z.number(),
   idea_id: z.number(),
   status: z.enum(['queued', 'running', 'succeeded', 'failed', 'cancelled', 'unknown']),
+  attempts: z.number().int().nonnegative().default(0),
   cost: z.number().int(),
   error: z.string(),
   created_at: aiTime,

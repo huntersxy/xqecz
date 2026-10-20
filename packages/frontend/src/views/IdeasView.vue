@@ -27,7 +27,7 @@ const labels: Record<string, string> = {
   waiting: '等待赞助',
   generating: '正在实现',
   realized: '已实现',
-  unknown: '结果待核查',
+  unknown: '历史待核查',
   unavailable: '暂不可实现',
   hidden: '已下架',
   withdrawn: '已撤回',
@@ -97,7 +97,7 @@ async function sponsor() {
   const row = detail.value
   if (
     !(await confirm(
-      `赞助「${row.idea.title}」${user.user?.is_admin ? '不消耗管理员的站点额度' : `将预留 ${row.current_cost} 额度`}。提示词、参考图和成功结果已由投稿者同意公开；赞助不代表取得著作权。确认？`,
+      `赞助「${row.idea.title}」${user.user?.is_admin ? '不消耗管理员的站点额度' : `将消耗 ${row.current_cost} 额度，失败自动返还`}。提示词、参考图和成功结果已由投稿者同意公开；赞助不代表取得著作权。确认？`,
     ))
   )
     return
@@ -199,7 +199,7 @@ onBeforeUnmount(() => {
           >
         </div>
         <p class="creative-note">
-          同一创意最多一次成功实现。结果不明确时保留预留额度，由管理员核查。赞助不代表取得作品著作权。
+          同一创意最多一次成功实现。生成失败会自动返还额度。赞助不代表取得作品著作权。
         </p>
       </section></template
     >

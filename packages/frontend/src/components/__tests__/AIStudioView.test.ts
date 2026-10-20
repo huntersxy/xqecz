@@ -79,7 +79,7 @@ async function render() {
         CreativeImage: { props: ['id'], template: '<span class="test-image" :data-id="id" />' },
         CreativeLibrary: {
           name: 'CreativeLibrary',
-          props: ['appliedCharacters', 'error'],
+          props: ['appliedCharacters', 'appliedAssets', 'error'],
           emits: ['apply'],
           template: '<div class="test-library" />',
         },
@@ -190,6 +190,7 @@ describe('studio workspace and composer', () => {
     const library = w.findComponent({ name: 'CreativeLibrary' })
     expect(library.exists()).toBe(true)
     expect(library.props('appliedCharacters')).toEqual([])
+    expect(library.props('appliedAssets')).toEqual([])
     library.vm.$emit('apply', {
       text: '白澋冰：银白长发，冷色眼瞳',
       assets: [21],
@@ -203,6 +204,31 @@ describe('studio workspace and composer', () => {
     expect(w.findAll('.composer-reference')).toHaveLength(1)
     expect(api.toastSuccess).toHaveBeenCalledWith('已导入「白澋冰」')
     expect(w.findComponent({ name: 'CreativeLibrary' }).exists()).toBe(false)
+  })
+
+  it('reports the current references to the picker and unlocks after removing them', async () => {
+    const w = await render()
+    const library = () => w.findComponent({ name: 'CreativeLibrary' })
+    await button(w, '角色与模板').trigger('click')
+    library().vm.$emit('apply', {
+      text: '',
+      assets: [21],
+      characters: [7],
+      parameters: {},
+      action: 'append',
+      label: '白澋冰',
+    })
+    await flushPromises()
+    expect(w.findAll('.composer-reference')).toHaveLength(1)
+    await button(w, '角色与模板').trigger('click')
+    expect(library().props('appliedAssets')).toEqual([21])
+    await w.get('.picker-close').trigger('click')
+    await w.get('[aria-label="移除图片1"]').trigger('click')
+    await flushPromises()
+    expect(w.findAll('.composer-reference')).toHaveLength(0)
+    await button(w, '角色与模板').trigger('click')
+    expect(library().props('appliedAssets')).toEqual([])
+    expect(library().props('appliedCharacters')).toEqual([7])
   })
 
   it('keeps the picker open and reports a failed import inside it', async () => {

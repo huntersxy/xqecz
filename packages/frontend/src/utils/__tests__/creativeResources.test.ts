@@ -43,7 +43,6 @@ describe('creative relationships and image mentions', () => {
     expect(resolveCreativeResource(template, [role, preset, template])).toEqual({
       assets: [10, 11],
       characters: [1],
-      text: '角色1：粉色头发',
     })
   })
   it('opens mention completion only at an unfinished image reference', () => {

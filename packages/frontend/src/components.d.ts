@@ -67,7 +67,6 @@ declare module 'vue' {
     AUpload: typeof import('@arco-design/web-vue')['Upload']
     AutoMetadataOption: typeof import('./components/AutoMetadataOption.vue')['default']
     CdDialog: typeof import('./components/content/CdDialog.vue')['default']
-    CdIcon: typeof import('./components/content/CdIcon.vue')['default']
     ClaimDialog: typeof import('./components/content/ClaimDialog.vue')['default']
     CommentNode: typeof import('./components/content/CommentNode.vue')['default']
     CommentThread: typeof import('./components/content/CommentThread.vue')['default']

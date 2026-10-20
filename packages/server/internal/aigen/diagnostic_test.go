@@ -45,7 +45,7 @@ func TestRedactDiagnostic(t *testing.T) {
 }
 
 func TestRedactDiagnosticTruncates(t *testing.T) {
-	got := redactDiagnostic(strings.Repeat("中", 2000))
+	got := redactDiagnostic(strings.Repeat("中", diagnosticMaxRunes+500))
 	if n := len([]rune(got)); n != diagnosticMaxRunes {
 		t.Fatalf("diagnostic length = %d, want %d", n, diagnosticMaxRunes)
 	}
@@ -115,7 +115,7 @@ func quietSlog(t *testing.T) {
 	t.Cleanup(func() { slog.SetDefault(previous) })
 }
 
-func TestUnknownFailureWordingDiagnosticAndReservation(t *testing.T) {
+func TestFailureWordingDiagnosticAndRefund(t *testing.T) {
 	quietSlog(t)
 	for _, tc := range []struct {
 		name         string
@@ -125,33 +125,37 @@ func TestUnknownFailureWordingDiagnosticAndReservation(t *testing.T) {
 		httpStatus   string
 		leakedSecret string
 	}{
-		{"timeout", context.DeadlineExceeded, "供应商请求超时（10 秒未返回），结果不明；额度仍预留（任务 #", "deadline_exceeded", "http_status: 0", ""},
-		{"canceled", context.Canceled, "请求已中断，结果不明；额度仍预留（任务 #", "canceled", "http_status: 0", ""},
-		{"http_5xx", &ProviderResponseError{StatusCode: 503, Snippet: `{"error":"upstream unavailable","api_key":"sk-liveABCDEFGH1234"}`}, "供应商结果不明；额度仍预留，请联系管理员核查（任务 #", "provider_http", "http_status: 503", "sk-liveABCDEFGH1234"},
+		{"timeout", context.DeadlineExceeded, "生成失败：供应商请求超时（30 分钟未返回）", "deadline_exceeded", "http_status: 0", ""},
+		{"canceled", context.Canceled, "生成失败：请求已中断", "canceled", "http_status: 0", ""},
+		{"http_5xx", &ProviderResponseError{StatusCode: 503, Snippet: `{"error":"upstream unavailable","api_key":"sk-liveABCDEFGH1234"}`}, "生成失败：供应商返回 HTTP 503", "provider_http", "http_status: 503", "sk-liveABCDEFGH1234"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s, fake, p, session := testService(t)
 			grant(t, s, 1, 10)
-			task, err := s.Submit(context.Background(), 1, inputFor(p, session, "unknown-key-"+tc.name))
+			task, err := s.Submit(context.Background(), 1, inputFor(p, session, "failed-key-"+tc.name))
 			if err != nil {
 				t.Fatal(err)
 			}
 			fake.err = tc.err
+			fake.failures.Store(generationAttempts)
 			s.runOne(context.Background())
 			if err = s.db.First(&task, task.ID).Error; err != nil {
 				t.Fatal(err)
 			}
-			if task.Status != "unknown" {
-				t.Fatalf("status = %q, want unknown", task.Status)
+			if task.Status != "failed" {
+				t.Fatalf("status = %q, want failed", task.Status)
+			}
+			if task.Attempts != generationAttempts {
+				t.Fatalf("attempts = %d", task.Attempts)
 			}
 			if !strings.Contains(task.Error, tc.wording) {
 				t.Fatalf("user message = %q, want substring %q", task.Error, tc.wording)
 			}
-			if !strings.Contains(task.Error, "任务 #"+strconv.FormatUint(task.ID, 10)) {
-				t.Fatalf("user message lacks task number: %q", task.Error)
+			if !strings.Contains(task.Error, "额度已返还") && !strings.Contains(task.Error, "本次未扣除额度") {
+				t.Fatalf("user message lacks the refund note: %q", task.Error)
 			}
-			if a := balance(t, s, 1); a.Available != 8 || a.Reserved != 2 {
-				t.Fatalf("quota changed: %+v", a)
+			if a := balance(t, s, 1); a.Available != 10 || a.Reserved != 0 {
+				t.Fatalf("quota not refunded: %+v", a)
 			}
 			var snapshot taskSnapshot
 			if err = json.Unmarshal([]byte(task.Snapshot), &snapshot); err != nil {
@@ -162,8 +166,11 @@ func TestUnknownFailureWordingDiagnosticAndReservation(t *testing.T) {
 			}
 			for _, want := range []string{
 				"task: #" + strconv.FormatUint(task.ID, 10),
+				"attempt: 1/4",
+				"attempt: 4/4",
 				"provider: #" + strconv.FormatUint(p.ID, 10),
 				"model: documented-model",
+				"timeout: 30m0s",
 				"category: " + tc.category,
 				"elapsed_ms: ",
 				tc.httpStatus,
@@ -186,7 +193,7 @@ func TestUnknownFailureWordingDiagnosticAndReservation(t *testing.T) {
 	}
 }
 
-func TestKnownFailureDoesNotPersistDiagnostic(t *testing.T) {
+func TestKnownFailureRecordsDiagnosticAndRefunds(t *testing.T) {
 	quietSlog(t)
 	s, fake, p, session := testService(t)
 	grant(t, s, 1, 10)
@@ -195,6 +202,7 @@ func TestKnownFailureDoesNotPersistDiagnostic(t *testing.T) {
 		t.Fatal(err)
 	}
 	fake.err = KnownFailure{"provider rejected the request"}
+	fake.failures.Store(generationAttempts)
 	s.runOne(context.Background())
 	if err = s.db.First(&task, task.ID).Error; err != nil {
 		t.Fatal(err)
@@ -206,15 +214,17 @@ func TestKnownFailureDoesNotPersistDiagnostic(t *testing.T) {
 	if err = json.Unmarshal([]byte(task.Snapshot), &snapshot); err != nil {
 		t.Fatal(err)
 	}
-	if snapshot.Diagnostic != "" {
-		t.Fatalf("known failure should not carry a diagnostic: %s", snapshot.Diagnostic)
+	for _, want := range []string{"attempt: 4/4", "category: provider_error", "error: provider rejected the request"} {
+		if !strings.Contains(snapshot.Diagnostic, want) {
+			t.Fatalf("diagnostic lacks %q:\n%s", want, snapshot.Diagnostic)
+		}
 	}
 	if a := balance(t, s, 1); a.Available != 10 || a.Reserved != 0 {
 		t.Fatalf("known failure should release the reservation: %+v", a)
 	}
 }
 
-func TestUnknownFailureDiagnosticPersistedInSnapshot(t *testing.T) {
+func TestHTTPFailureRecordsEveryAttempt(t *testing.T) {
 	quietSlog(t)
 	s, _, p, session := testService(t)
 	grant(t, s, 1, 10)
@@ -247,20 +257,22 @@ func TestUnknownFailureDiagnosticPersistedInSnapshot(t *testing.T) {
 	if err = s.db.First(&task, task.ID).Error; err != nil {
 		t.Fatal(err)
 	}
-	if task.Status != "unknown" {
-		t.Fatalf("status = %q, want unknown", task.Status)
+	if task.Status != "failed" {
+		t.Fatalf("status = %q, want failed", task.Status)
 	}
-	if !strings.Contains(task.Error, "供应商结果不明；额度仍预留，请联系管理员核查（任务 #"+strconv.FormatUint(task.ID, 10)) {
+	if !strings.Contains(task.Error, "生成失败：供应商返回 HTTP 502") {
 		t.Fatalf("user message = %q", task.Error)
 	}
-	if a := balance(t, s, 1); a.Available != 8 || a.Reserved != 2 {
-		t.Fatalf("quota changed: %+v", a)
+	if a := balance(t, s, 1); a.Available != 10 || a.Reserved != 0 {
+		t.Fatalf("quota not refunded: %+v", a)
 	}
 	if err = json.Unmarshal([]byte(task.Snapshot), &snapshot); err != nil {
 		t.Fatal(err)
 	}
 	diagnostic := snapshot.Diagnostic
 	for _, want := range []string{
+		"attempt: 1/4",
+		"attempt: 4/4",
 		"http_status: 502",
 		"category: provider_http",
 		"response: ",
@@ -273,6 +285,9 @@ func TestUnknownFailureDiagnosticPersistedInSnapshot(t *testing.T) {
 		if !strings.Contains(diagnostic, want) {
 			t.Fatalf("diagnostic lacks %q:\n%s", want, diagnostic)
 		}
+	}
+	if strings.Count(diagnostic, "attempt: ") != generationAttempts {
+		t.Fatalf("expected %d attempt records:\n%s", generationAttempts, diagnostic)
 	}
 	if strings.Contains(diagnostic, "sk-liveABCDEFGH1234") {
 		t.Fatalf("diagnostic leaked the response credential:\n%s", diagnostic)

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { IconDelete, IconPlus } from '@arco-design/web-vue/es/icon'
 import AdminDataToolbar from './AdminDataToolbar.vue'
 import AdminEmpty from './AdminEmpty.vue'
@@ -7,7 +7,8 @@ import AdminPanel from './AdminPanel.vue'
 import AdminSkeleton from './AdminSkeleton.vue'
 import { useAdminStore } from '@/stores/admin'
 import { useConfirm } from '@/composables/useToast'
-import { formatTime, prefersReducedMotion } from '@/utils'
+import { useLeavingList } from '@/composables/useLeavingList'
+import { formatTime } from '@/utils'
 import type { Poll } from '@/types'
 
 const admin = useAdminStore()
@@ -25,18 +26,7 @@ function voteShare(count: number) {
   return totalVotes.value > 0 ? Math.round((count / totalVotes.value) * 100) : 0
 }
 
-const LEAVE_MS = 280
-const leavingIds = ref<number[]>([])
-const timers = new Set<ReturnType<typeof setTimeout>>()
-let disposed = false
-
-function isLeaving(id: number) {
-  return leavingIds.value.includes(id)
-}
-
-function clearLeaving(id: number) {
-  leavingIds.value = leavingIds.value.filter(item => item !== id)
-}
+const { isLeaving, scheduleLeave } = useLeavingList()
 
 async function performDelete(id: number) {
   try {
@@ -47,33 +37,16 @@ async function performDelete(id: number) {
     await admin.loadPolls()
   } catch {
   }
-  clearLeaving(id)
 }
 
 async function confirmDeletePoll(id: number) {
   const { confirm } = useConfirm()
   const ok = await confirm('确定删除该投票？删除后不可恢复。')
   if (!ok) return
-  if (prefersReducedMotion()) {
-    await performDelete(id)
-    return
-  }
-  if (!leavingIds.value.includes(id)) leavingIds.value = [...leavingIds.value, id]
-  timers.add(
-    setTimeout(() => {
-      if (disposed) return
-      void performDelete(id)
-    }, LEAVE_MS),
-  )
+  scheduleLeave(id, () => performDelete(id))
 }
 
 onMounted(() => admin.loadPolls())
-
-onBeforeUnmount(() => {
-  disposed = true
-  timers.forEach(timer => clearTimeout(timer))
-  timers.clear()
-})
 </script>
 
 <template>

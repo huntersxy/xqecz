@@ -77,7 +77,6 @@ func Register(api *gin.RouterGroup, deps app.Deps, contentHandler *content.Handl
 	a.POST("/providers/:id/test", h.testSite)
 	a.GET("/tasks", h.adminTasks)
 	a.DELETE("/tasks/:id", h.deleteAdminTask)
-	a.POST("/tasks/:id/resolve", h.resolve)
 	a.POST("/grants", h.grant)
 	a.GET("/ledger", h.adminLedger)
 	a.GET("/ideas", h.adminIdeas)
@@ -107,7 +106,7 @@ func fail(c *gin.Context, err error) {
 		return
 	}
 	switch {
-	case errors.Is(err, core.ErrInvalid), errors.Is(err, core.ErrBusy), errors.Is(err, core.ErrQuota), errors.Is(err, core.ErrUnavailable), errors.Is(err, core.ErrConflict), errors.Is(err, core.ErrResolveNote):
+	case errors.Is(err, core.ErrInvalid), errors.Is(err, core.ErrBusy), errors.Is(err, core.ErrQuota), errors.Is(err, core.ErrUnavailable), errors.Is(err, core.ErrConflict):
 		web.SoftFail(c, 400, err.Error())
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		web.Fail(c, 404, "请求的 AI 记录不存在或已被删除")

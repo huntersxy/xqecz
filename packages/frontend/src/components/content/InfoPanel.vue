@@ -9,7 +9,7 @@ import { toast } from '@/composables/useToast'
 import UserAvatar from '@/components/UserAvatar.vue'
 import ActionBar from './ActionBar.vue'
 import CommentThread from './CommentThread.vue'
-import CdIcon from './CdIcon.vue'
+import SiteIcon from '@/components/SiteIcon.vue'
 import type { Content, Comment } from '@/types'
 
 const props = defineProps<{ content: Content }>()
@@ -77,8 +77,8 @@ defineExpose({ commentRef })
       <span class="cd-eyebrow">作品详情 <span aria-hidden="true">/</span> WORK</span>
       <h2 class="cd-title">{{ content.title }}</h2>
       <div class="cd-meta">
-        <span class="cd-meta-item"><CdIcon name="calendar" />{{ formatTime(content.created_at) }}</span>
-        <span v-if="content.view_count > 0" class="cd-meta-item"><CdIcon name="eye" />{{ content.view_count }} 浏览</span>
+        <span class="cd-meta-item"><SiteIcon name="calendar" />{{ formatTime(content.created_at) }}</span>
+        <span v-if="content.view_count > 0" class="cd-meta-item"><SiteIcon name="eye" />{{ content.view_count }} 浏览</span>
         <span v-if="content.ai_enhanced" class="cd-meta-ai" title="发布时启用了提示词增强">
           <span class="cd-meta-ai-dot" aria-hidden="true"></span>提示词增强
         </span>
@@ -108,7 +108,7 @@ defineExpose({ commentRef })
     <section v-if="content.text && hasMedia" class="cd-section">
       <div class="cd-section-head">
         <h3 class="cd-section-title">关于这颗星球</h3>
-        <button class="cd-copy-btn" type="button" @click="copyPrompt"><CdIcon name="copy" /><span>复制正文</span></button>
+        <button class="cd-copy-btn" type="button" @click="copyPrompt"><SiteIcon name="copy" /><span>复制正文</span></button>
       </div>
       <div class="cd-prose cd-prompt" :class="{ 'is-collapsed': isLongText && !textExpanded }" v-html="renderedText"></div>
       <button v-if="isLongText" class="cd-more-btn" type="button" :aria-expanded="textExpanded" @click="textExpanded = !textExpanded">
@@ -157,7 +157,7 @@ defineExpose({ commentRef })
 .cd-title { margin: 0; color: var(--creative-ink); font: 600 clamp(24px, 2.1vw, 30px)/1.25 var(--creative-title-font); letter-spacing: -.025em; overflow-wrap: anywhere; }
 .cd-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--creative-muted); font-size: 11px; }
 .cd-meta-item { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; background: var(--creative-soft); }
-.cd-meta-item .cd-icon { font-size: 13px; }
+.cd-meta-item .site-icon { font-size: 13px; }
 .cd-meta-ai { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: color-mix(in srgb, var(--creative-accent) 10%, var(--creative-paper)); color: var(--creative-accent); }
 .cd-meta-ai-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 

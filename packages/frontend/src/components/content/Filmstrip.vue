@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { getImageUrl } from '@/utils'
 import { recallLoaded, rememberLoaded } from '@/utils/mediaMemory'
 import { retryOnRemote } from '@/utils/contentMedia'
-import CdIcon from './CdIcon.vue'
+import SiteIcon from '@/components/SiteIcon.vue'
 
 interface Item { id: number; title: string; thumb: string; isCurrent: boolean }
 
@@ -34,7 +34,7 @@ function onThumbError(e: Event) {
   <div ref="root" class="cd-film">
     <div class="cd-film-group">
       <button v-if="hasPrev" class="cd-film-nav" type="button" aria-label="上一个" @click="emit('prev')">
-        <CdIcon name="chevron-left" />
+        <SiteIcon name="chevron-left" />
       </button>
       <div class="cd-film-track">
         <button
@@ -53,7 +53,7 @@ function onThumbError(e: Event) {
         </button>
       </div>
       <button v-if="hasNext" class="cd-film-nav" type="button" aria-label="下一个" @click="emit('next')">
-        <CdIcon name="chevron-right" />
+        <SiteIcon name="chevron-right" />
       </button>
     </div>
   </div>

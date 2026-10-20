@@ -163,7 +163,7 @@ func (s *Service) HideIdea(ctx context.Context, uid, id uint64, admin bool, note
 	if hidden.TaskID != 0 {
 		var task Task
 		if s.db.WithContext(ctx).First(&task, hidden.TaskID).Error == nil && task.Status == "queued" {
-			err = s.complete(task, "queued", "cancelled", "创意已撤回或下架，生成未执行", nil, false, uid)
+			err = s.complete(task, "queued", "cancelled", "创意已撤回或下架，生成未执行", nil, uid)
 			if errors.Is(err, ErrConflict) {
 				return nil
 			}

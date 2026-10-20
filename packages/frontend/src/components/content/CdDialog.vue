@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import CdIcon from './CdIcon.vue'
+import { nextTick, ref, watch } from 'vue'
+import SiteIcon from '@/components/SiteIcon.vue'
+import SiteOverlay from '@/components/SiteOverlay.vue'
 
 const props = withDefaults(defineProps<{
   open: boolean
@@ -14,81 +15,61 @@ const emit = defineEmits<{ close: []; confirm: [] }>()
 
 const panel = ref<HTMLElement | null>(null)
 const titleId = `cd-dialog-title-${Math.random().toString(36).slice(2, 8)}`
-let opener: HTMLElement | null = null
-
-const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 watch(() => props.open, async (open) => {
-  if (open) {
-    opener = document.activeElement as HTMLElement | null
-    await nextTick()
-    const target = panel.value?.querySelector<HTMLElement>('textarea, input') ?? panel.value?.querySelector<HTMLElement>(FOCUSABLE)
-    target?.focus()
-  } else {
-    opener?.focus?.()
-    opener = null
-  }
+  if (!open) return
+  await nextTick()
+  panel.value?.querySelector<HTMLElement>('textarea, input')?.focus()
 })
-
-onBeforeUnmount(() => { opener?.focus?.() })
-
-function onKeydown(e: KeyboardEvent) {
-  e.stopPropagation()
-  if (e.key === 'Escape') {
-    if (!props.busy) emit('close')
-    return
-  }
-  if (e.key !== 'Tab' || !panel.value) return
-  const items = Array.from(panel.value.querySelectorAll<HTMLElement>(FOCUSABLE))
-  if (items.length === 0) return
-  const first = items[0]
-  const last = items[items.length - 1]
-  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
-  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
-}
-
-function onBackdrop() {
-  if (!props.busy) emit('close')
-}
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="open" class="cd-dialog-mask creative-theme" @click.self="onBackdrop">
-      <div
-        ref="panel"
-        class="cd-dialog"
-        role="dialog"
-        aria-modal="true"
-        :aria-labelledby="titleId"
-        @keydown="onKeydown"
-      >
-        <header class="cd-dialog-head">
-          <h3 :id="titleId" class="cd-dialog-title">{{ title }}</h3>
-          <button type="button" class="cd-dialog-close" aria-label="关闭" :disabled="busy" @click="emit('close')">
-            <CdIcon name="close" />
-          </button>
-        </header>
-        <div class="cd-dialog-body"><slot /></div>
-        <footer class="cd-dialog-foot">
-          <button type="button" class="cd-dialog-btn" :disabled="busy" @click="emit('close')">{{ cancelText }}</button>
-          <button type="button" class="cd-dialog-btn is-primary" :disabled="busy" :aria-busy="busy" @click="emit('confirm')">
-            {{ busy ? '处理中…' : confirmText }}
-          </button>
-        </footer>
-      </div>
+  <SiteOverlay
+    :model-value="open"
+    class="cd-dialog-shell creative-theme"
+    :labelledby="titleId"
+    :close-on-mask="!busy"
+    :close-on-esc="!busy"
+    :z-index="10000"
+    @update:model-value="value => { if (!value) emit('close') }"
+  >
+    <div ref="panel" class="cd-dialog">
+      <header class="cd-dialog-head">
+        <h3 :id="titleId" class="cd-dialog-title">{{ title }}</h3>
+        <button type="button" class="cd-dialog-close" aria-label="关闭" :disabled="busy" @click="emit('close')">
+          <SiteIcon name="close" />
+        </button>
+      </header>
+      <div class="cd-dialog-body"><slot /></div>
+      <footer class="cd-dialog-foot">
+        <button type="button" class="cd-dialog-btn" :disabled="busy" @click="emit('close')">{{ cancelText }}</button>
+        <button type="button" class="cd-dialog-btn is-primary" :disabled="busy" :aria-busy="busy" @click="emit('confirm')">
+          {{ busy ? '处理中…' : confirmText }}
+        </button>
+      </footer>
     </div>
-  </Teleport>
+  </SiteOverlay>
 </template>
 
 <style scoped>
-.cd-dialog-mask {
-  position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 16px;
+.cd-dialog-shell :deep(.site-overlay-mask) {
   background: color-mix(in srgb, var(--creative-ink) 38%, transparent);
-  animation: cd-dialog-fade .16s ease-out;
+  backdrop-filter: none;
 }
+.cd-dialog-shell :deep(.site-overlay-panel) {
+  width: min(480px, 100%);
+  max-height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transition: none;
+}
+.cd-dialog-shell :deep(.site-overlay-enter-from .site-overlay-panel),
+.cd-dialog-shell :deep(.site-overlay-leave-to .site-overlay-panel) { transform: none; }
+
 .cd-dialog {
-  width: min(480px, 100%); max-height: calc(100dvh - 32px); display: flex; flex-direction: column;
+  width: 100%; max-height: 100%; display: flex; flex-direction: column;
   background: var(--creative-paper); color: var(--creative-ink);
   border: 1px solid var(--creative-line); border-radius: 20px; box-shadow: var(--creative-shadow);
   animation: cd-dialog-rise .2s ease-out;
@@ -105,6 +86,5 @@ function onBackdrop() {
 .cd-dialog-btn.is-primary { border-color: var(--creative-accent); background: var(--creative-accent); color: var(--color-on-primary, #fff); }
 .cd-dialog-btn.is-primary:hover:not(:disabled) { background: var(--creative-accent-hover); color: var(--color-on-primary, #fff); }
 .cd-dialog-btn:disabled, .cd-dialog-close:disabled { opacity: .55; cursor: not-allowed; }
-@keyframes cd-dialog-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes cd-dialog-rise { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
 </style>

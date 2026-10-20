@@ -118,21 +118,6 @@ func (h *Handler) deleteAdminTask(c *gin.Context) {
 	}
 	ok(c, nil)
 }
-func (h *Handler) resolve(c *gin.Context) {
-	var req struct {
-		Consumed bool   `json:"consumed"`
-		Note     string `json:"note"`
-	}
-	if bind(c, &req) != nil {
-		web.SoftFail(c, 400, "核查参数无效，请刷新后重试")
-		return
-	}
-	if err := h.s.Resolve(c.Request.Context(), uid(c), pathID(c), req.Consumed, req.Note); err != nil {
-		fail(c, err)
-		return
-	}
-	ok(c, nil)
-}
 func (h *Handler) grant(c *gin.Context) {
 	var req struct {
 		UserID   uint64   `json:"user_id"`

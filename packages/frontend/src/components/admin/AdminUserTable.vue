@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useAdminStore } from '@/stores/admin'
 import UserAvatar from '@/components/UserAvatar.vue'
@@ -8,7 +8,8 @@ import AdminDataToolbar from './AdminDataToolbar.vue'
 import AdminSkeleton from './AdminSkeleton.vue'
 import AdminEmpty from './AdminEmpty.vue'
 import { useConfirm } from '@/composables/useToast'
-import { formatTime, prefersReducedMotion } from '@/utils'
+import { useLeavingList } from '@/composables/useLeavingList'
+import { formatTime } from '@/utils'
 import { IconDelete, IconLock, IconUnlock, IconUserGroup } from '@arco-design/web-vue/es/icon'
 import type { User } from '@/types'
 
@@ -62,54 +63,25 @@ async function doBan(id: number, isBanned: boolean) {
   if (await admin.updateUserBan(id, !isBanned)) refresh()
 }
 
-const LEAVE_MS = 280
-const leavingIds = ref<number[]>([])
-const timers = new Set<ReturnType<typeof setTimeout>>()
-let disposed = false
-
-function isLeaving(id: number) {
-  return leavingIds.value.includes(id)
-}
-
-function clearLeaving(id: number) {
-  leavingIds.value = leavingIds.value.filter(item => item !== id)
-}
+const { isLeaving, scheduleLeave } = useLeavingList()
 
 async function commitDelete(id: number) {
   const ok = await admin.deleteUser(id)
-  if (!ok) {
-    clearLeaving(id)
-    return
-  }
+  if (!ok) return
   await admin.loadUsers(admin.users.page)
   if (admin.users.list.length === 0 && admin.users.page > 1) {
     await admin.loadUsers(admin.users.page - 1)
   }
-  clearLeaving(id)
 }
 
 async function doDelete(id: number) {
   const { confirm } = useConfirm()
   const ok = await confirm('确定删除该用户？此操作不可撤销。')
   if (!ok) return
-  if (prefersReducedMotion()) {
-    await commitDelete(id)
-    return
-  }
-  if (!leavingIds.value.includes(id)) leavingIds.value = [...leavingIds.value, id]
-  timers.add(setTimeout(() => {
-    if (disposed) return
-    void commitDelete(id)
-  }, LEAVE_MS))
+  scheduleLeave(id, () => commitDelete(id))
 }
 
 onMounted(() => { void admin.loadUsers() })
-
-onBeforeUnmount(() => {
-  disposed = true
-  timers.forEach(timer => clearTimeout(timer))
-  timers.clear()
-})
 </script>
 
 <template>

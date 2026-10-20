@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { IconCheck, IconDelete, IconExclamationCircle } from '@arco-design/web-vue/es/icon'
 import AdminDataToolbar from './AdminDataToolbar.vue'
 import AdminEmpty from './AdminEmpty.vue'
@@ -7,46 +7,19 @@ import AdminPanel from './AdminPanel.vue'
 import AdminSkeleton from './AdminSkeleton.vue'
 import AdminStatus from './AdminStatus.vue'
 import { useAdminStore } from '@/stores/admin'
-import { formatTime, prefersReducedMotion } from '@/utils'
+import { formatTime } from '@/utils'
 import { useConfirm } from '@/composables/useToast'
+import { useLeavingList } from '@/composables/useLeavingList'
 
 const admin = useAdminStore()
 
 const showSkeleton = computed(() => admin.reportsLoading && admin.reports.length === 0)
 const reportSummary = computed(() => `共 ${admin.reports.length} 条举报`)
 
-const LEAVE_MS = 280
-const leavingIds = ref<number[]>([])
-const timers = new Set<ReturnType<typeof setTimeout>>()
-let disposed = false
-
-function isLeaving(id: number) {
-  return leavingIds.value.includes(id)
-}
+const { isLeaving, scheduleLeave } = useLeavingList()
 
 async function load() {
   await admin.loadReports()
-}
-
-function scheduleLeave(id: number, refresh: () => unknown) {
-  if (disposed) return
-  if (prefersReducedMotion()) {
-    void refresh()
-    return
-  }
-  if (!leavingIds.value.includes(id)) leavingIds.value = [...leavingIds.value, id]
-  timers.add(
-    setTimeout(() => {
-      void (async () => {
-        try {
-          await refresh()
-        } catch {
-        } finally {
-          leavingIds.value = leavingIds.value.filter(item => item !== id)
-        }
-      })()
-    }, LEAVE_MS),
-  )
 }
 
 async function doHandle(id: number) {
@@ -64,12 +37,6 @@ async function doDelete(commentId: number, reportId: number) {
 }
 
 onMounted(load)
-
-onBeforeUnmount(() => {
-  disposed = true
-  timers.forEach(timer => clearTimeout(timer))
-  timers.clear()
-})
 </script>
 
 <template>

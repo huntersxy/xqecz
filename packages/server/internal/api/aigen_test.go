@@ -272,36 +272,6 @@ func TestAIHTTPPublishDedupAndIdeaVisibility(t *testing.T) {
 	}
 }
 
-func TestAIResolutionNoteFeedback(t *testing.T) {
-	deps, handler := aiFixture(t)
-	task := aigen.Task{UserID: 2, Status: "unknown", Cost: 2, Snapshot: `{}`}
-	if err := deps.DB.Create(&task).Error; err != nil {
-		t.Fatal(err)
-	}
-	if err := deps.DB.Model(&aigen.Account{}).Where("user_id = ?", 2).Updates(map[string]any{"available": 18, "reserved": 2}).Error; err != nil {
-		t.Fatal(err)
-	}
-	path := fmt.Sprintf("/api/admin/ai/tasks/%d/resolve", task.ID)
-	for _, note := range []string{"", "  ", "确认", strings.Repeat("核", 301)} {
-		response := aiRequest(t, handler, "POST", path, "fixture-admin", map[string]any{"consumed": false, "note": note})
-		if response.Code != 200 || !bytes.Contains(response.Body.Bytes(), []byte(`"code":400`)) || !bytes.Contains(response.Body.Bytes(), []byte("核查依据与说明须填写 3–300 个字")) {
-			t.Fatal("resolution note validation was not actionable", response.Body.String())
-		}
-	}
-	var account aigen.Account
-	deps.DB.First(&account, "user_id = ?", 2)
-	deps.DB.First(&task, task.ID)
-	if account.Reserved != 2 || account.Available != 18 || task.Status != "unknown" {
-		t.Fatal("invalid note changed settlement", account, task)
-	}
-	jsonData(t, aiRequest(t, handler, "POST", path, "fixture-admin", map[string]any{"consumed": false, "note": "  供应商确认未执行  "}))
-	deps.DB.First(&account, "user_id = ?", 2)
-	deps.DB.First(&task, task.ID)
-	if account.Reserved != 0 || account.Available != 20 || task.Status != "failed" || task.Error != "供应商确认未执行" {
-		t.Fatal("valid note did not release quota and retain evidence", account, task)
-	}
-}
-
 func TestAIBrowserFixture(t *testing.T) {
 	address := os.Getenv("XQECZ_AI_FIXTURE_ADDR")
 	if address == "" {

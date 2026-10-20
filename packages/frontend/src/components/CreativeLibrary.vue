@@ -15,8 +15,9 @@ interface ApplyPayload {
   label?: string
 }
 
-const props = withDefaults(defineProps<{ appliedCharacters?: number[]; error?: string }>(), {
+const props = withDefaults(defineProps<{ appliedCharacters?: number[]; appliedAssets?: number[]; error?: string }>(), {
   appliedCharacters: () => [],
+  appliedAssets: () => [],
   error: '',
 })
 const emit = defineEmits<{ apply: [value: ApplyPayload] }>()
@@ -34,6 +35,7 @@ const controller = new AbortController()
 
 const shownError = computed(() => props.error || failure.value)
 const applied = computed(() => new Set(props.appliedCharacters))
+const appliedAssets = computed(() => new Set(props.appliedAssets))
 const list = computed(() =>
   resources.value.filter(
     (row) =>
@@ -53,7 +55,10 @@ const fillReady = computed(
 )
 
 function isApplied(row: CreativeResource) {
-  return row.kind === 'character' && applied.value.has(row.id)
+  if (row.kind !== 'character') return false
+  const assets = resolveCreativeResource(row, resources.value).assets
+  if (assets.length) return assets.every((id) => appliedAssets.value.has(id))
+  return applied.value.has(row.id)
 }
 function defaultsOf(row: CreativeResource) {
   return Object.fromEntries(row.payload.variables.map((variable) => [variable.name, variable.default ?? '']))
@@ -64,7 +69,7 @@ async function activate(row: CreativeResource) {
   if (row.kind !== 'template') {
     const resolved = resolveCreativeResource(row, resources.value)
     emit('apply', {
-      text: resolved.text,
+      text: '',
       assets: resolved.assets,
       characters: resolved.characters,
       parameters: {},

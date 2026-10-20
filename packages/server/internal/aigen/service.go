@@ -27,7 +27,12 @@ var ErrQuota = errors.New("生成额度不足")
 var ErrBusy = errors.New("任务数量已达上限或状态已改变")
 var ErrUnavailable = errors.New("供应商未配置、已停用或密钥不可用")
 var ErrConflict = errors.New("数据已更新，请刷新后重试")
-var ErrResolveNote = errors.New("核查依据与说明须填写 3–300 个字")
+
+const (
+	generationAttempts       = 4
+	generationAttemptTimeout = 30 * time.Minute
+	staleTaskAfter           = generationAttemptTimeout + 5*time.Minute
+)
 
 func validUserImageSize(value string) bool {
 	value = strings.ToLower(strings.TrimSpace(strings.ReplaceAll(value, "×", "x")))
@@ -119,6 +124,7 @@ func (s *Service) Init(ctx context.Context) error {
 	if err = s.db.WithContext(ctx).AutoMigrate(&Session{}, &Account{}, &Task{}, &Ledger{}, &Asset{}, &ProviderConfig{}, &Idea{}, &IdeaEvent{}, &promptEnhancementRow{}); err != nil {
 		return err
 	}
+	s.refundLegacyUnknown(ctx)
 	var count int64
 	if err = s.db.Model(&ProviderConfig{}).Where("user_id = 0").Count(&count).Error; err != nil {
 		return err
@@ -395,7 +401,7 @@ func (s *Service) insertTask(tx *gorm.DB, uid uint64, account Account, snap task
 		return Task{}, ErrBusy
 	}
 	var pending int64
-	if err := tx.Model(&Task{}).Where("user_id = ? AND status IN ?", uid, []string{"queued", "running", "unknown"}).Count(&pending).Error; err != nil {
+	if err := tx.Model(&Task{}).Where("user_id = ? AND status IN ?", uid, []string{"queued", "running"}).Count(&pending).Error; err != nil {
 		return Task{}, err
 	}
 	if pending >= 2 {
@@ -480,25 +486,43 @@ func (s *Service) Start(ctx context.Context) {
 }
 func (s *Service) Close() { s.wg.Wait() }
 
-func (s *Service) recoverStale(ctx context.Context) {
+func (s *Service) refundLegacyUnknown(ctx context.Context) {
 	var rows []Task
-	if s.db.WithContext(ctx).Where("status = ? AND updated_at < ?", "running", time.Now().Add(-10*time.Minute)).Limit(20).Find(&rows).Error != nil {
+	if s.db.WithContext(ctx).Where("status = ?", "unknown").Find(&rows).Error != nil {
 		return
 	}
 	for _, row := range rows {
-		status, message, assets, err := s.readReceipt(row)
-		if err == nil {
-			if s.complete(row, "running", status, message, assets, status == "succeeded", 0) == nil {
-				s.removeReceipt(row.ID)
-			}
-		} else {
-			var snap taskSnapshot
-			_ = json.Unmarshal([]byte(row.Snapshot), &snap)
-			elapsed := time.Since(row.UpdatedAt)
-			s.logUnknownFailure(row.ID, snap.Provider, elapsed, err)
-			_ = s.complete(row, "running", "unknown", fmt.Sprintf("服务中断；结果不明，额度仍预留（任务 #%d）", row.ID), nil, false, 0)
-			s.persistDiagnostic(row.ID, row.Snapshot, failureDiagnostic(row.ID, snap.Provider, err, elapsed, time.Now()))
+		if s.complete(row, "unknown", "failed", fmt.Sprintf("历史待核查任务已结算：%s（任务 #%d）", refundNote(row), row.ID), nil, 0) == nil {
+			s.removeReceipt(row.ID)
 		}
+	}
+}
+
+func (s *Service) recoverStale(ctx context.Context) {
+	var rows []Task
+	if s.db.WithContext(ctx).Where("status = ? AND updated_at < ?", "running", time.Now().Add(-staleTaskAfter)).Limit(20).Find(&rows).Error != nil {
+		return
+	}
+	for _, row := range rows {
+		status, message, assets, receiptErr := s.readReceipt(row)
+		if receiptErr == nil {
+			if status == "succeeded" {
+				if s.complete(row, "running", "succeeded", message, assets, 0) == nil {
+					s.removeReceipt(row.ID)
+				}
+				continue
+			}
+			s.removeReceipt(row.ID)
+		}
+		var snap taskSnapshot
+		_ = json.Unmarshal([]byte(row.Snapshot), &snap)
+		failure := errors.New("服务中断，未找到可恢复的生成结果")
+		if receiptErr != nil {
+			failure = fmt.Errorf("服务中断，结果回执不可读取：%v", receiptErr)
+		}
+		snap.Diagnostic = appendDiagnostic(snap.Diagnostic, failureDiagnostic(row.ID, -1, snap.Provider, failure, time.Since(row.UpdatedAt), time.Now()))
+		s.persistSnapshot(row.ID, snap)
+		_ = s.complete(row, "running", "failed", fmt.Sprintf("服务中断，生成结果无法确认；%s（任务 #%d）", refundNote(row), row.ID), nil, 0)
 	}
 }
 func (s *Service) claim(ctx context.Context) (Task, error) {
@@ -535,6 +559,18 @@ func (s *Service) claim(ctx context.Context) (Task, error) {
 	}
 	return Task{}, gorm.ErrRecordNotFound
 }
+
+func (s *Service) failTask(task Task, message string, cause error) {
+	if cause != nil {
+		var snap taskSnapshot
+		if json.Unmarshal([]byte(task.Snapshot), &snap) == nil {
+			snap.Diagnostic = appendDiagnostic(snap.Diagnostic, failureDiagnostic(task.ID, 0, snap.Provider, cause, 0, time.Now()))
+			s.persistSnapshot(task.ID, snap)
+		}
+	}
+	_ = s.complete(task, "running", "failed", fmt.Sprintf("%s；%s（任务 #%d）", message, refundNote(task), task.ID), nil, 0)
+}
+
 func (s *Service) runOne(ctx context.Context) {
 	task, err := s.claim(ctx)
 	if err != nil {
@@ -542,87 +578,109 @@ func (s *Service) runOne(ctx context.Context) {
 	}
 	var owner store.User
 	if s.db.WithContext(ctx).First(&owner, task.UserID).Error != nil || owner.IsBanned == 1 {
-		_ = s.complete(task, "running", "failed", "账号不可用，生成未执行", nil, false, 0)
+		s.failTask(task, "账号不可用，生成未执行", errors.New("账号不可用"))
 		return
 	}
 	if task.IdeaID != 0 {
 		var idea Idea
 		if s.db.WithContext(ctx).First(&idea, task.IdeaID).Error != nil || idea.Status == "hidden" || idea.Status == "withdrawn" {
-			_ = s.complete(task, "running", "cancelled", "创意已撤回或下架，生成未执行", nil, false, 0)
+			_ = s.complete(task, "running", "cancelled", "创意已撤回或下架，生成未执行", nil, 0)
 			return
 		}
 	}
 	var snap taskSnapshot
 	if json.Unmarshal([]byte(task.Snapshot), &snap) != nil {
-		_ = s.complete(task, "running", "failed", "任务快照无法读取", nil, false, 0)
+		s.failTask(task, "任务快照无法读取", errors.New("任务快照无法读取"))
 		return
 	}
 	key, err := s.decrypt(snap.CipherKey)
 	if err != nil {
-		_ = s.complete(task, "running", "failed", "供应商密钥无法读取", nil, false, 0)
+		s.failTask(task, "供应商密钥无法读取", err)
 		return
 	}
 	files := []string{}
 	for _, name := range snap.Files {
 		path, err := s.AssetPath(Asset{FileName: name})
 		if err != nil {
-			_ = s.complete(task, "running", "failed", "参考图不可读取", nil, false, 0)
+			s.failTask(task, "参考图不可读取", err)
 			return
 		}
 		files = append(files, path)
 	}
-	requestCtx, cancel := context.WithTimeout(ctx, time.Duration(snap.Provider.TimeoutSeconds)*time.Second)
-	startedAt := time.Now()
-	images, err := s.provider.Generate(requestCtx, snap.Provider, key, snap.Input, files)
-	cancel()
-	elapsed := time.Since(startedAt)
-	if err != nil && len(images) == 0 {
-		var known KnownFailure
-		if errors.As(err, &known) {
-			_ = s.complete(task, "running", "failed", known.Message, nil, false, 0)
-		} else {
-			s.logUnknownFailure(task.ID, snap.Provider, elapsed, err)
-			_ = s.complete(task, "running", "unknown", unknownFailureMessage(task.ID, snap.Provider, err), nil, false, 0)
-			s.persistDiagnostic(task.ID, task.Snapshot, failureDiagnostic(task.ID, snap.Provider, err, elapsed, time.Now()))
-		}
+	provider := snap.Provider
+	provider.TimeoutSeconds = int(generationAttemptTimeout / time.Second)
+	attempts, images, lastErr := s.generate(ctx, task, &snap, provider, key, files)
+	if lastErr != nil {
+		_ = s.complete(task, "running", "failed", generationFailureMessage(task, attempts, lastErr), nil, 0)
 		return
 	}
-	status, message := "succeeded", ""
-	var failureErr error
-	if err != nil || len(images) != task.Count {
-		status, message = "unknown", fmt.Sprintf("供应商只返回部分结果；已保存可用图片，额度仍预留（任务 #%d）", task.ID)
-		if err != nil {
-			failureErr = err
-		} else {
-			failureErr = fmt.Errorf("供应商返回 %d 张图片，预期 %d 张", len(images), task.Count)
-		}
-	}
 	assets := []Asset{}
+	var saveErr error
 	for _, img := range images {
-		asset, saveErr := s.saveImage(bytes.NewReader(img.Bytes), task.UserID, task.ID)
-		if saveErr != nil {
-			slog.Error("AI image save failed", "task_id", task.ID, "provider_id", snap.Provider.ID, "model", snap.Provider.Model, "elapsed_ms", elapsed.Milliseconds(), "status", "unknown", "err", saveErr)
-			status, message = "unknown", fmt.Sprintf("供应商已完成，但部分图片保存失败；额度仍预留（任务 #%d）", task.ID)
-			failureErr = fmt.Errorf("图片保存失败：%w", saveErr)
+		asset, err := s.saveImage(bytes.NewReader(img.Bytes), task.UserID, task.ID)
+		if err != nil {
+			saveErr = err
 			break
 		}
 		assets = append(assets, asset)
 	}
-	if status == "unknown" && failureErr != nil {
-		s.logUnknownFailure(task.ID, snap.Provider, elapsed, failureErr)
-		s.persistDiagnostic(task.ID, task.Snapshot, failureDiagnostic(task.ID, snap.Provider, failureErr, elapsed, time.Now()))
+	if saveErr != nil {
+		s.removeFiles(assets)
+		failure := fmt.Errorf("图片保存失败：%w", saveErr)
+		snap.Diagnostic = appendDiagnostic(snap.Diagnostic, failureDiagnostic(task.ID, attempts, provider, failure, 0, time.Now()))
+		s.persistSnapshot(task.ID, snap)
+		_ = s.complete(task, "running", "failed", generationFailureMessage(task, attempts, failure), nil, 0)
+		return
 	}
-	if err := s.writeReceipt(task, status, message, assets); err != nil {
+	if err := s.writeReceipt(task, "succeeded", "", assets); err != nil {
 		slog.Warn("AI result recovery receipt unavailable", "task_id", task.ID)
 	}
-	if err = s.complete(task, "running", status, message, assets, status == "succeeded", 0); err != nil {
+	if err = s.complete(task, "running", "succeeded", "", assets, 0); err != nil {
 		slog.Error("AI result transaction failed", "task_id", task.ID)
 	} else {
 		s.removeReceipt(task.ID)
 	}
 }
 
-func (s *Service) complete(task Task, expected, status, message string, assets []Asset, consumed bool, actor uint64) error {
+func (s *Service) generate(ctx context.Context, task Task, snap *taskSnapshot, provider ProviderConfig, key string, files []string) (int, []Image, error) {
+	var lastErr error
+	attempts := 0
+	for attempts < generationAttempts {
+		if ctx.Err() != nil {
+			return attempts, nil, ctx.Err()
+		}
+		attempts++
+		requestCtx, cancel := context.WithTimeout(ctx, generationAttemptTimeout)
+		startedAt := time.Now()
+		images, err := s.provider.Generate(requestCtx, provider, key, snap.Input, files)
+		cancel()
+		elapsed := time.Since(startedAt)
+		if err == nil && len(images) == task.Count {
+			s.saveAttempts(task.ID, attempts)
+			return attempts, images, nil
+		}
+		if err == nil {
+			err = fmt.Errorf("供应商返回 %d 张图片，预期 %d 张", len(images), task.Count)
+		}
+		lastErr = err
+		s.recordFailure(task.ID, snap, provider, attempts, elapsed, err)
+		s.saveAttempts(task.ID, attempts)
+	}
+	return attempts, nil, lastErr
+}
+
+func (s *Service) saveAttempts(taskID uint64, attempts int) {
+	if s == nil || s.db == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := s.db.WithContext(ctx).Model(&Task{}).Where("id = ?", taskID).Update("attempts", attempts).Error; err != nil {
+		slog.Warn("AI task attempts save failed", "task_id", taskID)
+	}
+}
+
+func (s *Service) complete(task Task, expected, status, message string, assets []Asset, actor uint64) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -653,13 +711,13 @@ func (s *Service) complete(task Task, expected, status, message string, assets [
 		if err = tx.Model(&current).Updates(map[string]any{"status": status, "error": message}).Error; err != nil {
 			return err
 		}
-		if status != "unknown" && current.Cost > 0 {
+		if current.Cost > 0 {
 			if account.Reserved < current.Cost {
 				return errors.New("额度预留记录不一致")
 			}
 			available, kind, amount := account.Available, "settle", int64(0)
 			dailyAvailable := account.DailyAvailable
-			if !consumed {
+			if status != "succeeded" {
 				available += current.Cost
 				dailyAvailable += current.DailyCost
 				kind, amount = "release", current.Cost
@@ -680,11 +738,7 @@ func (s *Service) complete(task Task, expected, status, message string, assets [
 				case "unknown":
 					ideaStatus = "unknown"
 				default:
-					if !consumed {
-						ideaStatus = "waiting"
-					} else {
-						ideaStatus = "unavailable"
-					}
+					ideaStatus = "waiting"
 				}
 			}
 			if err = tx.Model(&idea).Update("status", ideaStatus).Error; err != nil {
@@ -701,7 +755,7 @@ func (s *Service) Cancel(ctx context.Context, uid, id uint64) error {
 	if err := s.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, uid).First(&task).Error; err != nil {
 		return err
 	}
-	return s.complete(task, "queued", "cancelled", "用户取消排队任务", nil, false, uid)
+	return s.complete(task, "queued", "cancelled", "用户取消排队任务", nil, uid)
 }
 
 func (s *Service) ArchiveTask(ctx context.Context, uid, id uint64) error {
@@ -740,23 +794,11 @@ func (s *Service) ArchiveTaskAsAdmin(ctx context.Context, id uint64) error {
 		case "queued", "running":
 			return invalidInput("任务仍在执行，不能删除，请先等待完成或取消")
 		case "unknown":
-			return invalidInput("结果待核查的任务不能删除，请先完成额度核查")
+			return invalidInput("历史结果不明任务不能删除")
 		}
 		if err := tx.Model(&Task{}).Where("id = ? AND archived = ?", id, false).Update("archived", true).Error; err != nil {
 			return err
 		}
 		return tx.Model(&Asset{}).Where("task_id = ? AND archived = ?", id, false).Update("archived", true).Error
 	})
-}
-
-func (s *Service) Resolve(ctx context.Context, actor, id uint64, consumed bool, note string) error {
-	note = strings.TrimSpace(note)
-	if len([]rune(note)) < 3 || len([]rune(note)) > 300 {
-		return ErrResolveNote
-	}
-	var task Task
-	if err := s.db.WithContext(ctx).First(&task, id).Error; err != nil {
-		return err
-	}
-	return s.complete(task, "unknown", "failed", note, nil, consumed, actor)
 }

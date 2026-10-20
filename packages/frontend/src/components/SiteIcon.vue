@@ -2,7 +2,9 @@
 export type SiteIconName =
   | 'menu' | 'close' | 'sun' | 'moon' | 'plus' | 'bulb' | 'users' | 'chart'
   | 'upload' | 'user' | 'refresh' | 'image' | 'image-broken' | 'arrow-right'
-  | 'check-circle' | 'search'
+  | 'arrow-left' | 'chevron-left' | 'chevron-right' | 'check-circle' | 'search'
+  | 'heart' | 'star' | 'share' | 'download' | 'calendar' | 'eye' | 'copy'
+  | 'reply' | 'trash' | 'flag' | 'send'
 
 const PATHS: Record<SiteIconName, string> = {
   menu: 'M4 7h16M4 12h16M4 17h16',
@@ -19,11 +21,25 @@ const PATHS: Record<SiteIconName, string> = {
   image: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15.5 9.5h.01',
   'image-broken': 'M4 5h16v14H4zM4 15l4-4 3 3 3-4 6 6M9 9.5h.01',
   'arrow-right': 'M5 12h14M13 6l6 6-6 6',
+  'arrow-left': 'M19 12H5M11 6l-6 6 6 6',
+  'chevron-left': 'M15 5l-7 7 7 7',
+  'chevron-right': 'M9 5l7 7-7 7',
   'check-circle': 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8 12.5l3 3 5-6',
   search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4',
+  heart: 'M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z',
+  star: 'M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9 6.8 19.7l1-5.9L3.5 9.7l5.9-.8z',
+  share: 'M12 4v12M7 9l5-5 5 5M5 14v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5',
+  download: 'M12 4v12M7 11l5 5 5-5M5 20h14',
+  calendar: 'M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM4 10h16M8 3v4M16 3v4',
+  eye: 'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  copy: 'M9 9h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V10a1 1 0 0 1 1-1zM16 9V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3',
+  reply: 'M10 8L4 13l6 5M4 13h9a7 7 0 0 1 7 7',
+  trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M9 7V4h6v3',
+  flag: 'M5 21V4M5 5h12l-2 4 2 4H5',
+  send: 'M21 3L10 14M21 3l-7 18-4-7-7-4z',
 }
 
-defineProps<{ name: SiteIconName; spin?: boolean }>()
+defineProps<{ name: SiteIconName; spin?: boolean; filled?: boolean }>()
 </script>
 
 <template>
@@ -39,7 +55,7 @@ defineProps<{ name: SiteIconName; spin?: boolean }>()
     aria-hidden="true"
     focusable="false"
   >
-    <path :d="PATHS[name]" />
+    <path :d="PATHS[name]" :fill="filled ? 'currentColor' : 'none'" />
   </svg>
 </template>
 

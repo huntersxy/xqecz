@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const diagnosticMaxRunes = 900
+const diagnosticMaxRunes = 6000
 
 var diagnosticSecrets = []struct {
 	pattern *regexp.Regexp
@@ -24,15 +24,33 @@ var diagnosticSecrets = []struct {
 	{regexp.MustCompile(`(?i)([?&](?:key|token|api_key|apikey|access_token|signature|sig|x-amz-signature|x-amz-credential|x-amz-security-token|auth)=)[^&\s"'<>]+`), "${1}***"},
 }
 
+func truncateRunes(text string, limit int) string {
+	runes := []rune(text)
+	if len(runes) <= limit {
+		return text
+	}
+	if limit < 1 {
+		return ""
+	}
+	return string(runes[:limit-1]) + "…"
+}
+
 func redactDiagnostic(text string) string {
 	for _, rule := range diagnosticSecrets {
 		text = rule.pattern.ReplaceAllString(text, rule.replace)
 	}
-	runes := []rune(text)
-	if len(runes) <= diagnosticMaxRunes {
-		return text
+	return truncateRunes(text, diagnosticMaxRunes)
+}
+
+func appendDiagnostic(existing, block string) string {
+	block = strings.TrimSpace(block)
+	if block == "" {
+		return existing
 	}
-	return string(runes[:diagnosticMaxRunes-1]) + "…"
+	if strings.TrimSpace(existing) == "" {
+		return truncateRunes(block, diagnosticMaxRunes)
+	}
+	return truncateRunes(existing+"\n\n"+block, diagnosticMaxRunes)
 }
 
 func failureCategory(err error) string {
@@ -51,18 +69,40 @@ func failureCategory(err error) string {
 	}
 }
 
-func unknownFailureMessage(taskID uint64, provider ProviderConfig, err error) string {
+func failureReason(err error) string {
+	var known KnownFailure
+	var response *ProviderResponseError
 	switch {
+	case err == nil:
+		return "未知错误"
+	case errors.As(err, &known):
+		return known.Message
 	case errors.Is(err, context.DeadlineExceeded):
-		return fmt.Sprintf("供应商请求超时（%d 秒未返回），结果不明；额度仍预留（任务 #%d）", provider.TimeoutSeconds, taskID)
+		return fmt.Sprintf("供应商请求超时（%d 分钟未返回）", int(generationAttemptTimeout/time.Minute))
 	case errors.Is(err, context.Canceled):
-		return fmt.Sprintf("请求已中断，结果不明；额度仍预留（任务 #%d）", taskID)
+		return "请求已中断"
+	case errors.As(err, &response):
+		return fmt.Sprintf("供应商返回 HTTP %d", response.StatusCode)
 	default:
-		return fmt.Sprintf("供应商结果不明；额度仍预留，请联系管理员核查（任务 #%d）", taskID)
+		return truncateRunes(err.Error(), 120)
 	}
 }
 
-func failureDiagnostic(taskID uint64, provider ProviderConfig, err error, elapsed time.Duration, at time.Time) string {
+func refundNote(task Task) string {
+	if task.Cost > 0 {
+		return "额度已返还"
+	}
+	return "本次未扣除额度"
+}
+
+func generationFailureMessage(task Task, attempts int, err error) string {
+	if attempts < 1 {
+		return truncateRunes(fmt.Sprintf("生成失败：%s；%s（任务 #%d）", failureReason(err), refundNote(task), task.ID), 300)
+	}
+	return truncateRunes(fmt.Sprintf("生成失败：%s；已尝试 %d 次，%s（任务 #%d）", failureReason(err), attempts, refundNote(task), task.ID), 300)
+}
+
+func failureDiagnostic(taskID uint64, attempt int, provider ProviderConfig, err error, elapsed time.Duration, at time.Time) string {
 	statusCode, snippet, message := 0, "", ""
 	var response *ProviderResponseError
 	if errors.As(err, &response) {
@@ -71,11 +111,20 @@ func failureDiagnostic(taskID uint64, provider ProviderConfig, err error, elapse
 	if err != nil {
 		message = err.Error()
 	}
+	attemptText := "preflight"
+	switch {
+	case attempt > 0:
+		attemptText = fmt.Sprintf("%d/%d", attempt, generationAttempts)
+	case attempt < 0:
+		attemptText = "interrupted"
+	}
 	lines := []string{
 		"time: " + at.UTC().Format(time.RFC3339),
 		fmt.Sprintf("task: #%d", taskID),
+		"attempt: " + attemptText,
 		fmt.Sprintf("provider: #%d %s", provider.ID, provider.Name),
 		"model: " + provider.Model,
+		"timeout: " + generationAttemptTimeout.String(),
 		"category: " + failureCategory(err),
 		fmt.Sprintf("elapsed_ms: %d", elapsed.Milliseconds()),
 		fmt.Sprintf("http_status: %d", statusCode),
@@ -87,35 +136,35 @@ func failureDiagnostic(taskID uint64, provider ProviderConfig, err error, elapse
 	return redactDiagnostic(strings.Join(lines, "\n"))
 }
 
-func (s *Service) logUnknownFailure(taskID uint64, provider ProviderConfig, elapsed time.Duration, err error) {
-	slog.Error("AI generation ended with unknown provider result",
+func (s *Service) logGenerationFailure(taskID uint64, attempt int, provider ProviderConfig, elapsed time.Duration, err error) {
+	slog.Error("AI generation attempt failed",
 		"task_id", taskID,
+		"attempt", attempt,
 		"provider_id", provider.ID,
 		"model", provider.Model,
 		"elapsed_ms", elapsed.Milliseconds(),
-		"status", "unknown",
 		"err", err,
 	)
 }
 
-func (s *Service) persistDiagnostic(taskID uint64, rawSnapshot, diagnostic string) {
-	if s == nil || s.db == nil || strings.TrimSpace(diagnostic) == "" {
+func (s *Service) recordFailure(taskID uint64, snapshot *taskSnapshot, provider ProviderConfig, attempt int, elapsed time.Duration, err error) {
+	snapshot.Diagnostic = appendDiagnostic(snapshot.Diagnostic, failureDiagnostic(taskID, attempt, provider, err, elapsed, time.Now()))
+	s.persistSnapshot(taskID, *snapshot)
+	s.logGenerationFailure(taskID, attempt, provider, elapsed, err)
+}
+
+func (s *Service) persistSnapshot(taskID uint64, snapshot taskSnapshot) {
+	if s == nil || s.db == nil {
 		return
 	}
-	var snapshot taskSnapshot
-	if err := json.Unmarshal([]byte(rawSnapshot), &snapshot); err != nil {
-		slog.Warn("AI task diagnostic snapshot unreadable", "task_id", taskID)
-		return
-	}
-	snapshot.Diagnostic = diagnostic
 	raw, err := json.Marshal(snapshot)
 	if err != nil {
-		slog.Warn("AI task diagnostic snapshot encode failed", "task_id", taskID)
+		slog.Warn("AI task snapshot encode failed", "task_id", taskID)
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := s.db.WithContext(ctx).Model(&Task{}).Where("id = ?", taskID).Update("snapshot", string(raw)).Error; err != nil {
-		slog.Warn("AI task diagnostic snapshot save failed", "task_id", taskID)
+	if err := s.db.WithContext(ctx).Model(&Task{}).Where("id = ?", taskID).Updates(map[string]any{"snapshot": string(raw), "updated_at": time.Now()}).Error; err != nil {
+		slog.Warn("AI task snapshot save failed", "task_id", taskID)
 	}
 }

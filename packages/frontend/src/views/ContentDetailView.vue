@@ -8,7 +8,7 @@ import { toast } from '@/composables/useToast'
 import { cachedImageSource } from '@/utils/imageSource'
 import { mediaCandidates, mediaKindOf } from '@/utils/contentMedia'
 import SketchPlanet from '@/components/SketchPlanet.vue'
-import CdIcon from '@/components/content/CdIcon.vue'
+import SiteIcon from '@/components/SiteIcon.vue'
 import MediaStage from '@/components/content/MediaStage.vue'
 import Filmstrip from '@/components/content/Filmstrip.vue'
 import InfoPanel from '@/components/content/InfoPanel.vue'
@@ -96,7 +96,7 @@ onMounted(() => {
   <div class="cd-root creative-theme">
     <div class="cd-shell">
       <button class="cd-back-btn" type="button" aria-label="返回" @click="goBack">
-        <CdIcon name="arrow-left" />
+        <SiteIcon name="arrow-left" />
         <span>返回</span>
       </button>
 
@@ -106,11 +106,11 @@ onMounted(() => {
       </div>
 
       <div v-else-if="loadState === 'error'" class="cd-loading" role="alert">
-        <CdIcon name="image-broken" class="cd-error-icon" />
+        <SiteIcon name="image-broken" class="cd-error-icon" />
         <h2 class="cd-error-title">信号暂时离开了轨道</h2>
         <p>内容不存在或网络异常，请稍后再试</p>
         <button type="button" class="cd-retry-btn" @click="loadContent()">
-          <CdIcon name="refresh" />重试
+          <SiteIcon name="refresh" />重试
         </button>
       </div>
 
@@ -124,10 +124,10 @@ onMounted(() => {
 
           <template v-if="previewItems.length > 0">
             <button v-if="hasPrev" class="cd-stage-arrow cd-stage-prev" type="button" aria-label="上一个" @click="goToPrev">
-              <CdIcon name="chevron-left" />
+              <SiteIcon name="chevron-left" />
             </button>
             <button v-if="hasNext" class="cd-stage-arrow cd-stage-next" type="button" aria-label="下一个" @click="goToNext">
-              <CdIcon name="chevron-right" />
+              <SiteIcon name="chevron-right" />
             </button>
           </template>
 
@@ -170,7 +170,7 @@ onMounted(() => {
 }
 .cd-back-btn:hover { color: var(--creative-accent); border-color: var(--creative-accent); background: var(--creative-paper); }
 .cd-back-btn:active { transform: translateY(1px); }
-.cd-back-btn .cd-icon { font-size: 16px; }
+.cd-back-btn .site-icon { font-size: 16px; }
 
 .cd-body { flex: 1; min-height: 0; display: flex; }
 .cd-stage { position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }

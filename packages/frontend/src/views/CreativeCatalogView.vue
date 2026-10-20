@@ -26,8 +26,15 @@ const filtered = computed(() =>
 const resolved = computed(() =>
   detail.value
     ? resolveCreativeResource(detail.value, rows.value)
-    : { assets: [], characters: [], text: '' },
+    : { assets: [], characters: [] },
 )
+const studioPrompt = computed(() => {
+  const row = detail.value
+  if (!row) return ''
+  return [row.title, row.payload.appearance || row.payload.description || row.summary]
+    .filter(Boolean)
+    .join('：')
+})
 const allImages = computed(() =>
   resolved.value.assets
     .map((id) => assets.value.find((a) => a.id === id))
@@ -153,7 +160,7 @@ onBeforeUnmount(() => {
             query: {
               assets: resolved.assets.join(','),
               characters: resolved.characters.join(','),
-              prompt: resolved.text,
+              prompt: studioPrompt,
             },
           }"
           ><a-button type="primary">带角色设定图进入工作台</a-button></RouterLink

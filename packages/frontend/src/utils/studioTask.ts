@@ -15,7 +15,7 @@ export const TASK_LABELS: Record<string, string> = {
   succeeded: '完成',
   failed: '失败',
   cancelled: '已取消',
-  unknown: '待核查',
+  unknown: '历史待核查',
 }
 
 export function statusClass(value: string) {
@@ -36,7 +36,7 @@ export function isPendingStatus(value: string) {
 
 export function stateTileLabel(value: string) {
   if (isFailedStatus(value)) return '生成失败'
-  if (value === 'unknown') return '结果待核查'
+  if (value === 'unknown') return '历史待核查'
   return TASK_LABELS[value] ?? value
 }
 
