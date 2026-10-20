@@ -18,7 +18,6 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/config"
 	"github.com/huntersxy/xqecz/server/internal/creative"
 	"github.com/huntersxy/xqecz/server/internal/logx"
-	"github.com/huntersxy/xqecz/server/internal/media"
 	"github.com/huntersxy/xqecz/server/internal/mirror"
 	"github.com/huntersxy/xqecz/server/internal/modules/content"
 	"github.com/huntersxy/xqecz/server/internal/project"
@@ -93,8 +92,6 @@ func main() {
 			return
 		}
 		content.New(deps, content.Options{Mirror: deps.Mirror}).SweepMissingThumbnails(ctx)
-		ok, fail, err := media.SweepAtlasThumbnails(ctx, cfg.ThumbDir)
-		slog.Info("星图缩略图回填完成", "ok", ok, "fail", fail, "err", err)
 	}()
 
 	if err := api.Run(deps, content.Options{Mirror: deps.Mirror}); err != nil {

@@ -6,7 +6,7 @@ import { useUserStore } from '@/stores/user'
 import { useContentBrowse } from '@/composables/useContentBrowse'
 import { toast } from '@/composables/useToast'
 import { cachedImageSource } from '@/utils/imageSource'
-import { mediaKindOf, resolveMedia } from '@/utils/contentMedia'
+import { mediaCandidates, mediaKindOf } from '@/utils/contentMedia'
 import SketchPlanet from '@/components/SketchPlanet.vue'
 import CdIcon from '@/components/content/CdIcon.vue'
 import MediaStage from '@/components/content/MediaStage.vue'
@@ -37,9 +37,7 @@ function cachedItem(id: number): Content | null {
 const preloaded = new Set<string>()
 function preloadWork(item?: Content | null) {
   if (!item || mediaKindOf(item) !== 'image') return
-  const source = cachedImageSource()
-  if (!source) return
-  const { url } = resolveMedia(item, source)
+  const url = mediaCandidates(item, cachedImageSource())[0]
   if (!url || preloaded.has(url)) return
   preloaded.add(url)
   const img = new Image()

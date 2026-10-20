@@ -3,11 +3,11 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import Viewer from 'viewerjs'
 import 'viewerjs/dist/viewer.css'
 import './prose.css'
-import { getImageUrl, getRemoteFallbackUrl, renderMarkdown } from '@/utils'
+import { getImageUrl, renderMarkdown } from '@/utils'
 import {
   cachedImageSource, markUnreachable, pickImageUrl, probeMirror, recheckNetwork, type MediaSource,
 } from '@/utils/imageSource'
-import { mediaKindOf, mediaTiers, resolveMedia, rewriteMediaInHtml } from '@/utils/contentMedia'
+import { mediaCandidates, mediaKindOf, mediaTiers, noteFailed, noteLoaded, rewriteMediaInHtml } from '@/utils/contentMedia'
 import SketchPlanet from '@/components/SketchPlanet.vue'
 import CdIcon from './CdIcon.vue'
 import type { Content } from '@/types'
@@ -19,12 +19,7 @@ const kind = computed(() => mediaKindOf(props.content))
 const source = ref<MediaSource | null>(cachedImageSource())
 const resolved = computed(() => source.value !== null)
 
-const candidates = computed(() => {
-  if (kind.value === 'text' || !source.value) return [] as string[]
-  const { url, fallbacks } = resolveMedia(props.content, source.value)
-  const list = [url, ...fallbacks, getRemoteFallbackUrl(mediaTiers(props.content).local)]
-  return list.filter((u, i) => u && list.indexOf(u) === i)
-})
+const candidates = computed(() => mediaCandidates(props.content, source.value))
 
 const attempt = ref(0)
 const phase = ref<'loading' | 'loaded' | 'failed'>('loading')
@@ -62,10 +57,14 @@ watch(
   { immediate: true },
 )
 
-function onLoad() { phase.value = 'loaded' }
+function onLoad() {
+  noteLoaded(props.content, currentUrl.value)
+  phase.value = 'loaded'
+}
 
 function onError() {
   const failed = currentUrl.value
+  noteFailed(props.content, failed)
   const { mirror, mirror2 } = mediaTiers(props.content)
   if (failed && failed === mirror2) markUnreachable('mirror2')
   else if (failed && failed === mirror) markUnreachable('mirror')

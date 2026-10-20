@@ -13,6 +13,15 @@ vi.mock('@/utils/imageSource', () => ({
   probeMirror: mocks.probe,
   recheckNetwork: async () => false,
 }))
+vi.mock('@/utils/mediaMemory', () => ({
+  recallLoaded: () => null,
+  rememberLoaded: () => {},
+  forgetLoaded: () => {},
+  sameMedia: (a: string, b: string) => {
+    const name = (u: string) => u.split('/').pop() || ''
+    return !!a && name(a) === name(b)
+  },
+}))
 
 function content(overrides: Record<string, unknown> = {}) {
   return ContentSchema.parse({

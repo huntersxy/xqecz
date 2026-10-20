@@ -1,5 +1,6 @@
 import { getImageUrl, getRemoteFallbackUrl } from '@/utils'
 import { fallbackChain, pickImageUrl, type MediaSource } from '@/utils/imageSource'
+import { forgetLoaded, recallLoaded, rememberLoaded, sameMedia } from '@/utils/mediaMemory'
 import type { Content } from '@/types'
 
 export type MediaKind = 'image' | 'video' | 'text'
@@ -30,6 +31,23 @@ export function resolveMedia(c: MediaFields, source: MediaSource | null) {
     url: source ? pickImageUrl(local, mirror, mirror2, source) : '',
     fallbacks: fallbackChain(local, mirror, mirror2, source),
   }
+}
+
+export function mediaCandidates(c: MediaFields, source: MediaSource | null): string[] {
+  if (!source) return []
+  const { local, mirror, mirror2 } = mediaTiers(c)
+  const { url, fallbacks } = resolveMedia(c, source)
+  const list = [recallLoaded(local), url, ...fallbacks, getRemoteFallbackUrl(local)]
+  return list.filter((u, i): u is string => !!u && list.indexOf(u) === i && (!mirror && !mirror2 || sameMedia(local, u)))
+}
+
+export function noteLoaded(c: MediaFields, loadedUrl: string): void {
+  rememberLoaded(mediaTiers(c).local, loadedUrl)
+}
+
+export function noteFailed(c: MediaFields, failedUrl: string): void {
+  const local = mediaTiers(c).local
+  if (recallLoaded(local) === failedUrl) forgetLoaded(local)
 }
 
 export function rewriteMediaInHtml(html: string): string {

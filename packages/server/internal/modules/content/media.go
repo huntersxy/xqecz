@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/huntersxy/xqecz/server/internal/media"
 	"github.com/huntersxy/xqecz/server/internal/store"
 )
 
@@ -31,12 +30,12 @@ func (h *Handler) RegisterMedia(r *gin.Engine) {
 	} {
 		dir := m.dir
 		r.GET(m.route, func(c *gin.Context) {
-			h.serveMedia(c, dir, dir == h.deps.Cfg.ThumbDir)
+			h.serveMedia(c, dir)
 		})
 	}
 }
 
-func (h *Handler) serveMedia(c *gin.Context, dir string, thumbs bool) {
+func (h *Handler) serveMedia(c *gin.Context, dir string) {
 	rel := strings.TrimPrefix(c.Param("filepath"), "/")
 	if rel == "" {
 		c.Status(404)
@@ -46,19 +45,6 @@ func (h *Handler) serveMedia(c *gin.Context, dir string, thumbs bool) {
 	if clean == "." || strings.HasPrefix(clean, "..") || filepath.IsAbs(clean) {
 		c.Status(404)
 		return
-	}
-	if thumbs {
-		var variantErr error
-		switch {
-		case strings.HasPrefix(rel, media.AtlasDirectory+"/"):
-			_, variantErr = media.EnsureAtlasThumbnail(c.Request.Context(), dir, strings.TrimPrefix(rel, media.AtlasDirectory+"/"))
-		case strings.HasPrefix(rel, media.MontageDirectory+"/"):
-			_, variantErr = media.EnsureMontageThumbnail(c.Request.Context(), dir, strings.TrimPrefix(rel, media.MontageDirectory+"/"))
-		}
-		if variantErr != nil {
-			c.Status(404)
-			return
-		}
 	}
 	abs := filepath.Join(dir, clean)
 

@@ -17,4 +17,7 @@ app.mount('#app')
 
 if (import.meta.env.PROD) {
   initWebVitals()
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => { void navigator.serviceWorker.register('/sw.js') })
+  }
 }

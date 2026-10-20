@@ -9,7 +9,6 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
-	"log/slog"
 	"math"
 	"os"
 	"os/exec"
@@ -86,12 +85,6 @@ func commitThumb(ctx context.Context, tmpPath, outPath, thumbDir string) (string
 	}
 	if err := os.Rename(tmpPath, outPath); err != nil {
 		return "", fmt.Errorf("commit thumbnail: %w", err)
-	}
-	if _, err := EnsureAtlasThumbnail(ctx, thumbDir, filepath.Base(outPath)); err != nil {
-		slog.Warn("星图缩略图生成失败", "file", filepath.Base(outPath), "err", err)
-	}
-	if _, err := EnsureMontageThumbnail(ctx, thumbDir, filepath.Base(outPath)); err != nil {
-		slog.Warn("走马灯缩略图生成失败", "file", filepath.Base(outPath), "err", err)
 	}
 	return relThumb(thumbDir, outPath), nil
 }

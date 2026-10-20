@@ -6,7 +6,6 @@ import (
 
 	"github.com/huntersxy/xqecz/server/internal/app"
 	useravatar "github.com/huntersxy/xqecz/server/internal/avatar"
-	"github.com/huntersxy/xqecz/server/internal/media"
 	"github.com/huntersxy/xqecz/server/internal/store"
 	"github.com/huntersxy/xqecz/server/internal/web"
 )
@@ -103,8 +102,6 @@ type Item struct {
 	Title        string    `json:"title"`
 	Text         string    `json:"text"`
 	Thumb        string    `json:"thumb"`
-	AtlasThumb   string    `json:"atlas_thumb"`
-	MontageThumb string    `json:"montage_thumb"`
 	Video        string    `json:"video"`
 	Img          string    `json:"img"`
 	Origin       string    `json:"origin,omitempty"`
@@ -176,8 +173,6 @@ func decorateWith(mm app.MediaMirror, row store.Content, userMap map[uint64]stor
 		Title:        row.Title,
 		Text:         deref(row.Content),
 		Thumb:        thumb,
-		AtlasThumb:   media.AtlasThumbnailURL(FileURL(thumbPath)),
-		MontageThumb: media.MontageThumbnailURL(FileURL(thumbPath)),
 		Video:        "",
 		Img:          img,
 		Origin:       FileURL(filePath),
