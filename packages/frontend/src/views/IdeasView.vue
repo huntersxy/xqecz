@@ -135,13 +135,10 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <div class="creative-page ideas-gallery-page creative-theme">
-    <header class="creative-page-head">
+    <header class="creative-page-head" :class="{ 'discovery-heading': !detail }">
       <div>
-        <span class="creative-eyebrow">✧ 灵感接力 / IDEAS</span>
-        <h1>{{ detail?.idea.title || '一起，让创意发生' }}</h1>
-        <p>
-          {{ detail?.idea.description || '提出一个完整的创作方案，或用你的额度支持别人的灵感。' }}
-        </p>
+        <h1>{{ detail?.idea.title || '创意广场' }}</h1>
+        <p v-if="detail?.idea.description">{{ detail.idea.description }}</p>
       </div>
       <div class="creative-actions">
         <RouterLink to="/studio"><a-button type="primary">提出创意</a-button></RouterLink
@@ -216,6 +213,8 @@ onBeforeUnmount(() => {
           :key="row.idea.id"
           :to="`/ideas/${row.idea.id}`"
           class="creative-box creative-card idea-card"
+          :class="{ 'idea-card-text-only': !row.references.length }"
+          :data-status="row.idea.status"
         >
           <div class="idea-card-main">
             <div class="idea-card-heading">
@@ -223,11 +222,8 @@ onBeforeUnmount(() => {
               <a-tag>{{ labels[row.idea.status] }}</a-tag>
             </div>
             <p class="idea-card-prompt">{{ ideaPromptPreview(row.idea) }}</p>
-            <span class="idea-card-read">查看完整提示词与参考图</span>
             <div class="creative-note">{{ row.author.username }} · {{ row.idea.model }}</div>
-            <p v-if="row.sponsorable" class="idea-cost">
-              {{ row.current_cost }} 额度 · 等待你的支持
-            </p>
+            <p v-if="row.sponsorable" class="idea-cost">{{ row.current_cost }} 额度</p>
           </div>
           <div v-if="row.references.length" class="idea-card-references" aria-label="参考图预览">
             <div
@@ -241,7 +237,6 @@ onBeforeUnmount(() => {
               >
             </div>
           </div>
-          <div v-else class="idea-card-no-references">纯文字<br />创意</div>
         </RouterLink>
       </div>
       <p v-if="!rows.length && !error" class="creative-empty">
@@ -313,8 +308,8 @@ onBeforeUnmount(() => {
    references are supporting material, and controls stay in a quiet toolbar. */
 .ideas-gallery-page {
   max-width: 1440px;
-  margin-top: clamp(24px, 5vw, 60px);
-  padding-inline: clamp(20px, 5vw, 64px);
+  margin-top: clamp(24px, 4vw, 48px);
+  padding-inline: clamp(20px, 4vw, 56px);
 }
 .ideas-gallery-page .creative-page-head {
   padding-top: 26px;
@@ -326,7 +321,7 @@ onBeforeUnmount(() => {
   font-family: var(--creative-title-font);
   font-size: clamp(34px, 5vw, 58px);
   font-weight: 500;
-  letter-spacing: -.02em;
+  letter-spacing: -0.02em;
   line-height: 1.22;
 }
 .ideas-gallery-page .creative-page-head p {
@@ -337,12 +332,13 @@ onBeforeUnmount(() => {
   gap: 8px;
 }
 .ideas-gallery-page .creative-page-head .creative-actions > a {
-  border-radius: 3px;
+  border-radius: 8px;
   padding-inline: 14px;
   background: transparent;
 }
 .ideas-gallery-page .idea-filters {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(110px, 150px) minmax(110px, 150px) auto;
   align-items: center;
   gap: 8px;
   padding: 12px 0 20px;
@@ -353,11 +349,13 @@ onBeforeUnmount(() => {
 }
 .ideas-gallery-page .idea-filters .arco-input-wrapper,
 .ideas-gallery-page .idea-filters :deep(.arco-select-view-single) {
-  border-radius: 3px;
+  border-radius: 8px;
   background: var(--creative-paper);
 }
-.ideas-gallery-page .idea-filters .arco-input-wrapper {
-  max-width: 360px;
+.ideas-gallery-page .idea-filters .arco-input-wrapper,
+.ideas-gallery-page .idea-filters :deep(.arco-select-view-single) {
+  width: 100%;
+  max-width: none;
 }
 /* 搜索框、下拉与按钮必须同高，否则一行筛选看起来像三个不同组件拼在一起。 */
 .ideas-gallery-page .idea-filters .arco-input-wrapper,
@@ -368,48 +366,109 @@ onBeforeUnmount(() => {
 }
 .ideas-gallery-page .idea-filters .arco-btn {
   padding-inline: 16px;
-  border-radius: 3px;
+  border-radius: 8px;
 }
 .ideas-gallery-page .idea-list.creative-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px 22px;
+  gap: 20px;
+  align-items: start;
 }
 .ideas-gallery-page .idea-card.creative-card {
-  min-height: 248px;
-  padding: 22px 0;
-  border-width: 1px 0 0;
-  border-radius: 0;
-  background: transparent;
-  transition: border-color .18s ease, transform .18s ease;
+  grid-template-columns: minmax(0, 1fr) 96px;
+  gap: 20px;
+  min-height: 260px;
+  padding: 24px;
+  border: 1px solid var(--creative-line);
+  border-radius: 12px;
+  background: var(--creative-paper);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
 .ideas-gallery-page .idea-card.creative-card:hover {
-  border-color: var(--creative-accent);
-  background: color-mix(in srgb, var(--creative-soft) 24%, transparent);
-  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--creative-accent) 55%, var(--creative-line));
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--creative-ink) 5%, transparent);
+  transform: none;
+}
+.ideas-gallery-page .idea-card.idea-card-text-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+.ideas-gallery-page .idea-card-heading {
+  gap: 8px 12px;
 }
 .ideas-gallery-page .idea-card-heading h2 {
-  font-family: var(--creative-title-font);
-  font-size: 22px;
-  font-weight: 500;
+  flex-basis: 140px;
+  font-family: inherit;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.5;
 }
 .ideas-gallery-page .idea-card-heading .arco-tag {
-  border-radius: 2px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  border-radius: 6px;
   background: var(--creative-soft);
+  font-size: 11px;
+}
+.ideas-gallery-page .idea-card[data-status='realized'] .arco-tag {
+  color: var(--creative-ink);
+  background: var(--creative-canvas);
 }
 .ideas-gallery-page .idea-card-prompt {
-  margin-top: 18px;
-  font-size: 14px;
-  line-height: 1.9;
+  margin: 18px 0 20px;
+  padding-left: 14px;
+  border-left: 2px solid var(--creative-line);
+  -webkit-line-clamp: 5;
+  font-size: 13px;
+  line-height: 1.85;
 }
-.ideas-gallery-page .idea-card-reference,
-.ideas-gallery-page .idea-card-no-references {
-  border-radius: 2px;
+.ideas-gallery-page .idea-card-main > .creative-note {
+  margin-top: auto;
+  overflow-wrap: anywhere;
+  font-size: 11px;
 }
-.ideas-gallery-page .idea-card-reference .creative-image {
-  border-radius: 2px;
+.ideas-gallery-page .idea-card-references {
+  gap: 8px;
+}
+.ideas-gallery-page .idea-card-reference {
+  border-radius: 8px;
+  padding: 4px;
+  background: var(--creative-canvas);
 }
 .ideas-gallery-page .idea-cost {
-  border-top-style: dashed;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--creative-line);
+}
+.ideas-gallery-page .creative-page-head.discovery-heading {
+  align-items: center;
+  padding: 0;
+  margin-bottom: 24px;
+  border: 0;
+  background: transparent;
+}
+.ideas-gallery-page .discovery-heading::before {
+  display: none;
+}
+.ideas-gallery-page .creative-empty {
+  padding: 48px 20px;
+  border: 1px solid var(--creative-line);
+  border-radius: 12px;
+  background: var(--creative-paper);
+}
+.ideas-gallery-page .discovery-heading h1 {
+  margin: 0;
+  color: var(--creative-muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+}
+.ideas-gallery-page .discovery-heading .creative-actions > a {
+  padding: 0;
+  font-size: 12px;
+}
+.ideas-gallery-page .discovery-heading .arco-btn {
+  border-radius: 8px;
 }
 .ideas-gallery-page .idea-authors {
   align-items: center;
@@ -439,15 +498,36 @@ onBeforeUnmount(() => {
 }
 @media (max-width: 760px) {
   .ideas-gallery-page .idea-filters {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
     align-items: stretch;
-    flex-wrap: wrap;
   }
   .ideas-gallery-page .idea-filters .arco-input-wrapper {
-    flex-basis: 100%;
+    grid-column: 1 / -1;
     max-width: none;
   }
   .ideas-gallery-page .idea-list.creative-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .ideas-gallery-page .idea-card.creative-card {
+    padding: 20px;
+    grid-template-columns: minmax(0, 1fr) 72px;
+    gap: 14px;
+  }
+  .ideas-gallery-page .idea-card.idea-card-text-only {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ideas-gallery-page .creative-page-head.discovery-heading {
+    align-items: stretch;
+    gap: 16px;
+  }
+  .ideas-gallery-page .idea-filters :deep(.arco-select-view-single) {
+    width: auto;
+    flex: 1 1 120px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ideas-gallery-page .idea-card.creative-card {
+    transition: none;
   }
 }
 </style>

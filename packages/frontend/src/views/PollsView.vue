@@ -56,14 +56,11 @@ function goPage(value: number) {
 
 <template>
   <div class="creative-page poll-page poll-gallery-page creative-theme">
-    <header class="creative-page-head">
+    <header class="poll-index-heading">
       <div>
         <h1>投票广场</h1>
-        <p>选一份偏爱，让大家看见你的选择。</p>
       </div>
-      <RouterLink to="/" class="poll-back"
-        ><IconArrowLeft aria-hidden="true" /> 返回首页</RouterLink
-      >
+      <span v-if="!isDetail && total" class="poll-index-count">{{ total }}</span>
     </header>
 
     <template v-if="isDetail">
@@ -151,10 +148,6 @@ function goPage(value: number) {
     </template>
 
     <template v-else>
-      <div class="poll-list-heading">
-        <h2>全部投票</h2>
-        <span>共 {{ total }} 项</span>
-      </div>
       <p v-if="listLoading" class="poll-page-state" role="status">正在加载投票…</p>
       <div v-else-if="listError" class="poll-page-state" role="alert">
         <p>{{ listError }}</p>
@@ -190,112 +183,142 @@ function goPage(value: number) {
 </template>
 
 <style scoped>
-/* Voting remains lightweight and readable: a two-column index on paper, with
-   the ballot itself treated as a single editorial sheet. */
 .poll-gallery-page {
   max-width: 1440px;
-  margin-top: clamp(24px, 5vw, 60px);
-  padding-inline: clamp(20px, 5vw, 64px);
+  margin-top: clamp(24px, 4vw, 48px);
+  padding-inline: clamp(20px, 4vw, 56px);
 }
-.poll-gallery-page .creative-page-head {
-  padding-top: 26px;
-  padding-bottom: 34px;
-  margin-bottom: 24px;
+.poll-index-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
 }
-.poll-gallery-page .creative-page-head h1 {
-  font-family: var(--creative-title-font);
-  font-size: clamp(34px, 5vw, 58px);
+.poll-index-heading h1 {
+  margin: 0;
+  color: var(--creative-muted);
+  font-size: 13px;
   font-weight: 500;
-  letter-spacing: -.02em;
-  line-height: 1.22;
+  line-height: 1.6;
 }
-.poll-gallery-page .creative-page-head p {
-  max-width: 520px;
-}
-.poll-gallery-page .poll-back {
-  border-radius: var(--radius-sm);
-  transition: color .18s ease, background .18s ease;
-}
-.poll-gallery-page .poll-back:hover {
+.poll-index-count {
+  padding: 2px 8px;
+  border-radius: 6px;
   background: var(--creative-soft);
-}
-.poll-gallery-page .poll-list-heading {
-  padding: 14px 0 16px;
-  border-bottom: 1px solid var(--creative-line);
-}
-.poll-gallery-page .poll-list-heading h2 {
-  font-family: var(--creative-title-font);
-  font-size: 26px;
-  font-weight: 500;
+  color: var(--creative-accent);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 .poll-gallery-page .poll-preview-grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
 }
-/* autofit 让只有一两条投票时也铺成一整行，不再留下半页空白；
-   卡片用纸面 + 细边替代此前的无边界列表，与画廊卡片同一种质感。 */
-.poll-gallery-page .poll-preview {
-  min-height: 0;
-  padding: 20px 22px;
+.poll-gallery-page .poll-preview-grid:has(> :only-child) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.poll-gallery-page :deep(.poll-preview:only-child .poll-preview-options) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.poll-gallery-page :deep(.poll-preview) {
+  gap: 16px;
+  padding: 26px;
   border: 1px solid var(--creative-line);
-  border-radius: var(--radius-md);
+  border-radius: 12px;
   background: var(--creative-paper);
-  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
-.poll-gallery-page .poll-preview:hover {
+.poll-gallery-page :deep(.poll-preview:hover) {
+  border-color: color-mix(in srgb, var(--creative-accent) 55%, var(--creative-line));
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--creative-ink) 5%, transparent);
+}
+.poll-gallery-page :deep(.poll-preview:focus-visible) {
+  outline: 2px solid var(--creative-accent);
+  outline-offset: 4px;
+}
+.poll-gallery-page :deep(.poll-preview h3) {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.poll-gallery-page :deep(.poll-preview-description) {
+  -webkit-line-clamp: 3;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.poll-gallery-page :deep(.poll-preview-options) {
+  display: grid;
+  gap: 8px;
+}
+.poll-gallery-page :deep(.poll-preview-options > span) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 11px 14px;
+  border: 1px solid var(--creative-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--creative-ink);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.poll-gallery-page :deep(.poll-preview-options > span::before) {
+  content: '';
+  flex: 0 0 12px;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--creative-line);
+  border-radius: 50%;
+  background: var(--creative-paper);
+}
+.poll-gallery-page :deep(.poll-preview:hover .poll-preview-options > span::before) {
   border-color: var(--creative-accent);
+}
+.poll-gallery-page :deep(.poll-preview-footer) {
+  padding-top: 4px;
+  font-size: 11px;
+}
+.poll-gallery-page :deep(.poll-preview-action) {
+  padding: 6px 10px;
+  border-radius: 6px;
   background: var(--creative-soft);
-  transform: translateY(-2px);
-}
-.poll-gallery-page .poll-preview h3 {
-  font-family: var(--creative-title-font);
-  font-size: 22px;
-  font-weight: 500;
-}
-.poll-gallery-page .poll-preview-options > span {
-  border-radius: var(--radius-sm);
-  background: var(--creative-paper);
-}
-.poll-gallery-page .poll-preview-action {
-  letter-spacing: .03em;
+  color: var(--creative-accent);
 }
 .poll-gallery-page .poll-ballot {
   max-width: 860px;
-  padding: clamp(24px, 5vw, 52px);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 18px 45px color-mix(in srgb, var(--creative-ink) 6%, transparent);
+  padding: clamp(24px, 5vw, 48px);
+  border-radius: 12px;
+  box-shadow: none;
 }
-.poll-gallery-page .poll-ballot .poll-ballot-heading h2 {
-  font-family: var(--creative-title-font);
-  font-size: clamp(26px, 4vw, 40px);
-  font-weight: 500;
+.poll-gallery-page .poll-ballot-heading h2 {
+  font-size: clamp(24px, 4vw, 36px);
+  font-weight: 600;
 }
 .poll-gallery-page .poll-option {
-  border-radius: var(--radius-sm);
-  background: transparent;
-  transition: border-color .18s ease, background .18s ease;
-}
-.poll-gallery-page .poll-option:hover,
-.poll-gallery-page .poll-option.is-selected {
-  background: color-mix(in srgb, var(--creative-soft) 38%, transparent);
-}
-.poll-gallery-page .poll-option-fill {
-  background: color-mix(in srgb, var(--creative-soft) 60%, transparent);
+  border-radius: 8px;
 }
 .poll-gallery-page .poll-submit,
 .poll-gallery-page .poll-secondary {
-  border-radius: var(--radius-sm);
-}
-.poll-gallery-page .poll-participation-note {
-  padding-top: 16px;
-  border-top: 1px dashed var(--creative-line);
+  border-radius: 8px;
 }
 @media (max-width: 760px) {
   .poll-gallery-page .poll-preview-grid {
     grid-template-columns: minmax(0, 1fr);
   }
-  .poll-gallery-page .poll-ballot {
-    box-shadow: 0 10px 24px color-mix(in srgb, var(--creative-ink) 5%, transparent);
+  .poll-gallery-page :deep(.poll-preview) {
+    padding: 20px;
+  }
+  .poll-gallery-page :deep(.poll-preview:only-child .poll-preview-options) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .poll-gallery-page :deep(.poll-preview) {
+    transition: none;
   }
 }
 </style>

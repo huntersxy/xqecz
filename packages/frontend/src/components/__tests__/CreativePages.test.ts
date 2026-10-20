@@ -54,7 +54,8 @@ describe('creative discovery pages', () => {
     const card = wrapper.get('a.idea-card')
     expect(card.attributes('href')).toBe('/ideas/7')
     expect(card.get('.idea-card-prompt').text()).toBe('窗边的一束光')
-    expect(card.text()).toContain('纯文字')
+    expect(card.classes()).toContain('idea-card-text-only')
+    expect(wrapper.get('h1').text()).toBe('创意广场')
     expect(card.text()).toContain('3 额度')
     expect(card.text()).toContain('午后的小泉')
   })
@@ -85,7 +86,7 @@ describe('creative discovery pages', () => {
       card.findAllComponents({ name: 'CreativeImage' }).map((image) => image.props('id')),
     ).toEqual([1, 2, 3])
     expect(card.get('.idea-reference-more').text()).toBe('+1')
-    expect(card.get('.idea-card-read').text()).toContain('完整提示词')
+    expect(card.find('.idea-card-read').exists()).toBe(false)
   })
   it.each(['broken json', 'null', '{"prompt":42}'])(
     'keeps older ideas readable for snapshot %s',

@@ -233,8 +233,8 @@ onBeforeUnmount(() => {
 }
 .character-index {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 40px 28px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 28px 18px;
 }
 .character-card {
   min-width: 0;
@@ -249,17 +249,20 @@ onBeforeUnmount(() => {
 .character-card .creative-image-tile {
   height: auto;
   aspect-ratio: 4 / 5;
-  padding: clamp(12px, 2vw, 24px);
+  padding: clamp(8px, 1vw, 14px);
   border-radius: 8px;
   background: var(--creative-paper);
-  transition: background-color 160ms ease;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease;
 }
 .character-card:hover .creative-image-tile {
   background: var(--creative-soft);
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--creative-ink) 6%, transparent);
 }
 .character-card h2 {
-  margin: 16px 0 6px;
-  font-size: 18px;
+  margin: 12px 0 4px;
+  font-size: 16px;
   line-height: 1.5;
   font-weight: 600;
   overflow-wrap: anywhere;
@@ -332,9 +335,14 @@ onBeforeUnmount(() => {
 .character-large {
   height: min(68vh, 720px);
 }
-@media (max-width: 1100px) {
+@media (max-width: 1240px) {
   .character-index {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (max-width: 980px) {
+  .character-index {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 @media (max-width: 540px) {
@@ -347,7 +355,8 @@ onBeforeUnmount(() => {
     width: 100%;
   }
   .character-index {
-    gap: 28px 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px 14px;
   }
   .character-card .creative-image-tile {
     padding: 8px;
