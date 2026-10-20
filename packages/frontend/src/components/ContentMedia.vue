@@ -204,7 +204,8 @@ defineExpose({ mediaKind, mediaUrl })
 .cd-media-wrap {
   position: relative;
   flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center;
-  background: var(--creative-canvas); padding: 26px; overflow: hidden;
+  /* 上方避开悬浮的返回键/计数，左右避开舞台翻页键 */
+  background: var(--creative-canvas); padding: 64px 76px 22px; overflow: hidden;
 }
 /* 舞台环境层：向外扩一圈再模糊，边缘不留生硬的裁切线；只作氛围，不参与交互 */
 .cd-media-ambient {
@@ -381,7 +382,11 @@ defineExpose({ mediaKind, mediaUrl })
 .cd-text-content :deep(hr) { border: none; border-top: 1px solid var(--creative-line); margin: 1.5em 0; }
 .cd-text-content :deep(strong) { font-weight: 600; }
 
+@media (max-width: 1024px) {
+  .cd-media-wrap { padding: 64px 68px 18px; }
+}
 @media (max-width: 768px) {
+  .cd-media-wrap { padding: 54px 14px 14px; }
   .cd-text-only { height: auto; overflow: visible; padding: 0; }
   .cd-text-content { font-size: 0.9375rem; padding: 20px; }
 }

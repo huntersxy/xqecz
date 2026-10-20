@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { IconCopy } from '@arco-design/web-vue/es/icon'
+import { computed, ref, watch } from 'vue'
+import { IconCalendar, IconCopy, IconEye } from '@arco-design/web-vue/es/icon'
 import { useRouter } from 'vue-router'
-import { renderMarkdown } from '@/utils'
+import { formatTime, renderMarkdown } from '@/utils'
 import { useUserStore } from '@/stores/user'
 import CommentSections from '@/components/CommentSections.vue'
+import ContentActions from '@/components/ContentActions.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import type { Content, Comment } from '@/types'
 
@@ -22,10 +23,19 @@ const router = useRouter()
 const userStore = useUserStore()
 const commentRef = ref<InstanceType<typeof CommentSections> | null>(null)
 
+/** 有图/视频时，文字是「关于作品」的说明；纯文字作品的正文已经在舞台里整篇展示，面板不再重复。 */
+const hasMedia = computed(() => !!(props.content.img || props.content.video))
+
 const renderedText = computed(() => {
   const t = props.content.text
   return t ? renderMarkdown(t) : ''
 })
+
+// 长正文默认收起，避免把评论挤到几屏之外；点「展开全文」后看全部。
+const LONG_TEXT = 280
+const isLongText = computed(() => (props.content.text || '').length > LONG_TEXT)
+const textExpanded = ref(false)
+watch(() => props.content.id, () => { textExpanded.value = false })
 
 const refImages = computed(() => {
   const t = props.content.text
@@ -36,6 +46,8 @@ const refImages = computed(() => {
   while ((m = re.exec(t)) !== null) out.push({ alt: m[1] || '参考图', url: m[2] })
   return out
 })
+
+const plainTags = computed(() => (props.content.tags || []).filter(t => !/^[a-zA-Z_]+:.+$/.test(t)))
 
 const genParams = computed(() => {
   const list: { label: string; value: string }[] = []
@@ -56,32 +68,52 @@ defineExpose({ commentRef })
 
 <template>
   <aside class="cd-side">
+    <header class="cd-head">
+      <span class="cd-eyebrow">作品详情 <span aria-hidden="true">/</span> WORK</span>
+      <h2 class="cd-title">{{ content.title }}</h2>
+      <div class="cd-meta">
+        <span class="cd-meta-item"><IconCalendar />{{ formatTime(content.created_at) }}</span>
+        <span v-if="content.view_count > 0" class="cd-meta-item"><IconEye />{{ content.view_count }} 浏览</span>
+        <span v-if="content.ai_enhanced" class="cd-meta-ai" title="发布时启用了提示词增强">
+          <span class="cd-meta-ai-dot" aria-hidden="true"></span>
+          提示词增强
+        </span>
+      </div>
+    </header>
+
     <div v-if="content.user" class="cd-author">
       <div class="cd-author-left">
-        <UserAvatar :src="content.avatar_url" :email="content.user.email" :username="content.user.username" :size="38" class="cd-avatar" />
+        <UserAvatar :src="content.avatar_url" :email="content.user.email" :username="content.user.username" :size="40" class="cd-avatar" />
         <div class="cd-author-info">
           <span class="cd-author-name">{{ content.user.username }}</span>
           <span class="cd-author-id">造物主 · ID #{{ content.user.id }}</span>
         </div>
       </div>
-      <div class="cd-author-actions">
-        <button class="cd-claim-btn" type="button" @click="userStore.isLoggedIn ? $emit('open-claim') : router.push('/login')">认领</button>
-      </div>
+      <button class="cd-claim-btn" type="button" @click="userStore.isLoggedIn ? $emit('open-claim') : router.push('/login')">认领</button>
     </div>
 
-    <div v-if="(content.tags || []).filter(t => !/^[a-zA-Z_]+:.+$/.test(t)).length > 0" class="cd-section">
+    <ContentActions :content="content" />
+
+    <div v-if="plainTags.length > 0" class="cd-section">
       <div class="cd-section-head"><span class="cd-section-title">标签</span></div>
       <div class="cd-tag-list">
-        <span v-for="tag in (content.tags || []).filter(t => !/^[a-zA-Z_]+:.+$/.test(t))" :key="tag" class="cd-tag">{{ tag }}</span>
+        <span v-for="tag in plainTags" :key="tag" class="cd-tag">{{ tag }}</span>
       </div>
     </div>
 
-    <div v-if="content.text" class="cd-section">
+    <div v-if="content.text && hasMedia" class="cd-section">
       <div class="cd-section-head">
         <span class="cd-section-title">关于这颗星球</span>
         <button class="cd-copy-btn" type="button" @click="copyPrompt"><IconCopy /> <span>复制正文</span></button>
       </div>
-      <div class="cd-prompt" v-html="renderedText"></div>
+      <div class="cd-prompt" :class="{ 'is-collapsed': isLongText && !textExpanded }" v-html="renderedText"></div>
+      <button
+        v-if="isLongText"
+        class="cd-more-btn"
+        type="button"
+        :aria-expanded="textExpanded"
+        @click="textExpanded = !textExpanded"
+      >{{ textExpanded ? '收起' : '展开全文' }}</button>
     </div>
 
     <div v-if="refImages.length > 0" class="cd-section">
@@ -114,29 +146,38 @@ defineExpose({ commentRef })
 
 <style scoped>
 .cd-side {
-  flex: 0 0 clamp(360px, 27vw, 420px); min-width: 0; display: flex; flex-direction: column; gap: 24px;
-  padding: 28px; background: var(--creative-paper);
+  flex: 0 0 clamp(380px, 30vw, 460px); min-width: 0; display: flex; flex-direction: column; gap: 22px;
+  padding: 64px 28px 32px; background: var(--creative-paper);
   border-left: 1px solid var(--creative-line); overflow-y: auto; scrollbar-gutter: stable;
   scrollbar-width: thin; scrollbar-color: var(--creative-line) transparent;
 }
 
+/* 标题区：衬线大标题允许折行，完整读出作品名，不再被顶栏的单行省略号截断 */
+.cd-head { display: flex; flex-direction: column; flex-shrink: 0; gap: 10px; }
+.cd-eyebrow { color: var(--creative-muted); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; }
+.cd-eyebrow > span { margin-left: 5px; color: var(--creative-accent); }
+.cd-title { margin: 0; color: var(--creative-ink); font: 600 clamp(22px, 2vw, 28px)/1.25 var(--creative-title-font); letter-spacing: -.025em; overflow-wrap: anywhere; }
+.cd-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; color: var(--creative-muted); font-size: 11px; }
+.cd-meta-item { display: inline-flex; align-items: center; gap: 5px; }
+.cd-meta-item svg { width: 13px; height: 13px; flex-shrink: 0; }
+.cd-meta-ai { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border: 1px solid var(--creative-line); border-radius: 999px; color: var(--creative-accent); }
+.cd-meta-ai-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
 .cd-author {
   display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 0 0 24px; border-bottom: 1px solid var(--creative-line);
+  padding: 14px 0; border-block: 1px solid var(--creative-line);
 }
-.cd-author-left { display: flex; align-items: center; gap: 0.625rem; min-width: 0; }
+.cd-author-left { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
 .cd-avatar { border: 1px solid var(--creative-line); }
 .cd-author-info { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .cd-author-name { font-size: 0.875rem; font-weight: 600; color: var(--creative-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cd-author-id { font-size: 0.6875rem; color: var(--creative-muted); }
-.cd-author-actions { display: flex; gap: 0.375rem; flex-shrink: 0; }
 .cd-claim-btn {
-  position: relative; padding: 7px 12px; font: inherit; font-size: 11px; color: var(--creative-accent);
+  flex-shrink: 0; padding: 7px 14px; font: inherit; font-size: 11px; color: var(--creative-accent);
   background: var(--creative-paper); border: 1px solid color-mix(in srgb, var(--creative-accent) 25%, var(--creative-line)); border-radius: 999px; cursor: pointer;
   transition: background .18s, color .18s, box-shadow .18s;
 }
 .cd-claim-btn:hover { color: #fff; background: var(--creative-accent); box-shadow: 0 5px 14px color-mix(in srgb, var(--creative-accent) 18%, transparent); }
-.cd-copy-btn:hover { color: var(--creative-accent); border-color: color-mix(in srgb, var(--creative-accent) 35%, var(--creative-line)); background: var(--creative-soft); }
 
 .cd-section {
   display: flex; flex-direction: column; flex-shrink: 0; gap: 12px; padding: 0 0 22px;
@@ -151,6 +192,7 @@ defineExpose({ commentRef })
   border-radius: 999px; cursor: pointer; transition: color .18s, border-color .18s, background .18s;
 }
 .cd-copy-btn svg { width: 13px; height: 13px; }
+.cd-copy-btn:hover { color: var(--creative-accent); border-color: color-mix(in srgb, var(--creative-accent) 35%, var(--creative-line)); background: var(--creative-soft); }
 .cd-tag-list,
 .cd-gen-params { display: flex; flex-wrap: wrap; gap: 0.375rem; }
 .cd-tag {
@@ -160,13 +202,23 @@ defineExpose({ commentRef })
 }
 
 .cd-prompt {
-  font-size: 12px;
+  position: relative;
+  font-size: 13px;
   line-height: 1.9;
   color: var(--creative-ink);
-  max-height: 260px;
-  overflow-y: auto;
   word-break: break-word;
 }
+/* 收起态：限高 + 底部渐隐，提示后面还有内容 */
+.cd-prompt.is-collapsed { max-height: 11.5em; overflow: hidden; }
+.cd-prompt.is-collapsed::after {
+  content: ''; position: absolute; inset: auto 0 0; height: 3.5em; pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--creative-paper));
+}
+.cd-more-btn {
+  align-self: flex-start; padding: 0; border: 0; background: transparent;
+  color: var(--creative-accent); font: inherit; font-size: 12px; cursor: pointer;
+}
+.cd-more-btn:hover { text-decoration: underline; text-underline-offset: 3px; }
 .cd-prompt :deep(p) { margin: 0 0 0.5em; }
 .cd-prompt :deep(p:last-child) { margin-bottom: 0; }
 .cd-prompt :deep(h1),
@@ -224,6 +276,11 @@ defineExpose({ commentRef })
 }
 .cd-gen-label { color: var(--creative-muted); font-weight: 600; letter-spacing: 0.04em; }
 .cd-gen-value { color: var(--creative-ink); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-@media (min-width: 769px) and (max-width: 1024px) { .cd-side { flex-basis: 340px; padding: 22px; } }
-@media (max-width: 768px) { .cd-side { padding: 24px 20px; gap: 22px; } }
+@media (min-width: 769px) and (max-width: 1024px) { .cd-side { flex-basis: 340px; padding: 64px 22px 28px; } }
+@media (max-width: 768px) {
+  /* 窄屏：面板接在舞台下方，随整页一起滚动，不再自带滚动条 */
+  .cd-side { flex: 0 0 auto; width: 100%; max-width: 100%; padding: 22px 20px 32px; gap: 20px; border-left: 0; border-top: 1px solid var(--creative-line); overflow-y: visible; scrollbar-gutter: auto; }
+  .cd-title { font-size: 22px; }
+}
+
 </style>

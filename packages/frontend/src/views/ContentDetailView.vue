@@ -5,13 +5,11 @@ import { Message } from '@arco-design/web-vue'
 import { contentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { useContentBrowse } from '@/composables/useContentBrowse'
-import { formatTime } from '@/utils'
 import MediaImage from '@/components/MediaImage.vue'
 import SketchPlanet from '@/components/SketchPlanet.vue'
-import { IconArrowLeft, IconCalendar, IconHeart, IconLeft, IconRight, IconRefresh } from '@arco-design/web-vue/es/icon'
+import { IconArrowLeft, IconLeft, IconRight, IconRefresh } from '@arco-design/web-vue/es/icon'
 import ContentMedia from '@/components/ContentMedia.vue'
 import ContentSidebar from '@/components/ContentSidebar.vue'
-import ContentActions from '@/components/ContentActions.vue'
 import ReportModal from '@/components/ReportModal.vue'
 import ClaimModal from '@/components/ClaimModal.vue'
 import type { Content, Comment } from '@/types'
@@ -109,43 +107,12 @@ onMounted(() => {
 
 <template>
   <div class="cd-root creative-theme">
-    <!-- 遮罩 -->
-    <div class="cd-backdrop" @click="goBack"></div>
-
-    <div class="cd-shell" @click.self="goBack">
-      <!-- 顶部条 -->
-      <header class="cd-topbar">
-        <button class="cd-back-btn" type="button" aria-label="返回" @click="goBack">
-          <IconArrowLeft />
-          <span>返回</span>
-        </button>
-        <div class="cd-topbar-title">
-          <span class="cd-eyebrow">作品详情 <span aria-hidden="true">/</span> WORK</span>
-          <h2 class="cd-title">{{ content?.title || '正在穿越小泉宇宙…' }}</h2>
-          <div v-if="content" class="cd-meta">
-            <span class="cd-meta-item">
-              <IconCalendar />
-              {{ formatTime(content.created_at) }}
-            </span>
-            <span class="cd-meta-item">
-              <IconHeart />
-              {{ content.like_count || 0 }} 点赞
-            </span>
-            <span
-              v-if="content.ai_enhanced"
-              class="cd-meta-item cd-meta-ai"
-              title="发布时启用了提示词增强"
-            >
-              <span class="cd-meta-ai-dot" aria-hidden="true"></span>
-              提示词增强
-            </span>
-            <span v-if="currentIndex >= 0" class="cd-meta-item cd-meta-index">
-              {{ currentIndex + 1 }} / {{ cachedList.length }}
-            </span>
-          </div>
-        </div>
-        <span class="cd-topbar-note">来自小泉作品广场</span>
-      </header>
+    <!-- 整屏分两栏：左侧是作品舞台，右侧是信息面板；返回键悬浮在舞台左上角 -->
+    <div class="cd-shell">
+      <button class="cd-back-btn" type="button" aria-label="返回" @click="goBack">
+        <IconArrowLeft />
+        <span>返回</span>
+      </button>
 
       <!-- 加载中 -->
       <div v-if="loadState === 'loading'" class="cd-loading" role="status">
@@ -169,61 +136,84 @@ onMounted(() => {
         </a-result>
       </div>
 
-      <!-- 主体 -->
+      <!-- 主体：舞台 + 信息面板 -->
       <div v-else-if="content" class="cd-body">
-        <div class="cd-main">
+        <section class="cd-stage" aria-label="作品展示">
           <ContentMedia :content="content" />
-          <ContentSidebar :content="content" @open-claim="showClaimModal = true" @report-comment="reportTarget = $event" />
-        </div>
-      </div>
 
-      <!-- 底部预览走马灯（内容不足一行时居中） -->
-      <div
-        v-if="content && previewItems.length > 0"
-        ref="previewRef"
-        class="cd-carousel"
-      >
-        <div class="cd-carousel-group">
-          <span class="cd-carousel-label" aria-hidden="true">继续看</span>
-          <button
-            v-if="hasPrev"
-            class="cd-carousel-nav cd-carousel-prev"
-            type="button"
-            aria-label="上一个"
-            @click="goToPrev"
-          >
-            <IconLeft />
-          </button>
+          <span v-if="currentIndex >= 0" class="cd-counter" aria-label="当前位置">
+            {{ currentIndex + 1 }} / {{ cachedList.length }}
+          </span>
 
-          <div class="cd-carousel-track">
+          <!-- 宽屏：舞台两侧的翻页键；窄屏改用走马灯自带的前后键 -->
+          <template v-if="previewItems.length > 0">
             <button
-              v-for="item in previewItems"
-              :key="item.id"
-              :class="['cd-carousel-thumb', { 'cd-thumb-current': item.isCurrent }]"
-              :aria-label="item.title || '查看作品'"
-              :aria-current="item.isCurrent ? 'true' : undefined"
-              @pointerenter="preloadWork(item)"
-              @focus="preloadWork(item)"
-              @click="navigateTo(item.id)"
+              v-if="hasPrev"
+              class="cd-stage-arrow cd-stage-prev"
+              type="button"
+              aria-label="上一个"
+              @click="goToPrev"
             >
-              <MediaImage :src="item.thumb" :alt="item.title" :preview="false" loading="lazy" />
+              <IconLeft />
             </button>
-          </div>
+            <button
+              v-if="hasNext"
+              class="cd-stage-arrow cd-stage-next"
+              type="button"
+              aria-label="下一个"
+              @click="goToNext"
+            >
+              <IconRight />
+            </button>
+          </template>
 
-          <button
-            v-if="hasNext"
-            class="cd-carousel-nav cd-carousel-next"
-            type="button"
-            aria-label="下一个"
-            @click="goToNext"
+          <!-- 底部预览走马灯（内容不足一行时居中） -->
+          <div
+            v-if="previewItems.length > 0"
+            ref="previewRef"
+            class="cd-carousel"
           >
-            <IconRight />
-          </button>
-        </div>
-      </div>
+            <div class="cd-carousel-group">
+              <button
+                v-if="hasPrev"
+                class="cd-carousel-nav cd-carousel-prev"
+                type="button"
+                aria-label="上一个"
+                @click="goToPrev"
+              >
+                <IconLeft />
+              </button>
 
-      <!-- 底部交互栏 -->
-      <ContentActions v-if="content" :content="content" />
+              <div class="cd-carousel-track">
+                <button
+                  v-for="item in previewItems"
+                  :key="item.id"
+                  :class="['cd-carousel-thumb', { 'cd-thumb-current': item.isCurrent }]"
+                  :aria-label="item.title || '查看作品'"
+                  :aria-current="item.isCurrent ? 'true' : undefined"
+                  @pointerenter="preloadWork(item)"
+                  @focus="preloadWork(item)"
+                  @click="navigateTo(item.id)"
+                >
+                  <MediaImage :src="item.thumb" :alt="item.title" :preview="false" loading="lazy" />
+                </button>
+              </div>
+
+              <button
+                v-if="hasNext"
+                class="cd-carousel-nav cd-carousel-next"
+                type="button"
+                aria-label="下一个"
+                @click="goToNext"
+              >
+                <IconRight />
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <ContentSidebar :content="content" @open-claim="showClaimModal = true" @report-comment="reportTarget = $event" />
+      </div>
     </div>
 
     <!-- 举报弹窗 -->
@@ -234,120 +224,117 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* The detail view is a quiet reading surface over the gallery canvas. Keep the
-   overlay mounted for keyboard/backdrop behaviour, but let the content panel
-   carry the paper, line and serif hierarchy used by the home gallery.
+/* 详情页 = 左侧作品舞台 + 右侧信息面板，整屏铺满，不再有顶栏/底栏占用竖向空间。
+   舞台只负责把作品放大看清；标题、作者、操作、正文、评论全部归到右侧面板。
    --creative-* 已统一为 --site-* 别名，无需在此重声明。 */
 .cd-root {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: clamp(10px, 2vw, 28px);
   color: var(--creative-ink);
   background: var(--creative-canvas);
 }
-.cd-backdrop { position: absolute; inset: 0; background: color-mix(in srgb, var(--creative-ink) 5%, transparent); }
 .cd-shell {
   position: relative;
   width: 100%;
-  max-width: 1560px;
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--creative-paper);
-  border: 1px solid var(--creative-line);
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 28px 64px rgba(48, 36, 39, .16), 0 2px 10px rgba(48, 36, 39, .06);
   animation: cd-fade-in .2s ease-out;
 }
 @keyframes cd-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-.cd-topbar {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  min-height: 78px;
-  padding: 14px clamp(18px, 3vw, 34px);
-  border-bottom: 1px solid var(--creative-line);
-  background: var(--creative-paper);
-  position: relative;
-  z-index: 2;
+
+/* 悬浮控件共用的半透明胶囊：压在作品上也读得清，又不抢作品本身 */
+.cd-back-btn,
+.cd-counter,
+.cd-stage-arrow {
+  border: 1px solid color-mix(in srgb, var(--creative-line) 80%, transparent);
+  background: color-mix(in srgb, var(--creative-paper) 82%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px rgba(48, 36, 39, .1);
 }
 .cd-back-btn {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 14px 0 11px;
+  border-radius: 999px;
+  color: var(--creative-ink);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color .18s, border-color .18s, background .18s, transform .18s;
+}
+.cd-back-btn:hover { color: var(--creative-accent); border-color: var(--creative-accent); background: var(--creative-paper); }
+.cd-back-btn:active { transform: translateY(1px); }
+.cd-back-btn svg { width: 16px; height: 16px; }
+
+.cd-body { flex: 1; min-height: 0; display: flex; }
+
+/* 舞台：作品居中，走马灯贴底，翻页键悬在两侧 */
+.cd-stage {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.cd-counter {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 5;
+  padding: 0 12px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  color: var(--creative-accent);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.cd-stage-arrow {
+  position: absolute;
+  top: calc((100% - 68px) / 2);
+  z-index: 5;
+  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  min-width: 38px;
-  height: 36px;
-  padding: 0 12px 0 9px;
-  border: 1px solid var(--creative-line);
-  border-radius: 9px;
-  background: transparent;
-  color: var(--creative-muted);
-  font: inherit;
-  font-size: 11px;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: color .18s, border-color .18s, background .18s;
-}
-.cd-back-btn:hover { color: var(--creative-accent); border-color: var(--creative-accent); background: var(--creative-soft); }
-.cd-back-btn:active { transform: translateY(1px); }
-.cd-back-btn svg { width: 16px; height: 16px; }
-.cd-topbar-title { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.cd-eyebrow { margin-bottom: 6px; color: var(--creative-muted); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; }
-.cd-eyebrow > span { margin-left: 5px; color: var(--creative-accent); }
-.cd-title { margin: 0; color: var(--creative-ink); font: 600 clamp(19px, 1.9vw, 26px)/1.18 var(--creative-title-font); letter-spacing: -.025em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cd-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 7px; color: var(--creative-muted); font-size: 10px; }
-.cd-meta-item { display: inline-flex; align-items: center; gap: 4px; padding-right: 10px; border-right: 1px solid var(--creative-line); }
-.cd-meta-item:last-child { padding-right: 0; border-right: 0; }
-.cd-meta-ai { padding: 1px 8px; border-right: 0; }
-.cd-meta-index { border-right: 0; }
-.cd-meta-item svg { width: 12px; height: 12px; flex-shrink: 0; }
-.cd-meta-index { color: var(--creative-accent); font-variant-numeric: tabular-nums; }
-.cd-meta-ai {
-  gap: 5px;
-  padding: 1px 8px;
-  border: 1px solid var(--creative-line);
-  border-radius: 999px;
-  color: var(--creative-accent);
-}
-.cd-meta-ai-dot {
-  width: 5px;
-  height: 5px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  background: currentColor;
+  color: var(--creative-ink);
+  cursor: pointer;
+  transition: color .18s, border-color .18s, background .18s, box-shadow .18s;
 }
-.cd-topbar-note { flex-shrink: 0; color: var(--creative-muted); font-size: 10px; letter-spacing: .05em; }
+.cd-stage-arrow svg { width: 18px; height: 18px; }
+.cd-stage-prev { left: 16px; }
+.cd-stage-next { right: 16px; }
+.cd-stage-arrow:hover { color: var(--creative-accent); border-color: var(--creative-accent); background: var(--creative-paper); box-shadow: 0 6px 20px color-mix(in srgb, var(--creative-accent) 16%, transparent); }
+.cd-stage-arrow:active { transform: translateY(-50%) scale(.96); }
 
-.cd-body { flex: 1; min-height: 0; display: flex; scrollbar-width: thin; scrollbar-color: var(--creative-line) transparent; }
-.cd-main { flex: 1; min-width: 0; display: flex; min-height: 0; }
 .cd-carousel {
   position: relative;
   flex-shrink: 0; display: flex; overflow-x: auto;
   padding: 11px clamp(14px, 2.5vw, 30px);
-  background: color-mix(in srgb, var(--creative-canvas) 40%, var(--creative-paper));
+  background: color-mix(in srgb, var(--creative-paper) 70%, transparent);
   border-top: 1px solid var(--creative-line);
   scrollbar-width: none;
   /* 两侧渐隐：滚动到尽头时不像被硬切掉 */
   mask-image: linear-gradient(90deg, transparent 0, #000 26px, #000 calc(100% - 26px), transparent 100%);
 }
-.cd-carousel-label {
-  flex-shrink: 0;
-  margin-right: 2px;
-  color: var(--creative-muted);
-  font-size: 10px;
-  letter-spacing: .18em;
-  text-transform: uppercase;
-}
 .cd-carousel::-webkit-scrollbar { display: none; }
 .cd-carousel-group { display: flex; align-items: center; gap: 10px; width: max-content; margin-inline: auto; }
 .cd-carousel-track { display: flex; gap: 7px; }
-.cd-carousel-nav { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid var(--creative-line); border-radius: 8px; background: transparent; color: var(--creative-muted); cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
+.cd-carousel-nav { display: none; flex-shrink: 0; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid var(--creative-line); border-radius: 8px; background: transparent; color: var(--creative-muted); cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
 .cd-carousel-nav:hover { color: var(--creative-accent); border-color: var(--creative-accent); background: var(--creative-soft); }
 .cd-carousel-nav:active { transform: translateY(1px); }
 .cd-carousel-thumb { flex-shrink: 0; width: 60px; height: 46px; border-radius: 8px; overflow: hidden; border: 1px solid transparent; cursor: pointer; padding: 0; background: var(--creative-canvas); transition: border-color .18s, opacity .18s, transform .18s; }
@@ -355,27 +342,24 @@ onMounted(() => {
 .cd-thumb-current { border-color: var(--creative-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--creative-accent) 22%, transparent); }
 .cd-carousel-thumb :deep(.arco-image) { display: block; width: 100%; height: 100%; border-radius: 5px; overflow: hidden; }
 .cd-carousel-thumb :deep(.arco-image-img) { width: 100%; height: 100%; object-fit: cover; display: block; }
+
 .cd-loading-planet { width: 44px; height: 44px; color: var(--creative-accent); }
 .cd-loading { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--creative-muted); background: var(--creative-canvas); font-size: 12px; }
-@media (max-width: 1024px) { .cd-topbar-note { display: none; } }
+
 @media (max-width: 768px) {
-  .cd-root { padding: 0; }
-  .cd-shell { border: 0; border-radius: 0; height: 100dvh; }
-  .cd-topbar { min-height: 72px; padding: 12px 16px; gap: 11px; }
-  .cd-back-btn { width: 34px; min-width: 34px; padding-inline: 8px; }
+  .cd-shell { height: 100dvh; }
+  .cd-back-btn { top: 10px; left: 10px; width: 38px; padding: 0; justify-content: center; }
   .cd-back-btn span { display: none; }
-  .cd-title { font-size: 18px; }
-  .cd-eyebrow { font-size: 8px; }
-  .cd-meta { gap: 10px; margin-top: 5px; }
+  .cd-counter { top: 10px; right: 10px; }
   .cd-body { flex-direction: column; overflow-y: auto; }
-  .cd-main { flex: 0 0 auto; flex-direction: column; }
+  .cd-stage { flex: 0 0 auto; }
+  .cd-stage-arrow { display: none; }
   .cd-carousel { padding: 9px 12px; }
   .cd-carousel-group { gap: 8px; }
-  .cd-carousel-nav { width: 26px; height: 26px; }
+  .cd-carousel-nav { display: inline-flex; width: 26px; height: 26px; }
   .cd-carousel-thumb { width: 52px; height: 40px; }
-  .cd-carousel-label { display: none; }
-  :deep(.cd-media-wrap) { flex: 0 0 auto; min-height: 200px; height: 43dvh; max-height: 52dvh; padding: 14px; }
+  :deep(.cd-media-wrap) { flex: 0 0 auto; min-height: 200px; height: 46dvh; max-height: 56dvh; }
   :deep(.cd-media-wrap:has(.cd-text-only)) { height: auto; max-height: none; }
-  :deep(.cd-side) { flex: 0 0 auto; width: 100%; max-width: 100%; border-left: none; border-top: 1px solid var(--creative-line); overflow-y: visible; scrollbar-gutter: auto; }
 }
+
 </style>
