@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { IconBarChart, IconMenu, IconMoon, IconPlus, IconSettings, IconSun, IconUpload, IconUser, IconClose } from '@arco-design/web-vue/es/icon'
 import { useThemeStore } from '@/stores/theme'
 import { useUserStore } from '@/stores/user'
 import { useGlobalSearch } from '@/composables/useGlobalSearch'
 import { revealOriginFrom, withRevealTransition } from '@/utils/viewTransition'
 import { SHELL_SIDEBAR_CLOSE_EVENT } from '@/utils/shellSidebar'
 import UserAvatar from '@/components/UserAvatar.vue'
+import SiteIcon from '@/components/SiteIcon.vue'
 import { createRoutePreloader } from '@/router/preload'
 
 const route = useRoute()
@@ -131,7 +131,7 @@ onBeforeUnmount(() => {
         aria-label="关闭导航"
         @click="closeMobile"
       >
-        <IconClose />
+        <SiteIcon name="close" />
       </button>
       <div class="public-shell-brand-row">
         <RouterLink to="/" class="public-shell-brand" @click="closeMobile">
@@ -143,15 +143,15 @@ onBeforeUnmount(() => {
       <nav class="public-shell-nav" aria-label="发现">
         <p>发现</p>
         <RouterLink to="/ideas" active-class="is-active" @click="closeMobile">
-          <IconPlus />
+          <SiteIcon name="bulb" />
           <span>创意广场</span>
         </RouterLink>
         <RouterLink to="/characters" active-class="is-active" @click="closeMobile">
-          <IconSettings />
+          <SiteIcon name="users" />
           <span>角色设定</span>
         </RouterLink>
         <RouterLink to="/polls" active-class="is-active" @click="closeMobile">
-          <IconBarChart />
+          <SiteIcon name="chart" />
           <span>投票广场</span>
         </RouterLink>
       </nav>
@@ -164,11 +164,11 @@ onBeforeUnmount(() => {
 
       <div class="public-shell-bottom">
         <button class="public-shell-publish" type="button" data-preload-route="/quick-upload" @click="handlePublish">
-          <IconUpload />
+          <SiteIcon name="upload" />
           <span>发布作品</span>
         </button>
         <RouterLink v-if="!userStore.isLoggedIn" to="/login" class="public-shell-user" @click="closeMobile">
-          <span class="public-shell-user-mark"><IconUser /></span>
+          <span class="public-shell-user-mark"><SiteIcon name="user" /></span>
           <span><strong>登录 / 注册</strong><small>保存你的创作</small></span>
         </RouterLink>
         <RouterLink v-else to="/admin" class="public-shell-user" @click="closeMobile">
@@ -183,15 +183,14 @@ onBeforeUnmount(() => {
     <div class="public-shell-main">
       <header class="public-shell-topbar">
         <button class="public-shell-menu" type="button" :aria-label="mobileOpen ? '关闭导航' : '打开导航'" @click="mobileOpen = !mobileOpen">
-          <IconClose v-if="mobileOpen" />
-          <IconMenu v-else />
+          <SiteIcon :name="mobileOpen ? 'close' : 'menu'" />
         </button>
         <nav class="public-shell-tabs" aria-label="主要入口">
           <RouterLink to="/studio" :class="{ 'is-active': pageTab === 'studio' }">工作台</RouterLink>
           <RouterLink to="/" :class="{ 'is-active': pageTab === 'browse' }">作品广场</RouterLink>
         </nav>
         <label class="public-shell-search">
-          <span aria-hidden="true">⌕</span>
+          <SiteIcon name="search" aria-hidden="true" />
           <input
             ref="searchInput"
             v-model="searchDraft"
@@ -205,8 +204,7 @@ onBeforeUnmount(() => {
         </label>
         <div class="public-shell-actions">
           <button class="public-shell-theme public-shell-theme-main" type="button" :aria-label="themeStore.mode === 'dark' ? '切换到日间模式' : '切换到暗色模式'" @click="toggleTheme">
-            <IconSun v-if="themeStore.mode === 'dark'" />
-            <IconMoon v-else />
+            <SiteIcon :name="themeStore.mode === 'dark' ? 'sun' : 'moon'" />
           </button>
           <RouterLink v-if="!userStore.isLoggedIn" to="/login" class="public-shell-login">登录</RouterLink>
           <RouterLink v-else to="/admin" class="public-shell-avatar" aria-label="打开我的内容">
@@ -286,6 +284,7 @@ body[arco-theme='dark'] .public-shell {
 .public-shell-nav { gap: 4px; margin-top: 28px; }
 .public-shell-nav p { margin: 0 0 7px 10px; color: var(--shell-muted); font-size: 10px; letter-spacing: .14em; }
 .public-shell-nav a {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -294,10 +293,26 @@ body[arco-theme='dark'] .public-shell {
   border-radius: 9px;
   color: var(--shell-muted);
   font-size: 12px;
-  transition: background .18s ease, color .18s ease, transform .18s ease;
+  transition: background-color .2s ease, color .2s ease, transform .2s var(--ease-out, ease);
 }
+.public-shell-nav a .site-icon { width: 16px; height: 16px; transition: transform .2s var(--ease-out, ease); }
 .public-shell-nav a:hover { color: var(--shell-ink); background: var(--shell-soft); transform: translateX(2px); }
+.public-shell-nav a:hover .site-icon { transform: scale(1.1); }
 .public-shell-nav a.is-active { color: var(--shell-accent); background: color-mix(in srgb, var(--shell-accent) 12%, var(--shell-paper)); font-weight: 600; }
+/* 当前项左侧指示条：从中心向上下展开，切换页面时有「落位」的感觉。 */
+.public-shell-nav a::before {
+  content: '';
+  position: absolute;
+  top: 9px;
+  bottom: 9px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--shell-accent);
+  transform: scaleY(0);
+  transition: transform .24s var(--ease-out, ease);
+}
+.public-shell-nav a.is-active::before { transform: scaleY(1); }
 .public-shell-nav a:active { transform: translateX(1px) scale(.98); }
 .public-shell-bottom { gap: 16px; margin-top: auto; }
 .public-shell-publish {
@@ -322,9 +337,23 @@ body[arco-theme='dark'] .public-shell {
 .public-shell-user small { margin-top: 3px; color: var(--shell-muted); font-size: 10px; }
 .public-shell-main { flex: 1; min-width: 0; background: var(--shell-canvas); }
 .public-shell-topbar { display: flex; align-items: center; gap: 24px; min-height: 76px; padding: 0 44px; border-bottom: 1px solid var(--shell-line); background: color-mix(in srgb, var(--shell-canvas) 94%, transparent); }
+/* 浏览页顶栏吸顶并带毛玻璃，滚动长瀑布流时搜索与入口始终在手边。
+   工作台 / 后台自己管理纵向布局（100dvh 分栏、内部滚动），不吸顶以免挤占它们的高度。
+   z-index 20 低于侧栏(30)与详情浮层(1000)，不会盖住它们。 */
+@media (min-width: 821px) {
+  .public-shell:not(.is-workspace) .public-shell-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: color-mix(in srgb, var(--shell-canvas) 82%, transparent);
+    -webkit-backdrop-filter: saturate(1.4) blur(14px);
+    backdrop-filter: saturate(1.4) blur(14px);
+  }
+}
 .public-shell-tabs { display: flex; align-items: center; gap: 24px; }
-.public-shell-tabs a { position: relative; padding: 7px 0; color: var(--shell-muted); font: 500 22px/1 var(--creative-title-font); text-decoration: none; white-space: nowrap; }
-.public-shell-tabs a::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 2px; background: var(--shell-accent); transform: scaleX(0); transition: transform .2s ease; }
+.public-shell-tabs a { position: relative; padding: 7px 0; color: var(--shell-muted); font: 500 22px/1 var(--creative-title-font); text-decoration: none; white-space: nowrap; transition: color .2s ease; }
+.public-shell-tabs a:hover { color: var(--shell-ink); }
+.public-shell-tabs a::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 2px; background: var(--shell-accent); transform: scaleX(0); transform-origin: left center; transition: transform .28s var(--ease-out, ease); }
 .public-shell-tabs a.is-active { color: var(--shell-ink); }
 .public-shell-tabs a.is-active::after { transform: scaleX(1); }
 .public-shell-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 12px; min-width: 0; }
@@ -343,6 +372,17 @@ body[arco-theme='dark'] .public-shell {
   border-radius: 999px;
   background: var(--shell-paper);
   color: var(--shell-muted);
+  transition: border-color .2s ease, box-shadow .2s ease, flex-basis .28s var(--ease-out, ease), width .28s var(--ease-out, ease);
+}
+.public-shell-search .site-icon { width: 15px; height: 15px; }
+/* 聚焦时描边换成强调色并带一圈柔光，同时略微加宽，输入时有"展开"的感觉。 */
+.public-shell-search:focus-within {
+  border-color: color-mix(in srgb, var(--shell-accent) 55%, var(--shell-line));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--shell-accent) 12%, transparent);
+  color: var(--shell-accent);
+}
+@media (min-width: 1100px) {
+  .public-shell-search:focus-within { flex-basis: 400px; width: 400px; }
 }
 /* 主题开关统一放顶栏右侧，桌面与手机都只有这一个入口。 */
 .public-shell-search input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--shell-ink); font: inherit; font-size: 11px; }

@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { MetadataOptions } from '@/types'
+import SiteCheckbox from '@/components/SiteCheckbox.vue'
 defineProps<{ options: MetadataOptions; canGenerate: boolean; disabled?: boolean }>()
 const enabled = defineModel<boolean>({ required: true })
 </script>
 
 <template>
   <div class="metadata-option">
-    <a-checkbox v-model="enabled" :disabled="disabled || !canGenerate">自动生成图片标题与标签</a-checkbox>
+    <SiteCheckbox v-model="enabled" :disabled="disabled || !canGenerate">自动生成图片标题与标签</SiteCheckbox>
     <p v-if="!options.available">自动生成暂不可用，可手动填写。</p>
     <p v-else-if="!canGenerate">选择图片后可开启，视频和纯文字作品请手动填写。</p>
     <p v-else-if="enabled">先以占位信息上传，服务器会将图片预览发送给视觉服务生成标题与标签；失败可由管理员重试。{{ options.ready ? '' : '服务尚未启用，任务将等待管理员配置。' }}</p>

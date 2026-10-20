@@ -15,14 +15,9 @@ import { useWaterfallLayout } from '@/composables/useWaterfallLayout'
 import { useListCache, diffLists } from '@/composables/useListCache'
 import { ContentSchema } from '@/types/schemas'
 import WaterfallCard from '@/components/WaterfallCard.vue'
-import MediaImage from '@/components/MediaImage.vue'
+import SiteImage from '@/components/SiteImage.vue'
+import SiteIcon from '@/components/SiteIcon.vue'
 import QuickUploadSheet from '@/components/QuickUploadSheet.vue'
-import {
-  IconArrowRight,
-  IconImage,
-  IconPlus,
-  IconRefresh,
-} from '@arco-design/web-vue/es/icon'
 import type { Content, ListParams, RecommendContent } from '@/types'
 
 const router = useRouter()
@@ -552,14 +547,17 @@ onActivated(() => {
               <h2 id="featured-title">正在被看见</h2>
             </div>
             <button class="gallery-icon-action" type="button" :disabled="recommendLoader.isRecommendLoading.value" aria-label="换一批推荐作品" title="换一批" @click="recommendLoader.refreshRecommend(8)">
-              <IconRefresh :spin="recommendLoader.isRecommendLoading.value" />
+              <SiteIcon name="refresh" :spin="recommendLoader.isRecommendLoading.value" />
             </button>
           </div>
-          <div v-if="featuredWorks.length" class="gallery-featured-strip">
+          <TransitionGroup v-if="featuredWorks.length" tag="div" name="gallery-featured" class="gallery-featured-strip">
             <button v-for="item in featuredWorks" :key="item.id" class="gallery-featured-item" type="button" :data-preload-route="`/content/${item.id}`" @click="openContent(item)">
-              <MediaImage :src="item.thumb" :alt="item.title" :preview="false" />
+              <SiteImage class="gallery-featured-thumb" :src="item.thumb" :alt="item.title" />
               <span>{{ item.title }}</span>
             </button>
+          </TransitionGroup>
+          <div v-else-if="recommendLoader.isRecommendLoading.value" class="gallery-featured-strip is-skeleton" aria-hidden="true">
+            <div v-for="n in 6" :key="n" class="gallery-featured-item"><span class="gallery-skeleton-thumb"></span><span class="gallery-skeleton-line"></span></div>
           </div>
           <div v-else class="gallery-featured-empty">推荐作品正在整理中</div>
         </section>
@@ -573,7 +571,7 @@ onActivated(() => {
           <div class="gallery-tag-row" role="group" aria-label="标签筛选">
             <button class="gallery-tag" :class="{ 'is-active': searchFilter.selectedTags.value.length === 0 }" type="button" @click="resetAndLoad()">全部</button>
             <button v-for="tag in searchFilter.shuffledTags.value.slice(0, 7)" :key="tag" class="gallery-tag" :class="{ 'is-active': searchFilter.selectedTags.value.includes(tag) }" type="button" :title="tag" @click="onTagSelect(tag)">{{ tag }}</button>
-            <button v-if="searchFilter.shuffledTags.value.length > 1" class="gallery-tag gallery-tag-refresh" type="button" aria-label="换一组标签" title="换一组标签" @click="searchFilter.reshuffleTags()"><IconRefresh /></button>
+            <button v-if="searchFilter.shuffledTags.value.length > 1" class="gallery-tag gallery-tag-refresh" type="button" aria-label="换一组标签" title="换一组标签" @click="searchFilter.reshuffleTags()"><SiteIcon name="refresh" /></button>
           </div>
         </section>
 
@@ -588,14 +586,17 @@ onActivated(() => {
             <button v-if="swapSections" class="gallery-clear-filter" type="button" @click="clearFilters">清除筛选</button>
           </div>
 
-          <div v-if="isLoading && allContents.length === 0" class="gallery-state" role="status">
-            <div class="gallery-state-spinner"></div>
-            <p>正在加载作品</p>
+          <div v-if="isLoading && allContents.length === 0" class="gallery-skeleton" role="status" aria-label="正在加载作品">
+            <div v-for="n in 8" :key="n" class="gallery-skeleton-card" :style="{ '--sk-h': 140 + ((n * 37) % 90) + 'px' }">
+              <span class="gallery-skeleton-thumb"></span>
+              <span class="gallery-skeleton-line"></span>
+              <span class="gallery-skeleton-line is-short"></span>
+            </div>
           </div>
           <div v-else-if="!isLoading && allContents.length === 0" class="gallery-state">
-            <div class="gallery-state-mark"><IconImage /></div>
+            <div class="gallery-state-mark"><SiteIcon name="image" /></div>
             <p>{{ homeStore.searchKeyword || searchFilter.selectedTags.value.length ? '没有找到符合条件的作品' : '还没有作品出现在这里' }}</p>
-            <button type="button" @click="goToUpload">发布第一件作品 <IconArrowRight /></button>
+            <button type="button" @click="goToUpload">发布第一件作品 <SiteIcon name="arrow-right" /></button>
           </div>
           <div v-else ref="masonryRef" class="gallery-masonry" :style="{ position: 'relative', height: waterfall.containerHeight.value + 'px' }">
             <WaterfallCard
@@ -614,7 +615,7 @@ onActivated(() => {
           <div v-if="!hasMore && allContents.length > 0" class="gallery-end">已经看到这里了</div>
         </section>
       </div>
-    <button class="gallery-mobile-publish" type="button" aria-label="发布作品" @click="goToUpload"><IconPlus /></button>
+    <button class="gallery-mobile-publish" type="button" aria-label="发布作品" @click="goToUpload"><SiteIcon name="plus" /></button>
     <QuickUploadSheet :open="showUploadSheet" @close="showUploadSheet = false" @uploaded="onUploaded" />
   </div>
 </template>
@@ -725,21 +726,23 @@ onActivated(() => {
   text-align: left;
   cursor: pointer;
 }
-.gallery-featured-item :deep(.arco-image) {
-  display: block;
-  width: 100%;
+.gallery-featured-item :deep(.site-image) {
   aspect-ratio: 1.15;
-  overflow: hidden;
-  border-radius: 8px;
-  background: var(--gallery-soft);
+  min-height: 0;
+  border-radius: 10px;
+  box-shadow: 0 1px 0 var(--gallery-line);
+  transition: box-shadow .28s ease, transform .28s cubic-bezier(.22, 1, .36, 1);
 }
-.gallery-featured-item :deep(.arco-image-img) {
-  width: 100%;
+.gallery-featured-item :deep(.site-image-img) {
   height: 100%;
   object-fit: cover;
-  transition: transform .3s ease;
+  transition: opacity .32s ease, transform .4s cubic-bezier(.22, 1, .36, 1);
 }
-.gallery-featured-item:hover :deep(.arco-image-img) { transform: scale(1.06); }
+.gallery-featured-item:hover :deep(.site-image) {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--gallery-ink) 14%, transparent);
+}
+.gallery-featured-item:hover :deep(.site-image-img) { transform: scale(1.06); }
 .gallery-featured-item > span {
   overflow: hidden;
   color: var(--gallery-ink);
@@ -764,42 +767,35 @@ onActivated(() => {
   padding: 22px 0 17px;
 }
 .gallery-filter-tabs {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 22px;
+  gap: 2px;
   flex: 0 0 auto;
+  padding: 3px;
+  border: 1px solid var(--gallery-line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gallery-paper) 70%, transparent);
 }
 .gallery-filter-tab {
   position: relative;
-  padding: 8px 0 10px;
+  padding: 6px 16px;
   border: 0;
+  border-radius: 999px;
   background: transparent;
   color: var(--gallery-muted);
   font: inherit;
   font-size: 12px;
   cursor: pointer;
-  transition: color .18s ease, transform .18s ease;
+  transition: color .18s ease, background-color .22s ease, box-shadow .22s ease, transform .18s ease;
 }
 .gallery-filter-tab:hover { color: var(--gallery-ink); }
-.gallery-filter-tab:active { transform: scale(.98); }
+.gallery-filter-tab:active { transform: scale(.96); }
 .gallery-filter-tab.is-active {
+  background: var(--gallery-paper);
   color: var(--gallery-ink);
   font-weight: 600;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--gallery-ink) 14%, transparent), 0 0 0 1px var(--gallery-line);
 }
-.gallery-filter-tab::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--gallery-accent);
-  transform: scaleX(0);
-  transform-origin: center;
-  transition: transform .2s ease;
-}
-.gallery-filter-tab.is-active::after { transform: scaleX(1); }
 .gallery-tag-row {
   display: flex;
   flex-wrap: wrap;
@@ -814,15 +810,15 @@ onActivated(() => {
 .gallery-tag {
   flex: 0 0 auto;
   min-height: 28px;
-  padding: 0 9px;
+  padding: 0 11px;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: 999px;
   background: transparent;
   color: var(--gallery-muted);
   font: inherit;
-  font-size: 10px;
+  font-size: 11px;
   cursor: pointer;
-  transition: background .18s ease, color .18s ease, border-color .18s ease;
+  transition: background-color .18s ease, color .18s ease, border-color .18s ease, transform .15s ease;
 }
 .gallery-tag:hover,
 .gallery-tag.is-active {
@@ -830,6 +826,8 @@ onActivated(() => {
   background: var(--gallery-paper);
   color: var(--gallery-accent);
 }
+.gallery-tag.is-active { border-color: color-mix(in srgb, var(--gallery-accent) 38%, var(--gallery-line)); font-weight: 600; }
+.gallery-tag:active { transform: scale(.95); }
 .gallery-tag-refresh { padding: 0 7px; }
 .gallery-tag-refresh :deep(svg) { width: 13px; height: 13px; }
 .gallery-feed {
@@ -920,6 +918,43 @@ onActivated(() => {
 }
 .gallery-loadmore .gallery-state-spinner { width: 14px; height: 14px; }
 .gallery-sentinel { height: 1px; }
+
+/* 精选条换一批：只在数据真的变化时淡入上浮，KeepAlive 往返激活不会重播。 */
+.gallery-featured-enter-active { transition: opacity .3s ease, transform .36s cubic-bezier(.22, 1, .36, 1); }
+.gallery-featured-enter-from { opacity: 0; transform: translateY(8px); }
+
+/* 首次加载骨架：占位形状接近真实卡片，避免数据到达时整页跳动。 */
+.gallery-skeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 18px;
+}
+.gallery-skeleton-card { display: grid; gap: 9px; }
+.gallery-skeleton-thumb,
+.gallery-skeleton-line {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--gallery-soft);
+}
+.gallery-skeleton-thumb { height: var(--sk-h, 150px); }
+.gallery-featured-item > .gallery-skeleton-thumb { height: auto; aspect-ratio: 1.15; }
+.gallery-skeleton-line { height: 11px; border-radius: 6px; }
+.gallery-skeleton-line.is-short { width: 58%; }
+.gallery-skeleton-thumb::after,
+.gallery-skeleton-line::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, color-mix(in srgb, var(--gallery-paper) 60%, transparent) 50%, transparent 80%);
+  background-size: 220% 100%;
+  animation: gallery-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes gallery-shimmer {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
 .gallery-end {
   padding: 34px 0 18px;
   color: var(--gallery-muted);

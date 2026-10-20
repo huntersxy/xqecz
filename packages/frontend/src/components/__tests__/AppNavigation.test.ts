@@ -40,7 +40,6 @@ describe('page navigation with real Vue transitions', () => {
         plugins: [router],
         stubs: {
           transition: false,
-          Layout: { template: '<div><slot /></div>' },
           PublicShell: { template: '<div><slot /></div>' },
           ErrorBoundary: { template: '<div><slot /></div>' },
           Toaster: true,

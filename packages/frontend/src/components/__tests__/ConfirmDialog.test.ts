@@ -3,9 +3,9 @@ import { nextTick, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import ConfirmDialog from '../ConfirmDialog.vue'
 
-// Mock useConfirm composable
-const mockRespond = vi.fn()
 const mockPendingConfirm = ref<{ title?: string; message: string } | null>(null)
+// 与真实 respond 一致：回应后待确认项被清空，浮层随之收起。
+const mockRespond = vi.fn((_: boolean) => { mockPendingConfirm.value = null })
 
 vi.mock('@/composables/useToast', () => ({
   useConfirm: vi.fn(() => ({
@@ -20,8 +20,13 @@ async function mountDialog() {
   return wrapper
 }
 
-function queryModal() {
-  return document.body.querySelector('.arco-modal')
+function queryDialog() {
+  return document.body.querySelector<HTMLElement>('.site-confirm [role="dialog"]')
+}
+
+function button(label: string) {
+  return [...document.body.querySelectorAll<HTMLButtonElement>('.site-confirm button')]
+    .find((b) => b.textContent?.includes(label))
 }
 
 describe('ConfirmDialog', () => {
@@ -34,95 +39,68 @@ describe('ConfirmDialog', () => {
     document.body.innerHTML = ''
   })
 
-  it('hides dialog when no pending confirm', async () => {
+  it('renders nothing when there is no pending confirm', async () => {
     const wrapper = await mountDialog()
-    const modal = queryModal()
-    expect(modal).not.toBeNull()
-    expect(modal!.style.display).toBe('none')
+    expect(queryDialog()).toBeNull()
     wrapper.unmount()
   })
 
-  it('renders dialog when pending confirm exists', async () => {
-    mockPendingConfirm.value = {
-      message: '确定要删除吗？',
-    }
-
+  it('renders title and message when a confirm is pending', async () => {
+    mockPendingConfirm.value = { message: '确定要删除吗？' }
     const wrapper = await mountDialog()
-
-    const dialog = queryModal()
+    const dialog = queryDialog()
     expect(dialog).not.toBeNull()
-    expect(dialog!.style.display).not.toBe('none')
+    expect(dialog!.getAttribute('aria-modal')).toBe('true')
+    expect(dialog!.textContent).toContain('确认操作')
     expect(dialog!.textContent).toContain('确定要删除吗？')
-    wrapper.unmount()
-  })
-
-  it('renders title and message correctly', async () => {
-    mockPendingConfirm.value = {
-      message: '测试消息',
-    }
-
-    const wrapper = await mountDialog()
-
-    const title = document.body.querySelector('.arco-modal-title')
-    expect(title?.textContent).toContain('确认操作')
-
-    const body = document.body.querySelector('.arco-modal-body')
-    expect(body?.textContent).toContain('测试消息')
     wrapper.unmount()
   })
 
   it('keeps the creative theme on the teleported dialog outside the page', async () => {
     mockPendingConfirm.value = { message: '确认前请检查内容' }
     const wrapper = await mountDialog()
-    const dialog = queryModal()!
+    const dialog = queryDialog()!
     expect(dialog.closest('.creative-theme')).not.toBeNull()
-    expect(dialog.closest('.creative-dialog')).not.toBeNull()
     expect(wrapper.element.contains(dialog)).toBe(false)
     wrapper.unmount()
   })
 
-  it('calls respond with false when cancel button clicked', async () => {
-    mockPendingConfirm.value = {
-      message: '测试消息',
-    }
-
+  it('calls respond with false when cancel is clicked', async () => {
+    mockPendingConfirm.value = { message: '测试消息' }
     const wrapper = await mountDialog()
-
-    const cancelButton = [...document.body.querySelectorAll('.arco-modal-footer .arco-btn')]
-      .find((b) => b.textContent?.includes('取消'))
-    expect(cancelButton).toBeDefined()
-    ;(cancelButton as HTMLButtonElement).click()
+    button('取消')!.click()
     expect(mockRespond).toHaveBeenCalledWith(false)
     wrapper.unmount()
   })
 
-  it('calls respond with true when confirm button clicked', async () => {
-    mockPendingConfirm.value = {
-      message: '测试消息',
-    }
-
+  it('calls respond with true when confirm is clicked', async () => {
+    mockPendingConfirm.value = { message: '测试消息' }
     const wrapper = await mountDialog()
-
-    const confirmButton = [...document.body.querySelectorAll('.arco-modal-footer .arco-btn')]
-      .find((b) => b.textContent?.includes('确认'))
-    expect(confirmButton).toBeDefined()
-    ;(confirmButton as HTMLButtonElement).click()
+    button('确认')!.click()
     await flushPromises()
     expect(mockRespond).toHaveBeenCalledWith(true)
     wrapper.unmount()
   })
 
-  it('calls respond with false when close button clicked', async () => {
-    mockPendingConfirm.value = {
-      message: '测试消息',
-    }
-
+  it('calls respond with false when the close button is clicked', async () => {
+    mockPendingConfirm.value = { message: '测试消息' }
     const wrapper = await mountDialog()
-
-    const closeButton = document.body.querySelector('.arco-modal-close-btn') as HTMLButtonElement
-    expect(closeButton).not.toBeNull()
-    closeButton.click()
+    document.body.querySelector<HTMLButtonElement>('.site-confirm [aria-label="关闭"]')!.click()
     expect(mockRespond).toHaveBeenCalledWith(false)
+    wrapper.unmount()
+  })
+
+  it('treats Escape and a mask click as cancel', async () => {
+    mockPendingConfirm.value = { message: '测试消息' }
+    const wrapper = await mountDialog()
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    expect(mockRespond).toHaveBeenLastCalledWith(false)
+
+    mockPendingConfirm.value = { message: '再来一次' }
+    await nextTick()
+    document.body.querySelector<HTMLElement>('.site-overlay-mask')!.click()
+    expect(mockRespond).toHaveBeenCalledTimes(2)
+    expect(mockRespond).toHaveBeenLastCalledWith(false)
     wrapper.unmount()
   })
 })

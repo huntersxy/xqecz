@@ -8,7 +8,11 @@ import { useUserStore } from '@/stores/user'
 import { useFilePicker } from '@/composables/useFilePicker'
 import { useAutoMetadata } from '@/composables/useAutoMetadata'
 import AutoMetadataOption from './AutoMetadataOption.vue'
-import { IconUpload, IconClose, IconArrowRight, IconCheckCircle } from '@arco-design/web-vue/es/icon'
+import SiteIcon from './SiteIcon.vue'
+import SiteOverlay from './SiteOverlay.vue'
+import SiteCheckbox from './SiteCheckbox.vue'
+import SiteButton from './SiteButton.vue'
+import TagInput from './TagInput.vue'
 
 interface Props {
   open: boolean
@@ -133,18 +137,14 @@ watch(() => props.open, (val) => {
 </script>
 
 <template>
-  <a-drawer
-    v-model:visible="visible"
-    title="点亮一颗新星球"
-    placement="bottom"
-    height="auto"
-    :header="false"
-    :footer="false"
-    :unmount-on-close="true"
-    :mask-closable="!uploading"
-    :esc-to-close="!uploading"
+  <SiteOverlay
+    v-model="visible"
+    placement="sheet"
+    labelledby="qus-title"
+    :close-on-mask="!uploading"
+    :close-on-esc="!uploading"
+    :z-index="2000"
     class="qu-sheet creative-theme"
-    :style="{ zIndex: 2000 }"
   >
     <form class="qus-panel" aria-labelledby="qus-title" @submit.prevent="handleSubmit">
       <header class="qus-heading">
@@ -153,7 +153,7 @@ watch(() => props.open, (val) => {
           <h2 id="qus-title">点亮属于你的星球<span class="qus-title-dot">。</span></h2>
           <p>一段文字，一张画面，都可以是宇宙的第一笔。</p>
         </div>
-        <button type="button" class="qus-close" aria-label="关闭上传窗口" :disabled="uploading" @click="visible = false"><IconClose /></button>
+        <button type="button" class="qus-close" aria-label="关闭上传窗口" :disabled="uploading" @click="visible = false"><SiteIcon name="close" /></button>
       </header>
 
       <div class="qus-body">
@@ -173,7 +173,7 @@ watch(() => props.open, (val) => {
             @dragleave.prevent="dragOver = false"
             @drop.prevent="!uploading && onDrop($event)"
           >
-            <span class="qus-upload-art" aria-hidden="true"><IconUpload /><span class="qus-art-spark">✦</span></span>
+            <span class="qus-upload-art" aria-hidden="true"><SiteIcon name="upload" /><span class="qus-art-spark">✦</span></span>
             <span class="qus-dropzone-title">把你的灵感放进来</span>
             <span class="qus-dropzone-hint">点击选择，或将图片拖到这里</span>
             <span class="qus-file-limit">原格式上传 · 单个文件不超过 20 MB</span>
@@ -183,10 +183,10 @@ watch(() => props.open, (val) => {
               <img :src="filePreview" :alt="file.name" class="qus-preview-img" />
             </div>
             <div class="qus-file-row">
-              <IconCheckCircle class="qus-file-check" />
+              <SiteIcon class="qus-file-check" name="check-circle" />
               <span class="qus-file-name">{{ file.name }}</span>
               <span class="qus-file-size">{{ formatFileSize(file.size) }}</span>
-              <button type="button" class="qus-remove" aria-label="移除已选文件" :disabled="uploading" @click="removeFile"><IconClose /></button>
+              <button type="button" class="qus-remove" aria-label="移除已选文件" :disabled="uploading" @click="removeFile"><SiteIcon name="close" /></button>
             </div>
           </div>
           </Transition>
@@ -195,38 +195,34 @@ watch(() => props.open, (val) => {
 
         <section class="qus-fields" aria-label="作品信息">
           <div v-if="!isLoggedIn" class="qus-grid">
-            <label class="qus-field"><span>你的昵称 <span class="qus-required">*</span></span><a-input v-model="form.nickname" aria-label="你的昵称" placeholder="怎么称呼你？" :maxlength="50" :disabled="uploading" /></label>
-            <label class="qus-field"><span>联系邮箱 <span class="qus-required">*</span></span><a-input v-model="form.email" aria-label="联系邮箱" placeholder="用于后续认领作品" :maxlength="254" :disabled="uploading" /></label>
+            <label class="qus-field"><span>你的昵称 <span class="qus-required">*</span></span><input v-model="form.nickname" class="qus-input" type="text" aria-label="你的昵称" placeholder="怎么称呼你？" maxlength="50" :disabled="uploading" /></label>
+            <label class="qus-field"><span>联系邮箱 <span class="qus-required">*</span></span><input v-model="form.email" class="qus-input" type="email" aria-label="联系邮箱" placeholder="用于后续认领作品" maxlength="254" :disabled="uploading" /></label>
           </div>
           <p v-else class="qus-identity"><span class="qus-identity-dot"></span> 以 {{ userStore.user?.username }} 的身份发布</p>
           <AutoMetadataOption v-model="autoMetadata" :options="metadataOptions" :can-generate="canGenerate" :disabled="uploading" />
-          <a-checkbox v-model="isAiGenerated" :disabled="uploading">这是 AI 生成的作品（添加 AIGC 标签）</a-checkbox>
-          <label class="qus-field"><span>作品标题 <span class="qus-required">*</span></span><a-input :model-value="metadataTitle(form.title)" @update:model-value="form.title = $event" aria-label="作品标题" placeholder="给这份灵感起个名字" :maxlength="200" :disabled="uploading || autoMetadata" /></label>
-          <label class="qus-field"><span>标签 <span class="qus-optional">可选</span></span><a-input-tag :model-value="autoMetadata ? metadataTags(form.tags) : form.tags" @update:model-value="form.tags = $event.filter((tag): tag is string => typeof tag === 'string')" aria-label="作品标签" placeholder="输入标签后按回车" :disabled="uploading || autoMetadata" /></label>
-          <label class="qus-field"><span class="qus-field-heading"><span>写一点关于它的故事</span><span class="qus-optional">可选</span></span><a-textarea v-model="form.content" aria-label="作品描述" placeholder="创作的起点、想说的话，或只是此刻的心情…" :auto-size="{ minRows: 5, maxRows: 8 }" :disabled="uploading" /></label>
+          <SiteCheckbox v-model="isAiGenerated" :disabled="uploading">这是 AI 生成的作品（添加 AIGC 标签）</SiteCheckbox>
+          <label class="qus-field"><span>作品标题 <span class="qus-required">*</span></span><input class="qus-input" type="text" :value="metadataTitle(form.title)" aria-label="作品标题" placeholder="给这份灵感起个名字" maxlength="200" :disabled="uploading || autoMetadata" @input="form.title = ($event.target as HTMLInputElement).value" /></label>
+          <div class="qus-field"><span>标签 <span class="qus-optional">可选</span></span><TagInput :model-value="autoMetadata ? metadataTags(form.tags) : form.tags" aria-label="作品标签" placeholder="输入标签后按回车" :disabled="uploading || autoMetadata" @update:model-value="form.tags = $event" /></div>
+          <label class="qus-field"><span class="qus-field-heading"><span>写一点关于它的故事</span><span class="qus-optional">可选</span></span><textarea v-model="form.content" class="qus-input qus-textarea" rows="5" aria-label="作品描述" placeholder="创作的起点、想说的话，或只是此刻的心情…" :disabled="uploading"></textarea></label>
           <p class="qus-form-note">描述和媒体至少填写一项，作品审核后将进入推荐。</p>
         </section>
       </div>
 
       <footer class="qus-footer">
         <div class="qus-footer-note" aria-live="polite">
-          <template v-if="uploading"><span>正在上传 {{ progress }}%</span><a-progress :percent="progress" :show-text="false" :stroke-width="4" /></template>
+          <template v-if="uploading">
+            <span>正在上传 {{ progress }}%</span>
+            <div class="qus-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="progress"><div class="qus-progress-bar" :style="{ width: progress + '%' }"></div></div>
+          </template>
           <template v-else><span class="qus-footer-spark" aria-hidden="true">✦</span> 每一颗星球，都值得被点亮。</template>
         </div>
-        <a-button type="primary" size="large" html-type="submit" class="qus-submit" :loading="uploading">{{ uploading ? '正在点亮…' : '点亮这颗星球' }}<IconArrowRight v-if="!uploading" /></a-button>
+        <SiteButton variant="primary" size="lg" type="submit" class="qus-submit" :loading="uploading">{{ uploading ? '正在点亮…' : '点亮这颗星球' }}<SiteIcon v-if="!uploading" name="arrow-right" /></SiteButton>
       </footer>
     </form>
-  </a-drawer>
+  </SiteOverlay>
 </template>
 
 <style scoped>
-:global(.qu-sheet .arco-drawer-mask) { background: rgba(47, 32, 43, .3); backdrop-filter: blur(6px); }
-:global(.qu-sheet .arco-drawer) {
-  width: min(920px, calc(100% - 48px)); left: 0; right: 0; bottom: 24px !important; margin-inline: auto;
-  border: 1px solid var(--creative-line); border-radius: 24px; overflow: hidden;
-  background: var(--creative-paper); box-shadow: 0 24px 100px rgba(51, 28, 43, .18);
-}
-:global(.qu-sheet .arco-drawer-body) { padding: 0; overflow: auto; }
 .qus-panel { max-height: calc(100dvh - 32px); overflow-y: auto; color: var(--creative-ink); scrollbar-width: thin; scrollbar-color: var(--creative-line) var(--creative-paper); }
 .qus-heading { position: relative; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 30px 36px 24px; }
 .qus-heading::after { content: ''; position: absolute; bottom: 0; left: 36px; width: 48px; height: 2px; background: var(--creative-accent); opacity: .5; }
@@ -256,11 +252,11 @@ watch(() => props.open, (val) => {
 .qus-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .qus-field { display: flex; flex-direction: column; gap: 9px; min-width: 0; font-size: 12px; font-weight: 600; }
 .qus-required { color: var(--creative-accent); font-size: 11px; }
-.qus-field :deep(.arco-input-wrapper), .qus-field :deep(.arco-textarea-wrapper) { border: 1px solid var(--creative-line); border-radius: 9px; background: var(--creative-canvas); transition: border-color .2s, box-shadow .2s; }
-.qus-field :deep(.arco-input-wrapper) { min-height: 40px; }
-.qus-field :deep(.arco-input-focus), .qus-field :deep(.arco-textarea-focus) { border-color: var(--creative-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--creative-accent) 9%, transparent); background: var(--creative-paper); }
-.qus-field :deep(input), .qus-field :deep(textarea) { font-size: 12px; font-weight: 400; color: var(--creative-ink); }
-.qus-field :deep(textarea) { padding: 10px 12px; line-height: 1.8; }
+.qus-input { width: 100%; min-height: 40px; padding: 0 12px; border: 1px solid var(--creative-line); border-radius: 9px; outline: 0; background: var(--creative-canvas); color: var(--creative-ink); font: inherit; font-size: 12px; font-weight: 400; transition: border-color .2s, box-shadow .2s, background-color .2s; }
+.qus-input::placeholder { color: var(--creative-muted); opacity: .8; }
+.qus-input:focus { border-color: var(--creative-accent); background: var(--creative-paper); box-shadow: 0 0 0 3px color-mix(in srgb, var(--creative-accent) 9%, transparent); }
+.qus-input:disabled { opacity: .6; cursor: not-allowed; }
+.qus-textarea { min-height: 124px; max-height: 220px; padding: 10px 12px; line-height: 1.8; resize: vertical; field-sizing: content; }
 .qus-form-note { margin: -7px 0 0; font-size: 10px; color: var(--creative-muted); line-height: 1.7; }
 .qus-identity { display: flex; align-items: center; gap: 7px; margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--creative-soft); color: var(--creative-accent); font-size: 12px; }
 .qus-identity-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
@@ -274,13 +270,13 @@ watch(() => props.open, (val) => {
 .qus-remove { width: 24px; height: 24px; }
 .qus-footer { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 36px; border-top: 1px solid var(--creative-line); background: var(--creative-paper); z-index: 1; }
 .qus-footer-note { display: flex; align-items: center; gap: 8px; color: var(--creative-muted); font-size: 11px; }
-.qus-footer-note:has(.arco-progress) { display: block; flex: 1; max-width: 280px; }
-.qus-footer-note :deep(.arco-progress) { margin-top: 5px; }
+.qus-footer-note:has(.qus-progress) { display: block; flex: 1; max-width: 280px; }
+.qus-progress { overflow: hidden; height: 4px; margin-top: 6px; border-radius: 999px; background: var(--creative-soft); }
+.qus-progress-bar { height: 100%; border-radius: inherit; background: var(--creative-accent); transition: width .2s ease; }
 .qus-footer-spark { color: var(--creative-accent); }
-.qus-submit { min-width: 144px; gap: 14px; border-radius: 999px; }
+.qus-submit { min-width: 144px; gap: 14px; }
 button:disabled { cursor: not-allowed; }
 @media (max-width: 768px) {
-  :global(.qu-sheet .arco-drawer) { width: 100%; bottom: 0 !important; border-radius: 22px 22px 0 0; border-bottom: 0; }
   .qus-panel { max-height: 92dvh; }
   .qus-heading { padding: 24px 22px 18px; }
   .qus-heading::after { left: 22px; }

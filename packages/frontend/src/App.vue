@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
-import { Layout } from '@arco-design/web-vue'
 import { Toaster } from 'vue-sonner'
 import ErrorBoundary from '@/components/ErrorBoundary.vue'
 import PublicShell from '@/components/PublicShell.vue'
+import RouteProgress from '@/components/RouteProgress.vue'
 import { useThemeStore } from '@/stores/theme'
 import { useUserStore } from '@/stores/user'
 
@@ -92,7 +92,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <Layout :class="['app-layout', 'creative-theme app-public-theme', { 'home-gallery-mode': route.path === '/' }]">
+  <div :class="['app-layout', 'creative-theme app-public-theme', { 'home-gallery-mode': route.path === '/' }]">
+    <RouteProgress />
     <main role="main">
       <ErrorBoundary>
         <RouterView v-slot="{ Component }">
@@ -109,7 +110,7 @@ onBeforeUnmount(() => {
 
     <Toaster position="top-center" />
     <ConfirmDialog />
-  </Layout>
+  </div>
 </template>
 
 <style scoped>

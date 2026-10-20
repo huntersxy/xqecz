@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import MediaImage from '@/components/MediaImage.vue'
+import SiteImage from '@/components/SiteImage.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import { getPreviewText } from '@/utils'
 import type { Content } from '@/types'
@@ -81,7 +81,7 @@ onBeforeUnmount(() => ro?.disconnect())
   <div ref="cardRef" class="wf-card" :data-preload-route="`/content/${props.item.id}`" @click="emit('click', props.item)" @keydown.enter="emit('click', props.item)" tabindex="0">
     <template v-if="props.item.thumb">
       <div class="wf-card-media">
-        <MediaImage :src="props.item.thumb" :alt="props.item.title" :preview="false" loading="lazy" decoding="async" />
+        <SiteImage :src="props.item.thumb" :alt="props.item.title" loading="lazy" decoding="async" />
         <div v-if="props.item.tags?.some(t => /ai/i.test(t))" class="wf-badge-ai">AI</div>
       </div>
     </template>
@@ -159,21 +159,10 @@ onBeforeUnmount(() => ro?.disconnect())
   background: var(--card-soft);
   line-height: 0;
 }
-.wf-card-media :deep(.arco-image) {
-  display: block;
-  width: 100%;
-  min-height: 80px;
-  border-radius: 0;
+.wf-card-media :deep(.site-image-img) {
+  transition: opacity .32s ease, transform .35s cubic-bezier(.22, 1, .36, 1);
 }
-.wf-card-media :deep(.arco-image-img) {
-  display: block;
-  width: 100%;
-  height: auto;
-  vertical-align: top;
-  transition: transform .35s cubic-bezier(.22, 1, .36, 1);
-}
-.wf-card-media :deep(.arco-image-footer) { display: none !important; }
-.wf-card:hover .wf-card-media :deep(.arco-image-img) { transform: scale(1.025); }
+.wf-card:hover .wf-card-media :deep(.site-image-img) { transform: scale(1.025); }
 :global(body[arco-theme='dark'] .wf-card-media::after) {
   content: '';
   position: absolute;
@@ -327,7 +316,7 @@ onBeforeUnmount(() => ro?.disconnect())
 @media (prefers-reduced-motion: reduce) {
   .wf-card,
   .wf-card-title,
-  .wf-card-media :deep(.arco-image-img),
+  .wf-card-media :deep(.site-image-img),
   .wf-card-like svg { transition: none; }
 }
 @container wfc (max-width: 190px) {

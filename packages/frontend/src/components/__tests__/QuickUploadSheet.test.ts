@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
-import { InputTag } from '@arco-design/web-vue'
+import TagInput from '../TagInput.vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import QuickUploadSheet from '../QuickUploadSheet.vue'
 
@@ -13,14 +13,14 @@ vi.mock('vue-router', () => ({ useRouter: () => ({ push: mocks.push }) }))
 vi.mock('@/stores/user', () => ({ useUserStore: () => mocks.user }))
 vi.mock('@/composables/useToast', () => ({ toast: mocks }))
 
-const Drawer = defineComponent({
-  props: { visible: Boolean, maskClosable: Boolean, escToClose: Boolean },
-  template: '<div v-if="visible"><slot /></div>',
+const Overlay = defineComponent({
+  props: { modelValue: Boolean, closeOnMask: Boolean, closeOnEsc: Boolean },
+  template: '<div v-if="modelValue"><slot /></div>',
 })
 const mounted: ReturnType<typeof mount>[] = []
 function createSheet() {
   const wrapper = mount(QuickUploadSheet, {
-    props: { open: true }, global: { stubs: { Drawer } },
+    props: { open: true }, global: { stubs: { SiteOverlay: Overlay } },
   })
   mounted.push(wrapper)
   return wrapper
@@ -46,11 +46,11 @@ describe('QuickUploadSheet', () => {
     const wrapper = createSheet()
     await fillGuest(wrapper)
     await wrapper.find('textarea').setValue('AI 生成的文字作品')
-    wrapper.findComponent(InputTag).vm.$emit('update:modelValue', ['校园'])
+    wrapper.findComponent(TagInput).vm.$emit('update:modelValue', ['校园'])
     const ai = wrapper.findAll('input[type="checkbox"]')[1]!
     await ai.setValue(true)
     // The checkbox-owned marker must never be inserted into the editable manual draft.
-    expect(wrapper.findComponent(InputTag).props('modelValue')).toEqual(['校园'])
+    expect(wrapper.findComponent(TagInput).props('modelValue')).toEqual(['校园'])
     await ai.setValue(false)
     await wrapper.find('form').trigger('submit'); await flushPromises()
     expect(mocks.upload).toHaveBeenLastCalledWith(expect.objectContaining({ tags: ['校园'], is_ai_generated: false }), expect.any(Function))
@@ -59,15 +59,15 @@ describe('QuickUploadSheet', () => {
   it('deduplicates manually supplied AIGC and retains it with automatic metadata', async () => {
     const wrapper = createSheet()
     await fillGuest(wrapper)
-    wrapper.findComponent(InputTag).vm.$emit('update:modelValue', ['校园', 'aigc', 'AIGC'])
+    wrapper.findComponent(TagInput).vm.$emit('update:modelValue', ['校园', 'aigc', 'AIGC'])
     const input = wrapper.find('input[type="file"]')
     Object.defineProperty(input.element, 'files', { configurable: true, value: [new File(['image'], 'work.png', { type: 'image/png' })] })
     await input.trigger('change'); await flushPromises()
     await wrapper.findAll('input[type="checkbox"]')[1]!.setValue(true)
     await wrapper.findAll('input[type="checkbox"]')[0]!.setValue(true)
-    expect(wrapper.findComponent(InputTag).props('modelValue')).toEqual(['待生成标签', 'AIGC'])
+    expect(wrapper.findComponent(TagInput).props('modelValue')).toEqual(['待生成标签', 'AIGC'])
     await wrapper.findAll('input[type="checkbox"]')[1]!.setValue(false)
-    expect(wrapper.findComponent(InputTag).props('modelValue')).toEqual(['待生成标签', 'AIGC'])
+    expect(wrapper.findComponent(TagInput).props('modelValue')).toEqual(['待生成标签', 'AIGC'])
     await wrapper.find('form').trigger('submit'); await flushPromises()
     expect(mocks.upload).toHaveBeenLastCalledWith(expect.objectContaining({ tags: ['待生成标签', 'AIGC'], auto_metadata: true, is_ai_generated: false }), expect.any(Function))
   })
@@ -75,7 +75,7 @@ describe('QuickUploadSheet', () => {
   it('adds the checked AI marker once to manually entered tags', async () => {
     const wrapper = createSheet(); await fillGuest(wrapper)
     await wrapper.find('textarea').setValue('作品描述')
-    wrapper.findComponent(InputTag).vm.$emit('update:modelValue', ['校园'])
+    wrapper.findComponent(TagInput).vm.$emit('update:modelValue', ['校园'])
     await wrapper.findAll('input[type="checkbox"]')[1]!.setValue(true)
     await wrapper.find('form').trigger('submit'); await flushPromises()
     expect(mocks.upload).toHaveBeenCalledWith(expect.objectContaining({ tags: ['校园', 'AIGC'], is_ai_generated: true }), expect.any(Function))
@@ -184,8 +184,8 @@ describe('QuickUploadSheet', () => {
     expect(mocks.upload).toHaveBeenCalledTimes(1)
     expect(wrapper.find('[aria-label="关闭上传窗口"]').attributes('disabled')).toBeDefined()
     expect(wrapper.find('input[placeholder="给这份灵感起个名字"]').attributes('disabled')).toBeDefined()
-    expect(wrapper.findComponent(Drawer).props('maskClosable')).toBe(false)
-    expect(wrapper.findComponent(Drawer).props('escToClose')).toBe(false)
+    expect(wrapper.findComponent(Overlay).props('closeOnMask')).toBe(false)
+    expect(wrapper.findComponent(Overlay).props('closeOnEsc')).toBe(false)
     finish({ code: 200, data: { audit_status: 'approved' } })
     await flushPromises()
     expect(wrapper.emitted('uploaded')).toHaveLength(1)
