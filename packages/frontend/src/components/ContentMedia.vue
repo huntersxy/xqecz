@@ -145,7 +145,14 @@ defineExpose({ mediaKind, mediaUrl })
 </script>
 
 <template>
-  <section class="cd-media-wrap">
+  <section class="cd-media-wrap" :class="{ 'has-ambient': mediaKind === 'image' && !!mediaUrl }">
+    <!-- 环境底：同一张图放大模糊后铺满舞台，竖构图两侧不再是空白纸面 -->
+    <div
+      v-if="mediaKind === 'image' && mediaUrl"
+      class="cd-media-ambient"
+      aria-hidden="true"
+      :style="{ backgroundImage: 'url(' + JSON.stringify(mediaUrl) + ')' }"
+    ></div>
     <div
       v-if="(mediaKind === 'image' || mediaKind === 'video') && !resolved"
       class="cd-media-loading"
@@ -195,10 +202,32 @@ defineExpose({ mediaKind, mediaUrl })
 
 <style scoped>
 .cd-media-wrap {
+  position: relative;
   flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center;
-  background: var(--creative-canvas); padding: 28px; overflow: hidden;
+  background: var(--creative-canvas); padding: 26px; overflow: hidden;
 }
-.cd-media-image { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: zoom-in; min-height: 0; }
+/* 舞台环境层：向外扩一圈再模糊，边缘不留生硬的裁切线；只作氛围，不参与交互 */
+.cd-media-ambient {
+  position: absolute; inset: -14%;
+  background-size: cover;
+  background-position: center;
+  filter: blur(58px) saturate(1.25);
+  opacity: .5;
+  transform: scale(1.06);
+  pointer-events: none;
+}
+/* 外缘自然淡回画布色，避免整块彩色背景压过作品本体 */
+.cd-media-wrap.has-ambient::after {
+  content: '';
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    118% 92% at 50% 46%,
+    transparent 38%,
+    color-mix(in srgb, var(--creative-canvas) 62%, transparent) 100%
+  );
+}
+.cd-media-image { position: relative; z-index: 1; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: zoom-in; min-height: 0; }
 /* 冷启动唯一一次等待：镜像可达性尚未有结论时不渲染媒体，避免「先源站后换源」的重复请求 */
 .cd-media-loading, .cd-media-error { width: 100%; height: 100%; min-height: 12rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: var(--creative-muted); cursor: default; }
 .cd-media-loading p, .cd-media-error p { margin: 0; font-size: 12px; line-height: 1.6; }
@@ -224,8 +253,8 @@ defineExpose({ mediaKind, mediaUrl })
   width: auto;
   height: auto;
   object-fit: contain;
-  border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(48, 26, 41, .07);
+  border-radius: 12px;
+  box-shadow: 0 18px 48px rgba(48, 26, 41, .16), 0 2px 8px rgba(48, 26, 41, .08);
   user-select: none;
 }
 .cd-video { width: 100%; max-height: 100%; border-radius: 8px; background: #000; }
