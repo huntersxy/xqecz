@@ -4,7 +4,7 @@ go 1.26.10
 
 require (
 	github.com/alicebob/miniredis/v2 v2.35.0
-	github.com/deepteams/webp v1.2.7
+	github.com/deepteams/webp v1.2.8
 	github.com/gin-gonic/gin v1.12.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-sql-driver/mysql v1.8.1
