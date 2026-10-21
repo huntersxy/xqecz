@@ -89,7 +89,8 @@ func Run(deps app.Deps, build func(app.Deps) *gin.Engine) error {
 
 func listenAdaptive(preferred int) (net.Listener, int, error) {
 	for p := preferred; p < preferred+50; p++ {
-		ln, err := net.Listen("tcp", fmt.Sprintf(":%d", p))
+		// 仅监听回环地址：公网入口统一走 nginx，避免绕过 TLS/EdgeOne。
+		ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p))
 		if err == nil {
 			return ln, p, nil
 		}
