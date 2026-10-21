@@ -3,7 +3,7 @@ module github.com/huntersxy/xqecz/server
 go 1.26.10
 
 require (
-	github.com/alicebob/miniredis/v2 v2.35.0
+	github.com/alicebob/miniredis/v2 v2.40.0
 	github.com/deepteams/webp v1.2.7
 	github.com/gin-gonic/gin v1.12.0
 	github.com/glebarez/sqlite v1.11.0
