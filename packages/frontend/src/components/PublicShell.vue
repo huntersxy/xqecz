@@ -156,6 +156,7 @@ onBeforeUnmount(() => {
             aria-label="蓝色大肥鱼（在新标签页打开）"
             @click="closeMobile"
           >
+            <img class="public-shell-friend-icon" src="/friend-links/blue-fat-fish.webp" alt="" width="24" height="24" />
             <span>蓝色大肥鱼</span>
             <SiteIcon name="arrow-right" />
           </a>
@@ -316,7 +317,6 @@ body[arco-theme='dark'] .public-shell {
 .public-shell-friends a {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
   min-height: 40px;
   padding: 0 10px;
@@ -328,7 +328,8 @@ body[arco-theme='dark'] .public-shell {
 }
 .public-shell-friends a:hover { background: var(--shell-soft); color: var(--shell-accent); }
 .public-shell-friends a:focus-visible { outline: 2px solid var(--shell-accent); outline-offset: 2px; }
-.public-shell-friends .site-icon { width: 14px; height: 14px; transform: rotate(-45deg); }
+.public-shell-friend-icon { flex-shrink: 0; object-fit: contain; }
+.public-shell-friends .site-icon { width: 14px; height: 14px; margin-left: auto; transform: rotate(-45deg); }
 .public-shell-publish {
   display: inline-flex;
   align-items: center;
