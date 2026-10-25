@@ -147,6 +147,19 @@ onBeforeUnmount(() => {
       <div id="public-shell-workspace" class="public-shell-workspace"></div>
 
       <div class="public-shell-bottom">
+        <nav class="public-shell-friends" aria-label="友情链接">
+          <p>友情链接</p>
+          <a
+            href="https://xn--pssy23gqgbz2d718b.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="蓝色大肥鱼（在新标签页打开）"
+            @click="closeMobile"
+          >
+            <span>蓝色大肥鱼</span>
+            <SiteIcon name="arrow-right" />
+          </a>
+        </nav>
         <button class="public-shell-publish" type="button" data-preload-route="/quick-upload" @click="handlePublish">
           <SiteIcon name="upload" />
           <span>发布作品</span>
@@ -298,6 +311,24 @@ body[arco-theme='dark'] .public-shell {
 .public-shell-nav a.is-active::before { transform: scaleY(1); }
 .public-shell-nav a:active { transform: translateX(1px) scale(.98); }
 .public-shell-bottom { gap: 16px; margin-top: auto; }
+.public-shell-friends { padding-top: 16px; border-top: 1px solid var(--shell-line); }
+.public-shell-friends p { margin: 0 10px 6px; color: var(--shell-muted); font-size: 11px; }
+.public-shell-friends a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 9px;
+  color: var(--shell-ink);
+  font-size: 12px;
+  text-decoration: none;
+  transition: background-color .2s ease, color .2s ease;
+}
+.public-shell-friends a:hover { background: var(--shell-soft); color: var(--shell-accent); }
+.public-shell-friends a:focus-visible { outline: 2px solid var(--shell-accent); outline-offset: 2px; }
+.public-shell-friends .site-icon { width: 14px; height: 14px; transform: rotate(-45deg); }
 .public-shell-publish {
   display: inline-flex;
   align-items: center;
