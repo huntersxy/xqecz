@@ -1,8 +1,8 @@
 ---
 version: 1
 slug: "packages-frontend-src-views-pollsview-vue"
-primary_target: "packages/frontend/src/views/PollsView.vue"
-related_targets: ["packages/frontend/src/App.vue","packages/frontend/src/views/HomeView.vue"]
+primary_target: "src/views/PollsView.vue"
+related_targets: ["src/App.vue","src/views/HomeView.vue"]
 ---
 
 ## Direction contract
