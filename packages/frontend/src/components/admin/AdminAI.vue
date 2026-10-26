@@ -35,6 +35,7 @@ const tab = ref('providers'),
   ideas = ref<AIIdeaView[]>([]),
   resources = ref<CreativeResource[]>([]),
   promptEnhancement = ref({ enabled: true, prompt: '' }),
+  dailyQuota = ref(5),
   ledger = ref<z.infer<typeof AILedgerSchema>[]>([]),
   error = ref(''),
   loading = ref(false),
@@ -53,6 +54,7 @@ const providerOpen = ref(false),
 const assetError = ref(''),
   assetSaving = ref(false)
 const promptEnhancementSaving = ref(false)
+const dailyQuotaSaving = ref(false)
 const assetLicenseChoice = ref('')
 const previewAsset = ref<{ id: number; title: string } | null>(null)
 watch(assetLicenseChoice, (value) => {
@@ -340,7 +342,7 @@ async function copyDiagnostic(text: string) {
 async function load() {
   loading.value = true
   try {
-    const [p, a, t, i, r, l, users, enhancement] = await Promise.all([
+    const [p, a, t, i, r, l, users, enhancement, quota] = await Promise.all([
       aiApi.providers(),
       aiApi.adminAssets(),
       aiApi.adminTasks(),
@@ -349,6 +351,7 @@ async function load() {
       aiApi.adminLedger(),
       aiApi.grantUsers(),
       aiApi.adminPromptEnhancement(),
+      aiApi.adminDailyQuota(),
     ])
     if (stopped) return
     providers.value = p
@@ -359,6 +362,7 @@ async function load() {
     ledger.value = l
     grantUsers.value = users
     promptEnhancement.value = enhancement
+    dailyQuota.value = quota.cap
     await queryRows()
   } finally {
     loading.value = false
@@ -371,6 +375,14 @@ async function savePromptEnhancement() {
     promptEnhancement.value = await aiApi.savePromptEnhancement(promptEnhancement.value)
   })
   promptEnhancementSaving.value = false
+}
+async function saveDailyQuota() {
+  if (dailyQuotaSaving.value) return
+  dailyQuotaSaving.value = true
+  await run(async () => {
+    dailyQuota.value = (await aiApi.saveDailyQuota(Number(dailyQuota.value) || 0)).cap
+  })
+  dailyQuotaSaving.value = false
 }
 function editResource(row: CreativeResource | null) {
   editingResource.value = row
@@ -691,6 +703,38 @@ onBeforeUnmount(() => {
               </footer>
             </article>
           </div>
+
+          <details class="adm-card adm-ai-fold" open>
+            <summary class="adm-ai-fold-head">
+              <span class="adm-ai-fold-title">每日额度上限</span>
+              <span class="adm-ai-fold-desc"
+                >用户每日登录时把当日可用额度补满到此上限，超出部分不再额外发放。</span
+              >
+              <span class="adm-ai-fold-state">当前 {{ dailyQuota }}</span>
+            </summary>
+            <div class="adm-ai-fold-body">
+              <div class="adm-ai-field-inline">
+                <a-input-number
+                  v-model="dailyQuota"
+                  :min="1"
+                  :max="1000"
+                  :precision="0"
+                  size="small"
+                  aria-label="每日额度上限"
+                />
+                <span class="adm-ai-hint">1–1000，保存后从用户下一次登录起生效</span>
+              </div>
+              <div class="adm-ai-fold-foot">
+                <a-button
+                  type="primary"
+                  size="small"
+                  :loading="dailyQuotaSaving"
+                  @click="run(saveDailyQuota)"
+                  >保存</a-button
+                >
+              </div>
+            </div>
+          </details>
 
           <details class="adm-card adm-ai-fold" open>
             <summary class="adm-ai-fold-head">

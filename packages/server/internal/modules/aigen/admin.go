@@ -76,6 +76,27 @@ func (h *Handler) savePromptEnhancement(c *gin.Context) {
 	}
 	ok(c, row)
 }
+func (h *Handler) adminDailyQuota(c *gin.Context) {
+	row, err := h.s.DailyQuota(c.Request.Context())
+	if err != nil {
+		fail(c, err)
+		return
+	}
+	ok(c, row)
+}
+func (h *Handler) saveDailyQuota(c *gin.Context) {
+	var req core.DailyQuota
+	if bind(c, &req) != nil {
+		fail(c, core.ErrInvalid)
+		return
+	}
+	row, err := h.s.SaveDailyQuota(c.Request.Context(), req)
+	if err != nil {
+		fail(c, err)
+		return
+	}
+	ok(c, row)
+}
 func (h *Handler) saveProvider(c *gin.Context) {
 	var req providerRequest
 	if bind(c, &req) != nil {

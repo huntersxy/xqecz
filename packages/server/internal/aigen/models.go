@@ -134,6 +134,17 @@ type promptEnhancementRow struct {
 
 func (promptEnhancementRow) TableName() string { return "ai_prompt_enhancements" }
 
+type DailyQuota struct {
+	Cap int64 `json:"cap"`
+}
+
+type dailyQuotaRow struct {
+	ID  uint  `gorm:"primaryKey"`
+	Cap int64 `gorm:"not null;default:5" json:"cap"`
+}
+
+func (dailyQuotaRow) TableName() string { return "ai_daily_quota_settings" }
+
 type Idea struct {
 	ID                uint64    `gorm:"primaryKey" json:"id"`
 	UserID            uint64    `gorm:"index" json:"user_id"`

@@ -40,11 +40,11 @@ func TestLoginAndContentApprovalCreditRewards(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		jsonData(t, aiRequest(t, handler, "GET", "/api/auth/me", "fixture-author", nil))
 	}
-	if a := account(); a.Available != 21 || a.DailyAvailable != 1 {
+	if a := account(); a.Available != 25 || a.DailyAvailable != 5 {
 		t.Fatal(a)
 	}
 	jsonData(t, aiRequest(t, handler, "POST", "/api/auth/login", "", map[string]string{"username": "测试作者", "password": "fixture-password"}))
-	if a := account(); a.Available != 21 {
+	if a := account(); a.Available != 25 || a.DailyAvailable != 5 {
 		t.Fatal("login duplicated reward", a)
 	}
 	row := store.Content{Title: "审核奖励", UserID: 2, AuditStatus: "pending", Tags: "[]"}
@@ -55,7 +55,7 @@ func TestLoginAndContentApprovalCreditRewards(t *testing.T) {
 	for _, status := range []string{"rejected", "approved", "approved", "rejected", "approved"} {
 		jsonData(t, aiRequest(t, handler, "POST", path, "fixture-admin", map[string]string{"status": status}))
 	}
-	if a := account(); a.Available != 22 || a.DailyAvailable != 1 {
+	if a := account(); a.Available != 26 || a.DailyAvailable != 5 {
 		t.Fatal("approval reward must be uncapped and once per work", a)
 	}
 	broken := store.Content{Title: "rollback", UserID: 2, AuditStatus: "pending", Tags: "[]"}
@@ -68,6 +68,42 @@ func TestLoginAndContentApprovalCreditRewards(t *testing.T) {
 	deps.DB.First(&broken, broken.ID)
 	if broken.AuditStatus != "pending" {
 		t.Fatal("approval committed without reward")
+	}
+}
+
+func TestAdminDailyQuotaDrivesLoginTopUp(t *testing.T) {
+	deps, handler := aiFixture(t)
+	var quota struct {
+		Cap int64 `json:"cap"`
+	}
+	json.Unmarshal(jsonData(t, aiRequest(t, handler, "GET", "/api/admin/ai/daily-quota", "fixture-admin", nil)), &quota)
+	if quota.Cap != 5 {
+		t.Fatal("default daily cap", quota.Cap)
+	}
+	if w := aiRequest(t, handler, "PUT", "/api/admin/ai/daily-quota", "fixture-author", map[string]any{"cap": 9}); !bytes.Contains(w.Body.Bytes(), []byte(`"code":403`)) {
+		t.Fatal("non-admin changed the daily cap", w.Body.String())
+	}
+	if w := aiRequest(t, handler, "PUT", "/api/admin/ai/daily-quota", "fixture-admin", map[string]any{"cap": 0}); !bytes.Contains(w.Body.Bytes(), []byte(`"code":400`)) {
+		t.Fatal("zero daily cap accepted", w.Body.String())
+	}
+	json.Unmarshal(jsonData(t, aiRequest(t, handler, "PUT", "/api/admin/ai/daily-quota", "fixture-admin", map[string]any{"cap": 7})), &quota)
+	if quota.Cap != 7 {
+		t.Fatal("saved daily cap", quota.Cap)
+	}
+	var cfg struct {
+		DailyCreditCap int64 `json:"daily_credit_cap"`
+	}
+	json.Unmarshal(jsonData(t, aiRequest(t, handler, "GET", "/api/ai/config", "fixture-author", nil)), &cfg)
+	if cfg.DailyCreditCap != 7 {
+		t.Fatal("config must expose the daily cap", cfg.DailyCreditCap)
+	}
+	jsonData(t, aiRequest(t, handler, "GET", "/api/auth/me", "fixture-author", nil))
+	var a aigen.Account
+	if err := deps.DB.First(&a, "user_id = ?", 2).Error; err != nil {
+		t.Fatal(err)
+	}
+	if a.DailyAvailable != 7 || a.Available != 27 {
+		t.Fatal("login must top the daily quota up to the configured cap", a)
 	}
 }
 
@@ -394,8 +430,8 @@ func TestAIHTTPPrivacyFiltersAndPagination(t *testing.T) {
 	}
 	var page []aigen.Session
 	json.Unmarshal(jsonData(t, aiRequest(t, handler, "GET", "/api/ai/sessions", "fixture-author", nil)), &page)
-	if len(page) != 1 || page[0].ID != rows[100].ID {
-		t.Fatal(page)
+	if len(page) != 100 || page[0].ID != rows[100].ID {
+		t.Fatal("session page must be capped at 100 and newest first", len(page))
 	}
 	var template creative.Resource
 	deps.DB.Where("kind = ?", "template").First(&template)

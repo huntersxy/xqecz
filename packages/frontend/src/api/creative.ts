@@ -8,6 +8,7 @@ import {
   AITaskViewSchema,
   AIAssetSchema,
   AIProviderSchema,
+  AIDailyQuotaSchema,
   AILedgerSchema,
   AIIdeaSchema,
   AIIdeaViewSchema,
@@ -117,6 +118,9 @@ export const aiApi = {
     }),
   withdraw: (id: number) => checked(`/ai/ideas/${id}`, nil, { method: 'DELETE' }),
   providers: () => checked('/admin/ai/providers', z.array(AIProviderSchema)),
+  adminDailyQuota: () => checked('/admin/ai/daily-quota', AIDailyQuotaSchema),
+  saveDailyQuota: (cap: number) =>
+    checked('/admin/ai/daily-quota', AIDailyQuotaSchema, { method: 'PUT', body: { cap } }),
   adminPromptEnhancement: () => checked('/admin/ai/prompt-enhancement', z.object({ enabled: z.boolean(), prompt: z.string() })),
   savePromptEnhancement: (data: { enabled: boolean; prompt: string }) =>
     checked('/admin/ai/prompt-enhancement', z.object({ enabled: z.boolean(), prompt: z.string() }), { method: 'PUT', body: data }),

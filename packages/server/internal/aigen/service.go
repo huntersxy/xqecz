@@ -121,7 +121,7 @@ func (s *Service) Init(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err = s.db.WithContext(ctx).AutoMigrate(&Session{}, &Account{}, &Task{}, &Ledger{}, &Asset{}, &ProviderConfig{}, &Idea{}, &IdeaEvent{}, &promptEnhancementRow{}); err != nil {
+	if err = s.db.WithContext(ctx).AutoMigrate(&Session{}, &Account{}, &Task{}, &Ledger{}, &Asset{}, &ProviderConfig{}, &Idea{}, &IdeaEvent{}, &promptEnhancementRow{}, &dailyQuotaRow{}); err != nil {
 		return err
 	}
 	s.refundLegacyUnknown(ctx)
@@ -155,6 +155,32 @@ func (s *Service) SavePromptEnhancement(ctx context.Context, value PromptEnhance
 	row := promptEnhancementRow{ID: 1, Enabled: value.Enabled, Prompt: value.Prompt}
 	if err := s.db.WithContext(ctx).Save(&row).Error; err != nil {
 		return PromptEnhancement{}, err
+	}
+	return value, nil
+}
+
+func (s *Service) DailyQuota(ctx context.Context) (DailyQuota, error) {
+	var row dailyQuotaRow
+	err := s.db.WithContext(ctx).First(&row, 1).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return DailyQuota{Cap: DailyCreditCap}, nil
+	}
+	if err != nil {
+		return DailyQuota{}, err
+	}
+	if row.Cap < 1 {
+		return DailyQuota{Cap: DailyCreditCap}, nil
+	}
+	return DailyQuota{Cap: row.Cap}, nil
+}
+
+func (s *Service) SaveDailyQuota(ctx context.Context, value DailyQuota) (DailyQuota, error) {
+	if value.Cap < 1 || value.Cap > 1000 {
+		return DailyQuota{}, invalidInput("每日额度上限需为 1–1000 的整数")
+	}
+	row := dailyQuotaRow{ID: 1, Cap: value.Cap}
+	if err := s.db.WithContext(ctx).Save(&row).Error; err != nil {
+		return DailyQuota{}, err
 	}
 	return value, nil
 }

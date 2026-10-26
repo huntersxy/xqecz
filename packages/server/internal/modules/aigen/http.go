@@ -70,6 +70,8 @@ func Register(api *gin.RouterGroup, deps app.Deps, contentHandler *content.Handl
 	a.GET("/providers", h.adminProviders)
 	a.GET("/prompt-enhancement", h.adminPromptEnhancement)
 	a.PUT("/prompt-enhancement", h.savePromptEnhancement)
+	a.GET("/daily-quota", h.adminDailyQuota)
+	a.PUT("/daily-quota", h.saveDailyQuota)
 	a.GET("/users", h.grantUsers)
 	a.POST("/providers", h.saveProvider)
 	a.PATCH("/providers/:id", h.setProviderEnabled)
@@ -176,7 +178,12 @@ func (h *Handler) config(c *gin.Context) {
 		fail(c, err)
 		return
 	}
-	ok(c, gin.H{"providers": out, "prompt_enhancement": enhancement})
+	quota, err := h.s.DailyQuota(c.Request.Context())
+	if err != nil {
+		fail(c, err)
+		return
+	}
+	ok(c, gin.H{"providers": out, "prompt_enhancement": enhancement, "daily_credit_cap": quota.Cap})
 }
 func providerView(row core.ProviderConfig) any {
 	options := row.Options

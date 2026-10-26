@@ -74,6 +74,7 @@ const {
   archiveAsset,
   enhancePrompt,
   promptEnhancement,
+  dailyCreditCap,
   moreTasks,
   moreLiked,
 } = studio
@@ -869,7 +870,9 @@ watch(ready, (value) => {
         </span>
         <span class="ws-credit-copy">
           <strong>{{ quotaVisible ? '可用额度' : '管理员免额度' }}</strong>
-          <small v-if="quotaVisible">每日 {{ dailyCreditTotal }}/5 · 其他 {{ otherCreditTotal }}</small>
+          <small v-if="quotaVisible"
+            >每日 {{ dailyCreditTotal }}/{{ dailyCreditCap }} · 其他 {{ otherCreditTotal }}</small
+          >
           <small v-else>生成不扣除站点额度</small>
         </span>
         <button

@@ -35,6 +35,7 @@ export function useAIStudio() {
     likedAssets = ref<AIAsset[]>([])
   const account = ref<AIAccount>({ user_id: 0, available: 0, reserved: 0 })
   const promptEnhancement = ref({ enabled: true, prompt: '' })
+  const dailyCreditCap = ref(5)
   const sessionId = ref(0),
     name = ref('未命名创作'),
     prompt = ref(''),
@@ -370,6 +371,7 @@ export function useAIStudio() {
     if (!stopped) {
       providers.value = cfg.providers
       promptEnhancement.value = cfg.prompt_enhancement
+      dailyCreditCap.value = cfg.daily_credit_cap
     }
   }
   async function switchSession(id: number) {
@@ -446,6 +448,7 @@ export function useAIStudio() {
         if (stopped) return
         providers.value = cfg.providers
         promptEnhancement.value = cfg.prompt_enhancement
+        dailyCreditCap.value = cfg.daily_credit_cap
         sessions.value = rows
         assets.value = library
         moreAssets.value = library.length === 100
@@ -489,6 +492,7 @@ export function useAIStudio() {
     characterIds,
     enhancePrompt,
     promptEnhancement,
+    dailyCreditCap,
     provider,
     availableProviders,
     cost,

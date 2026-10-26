@@ -31,9 +31,11 @@ export const AIProviderSchema = z.object({
   options: z.record(z.string(), z.unknown()).nullable().transform((v) => v ?? {}),
 })
 export const PromptEnhancementSchema = z.object({ enabled: z.boolean(), prompt: z.string() })
+export const AIDailyQuotaSchema = z.object({ cap: z.number().int().positive() })
 export const AIConfigSchema = z.object({
   providers: z.array(AIProviderSchema),
   prompt_enhancement: PromptEnhancementSchema,
+  daily_credit_cap: z.number().int().positive().default(5),
 })
 export const AIAccountSchema = z.object({
   user_id: z.number(),

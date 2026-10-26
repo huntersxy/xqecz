@@ -13,7 +13,10 @@ const DailyCreditCap int64 = 5
 
 var rewardLocation = time.FixedZone("Asia/Shanghai", 8*60*60)
 
-func GrantDailyLogin(ctx context.Context, db *gorm.DB, uid uint64, now time.Time) error {
+func GrantDailyLogin(ctx context.Context, db *gorm.DB, uid uint64, now time.Time, cap int64) error {
+	if cap < 1 {
+		cap = DailyCreditCap
+	}
 	day := now.In(rewardLocation).Format("2006-01-02")
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		account, err := lockAccount(tx, uid)
@@ -23,9 +26,9 @@ func GrantDailyLogin(ctx context.Context, db *gorm.DB, uid uint64, now time.Time
 		if account.LastLoginDay >= day {
 			return nil
 		}
-		amount := int64(0)
-		if account.DailyAvailable+account.DailyReserved < DailyCreditCap {
-			amount = 1
+		amount := cap - (account.DailyAvailable + account.DailyReserved)
+		if amount < 0 {
+			amount = 0
 		}
 		if err := tx.Model(&Account{}).Where("user_id = ?", uid).Updates(map[string]any{
 			"last_login_day": day, "available": account.Available + amount,
@@ -36,8 +39,16 @@ func GrantDailyLogin(ctx context.Context, db *gorm.DB, uid uint64, now time.Time
 		if amount == 0 {
 			return nil
 		}
-		return tx.Create(&Ledger{UserID: uid, Key: fmt.Sprintf("daily-login:%d:%s", uid, day), Kind: "daily_login", Amount: amount, Note: "每日登录"}).Error
+		return tx.Create(&Ledger{UserID: uid, Key: fmt.Sprintf("daily-login:%d:%s", uid, day), Kind: "daily_login", Amount: amount, Note: fmt.Sprintf("每日登录，补满至 %d 额度", cap)}).Error
 	})
+}
+
+func (s *Service) GrantDailyLogin(ctx context.Context, uid uint64, now time.Time) error {
+	quota, err := s.DailyQuota(ctx)
+	if err != nil {
+		return err
+	}
+	return GrantDailyLogin(ctx, s.db, uid, now, quota.Cap)
 }
 
 func RewardApproval(tx *gorm.DB, uid, contentID uint64) error {
