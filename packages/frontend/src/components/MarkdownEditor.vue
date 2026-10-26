@@ -20,7 +20,13 @@ const emit = defineEmits<{
 
 const containerRef = ref<HTMLDivElement | null>(null)
 let editor: Vditor | null = null
+let editorReady = false
+let pendingValue: string | null = null
 let themeObserver: MutationObserver | null = null
+
+function applyValue(value: string) {
+  if (!editor || editor.getValue() !== value) editor?.setValue(value)
+}
 
 function isDark() {
   return document.body.hasAttribute('arco-theme')
@@ -77,6 +83,11 @@ onMounted(() => {
     input: onInput,
     blur: () => emit('blur'),
     after: () => {
+      editorReady = true
+      if (pendingValue !== null) {
+        applyValue(pendingValue)
+        pendingValue = null
+      }
       if (props.disabled) editor?.disabled()
     },
   })
@@ -87,21 +98,36 @@ onMounted(() => {
 onBeforeUnmount(() => {
   themeObserver?.disconnect()
   themeObserver = null
-  editor?.destroy()
+  if (editor) {
+    if (editorReady) {
+      editor.destroy()
+    } else {
+      // vditor 的 init 依赖脚本异步加载;未就绪时其内部状态尚未构建,
+      // destroy() 会直接崩溃,只能置 isDestroyed 阻断待执行的初始化链
+      ;(editor as unknown as { isDestroyed: boolean }).isDestroyed = true
+    }
+  }
   editor = null
+  editorReady = false
+  pendingValue = null
 })
 
 watch(
   () => props.modelValue,
   (value) => {
-    if (editor && editor.getValue() !== (value || '')) editor.setValue(value || '')
+    if (!editor) return
+    if (!editorReady) {
+      pendingValue = value || ''
+      return
+    }
+    applyValue(value || '')
   }
 )
 
 watch(
   () => props.disabled,
   (value) => {
-    if (!editor) return
+    if (!editor || !editorReady) return
     if (value) editor.disabled()
     else editor.enable()
   }
