@@ -23,6 +23,7 @@ import {
   IconCheck,
   IconHistory,
   IconMinus,
+  IconInfoCircle,
 } from '@arco-design/web-vue/es/icon'
 import { toast, useConfirm } from '@/composables/useToast'
 import CreativeImage from '@/components/CreativeImage.vue'
@@ -889,6 +890,16 @@ watch(ready, (value) => {
     </Teleport>
 
     <section class="ws-main" aria-label="创作舞台">
+      <aside v-if="quotaVisible" class="ws-notice" role="note" aria-label="积分说明">
+        <IconInfoCircle class="ws-notice-icon" aria-hidden="true" />
+        <p class="ws-notice-copy">
+          <strong>积分说明</strong>
+          <span>每日登录把当日额度补满至 <b>{{ dailyCreditCap }}</b></span>
+          <span>作品审核通过额外 <b>+1</b> 额度，不占每日上限</span>
+          <span>生成失败或取消自动退还额度</span>
+        </p>
+      </aside>
+
       <header class="ws-stage-head">
         <div class="ws-stage-title">
           <strong>{{ name }}</strong>
@@ -1827,6 +1838,57 @@ watch(ready, (value) => {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+}
+.ws-notice {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 10px;
+  padding: 8px 13px;
+  border: 1px solid var(--site-line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--site-soft) 82%, transparent);
+  color: var(--site-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.ws-notice-icon {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  color: rgb(var(--primary-6));
+  opacity: 0.9;
+}
+.ws-notice-copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 0;
+  min-width: 0;
+  margin: 0;
+}
+.ws-notice-copy strong {
+  margin-right: 8px;
+  color: var(--site-ink);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.ws-notice-copy span {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+.ws-notice-copy span + span::before {
+  margin: 0 8px;
+  color: var(--site-line);
+  content: '/';
+}
+.ws-notice-copy b {
+  margin: 0 3px;
+  color: var(--site-ink);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 .ws-stage-head {
   display: flex;

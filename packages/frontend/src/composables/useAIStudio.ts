@@ -371,7 +371,7 @@ export function useAIStudio() {
     if (!stopped) {
       providers.value = cfg.providers
       promptEnhancement.value = cfg.prompt_enhancement
-      dailyCreditCap.value = cfg.daily_credit_cap
+      dailyCreditCap.value = cfg.daily_credit_cap ?? 5
     }
   }
   async function switchSession(id: number) {
@@ -448,7 +448,7 @@ export function useAIStudio() {
         if (stopped) return
         providers.value = cfg.providers
         promptEnhancement.value = cfg.prompt_enhancement
-        dailyCreditCap.value = cfg.daily_credit_cap
+        dailyCreditCap.value = cfg.daily_credit_cap ?? 5
         sessions.value = rows
         assets.value = library
         moreAssets.value = library.length === 100
