@@ -890,7 +890,7 @@ watch(ready, (value) => {
     </Teleport>
 
     <section class="ws-main" aria-label="创作舞台">
-      <aside v-if="quotaVisible" class="ws-notice" role="note" aria-label="积分说明">
+      <aside class="ws-notice" role="note" aria-label="积分说明">
         <IconInfoCircle class="ws-notice-icon" aria-hidden="true" />
         <p class="ws-notice-copy">
           <strong>积分说明</strong>

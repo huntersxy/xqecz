@@ -22,8 +22,11 @@ const api = vi.hoisted(() => ({
   toastSuccess: vi.fn(),
 }))
 vi.mock('@/api/creative', () => ({ aiApi: api }))
+const userState = vi.hoisted(() => ({
+  current: { id: 1, username: '小泉', email: 'a@qq.com' } as Record<string, unknown>,
+}))
 vi.mock('@/stores/user', () => ({
-  useUserStore: () => ({ user: { id: 1, username: '小泉', email: 'a@qq.com' } }),
+  useUserStore: () => ({ user: userState.current }),
 }))
 vi.mock('@/composables/useToast', () => ({
   useConfirm: () => ({ confirm: api.confirm }),
@@ -110,6 +113,7 @@ async function showTask(w: ReturnType<typeof mount>) {
 }
 beforeEach(() => {
   vi.clearAllMocks()
+  userState.current = { id: 1, username: '小泉', email: 'a@qq.com' }
   localStorage.clear()
   api.confirm.mockResolvedValue(true)
   api.config.mockResolvedValue({
@@ -166,6 +170,15 @@ describe('studio workspace and composer', () => {
     expect(notice).toContain('审核通过额外 +1 额度')
     expect(w.find('[aria-label="供应商与模型"]').exists()).toBe(false)
     expect(w.find('[aria-label="生成设置"]').exists()).toBe(false)
+  })
+
+  it('keeps the credit notice visible for quota-exempt admins', async () => {
+    userState.current = { id: 1, username: '小泉', email: 'a@qq.com', is_admin: true }
+    const w = await render()
+    expect(w.get('.ws-credit-ring').text()).toContain('∞')
+    const notice = w.get('.ws-notice').text()
+    expect(notice).toContain('每日登录把当日额度补满至 5')
+    expect(notice).toContain('作品审核通过额外 +1 额度')
   })
 
   it('labels the composer tools and steps the output count within the provider limit', async () => {
