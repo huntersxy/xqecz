@@ -329,15 +329,12 @@ func (h *Handler) taskViews(c *gin.Context, rows []core.Task, includeDiagnostic 
 	}
 	assets := []core.Asset{}
 	if len(ids) > 0 {
-		if err := h.db(c).Where("task_id IN ?", ids).Find(&assets).Error; err != nil {
+		if err := h.db(c).Where("task_id IN ? AND archived = ?", ids, false).Find(&assets).Error; err != nil {
 			return nil, err
 		}
 	}
 	assetsByTask := make(map[uint64][]core.Asset, len(ids))
 	for _, asset := range assets {
-		if asset.Archived {
-			continue
-		}
 		assetsByTask[asset.TaskID] = append(assetsByTask[asset.TaskID], asset)
 	}
 	out := []any{}

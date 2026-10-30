@@ -46,6 +46,18 @@ func TestTaskViewsExposeDiagnosticOnlyForAdmins(t *testing.T) {
 	if err = db.Create(&task).Error; err != nil {
 		t.Fatal(err)
 	}
+	assets := []core.Asset{{TaskID: task.ID, UserID: 1}, {TaskID: task.ID, UserID: 1, Archived: true}}
+	if err = db.Create(&assets).Error; err != nil {
+		t.Fatal(err)
+	}
+	var loadedAssets int64
+	if err = db.Callback().Query().After("gorm:query").Register("test:loaded-assets", func(tx *gorm.DB) {
+		if tx.Statement.Table == "ai_assets" {
+			loadedAssets = tx.RowsAffected
+		}
+	}); err != nil {
+		t.Fatal(err)
+	}
 	h := &Handler{s: core.New(db, config.Config{})}
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest("GET", "/api/admin/ai/tasks", nil)
@@ -63,6 +75,9 @@ func TestTaskViewsExposeDiagnosticOnlyForAdmins(t *testing.T) {
 	}
 	if got := adminItem["diagnostic"]; got != diagnostic {
 		t.Fatalf("admin diagnostic = %#v", got)
+	}
+	if got := adminItem["assets"].([]core.Asset); len(got) != 1 || got[0].ID != assets[0].ID || loadedAssets != 1 {
+		t.Fatalf("admin assets=%+v, loaded=%d, want only the active asset", got, loadedAssets)
 	}
 	rawAdmin, err := json.Marshal(adminItem)
 	if err != nil {
@@ -82,6 +97,9 @@ func TestTaskViewsExposeDiagnosticOnlyForAdmins(t *testing.T) {
 	}
 	if _, exists := userItem["diagnostic"]; exists {
 		t.Fatal("user view exposed the administrator diagnostic")
+	}
+	if got := userItem["assets"].([]core.Asset); len(got) != 1 || got[0].ID != assets[0].ID || loadedAssets != 1 {
+		t.Fatalf("user assets=%+v, loaded=%d, want only the active asset", got, loadedAssets)
 	}
 	rawUser, err := json.Marshal(userItem)
 	if err != nil {

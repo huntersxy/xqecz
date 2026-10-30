@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/huntersxy/xqecz/server/internal/cache"
 	"github.com/huntersxy/xqecz/server/internal/modules/content"
 	"github.com/huntersxy/xqecz/server/internal/store"
 	"github.com/huntersxy/xqecz/server/internal/web"
@@ -73,19 +74,22 @@ type dashboardData struct {
 
 func (h *Handler) dashboard(c *gin.Context) {
 	ctx := c.Request.Context()
-	if c.Query("fresh") != "1" {
-		var cached dashboardData
-		if hit, _ := h.deps.Redis.GetJSON(ctx, dashboardCacheKey, &cached); hit {
-			web.OK(c, cached, "ok")
-			return
+	var data dashboardData
+	var err error
+	if c.Query("fresh") == "1" {
+		data, err = h.computeDashboard(ctx)
+		if err == nil {
+			_ = h.deps.Redis.SetJSON(ctx, dashboardCacheKey, data, dashboardCacheTTL)
 		}
+	} else {
+		data, err = cache.GetOrSetJSON(ctx, h.deps.Redis, dashboardCacheKey, dashboardCacheTTL, func() (dashboardData, error) {
+			return h.computeDashboard(ctx)
+		})
 	}
-	data, err := h.computeDashboard(ctx)
 	if err != nil {
 		web.Fail(c, 500, "服务异常")
 		return
 	}
-	_ = h.deps.Redis.SetJSON(ctx, dashboardCacheKey, data, dashboardCacheTTL)
 	web.OK(c, data, "ok")
 }
 

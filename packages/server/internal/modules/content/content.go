@@ -257,47 +257,45 @@ func (h *Handler) detail(c *gin.Context) {
 	silent := c.Query("silent") == "1"
 	identity, hasViewer := web.IdentityOf(c)
 	ctx := c.Request.Context()
-
-	if !hasViewer && !silent {
-		var cached Item
-		if hit, _ := h.deps.Redis.GetJSON(ctx, "content:"+strconv.FormatUint(id, 10), &cached); hit {
-			h.incView(ctx, id)
-			web.OK(c, cached, "ok")
-			return
+	key := "content:" + strconv.FormatUint(id, 10)
+	load := func() (Item, error) {
+		var row store.Content
+		if err := h.deps.DB.WithContext(ctx).First(&row, id).Error; err != nil {
+			return Item{}, err
 		}
+		if row.AuditStatus == "rejected" {
+			isOwner := hasViewer && identity.UID == row.UserID
+			if !isOwner && !(hasViewer && identity.IsAdmin) {
+				return Item{}, gorm.ErrRecordNotFound
+			}
+		}
+		var likeCount int64
+		if err := h.deps.DB.WithContext(ctx).Model(&store.ContentLike{}).
+			Where("content_id = ?", id).Count(&likeCount).Error; err != nil {
+			return Item{}, err
+		}
+		return decorateWith(h.mirror, row, h.userMapFor(ctx, []store.Content{row}), likeCount, false), nil
 	}
 
-	var row store.Content
-	err = h.deps.DB.WithContext(ctx).First(&row, id).Error
+	var item Item
+	if !hasViewer && !silent {
+		item, err = cache.GetOrSetJSON(ctx, h.deps.Redis, key, ContentTTL, load)
+	} else {
+		item, err = load()
+		if err == nil && !hasViewer {
+			_ = h.deps.Redis.SetJSON(ctx, key, item, ContentTTL)
+		}
+	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		web.Fail(c, 404, "内容不存在")
+		web.Fail(c, 404, "内容不存在或未通过审核")
 		return
 	}
 	if err != nil {
 		web.Fail(c, 500, "服务异常")
 		return
 	}
-
-	if row.AuditStatus == "rejected" {
-		isOwner := hasViewer && identity.UID == row.UserID
-		if !isOwner && !(hasViewer && identity.IsAdmin) {
-			web.Fail(c, 404, "内容不存在或未通过审核")
-			return
-		}
-	}
-
 	if !silent {
 		h.incView(ctx, id)
-	}
-
-	var likeCount int64
-	h.deps.DB.WithContext(ctx).Model(&store.ContentLike{}).
-		Where("content_id = ?", id).Count(&likeCount)
-
-	item := decorateWith(h.mirror, row, h.userMapFor(ctx, []store.Content{row}), likeCount, false)
-
-	if !hasViewer && row.AuditStatus != "rejected" {
-		_ = h.deps.Redis.SetJSON(ctx, "content:"+strconv.FormatUint(id, 10), item, ContentTTL)
 	}
 	web.OK(c, item, "ok")
 }
