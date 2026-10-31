@@ -13,7 +13,21 @@ import AdminReferenceLibrary from './AdminReferenceLibrary.vue'
 
 type StatusType = 'success' | 'warning' | 'danger' | 'info' | 'neutral'
 
-const settings = ref<VisionSettings>()
+const settings = ref<VisionSettings>({
+  reference_mode: 'images',
+  reference_prompt: '',
+  enabled: false,
+  base_url: 'https://api.openai.com/v1',
+  model: 'gpt-4o-mini',
+  prompt: '请根据图片生成标题和标签。',
+  max_tags: 8,
+  timeout_seconds: 60,
+  disable_thinking: false,
+  token_parameter: 'max_tokens',
+  use_references: false,
+  has_api_key: false,
+})
+const loaded = ref(false)
 const apiKey = ref('')
 const clearKey = ref(false)
 const jobs = ref<VisionJob[]>([])
@@ -53,7 +67,7 @@ async function load() {
       adminApi.visionSettings(controller.signal), adminApi.visionJobs(controller.signal), adminApi.visionReferences(controller.signal),
     ])
     if (controller.signal.aborted) return
-    settings.value = data(config); jobs.value = data(tasks); references.value = data(refs)
+    settings.value = data(config); jobs.value = data(tasks); references.value = data(refs); loaded.value = true
   })
 }
 async function save() {
@@ -107,7 +121,7 @@ onBeforeUnmount(() => controller.abort())
 
     <a-alert v-if="error" type="error" :title="error" class="vision-error" />
 
-    <AdminSkeleton v-if="!settings" variant="rows" :rows="6" :columns="2" label="正在载入视觉配置" />
+    <AdminSkeleton v-if="!loaded" variant="rows" :rows="6" :columns="2" label="正在载入视觉配置" />
 
     <div v-else class="adm-board vision-board">
       <div class="adm-board-main">
