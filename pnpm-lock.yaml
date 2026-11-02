@@ -31,8 +31,8 @@ importers:
   packages/frontend:
     dependencies:
       '@arco-design/web-vue':
-        specifier: ^2.58.0
-        version: 2.58.0(vue@3.5.43(typescript@6.0.3))
+        specifier: ^2.59.0
+        version: 2.59.0(vue@3.5.43(typescript@6.0.3))
       dayjs:
         specifier: ^1.11.21
         version: 1.11.21
@@ -175,8 +175,8 @@ packages:
   '@arco-design/color@0.4.0':
     resolution: {integrity: sha512-s7p9MSwJgHeL8DwcATaXvWT3m2SigKpxx4JA1BGPHL4gfvaQsmQfrLBDpjOJFJuJ2jG2dMt3R3P8Pm9E65q18g==}
 
-  '@arco-design/web-vue@2.58.0':
-    resolution: {integrity: sha512-b1vdPYOmjG5VAkVa7jlVwCb+WynBK+rnKN8zH3yKohpZObZbostRd3HgYNtjjZjGVU3OqR0Yy2FX7ftgF0bcOw==}
+  '@arco-design/web-vue@2.59.0':
+    resolution: {integrity: sha512-i2e5oJpAwnfHdsps7X7+AIGUzE3Y1Lz7Q4lvsE+3itfOXj7IYKQzs2+P1bnW7X+XX6m51SFBQu+s2XQKg4k3Jw==}
     peerDependencies:
       vue: '>=3.1.0'
 
@@ -1584,11 +1584,6 @@ packages:
 
   ajv-formats@2.1.1:
     resolution: {integrity: sha512-Wx0Kx52hxE7C18hkMEggYlEifqWZtYaRgouJor+WMdPnQyEK13vgEWyVNup7SoeeoLMsr4kf5h6dOW11I15MUA==}
-    peerDependencies:
-      ajv: ^8.0.0
-    peerDependenciesMeta:
-      ajv:
-        optional: true
 
   ajv-keywords@5.1.0:
     resolution: {integrity: sha512-YCS/JNFAUyr5vAuhk1DWm1CBxRHW9LbJ2ozWeemrIqpbsqKjHVxYPyi5GC0rjZIT5JxJ3virVTS8wk4i/Z+krw==}
@@ -3087,6 +3082,7 @@ packages:
     engines: {node: '>=v14.21.3'}
     peerDependencies:
       vite: ^6.0.0 || ^7.0.0 || ^8.0.0
+      vue: '*'
 
   vite-plugin-vue-inspector@6.0.0:
     resolution: {integrity: sha512-OpyITJLgZNibxlrik1EmRtvXHDjLRxNPsWkGFTERZs2LgMEdG4W0WoFt5GIgp3a3jRou+eJR8U1zOBk/XQgEbw==}
@@ -3368,7 +3364,7 @@ snapshots:
     dependencies:
       color: 3.2.1
 
-  '@arco-design/web-vue@2.58.0(vue@3.5.43(typescript@6.0.3))':
+  '@arco-design/web-vue@2.59.0(vue@3.5.43(typescript@6.0.3))':
     dependencies:
       '@arco-design/color': 0.4.0
       b-tween: 0.3.3
@@ -3835,7 +3831,7 @@ snapshots:
 
   '@jridgewell/source-map@0.3.11':
     dependencies:
-      '@jridgewell/gen-mapping': 0.3.12
+      '@jridgewell/gen-mapping': 0.3.13
       '@jridgewell/trace-mapping': 0.3.31
     optional: true
 
@@ -4651,8 +4647,8 @@ snapshots:
 
   acorn@8.18.0: {}
 
-  ajv-formats@2.1.1(ajv@8.20.0):
-    optionalDependencies:
+  ajv-formats@2.1.1:
+    dependencies:
       ajv: 8.20.0
     optional: true
 
@@ -5715,7 +5711,7 @@ snapshots:
     dependencies:
       '@types/json-schema': 7.0.15
       ajv: 8.20.0
-      ajv-formats: 2.1.1(ajv@8.20.0)
+      ajv-formats: 2.1.1
       ajv-keywords: 5.1.0(ajv@8.20.0)
     optional: true
 
@@ -6091,10 +6087,10 @@ snapshots:
       vite: 8.3.5(@types/node@26.6.2)(jiti@2.7.0)(sass@1.101.3)(terser@5.49.0)(yaml@2.9.0)
       vite-plugin-inspect: 11.4.1(vite@8.3.5(@types/node@26.6.2)(jiti@2.7.0)(sass@1.101.3)(terser@5.49.0)(yaml@2.9.0))
       vite-plugin-vue-inspector: 6.0.0(supports-color@10.2.2)(vite@8.3.5(@types/node@26.6.2)(jiti@2.7.0)(sass@1.101.3)(terser@5.49.0)(yaml@2.9.0))
+      vue: 3.5.43(typescript@6.0.3)
     transitivePeerDependencies:
       - '@nuxt/kit'
       - supports-color
-      - vue
 
   vite-plugin-vue-inspector@6.0.0(supports-color@10.2.2)(vite@8.3.5(@types/node@26.6.2)(jiti@2.7.0)(sass@1.101.3)(terser@5.49.0)(yaml@2.9.0)):
     dependencies:
