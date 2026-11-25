@@ -115,7 +115,7 @@ func (o *listOpts) cacheKey() string {
 
 	b, _ := json.Marshal(norm)
 	sum := sha1.Sum(b)
-	return "content_list:" + hex.EncodeToString(sum[:])
+	return "content_list:v2:" + hex.EncodeToString(sum[:])
 }
 
 func sortStrings(s []string) {
@@ -128,16 +128,21 @@ func sortStrings(s []string) {
 
 func (h *Handler) list(c *gin.Context) {
 	opts := listOpts{
-		Page:        atoiDefault(c.Query("page"), 1),
-		PageSize:    atoiDefault(c.Query("page_size"), 20),
-		Tag:         strings.TrimSpace(c.Query("tag")),
-		AuditStatus: strings.TrimSpace(c.Query("audit_status")),
-		Keyword:     strings.TrimSpace(c.Query("keyword")),
-		SortBy:      c.Query("sort_by"),
-		Order:       c.Query("order"),
+		Page:          atoiDefault(c.Query("page"), 1),
+		PageSize:      atoiDefault(c.Query("page_size"), 20),
+		Tag:           strings.TrimSpace(c.Query("tag")),
+		AuditStatuses: store.PublicContentStatuses(),
+		Keyword:       strings.TrimSpace(c.Query("keyword")),
+		SortBy:        c.Query("sort_by"),
+		Order:         c.Query("order"),
 	}
-	if opts.AuditStatus == "" {
-		opts.AuditStatuses = []string{"approved", "pending"}
+	if status := strings.TrimSpace(c.Query("audit_status")); status != "" {
+		if !store.IsPublicContentStatus(status) {
+			opts.normalize()
+			web.OK(c, Page{List: []Item{}, Page: opts.Page, PageSize: opts.PageSize}, "ok")
+			return
+		}
+		opts.AuditStatuses = []string{status}
 	}
 	page, err := h.query(c.Request.Context(), opts)
 	if err != nil {
@@ -158,7 +163,7 @@ func (h *Handler) search(c *gin.Context) {
 		PageSize:      atoiDefault(c.Query("page_size"), 20),
 		Tag:           strings.TrimSpace(c.Query("tag")),
 		Keyword:       keyword,
-		AuditStatuses: []string{"approved", "pending"},
+		AuditStatuses: store.PublicContentStatuses(),
 	}
 	page, err := h.query(c.Request.Context(), opts)
 	if err != nil {
@@ -255,26 +260,23 @@ func (h *Handler) detail(c *gin.Context) {
 		return
 	}
 	silent := c.Query("silent") == "1"
-	identity, hasViewer := web.IdentityOf(c)
+	_, hasViewer := web.IdentityOf(c)
 	ctx := c.Request.Context()
-	key := "content:" + strconv.FormatUint(id, 10)
+	key := cache.ContentKey(id)
 	load := func() (Item, error) {
 		var row store.Content
 		if err := h.deps.DB.WithContext(ctx).First(&row, id).Error; err != nil {
 			return Item{}, err
 		}
-		if row.AuditStatus == "rejected" {
-			isOwner := hasViewer && identity.UID == row.UserID
-			if !isOwner && !(hasViewer && identity.IsAdmin) {
-				return Item{}, gorm.ErrRecordNotFound
-			}
+		if !web.CanViewContent(c, row) {
+			return Item{}, gorm.ErrRecordNotFound
 		}
 		var likeCount int64
 		if err := h.deps.DB.WithContext(ctx).Model(&store.ContentLike{}).
 			Where("content_id = ?", id).Count(&likeCount).Error; err != nil {
 			return Item{}, err
 		}
-		return decorateWith(h.mirror, row, h.userMapFor(ctx, []store.Content{row}), likeCount, false), nil
+		return h.decorateWithAvatar(h.mirror, row, h.userMapFor(ctx, []store.Content{row}), likeCount, false), nil
 	}
 
 	var item Item
@@ -286,7 +288,7 @@ func (h *Handler) detail(c *gin.Context) {
 			_ = h.deps.Redis.SetJSON(ctx, key, item, ContentTTL)
 		}
 	}
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && !hasViewer && !store.IsPublicContentStatus(item.AuditStatus)) {
 		web.Fail(c, 404, "内容不存在或未通过审核")
 		return
 	}
@@ -295,15 +297,32 @@ func (h *Handler) detail(c *gin.Context) {
 		return
 	}
 	if !silent {
-		h.incView(ctx, id)
+		counted, err := h.incView(ctx, id, !hasViewer)
+		if !hasViewer {
+			if err != nil {
+				web.Fail(c, 500, "服务异常")
+				return
+			}
+			if !counted {
+				web.Fail(c, 404, "内容不存在或未通过审核")
+				return
+			}
+		}
 	}
 	web.OK(c, item, "ok")
 }
 
-func (h *Handler) incView(ctx context.Context, id uint64) {
-	_ = h.deps.DB.WithContext(ctx).Model(&store.Content{}).
-		Where("id = ?", id).UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error
+func (h *Handler) incView(ctx context.Context, id uint64, publicOnly bool) (bool, error) {
+	query := h.deps.DB.WithContext(ctx).Model(&store.Content{}).Where("id = ?", id)
+	if publicOnly {
+		query = query.Where("audit_status IN ?", store.PublicContentStatuses())
+	}
+	result := query.UpdateColumn("view_count", gorm.Expr("COALESCE(view_count, 0) + 1"))
+	if result.Error != nil || result.RowsAffected == 0 {
+		return false, result.Error
+	}
 	h.deps.Redis.IncrementView(ctx, id)
+	return true, nil
 }
 
 func (h *Handler) recommend(c *gin.Context) {
@@ -374,7 +393,7 @@ func (h *Handler) tags(c *gin.Context) {
 		var rows []store.Content
 		if err := h.deps.DB.WithContext(ctx).
 			Select("tags").
-			Where("audit_status IN ?", []string{"approved", "pending"}).
+			Where("audit_status IN ?", store.PublicContentStatuses()).
 			Find(&rows).Error; err != nil {
 			return nil, err
 		}
@@ -430,7 +449,7 @@ func (h *Handler) decorateRowsWith(ctx context.Context, rows []store.Content, in
 	userMap := h.userMapFor(ctx, rows)
 	list := make([]Item, 0, len(rows))
 	for _, r := range rows {
-		list = append(list, decorateWith(h.mirror, r, userMap, likeMap[r.ID], includeViewCount))
+		list = append(list, h.decorateWithAvatar(h.mirror, r, userMap, likeMap[r.ID], includeViewCount))
 	}
 	return list, nil
 }

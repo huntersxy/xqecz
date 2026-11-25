@@ -71,6 +71,7 @@ func (w *Worker) runRound(ctx context.Context) {
 		var rows []store.Content
 		err := w.deps.DB.WithContext(ctx).
 			Select("id", "file_path").
+			Where("audit_status IN ?", store.PublicContentStatuses()).
 			Where("file_path IS NOT NULL AND file_path <> '' AND id > ?", lastID).
 			Order("id ASC").Limit(batch).Find(&rows).Error
 		if err != nil {
@@ -121,6 +122,7 @@ func (w *Worker) archiveBackfill(ctx context.Context) int {
 		var rows []store.Content
 		err := w.deps.DB.WithContext(ctx).
 			Select("id", "file_path").
+			Where("audit_status IN ?", store.PublicContentStatuses()).
 			Where("compressed_at IS NOT NULL").
 			Where("file_path IS NOT NULL AND file_path <> ''").
 			Where("id > ?", lastID).

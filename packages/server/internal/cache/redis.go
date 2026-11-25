@@ -283,8 +283,12 @@ func (c *Client) ClearCommentCache(ctx context.Context, contentID uint64) {
 	c.Del(ctx, "comment_count:"+id)
 }
 
+func ContentKey(contentID uint64) string {
+	return "content:v2:" + strconv.FormatUint(contentID, 10)
+}
+
 func (c *Client) ClearContentCache(ctx context.Context, contentID uint64) {
-	c.Del(ctx, "content:"+strconv.FormatUint(contentID, 10))
+	c.Del(ctx, ContentKey(contentID))
 }
 
 func (c *Client) ClearContentListCache(ctx context.Context) {

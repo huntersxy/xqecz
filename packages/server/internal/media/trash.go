@@ -37,6 +37,34 @@ func MoveToBin(absPath, binDir string) error {
 	return os.Remove(absPath)
 }
 
+func CopyToBin(absPath, binDir string) (string, error) {
+	input, err := os.Open(absPath)
+	if err != nil {
+		return "", err
+	}
+	defer input.Close()
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		return "", err
+	}
+	output, err := os.CreateTemp(binDir, "*_"+filepath.Base(absPath))
+	if err != nil {
+		return "", err
+	}
+	_, err = io.Copy(output, input)
+	if err == nil {
+		err = output.Sync()
+	}
+	closeErr := output.Close()
+	if err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		_ = os.Remove(output.Name())
+		return "", err
+	}
+	return output.Name(), nil
+}
+
 func copyFile(src, dst string) error {
 	in, err := os.Open(src)
 	if err != nil {

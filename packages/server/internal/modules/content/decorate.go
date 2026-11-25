@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/huntersxy/xqecz/server/internal/app"
-	useravatar "github.com/huntersxy/xqecz/server/internal/avatar"
+	"github.com/huntersxy/xqecz/server/internal/avatar"
 	"github.com/huntersxy/xqecz/server/internal/store"
 	"github.com/huntersxy/xqecz/server/internal/web"
 )
@@ -133,20 +133,25 @@ func decorate(row store.Content, userMap map[uint64]store.User, likeCount int64,
 	return decorateWith(nil, row, userMap, likeCount, includeViewCount)
 }
 
+func (h *Handler) decorateWithAvatar(mm app.MediaMirror, row store.Content, users map[uint64]store.User, likeCount int64, includeViewCount bool) Item {
+	item := decorateWith(mm, row, users, likeCount, includeViewCount)
+	if item.User.ID == 0 {
+		if row.GuestNickname != nil && *row.GuestNickname != "" {
+			item.AvatarURL = h.deps.Avatars.URL(avatar.Guest, row.ID, row.GuestEmail)
+		}
+	} else if author, ok := users[item.User.ID]; ok {
+		item.AvatarURL = h.deps.Avatars.URL(avatar.User, author.ID, author.Email)
+	}
+	return item
+}
+
 func decorateWith(mm app.MediaMirror, row store.Content, userMap map[uint64]store.User, likeCount int64, includeViewCount bool) Item {
 	var author UserBrief
-	var avatar string
 
 	if row.GuestNickname != nil && *row.GuestNickname != "" {
 		author = UserBrief{ID: 0, Username: *row.GuestNickname}
-		if row.GuestEmail != nil {
-			avatar = useravatar.URL(*row.GuestEmail, 80)
-		}
 	} else if u, ok := userMap[row.UserID]; ok {
 		author = UserBrief{ID: u.ID, Username: u.Username}
-		if u.Email != nil {
-			avatar = useravatar.URL(*u.Email, 80)
-		}
 	} else {
 		author = UserBrief{ID: row.UserID, Username: "unknown"}
 	}
@@ -169,27 +174,26 @@ func decorateWith(mm app.MediaMirror, row store.Content, userMap map[uint64]stor
 	}
 
 	item := Item{
-		ID:           row.ID,
-		Title:        row.Title,
-		Text:         deref(row.Content),
-		Thumb:        thumb,
-		Video:        "",
-		Img:          img,
-		Origin:       FileURL(filePath),
-		FileSize:     row.FileSize,
-		User:         author,
-		AvatarURL:    avatar,
-		Tags:         ParseTags(row.Tags),
-		LikeCount:    likeCount,
-		AuditStatus:  row.AuditStatus,
-		AIEnhanced:   row.AIEnhanced,
-		CreatedAt:    web.TimeOf(row.CreatedAt),
-		UpdatedAt:    web.TimeOf(row.UpdatedAt),
+		ID:          row.ID,
+		Title:       row.Title,
+		Text:        deref(row.Content),
+		Thumb:       thumb,
+		Video:       "",
+		Img:         img,
+		Origin:      FileURL(filePath),
+		FileSize:    row.FileSize,
+		User:        author,
+		Tags:        ParseTags(row.Tags),
+		LikeCount:   likeCount,
+		AuditStatus: row.AuditStatus,
+		AIEnhanced:  row.AIEnhanced,
+		CreatedAt:   web.TimeOf(row.CreatedAt),
+		UpdatedAt:   web.TimeOf(row.UpdatedAt),
 	}
 	if isVideo {
 		item.Video = FileURL(filePath)
 	}
-	if mm != nil && isMirrorablePath(filePath) {
+	if mm != nil && store.IsPublicContentStatus(row.AuditStatus) && isMirrorablePath(filePath) {
 		key := mirrorKey(filePath)
 		if mirrorURL := mm.R2URL(key); mirrorURL != "" {
 			if isVideo {

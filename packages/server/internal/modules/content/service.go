@@ -5,12 +5,12 @@ import (
 	"errors"
 	"log/slog"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/huntersxy/xqecz/server/internal/aigen"
+	"github.com/huntersxy/xqecz/server/internal/cache"
 	"github.com/huntersxy/xqecz/server/internal/media"
 	"github.com/huntersxy/xqecz/server/internal/store"
 	"gorm.io/gorm"
@@ -59,10 +59,10 @@ func (h *Handler) RowByID(ctx context.Context, id uint64) (store.Content, bool, 
 }
 
 func (h *Handler) DetailInternal(ctx context.Context, id uint64) (Item, error) {
-	key := "content:" + strconv.FormatUint(id, 10)
+	key := cache.ContentKey(id)
 	var cached Item
 	if hit, _ := h.deps.Redis.GetJSON(ctx, key, &cached); hit {
-		h.incView(ctx, id)
+		_, _ = h.incView(ctx, id, false)
 		return cached, nil
 	}
 
@@ -70,9 +70,9 @@ func (h *Handler) DetailInternal(ctx context.Context, id uint64) (Item, error) {
 	if err := h.deps.DB.WithContext(ctx).First(&row, id).Error; err != nil {
 		return Item{}, err
 	}
-	h.incView(ctx, id)
-	item := decorate(row, h.userMapFor(ctx, []store.Content{row}), h.likeCount(ctx, id), false)
-	if row.AuditStatus != "rejected" {
+	_, _ = h.incView(ctx, id, false)
+	item := h.decorateWithAvatar(nil, row, h.userMapFor(ctx, []store.Content{row}), h.likeCount(ctx, id), false)
+	if store.IsPublicContentStatus(row.AuditStatus) {
 		_ = h.deps.Redis.SetJSON(ctx, key, item, ContentTTL)
 	}
 	return item, nil
@@ -122,7 +122,7 @@ func (h *Handler) UpdateAuthor(ctx context.Context, contentID, userID uint64) (u
 }
 
 func (h *Handler) DecorateOne(ctx context.Context, row store.Content, includeViewCount bool) Item {
-	return decorate(row, h.userMapFor(ctx, []store.Content{row}), h.likeCount(ctx, row.ID), includeViewCount)
+	return h.decorateWithAvatar(nil, row, h.userMapFor(ctx, []store.Content{row}), h.likeCount(ctx, row.ID), includeViewCount)
 }
 
 func (h *Handler) DecorateMany(ctx context.Context, rows []store.Content, includeViewCount bool) ([]Item, error) {

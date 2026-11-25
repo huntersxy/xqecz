@@ -2,6 +2,7 @@ package app
 
 import (
 	"github.com/huntersxy/xqecz/server/internal/aigen"
+	"github.com/huntersxy/xqecz/server/internal/avatar"
 	"github.com/huntersxy/xqecz/server/internal/cache"
 	"github.com/huntersxy/xqecz/server/internal/config"
 	"github.com/huntersxy/xqecz/server/internal/logx"
@@ -17,11 +18,12 @@ type MediaMirror interface {
 }
 
 type Deps struct {
-	Cfg    config.Config
-	DB     *gorm.DB
-	Redis  *cache.Client
-	Mirror MediaMirror
-	Vision *vision.Service
-	AI     *aigen.Service
-	Logs   *logx.Buffer
+	Cfg     config.Config
+	DB      *gorm.DB
+	Redis   *cache.Client
+	Avatars *avatar.Proxy
+	Mirror  MediaMirror
+	Vision  *vision.Service
+	AI      *aigen.Service
+	Logs    *logx.Buffer
 }

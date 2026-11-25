@@ -38,6 +38,14 @@ type Content struct {
 
 func (Content) TableName() string { return "contents" }
 
+func PublicContentStatuses() []string {
+	return []string{"approved", "pending"}
+}
+
+func IsPublicContentStatus(status string) bool {
+	return status == "approved" || status == "pending"
+}
+
 type Comment struct {
 	ID        uint64    `gorm:"column:id;primaryKey" json:"id"`
 	ContentID uint64    `gorm:"column:content_id" json:"content_id"`

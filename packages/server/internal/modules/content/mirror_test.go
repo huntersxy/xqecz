@@ -103,7 +103,7 @@ func TestDecorateThumbOnlyRowHasNoMirror(t *testing.T) {
 	}
 }
 
-func TestPrepareUploadFilePushesToMirror(t *testing.T) {
+func TestPrepareUploadFileDoesNotPushUncommittedMedia(t *testing.T) {
 	mm := &fakeMirror{base: "https://file.example.com"}
 	h := &Handler{mirror: mm}
 
@@ -113,8 +113,8 @@ func TestPrepareUploadFilePushesToMirror(t *testing.T) {
 	if rel != "ab12.webp" || size != 1234 || abs != "/tmp/data/uploads/ab12.webp" {
 		t.Fatalf("返回值不应改变: %q %d %q", rel, size, abs)
 	}
-	if len(mm.pushed) != 1 || mm.pushed[0] != "ab12.webp" {
-		t.Fatalf("应推送一次且路径正确，实际 %v", mm.pushed)
+	if len(mm.pushed) != 0 {
+		t.Fatalf("未入库文件不应推送，实际 %v", mm.pushed)
 	}
 }
 

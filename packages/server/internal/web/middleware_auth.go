@@ -80,6 +80,14 @@ func OptionalAuth(deps app.Deps) gin.HandlerFunc {
 	}
 }
 
+func CanViewContent(c *gin.Context, row store.Content) bool {
+	if store.IsPublicContentStatus(row.AuditStatus) {
+		return true
+	}
+	identity, authenticated := IdentityOf(c)
+	return authenticated && (identity.IsAdmin || (row.UserID != 0 && identity.UID == row.UserID))
+}
+
 func RequireAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, ok := IdentityOf(c)

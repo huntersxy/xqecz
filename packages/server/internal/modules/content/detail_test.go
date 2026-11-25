@@ -128,7 +128,7 @@ func TestDetailCoalescesColdReadsAndCountsEveryView(t *testing.T) {
 func TestDetailSilentAndAuthenticatedReadsBypassSharedCache(t *testing.T) {
 	h, router, _ := detailFixture(t)
 	ctx := t.Context()
-	if err := h.deps.Redis.SetJSON(ctx, "content:42", Item{ID: 42, Title: "cached"}, ContentTTL); err != nil {
+	if err := h.deps.Redis.SetJSON(ctx, cache.ContentKey(42), Item{ID: 42, Title: "cached"}, ContentTTL); err != nil {
 		t.Fatal(err)
 	}
 	if err := h.deps.DB.Model(&store.Content{}).Where("id = ?", 42).Update("title", "current").Error; err != nil {
@@ -171,7 +171,7 @@ func TestDetailSilentAndAuthenticatedReadsBypassSharedCache(t *testing.T) {
 	if response.Code != 404 {
 		t.Fatalf("anonymous rejected detail: %d %s", response.Code, response.Body.String())
 	}
-	if _, err := h.deps.Redis.Get(ctx, "content:42"); err == nil {
+	if _, err := h.deps.Redis.Get(ctx, cache.ContentKey(42)); err == nil {
 		t.Fatal("rejected detail entered the shared cache")
 	}
 }

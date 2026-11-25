@@ -28,7 +28,9 @@ func New(deps app.Deps, mediaRegistrar func(*gin.Engine), registrar func(*gin.Ro
 	r.NoRoute(func(c *gin.Context) { Fail(c, 404, "接口不存在") })
 
 	if registrar != nil {
-		registrar(r.Group("/api"))
+		registrar(r.Group("/api", func(c *gin.Context) {
+			c.Header("Cache-Control", "private, no-store")
+		}))
 	}
 	return r
 }

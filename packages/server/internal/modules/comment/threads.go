@@ -4,10 +4,11 @@ import (
 	"sort"
 	"time"
 
+	"github.com/huntersxy/xqecz/server/internal/avatar"
 	"github.com/huntersxy/xqecz/server/internal/store"
 )
 
-func buildThreads(tops, replies []store.Comment, users map[uint64]store.User) []TopDTO {
+func buildThreads(tops, replies []store.Comment, users map[uint64]store.User, avatars *avatar.Proxy) []TopDTO {
 	children := map[uint64][]store.Comment{}
 	for _, row := range replies {
 		if row.ParentID != nil {
@@ -20,7 +21,7 @@ func buildThreads(tops, replies []store.Comment, users map[uint64]store.User) []
 		seen[top.ID] = true
 	}
 	for _, top := range tops {
-		thread := TopDTO{DTO: toDTO(top, users), Replies: []DTO{}}
+		thread := TopDTO{DTO: toDTO(top, users, avatars), Replies: []DTO{}}
 		queue := []store.Comment{top}
 		for head := 0; head < len(queue); head++ {
 			parent := queue[head]
@@ -29,8 +30,8 @@ func buildThreads(tops, replies []store.Comment, users map[uint64]store.User) []
 					continue
 				}
 				seen[child.ID] = true
-				dto := toDTO(child, users)
-				parentDTO := toDTO(parent, users)
+				dto := toDTO(child, users, avatars)
+				parentDTO := toDTO(parent, users, avatars)
 				dto.Parent = &ParentDTO{ID: parent.ID, UserID: parent.UserID, Text: parent.Text, User: parentDTO.User}
 				thread.Replies = append(thread.Replies, dto)
 				queue = append(queue, child)

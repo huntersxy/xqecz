@@ -1,6 +1,8 @@
 package content
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -97,8 +99,14 @@ func TestDecorateGuest(t *testing.T) {
 	if item.User.ID != 0 || item.User.Username != "游客甲" {
 		t.Errorf("游客作者信息错误: %+v", item.User)
 	}
-	if item.AvatarURL != "https://q.qlogo.cn/headimg_dl?dst_uin=12345&spec=100" {
-		t.Errorf("游客头像应取 guest_email: %q", item.AvatarURL)
+	data, err := json.Marshal(item)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{`"avatar_url"`, `"guest_email"`, `"email"`, "dst_uin="} {
+		if strings.Contains(string(data), field) {
+			t.Fatalf("公开作者数据含私有字段 %q", field)
+		}
 	}
 	if item.Origin != "" {
 		t.Errorf("无文件时不应输出 origin: %q", item.Origin)

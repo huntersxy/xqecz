@@ -23,6 +23,8 @@ type Config struct {
 	AIImageAPIKey  string
 	AIImageModel   string
 	AIImageDir     string
+	AvatarOrigin   string
+	AvatarKey      string
 
 	R2 R2Config
 
@@ -68,6 +70,8 @@ func Load() Config {
 	c.AIImageBaseURL = strings.TrimSpace(os.Getenv("AI_IMAGE_BASE_URL"))
 	c.AIImageAPIKey = strings.TrimSpace(os.Getenv("AI_IMAGE_API_KEY"))
 	c.AIImageModel = strings.TrimSpace(os.Getenv("AI_IMAGE_MODEL"))
+	c.AvatarOrigin = strings.TrimSpace(os.Getenv("AVATAR_PUBLIC_ORIGIN"))
+	c.AvatarKey = strings.TrimSpace(os.Getenv("AVATAR_SIGNING_KEY"))
 
 	c.R2 = loadR2()
 

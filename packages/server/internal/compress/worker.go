@@ -2,6 +2,7 @@ package compress
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"os"
@@ -12,17 +13,14 @@ import (
 
 	"github.com/huntersxy/xqecz/server/internal/app"
 	"github.com/huntersxy/xqecz/server/internal/media"
-	"github.com/huntersxy/xqecz/server/internal/mirror"
 	"github.com/huntersxy/xqecz/server/internal/store"
 )
 
 const (
 	lockKey = "lock:tinify-compress"
-	lockTTL = 3 * time.Minute
+	lockTTL = 6 * time.Minute
 
 	failCooldown = 30 * time.Minute
-
-	candidateBatch = 20
 )
 
 type Worker struct {
@@ -58,7 +56,6 @@ func (w *Worker) Start(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				w.deps.Redis.ReleaseLock(context.Background(), lockKey)
 				return
 			case <-ticker.C:
 				if err := w.CompressOne(ctx); err != nil {
@@ -76,7 +73,11 @@ func (w *Worker) CompressOne(ctx context.Context) error {
 	if !w.deps.Redis.AcquireLock(ctx, lockKey, lockTTL) {
 		return nil
 	}
-	defer w.deps.Redis.ReleaseLock(ctx, lockKey)
+	defer func() {
+		releaseCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+		defer cancel()
+		w.deps.Redis.ReleaseLock(releaseCtx, lockKey)
+	}()
 
 	row, ok, err := w.pickCandidate(ctx)
 	if err != nil || !ok {
@@ -85,15 +86,28 @@ func (w *Worker) CompressOne(ctx context.Context) error {
 
 	abs := w.absPath(*row.FilePath)
 	st, err := os.Stat(abs)
+	if errors.Is(err, os.ErrNotExist) {
+		slog.Warn("待压缩文件不存在，标记跳过", "id", row.ID)
+		return w.markProcessed(ctx, row, row.FileSize)
+	}
 	if err != nil {
-		slog.Warn("待压缩文件不存在，标记跳过", "id", row.ID, "file", *row.FilePath)
-		return w.markProcessed(ctx, row.ID, row.FileSize)
+		w.markFailed(row.ID)
+		return err
+	}
+	if !st.Mode().IsRegular() {
+		return w.markProcessed(ctx, row, row.FileSize)
 	}
 	if st.Size() < w.deps.Cfg.CompressMinSize {
-		return w.markProcessed(ctx, row.ID, st.Size())
+		return w.markProcessed(ctx, row, st.Size())
 	}
 
-	newSize, binPath, err := w.shrinkInPlace(ctx, abs, st.Size())
+	compressCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+	newSize, binPath, err := w.shrinkInPlace(compressCtx, abs, st.Size())
+	if errors.Is(err, errUnsupportedImage) {
+		slog.Info("文件格式不支持压缩，保留原图", "id", row.ID)
+		return w.markProcessed(ctx, row, st.Size())
+	}
 	if err != nil {
 		w.markFailed(row.ID)
 		return err
@@ -101,11 +115,10 @@ func (w *Worker) CompressOne(ctx context.Context) error {
 
 	if newSize >= st.Size() {
 		slog.Info("压缩无收益，保留原图", "id", row.ID, "orig", st.Size(), "got", newSize)
-		return w.markProcessed(ctx, row.ID, st.Size())
+		return w.markProcessed(ctx, row, st.Size())
 	}
 
-	if err := w.deps.DB.WithContext(ctx).Model(&store.Content{}).Where("id = ?", row.ID).
-		Updates(map[string]any{"file_size": newSize, "compressed_at": time.Now()}).Error; err != nil {
+	if err := w.markProcessed(ctx, row, newSize); err != nil {
 		return err
 	}
 	w.deps.Redis.ClearContentCache(ctx, row.ID)
@@ -118,7 +131,7 @@ func (w *Worker) CompressOne(ctx context.Context) error {
 		}
 	}
 	slog.Info("tinypng 压缩完成",
-		"id", row.ID, "file", *row.FilePath,
+		"id", row.ID,
 		"before", st.Size(), "after", newSize,
 		"saved", st.Size()-newSize,
 	)
@@ -126,38 +139,32 @@ func (w *Worker) CompressOne(ctx context.Context) error {
 }
 
 func (w *Worker) pickCandidate(ctx context.Context) (store.Content, bool, error) {
-	var rows []store.Content
-	err := w.deps.DB.WithContext(ctx).
-		Where("file_path IS NOT NULL AND file_path <> ''").
+	query := w.deps.DB.WithContext(ctx).
+		Where("audit_status = ?", "approved").
 		Where("compressed_at IS NULL").
 		Where("file_size >= ?", w.deps.Cfg.CompressMinSize).
-		Where("LOWER(file_path) NOT LIKE ?", "%.gif").
-		Order("file_size DESC").
-		Limit(candidateBatch).
-		Find(&rows).Error
-	if err != nil {
-		return store.Content{}, false, err
+		Where("(LOWER(file_path) LIKE ? OR LOWER(file_path) LIKE ? OR LOWER(file_path) LIKE ? OR LOWER(file_path) LIKE ? OR LOWER(file_path) LIKE ? OR LOWER(file_path) LIKE ?)",
+			"%.png", "%.jpg", "%.jpeg", "%.webp", "%.avif", "%.jxl")
+	if ids := w.coolingIDs(); len(ids) != 0 {
+		query = query.Where("id NOT IN ?", ids)
 	}
-	for _, row := range rows {
-		if !w.inCooldown(row.ID) {
-			return row, true, nil
-		}
-	}
-	return store.Content{}, false, nil
+	var row store.Content
+	result := query.Order("file_size DESC, id ASC").Limit(1).Find(&row)
+	return row, result.RowsAffected > 0, result.Error
 }
 
-func (w *Worker) inCooldown(id uint64) bool {
+func (w *Worker) coolingIDs() []uint64 {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	at, ok := w.failed[id]
-	if !ok {
-		return false
+	ids := make([]uint64, 0, len(w.failed))
+	for id, at := range w.failed {
+		if time.Since(at) >= failCooldown {
+			delete(w.failed, id)
+		} else {
+			ids = append(ids, id)
+		}
 	}
-	if time.Since(at) > failCooldown {
-		delete(w.failed, id)
-		return false
-	}
-	return true
+	return ids
 }
 
 func (w *Worker) markFailed(id uint64) {
@@ -167,51 +174,48 @@ func (w *Worker) markFailed(id uint64) {
 }
 
 func (w *Worker) shrinkInPlace(ctx context.Context, abs string, origSize int64) (int64, string, error) {
-	body, _, err := w.client.Shrink(ctx, abs)
+	body, size, err := w.client.Shrink(ctx, abs)
 	if err != nil {
 		return 0, "", err
 	}
 	defer body.Close()
 
-	tmp := abs + ".tinify-tmp"
-	out, err := os.Create(tmp)
+	out, err := os.CreateTemp(filepath.Dir(abs), ".tinify-*")
 	if err != nil {
 		return 0, "", err
 	}
-	written, copyErr := io.Copy(out, body)
+	tmp := out.Name()
+	defer os.Remove(tmp)
+	written, copyErr := io.Copy(out, io.LimitReader(body, origSize))
 	closeErr := out.Close()
 	if copyErr != nil {
-		_ = os.Remove(tmp)
 		return 0, "", copyErr
 	}
 	if closeErr != nil {
-		_ = os.Remove(tmp)
 		return 0, "", closeErr
 	}
-	if written == 0 {
-		_ = os.Remove(tmp)
-		return 0, "", io.ErrUnexpectedEOF
-	}
 	if written >= origSize {
-		_ = os.Remove(tmp)
 		return written, "", nil
 	}
+	if written == 0 || written != size {
+		return 0, "", io.ErrUnexpectedEOF
+	}
 
-	if err := media.MoveToBin(abs, w.deps.Cfg.BinDir); err != nil {
-		_ = os.Remove(tmp)
+	if err := os.Chmod(tmp, 0o644); err != nil {
+		return 0, "", err
+	}
+	binPath, err := media.CopyToBin(abs, w.deps.Cfg.BinDir)
+	if err != nil {
 		return 0, "", err
 	}
 	if err := os.Rename(tmp, abs); err != nil {
-		_ = os.Remove(tmp)
 		return 0, "", err
 	}
-	_ = os.Chmod(abs, 0o644)
-	binPath, _ := mirror.FindInBin(w.deps.Cfg.BinDir, filepath.Base(abs))
 	return written, binPath, nil
 }
 
-func (w *Worker) markProcessed(ctx context.Context, id uint64, size int64) error {
-	return w.deps.DB.WithContext(ctx).Model(&store.Content{}).Where("id = ?", id).
+func (w *Worker) markProcessed(ctx context.Context, row store.Content, size int64) error {
+	return w.deps.DB.WithContext(ctx).Model(&store.Content{}).Where("id = ? AND file_path = ?", row.ID, *row.FilePath).
 		Updates(map[string]any{"file_size": size, "compressed_at": time.Now()}).Error
 }
 

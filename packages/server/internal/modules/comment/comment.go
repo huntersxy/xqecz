@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/huntersxy/xqecz/server/internal/app"
-	useravatar "github.com/huntersxy/xqecz/server/internal/avatar"
+	"github.com/huntersxy/xqecz/server/internal/avatar"
 	"github.com/huntersxy/xqecz/server/internal/cache"
 	"github.com/huntersxy/xqecz/server/internal/store"
 	"github.com/huntersxy/xqecz/server/internal/web"
@@ -27,8 +27,9 @@ func New(deps app.Deps) *Handler { return &Handler{deps: deps} }
 func Register(api *gin.RouterGroup, deps app.Deps) {
 	h := New(deps)
 	g := api.Group("/comment")
-	g.GET("/list/:content_id", h.list)
-	g.GET("/count/:content_id", h.count)
+	optionalAuth := web.OptionalAuth(deps)
+	g.GET("/list/:content_id", optionalAuth, h.list)
+	g.GET("/count/:content_id", optionalAuth, h.count)
 	g.POST("/add", web.RequireAuth(deps), h.add)
 	g.DELETE("/:id", web.RequireAuth(deps), h.remove)
 	g.POST("/report", web.RequireAuth(deps), h.report)
@@ -80,6 +81,9 @@ func (h *Handler) list(c *gin.Context) {
 		web.Fail(c, 404, "内容不存在")
 		return
 	}
+	if !h.canRead(c, contentID) {
+		return
+	}
 	page := atoiDefault(c.Query("page"), 1)
 	if page < 1 {
 		page = 1
@@ -89,7 +93,7 @@ func (h *Handler) list(c *gin.Context) {
 		pageSize = 20
 	}
 
-	key := "comments:" + strconv.FormatUint(contentID, 10) + ":threads-v3:" + strconv.Itoa(page) + ":" + strconv.Itoa(pageSize)
+	key := "comments:" + strconv.FormatUint(contentID, 10) + ":threads-v4:" + strconv.Itoa(page) + ":" + strconv.Itoa(pageSize)
 	data, err := cache.GetOrSetJSON(ctx, h.deps.Redis, key, cacheTTL, func() (Page, error) {
 		return h.query(ctx, contentID, page, pageSize)
 	})
@@ -177,7 +181,7 @@ func (h *Handler) query(ctx context.Context, contentID uint64, page, pageSize in
 		}
 	}
 
-	list := buildThreads(tops, replies, users)
+	list := buildThreads(tops, replies, users, h.deps.Avatars)
 
 	totalPage := 1
 	if pageSize > 0 {
@@ -191,6 +195,9 @@ func (h *Handler) count(c *gin.Context) {
 	contentID, err := strconv.ParseUint(c.Param("content_id"), 10, 64)
 	if err != nil {
 		web.Fail(c, 404, "内容不存在")
+		return
+	}
+	if !h.canRead(c, contentID) {
 		return
 	}
 	key := "comment_count:" + strconv.FormatUint(contentID, 10)
@@ -209,6 +216,21 @@ func (h *Handler) count(c *gin.Context) {
 	web.OK(c, data, "ok")
 }
 
+func (h *Handler) canRead(c *gin.Context, contentID uint64) bool {
+	var row store.Content
+	err := h.deps.DB.WithContext(c.Request.Context()).
+		Select("audit_status", "user_id").First(&row, contentID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && !web.CanViewContent(c, row)) {
+		web.Fail(c, 404, "内容不存在")
+		return false
+	}
+	if err != nil {
+		web.Fail(c, 500, "服务异常")
+		return false
+	}
+	return true
+}
+
 type addReq struct {
 	ContentID uint64  `json:"content_id"`
 	Text      string  `json:"text"`
@@ -225,6 +247,9 @@ func (h *Handler) add(c *gin.Context) {
 	}
 	if req.ContentID == 0 || strings.TrimSpace(req.Text) == "" {
 		web.Fail(c, 400, "请求参数格式错误")
+		return
+	}
+	if !h.canRead(c, req.ContentID) {
 		return
 	}
 
@@ -256,10 +281,10 @@ func (h *Handler) add(c *gin.Context) {
 
 	users := map[uint64]store.User{}
 	var u store.User
-	if err := db.First(&u, identity.UID).Error; err == nil {
+	if err := db.Select("id", "username", "email").First(&u, identity.UID).Error; err == nil {
 		users[u.ID] = u
 	}
-	web.OK(c, toDTO(row, users), "评论成功")
+	web.OK(c, toDTO(row, users, h.deps.Avatars), "评论成功")
 }
 
 func (h *Handler) remove(c *gin.Context) {
@@ -330,13 +355,10 @@ func (h *Handler) report(c *gin.Context) {
 	}, "举报已提交")
 }
 
-func toDTO(row store.Comment, users map[uint64]store.User) DTO {
+func toDTO(row store.Comment, users map[uint64]store.User, avatars *avatar.Proxy) DTO {
 	var author UserBrief
 	if u, ok := users[row.UserID]; ok {
-		author = UserBrief{ID: u.ID, Username: u.Username}
-		if u.Email != nil {
-			author.AvatarURL = useravatar.URL(*u.Email, 80)
-		}
+		author = UserBrief{ID: u.ID, Username: u.Username, AvatarURL: avatars.URL(avatar.User, u.ID, u.Email)}
 	} else {
 		author = UserBrief{ID: row.UserID, Username: "unknown"}
 	}

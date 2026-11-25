@@ -193,20 +193,21 @@ func (h *Handler) update(c *gin.Context) {
 		updates["tags"] = marshalTags(form.parseTagsField())
 	}
 
+	relPath, size, absPath := h.prepareUploadFile(form.File)
 	if form.File != nil {
-		relPath, size, absPath := h.prepareUploadFile(form.File)
 		if relPath != "" {
 			updates["file_path"] = relPath
 			updates["file_size"] = size
+			if relPath != deref(row.FilePath) {
+				updates["thumb_path"] = nil
+				updates["compressed_at"] = nil
+			}
 		}
 		audit := "pending"
 		if identity.IsAdmin {
 			audit = "approved"
 		}
 		updates["audit_status"] = audit
-		if absPath != "" {
-			go h.processMedia(id, absPath, MediaTypeForPath(absPath))
-		}
 	}
 
 	if len(updates) > 0 {
@@ -226,6 +227,12 @@ func (h *Handler) update(c *gin.Context) {
 			return
 		}
 		h.invalidate(ctx, id)
+		if absPath != "" {
+			if h.mirror != nil {
+				h.mirror.PushAsync(relPath, absPath)
+			}
+			go h.processMedia(id, relPath, absPath, MediaTypeForPath(absPath))
+		}
 	}
 
 	var updated store.Content
@@ -233,7 +240,7 @@ func (h *Handler) update(c *gin.Context) {
 		web.Fail(c, 500, "服务异常")
 		return
 	}
-	item := decorateWith(h.mirror, updated, h.userMapFor(ctx, []store.Content{updated}), h.likeCount(ctx, id), false)
+	item := h.decorateWithAvatar(h.mirror, updated, h.userMapFor(ctx, []store.Content{updated}), h.likeCount(ctx, id), false)
 	web.OK(c, item, "更新成功")
 }
 
@@ -500,7 +507,10 @@ func (h *Handler) createContent(ctx context.Context, in createInput) (Item, erro
 	h.deps.Redis.ClearContentListCache(ctx)
 
 	if in.AbsPath != "" {
-		go h.processMedia(row.ID, in.AbsPath, MediaTypeForPath(in.AbsPath))
+		if h.mirror != nil && store.IsPublicContentStatus(row.AuditStatus) {
+			h.mirror.PushAsync(in.FilePath, in.AbsPath)
+		}
+		go h.processMedia(row.ID, in.FilePath, in.AbsPath, MediaTypeForPath(in.AbsPath))
 	}
 	if in.AuditStatus == "approved" {
 		h.rec.RefreshAsync()
@@ -509,14 +519,14 @@ func (h *Handler) createContent(ctx context.Context, in createInput) (Item, erro
 	userMap := map[uint64]store.User{}
 	if row.UserID > 0 {
 		var u store.User
-		if err := db.First(&u, row.UserID).Error; err == nil {
+		if err := db.Select("id", "username", "email").First(&u, row.UserID).Error; err == nil {
 			userMap[u.ID] = u
 		}
 	}
-	return decorateWith(h.mirror, row, userMap, 0, false), nil
+	return h.decorateWithAvatar(h.mirror, row, userMap, 0, false), nil
 }
 
-func (h *Handler) processMedia(id uint64, absPath, contentType string) {
+func (h *Handler) processMedia(id uint64, relPath, absPath, contentType string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
@@ -526,7 +536,7 @@ func (h *Handler) processMedia(id uint64, absPath, contentType string) {
 		return
 	}
 	if err := h.deps.DB.WithContext(ctx).Model(&store.Content{}).
-		Where("id = ?", id).Update("thumb_path", rel).Error; err != nil {
+		Where("id = ? AND file_path = ?", id, relPath).Update("thumb_path", rel).Error; err != nil {
 		slog.Warn("缩略图回写失败", "id", id, "err", err)
 		return
 	}
@@ -536,9 +546,6 @@ func (h *Handler) processMedia(id uint64, absPath, contentType string) {
 func (h *Handler) prepareUploadFile(f *uploadedFile) (string, int64, string) {
 	if f == nil {
 		return "", 0, ""
-	}
-	if h.mirror != nil {
-		h.mirror.PushAsync(f.RelPath, f.AbsPath)
 	}
 	return f.RelPath, f.Size, f.AbsPath
 }

@@ -3,14 +3,19 @@ package compress
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
 const tinifyEndpoint = "https://api.tinify.com/shrink"
+
+var errUnsupportedImage = errors.New("tinify 415: unsupported image")
 
 type Client struct {
 	apiKey string
@@ -20,7 +25,12 @@ type Client struct {
 func NewClient(apiKey string) *Client {
 	return &Client{
 		apiKey: apiKey,
-		http:   &http.Client{Timeout: 5 * time.Minute},
+		http: &http.Client{
+			Timeout: 5 * time.Minute,
+			CheckRedirect: func(*http.Request, []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		},
 	}
 }
 
@@ -30,8 +40,6 @@ type shrinkResponse struct {
 		Size  int64  `json:"size"`
 		Width int    `json:"width"`
 	} `json:"output"`
-	Error   string `json:"error"`
-	Message string `json:"message"`
 }
 
 func (c *Client) Shrink(ctx context.Context, srcPath string) (io.ReadCloser, int64, error) {
@@ -57,32 +65,31 @@ func (c *Client) Shrink(ctx context.Context, srcPath string) (io.ReadCloser, int
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusUnsupportedMediaType {
+		return nil, 0, errUnsupportedImage
+	}
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
-		var sr shrinkResponse
-		_ = json.Unmarshal(body, &sr)
-		if sr.Message != "" {
-			return nil, 0, fmt.Errorf("tinify %d: %s", resp.StatusCode, sr.Message)
-		}
-		return nil, 0, fmt.Errorf("tinify %d: %s", resp.StatusCode, string(body))
+		return nil, 0, fmt.Errorf("tinify %d: %s", resp.StatusCode, http.StatusText(resp.StatusCode))
 	}
 
 	var sr shrinkResponse
 	if err := json.NewDecoder(resp.Body).Decode(&sr); err != nil {
 		return nil, 0, fmt.Errorf("decode tinify response: %w", err)
 	}
-	if sr.Output.URL == "" {
-		return nil, 0, fmt.Errorf("tinify response has no output url")
+	outputURL, err := url.Parse(sr.Output.URL)
+	if err != nil || outputURL.Scheme != "https" || outputURL.Host != "api.tinify.com" ||
+		outputURL.User != nil || !strings.HasPrefix(outputURL.Path, "/output/") {
+		return nil, 0, errors.New("tinify response has invalid output url")
 	}
 
-	dlReq, err := http.NewRequestWithContext(ctx, http.MethodGet, sr.Output.URL, nil)
+	dlReq, err := http.NewRequestWithContext(ctx, http.MethodGet, outputURL.String(), nil)
 	if err != nil {
 		return nil, 0, err
 	}
 	dlReq.SetBasicAuth("api", c.apiKey)
 	dlResp, err := c.http.Do(dlReq)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("download compressed image: %w", errors.Unwrap(err))
 	}
 	if dlResp.StatusCode != http.StatusOK {
 		_ = dlResp.Body.Close()

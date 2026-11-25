@@ -21,8 +21,5 @@ func (h *Handler) PublishAI(ctx context.Context, uid uint64, title, text string,
 	if admin {
 		status = "approved"
 	}
-	if h.mirror != nil {
-		h.mirror.PushAsync(rel, absolute)
-	}
 	return h.createContent(ctx, createInput{Title: title, Content: text, FilePath: rel, FileSize: size, UserID: uid, Tags: contenttags.WithAIGC(tags, true), AuditStatus: status, AbsPath: absolute, AutoMetadata: autoMetadata, AIEnhanced: aiEnhanced, Link: link})
 }

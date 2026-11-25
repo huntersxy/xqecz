@@ -3,10 +3,12 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/huntersxy/xqecz/server/internal/app"
+	"github.com/huntersxy/xqecz/server/internal/avatar"
 	"github.com/huntersxy/xqecz/server/internal/modules/admin"
 	aigenhttp "github.com/huntersxy/xqecz/server/internal/modules/aigen"
 	"github.com/huntersxy/xqecz/server/internal/modules/apikey"
 	"github.com/huntersxy/xqecz/server/internal/modules/auth"
+	avatarhttp "github.com/huntersxy/xqecz/server/internal/modules/avatar"
 	"github.com/huntersxy/xqecz/server/internal/modules/comment"
 	"github.com/huntersxy/xqecz/server/internal/modules/content"
 	creativehttp "github.com/huntersxy/xqecz/server/internal/modules/creative"
@@ -15,11 +17,15 @@ import (
 )
 
 func New(deps app.Deps, opts ...content.Options) *gin.Engine {
+	if deps.Avatars == nil {
+		deps.Avatars = avatar.New(deps.Cfg.AvatarOrigin, deps.Cfg.AvatarKey, deps.Redis)
+	}
 	return web.New(deps,
 		func(r *gin.Engine) { content.New(deps).RegisterMedia(r) },
 		func(api *gin.RouterGroup) {
 			api.GET("/health", func(c *gin.Context) { web.OK(c, gin.H{"ok": true}, "ok") })
 			auth.Register(api, deps)
+			avatarhttp.Register(api, deps)
 			contentHandler := content.Register(api, deps, opts...)
 			comment.Register(api, deps)
 			poll.Register(api, deps)
