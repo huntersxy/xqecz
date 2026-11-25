@@ -8,6 +8,7 @@ import { useIntersectionObserver } from '@vueuse/core'
 import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { contentApi } from '@/api'
 import { useHomeStore, type FeedMode } from '@/stores/home'
+import { useSiteStore } from '@/stores/site'
 import { useRecommendLoader } from '@/composables/useRecommendLoader'
 import { useSearchFilter } from '@/composables/useSearchFilter'
 import { watchGlobalSearch } from '@/composables/useGlobalSearch'
@@ -22,6 +23,7 @@ import type { Content, ListParams, RecommendContent } from '@/types'
 
 const router = useRouter()
 const homeStore = useHomeStore()
+const siteStore = useSiteStore()
 const recommendLoader = useRecommendLoader()
 const searchFilter = useSearchFilter()
 const listCache = useListCache()
@@ -442,15 +444,15 @@ onActivated(() => {
 <template>
   <div class="gallery-home-content">
       <div class="gallery-content">
-        <h1 class="gallery-visually-hidden">作品广场</h1>
+        <h1 class="gallery-visually-hidden">{{ siteStore.text('nav.gallery') }}</h1>
 
         <section class="gallery-featured" aria-labelledby="featured-title">
           <div class="gallery-section-heading">
             <div>
-              <span class="gallery-section-label">CURATED WORKS</span>
-              <h2 id="featured-title">正在被看见</h2>
+              <span class="gallery-section-label">{{ siteStore.text('home.featuredLabel') }}</span>
+              <h2 id="featured-title">{{ siteStore.text('home.featuredTitle') }}</h2>
             </div>
-            <button class="gallery-icon-action" type="button" :disabled="recommendLoader.isRecommendLoading.value" aria-label="换一批推荐作品" title="换一批" @click="recommendLoader.refreshRecommend(8)">
+            <button class="gallery-icon-action" type="button" :disabled="recommendLoader.isRecommendLoading.value" :aria-label="siteStore.text('home.featuredRefresh')" :title="siteStore.text('home.featuredRefresh')" @click="recommendLoader.refreshRecommend(8)">
               <SiteIcon name="refresh" :spin="recommendLoader.isRecommendLoading.value" />
             </button>
           </div>
@@ -463,17 +465,17 @@ onActivated(() => {
           <div v-else-if="recommendLoader.isRecommendLoading.value" class="gallery-featured-strip is-skeleton" aria-hidden="true">
             <div v-for="n in 6" :key="n" class="gallery-featured-item"><span class="gallery-skeleton-thumb"></span><span class="gallery-skeleton-line"></span></div>
           </div>
-          <div v-else class="gallery-featured-empty">推荐作品正在整理中</div>
+          <div v-else class="gallery-featured-empty">{{ siteStore.text('home.featuredEmpty') }}</div>
         </section>
 
-        <section class="gallery-feed-toolbar" aria-label="作品筛选">
-          <div class="gallery-filter-tabs" role="tablist" aria-label="作品排序">
-            <button class="gallery-filter-tab" :class="{ 'is-active': feedMode === 'recommended' }" type="button" role="tab" :aria-selected="feedMode === 'recommended'" @click="selectFeedMode('recommended')">推荐</button>
-            <button class="gallery-filter-tab" :class="{ 'is-active': feedMode === 'latest' }" type="button" role="tab" :aria-selected="feedMode === 'latest'" @click="selectFeedMode('latest')">最新</button>
-            <button class="gallery-filter-tab" :class="{ 'is-active': feedMode === 'popular' }" type="button" role="tab" :aria-selected="feedMode === 'popular'" @click="selectFeedMode('popular')">热门</button>
+        <section class="gallery-feed-toolbar" :aria-label="siteStore.text('home.filterLabel')">
+          <div class="gallery-filter-tabs" role="tablist" :aria-label="siteStore.text('home.sortLabel')">
+            <button class="gallery-filter-tab" :class="{ 'is-active': feedMode === 'recommended' }" type="button" role="tab" :aria-selected="feedMode === 'recommended'" @click="selectFeedMode('recommended')">{{ siteStore.text('home.sortRecommended') }}</button>
+            <button class="gallery-filter-tab" :class="{ 'is-active': feedMode === 'latest' }" type="button" role="tab" :aria-selected="feedMode === 'latest'" @click="selectFeedMode('latest')">{{ siteStore.text('home.sortLatest') }}</button>
+            <button class="gallery-filter-tab" :class="{ 'is-active': feedMode === 'popular' }" type="button" role="tab" :aria-selected="feedMode === 'popular'" @click="selectFeedMode('popular')">{{ siteStore.text('home.sortPopular') }}</button>
           </div>
-          <div class="gallery-tag-row" role="group" aria-label="标签筛选">
-            <button class="gallery-tag" :class="{ 'is-active': searchFilter.selectedTags.value.length === 0 }" type="button" @click="resetAndLoad()">全部</button>
+          <div class="gallery-tag-row" role="group" :aria-label="siteStore.text('home.tagsLabel')">
+            <button class="gallery-tag" :class="{ 'is-active': searchFilter.selectedTags.value.length === 0 }" type="button" @click="resetAndLoad()">{{ siteStore.text('home.allTags') }}</button>
             <button v-for="tag in searchFilter.shuffledTags.value.slice(0, 7)" :key="tag" class="gallery-tag" :class="{ 'is-active': searchFilter.selectedTags.value.includes(tag) }" type="button" :title="tag" @click="onTagSelect(tag)">{{ tag }}</button>
             <button v-if="searchFilter.shuffledTags.value.length > 1" class="gallery-tag gallery-tag-refresh" type="button" aria-label="换一组标签" title="换一组标签" @click="searchFilter.reshuffleTags()"><SiteIcon name="refresh" /></button>
           </div>
@@ -482,15 +484,15 @@ onActivated(() => {
         <section class="gallery-feed" aria-labelledby="gallery-feed-title">
           <div class="gallery-feed-heading">
             <div>
-              <h2 id="gallery-feed-title">{{ homeStore.searchKeyword ? '搜索结果' : searchFilter.selectedTags.value[0] || (feedMode === 'recommended' ? '推荐作品' : feedMode === 'popular' ? '热门作品' : '最新作品') }}</h2>
+              <h2 id="gallery-feed-title">{{ homeStore.searchKeyword ? siteStore.text('home.searchResults') : searchFilter.selectedTags.value[0] || (feedMode === 'recommended' ? siteStore.text('home.recommended') : feedMode === 'popular' ? siteStore.text('home.popular') : siteStore.text('home.latest')) }}</h2>
               <p v-if="homeStore.searchKeyword || searchFilter.selectedTags.value.length">{{ homeStore.searchKeyword ? `正在查找“${homeStore.searchKeyword}”` : '按标签筛选' }} · {{ total }} 件作品</p>
-              <p v-else-if="feedMode === 'recommended'">{{ total > 0 ? `为你挑选 ${total} 件作品` : '推荐作品正在整理' }}</p>
-              <p v-else>{{ total > 0 ? `${total} 件作品，持续更新中` : '作品正在加载' }}</p>
+              <p v-else-if="feedMode === 'recommended'">{{ total > 0 ? `为你挑选 ${total} 件作品` : siteStore.text('home.featuredEmpty') }}</p>
+              <p v-else>{{ total > 0 ? `${total} 件作品，持续更新中` : siteStore.text('home.loading') }}</p>
             </div>
-            <button v-if="swapSections" class="gallery-clear-filter" type="button" @click="clearFilters">清除筛选</button>
+            <button v-if="swapSections" class="gallery-clear-filter" type="button" @click="clearFilters">{{ siteStore.text('home.clearFilter') }}</button>
           </div>
 
-          <div v-if="isLoading && allContents.length === 0" class="gallery-skeleton" role="status" aria-label="正在加载作品">
+          <div v-if="isLoading && allContents.length === 0" class="gallery-skeleton" role="status" :aria-label="siteStore.text('home.loading')">
             <div v-for="n in 8" :key="n" class="gallery-skeleton-card" :style="{ '--sk-h': 140 + ((n * 37) % 90) + 'px' }">
               <span class="gallery-skeleton-thumb"></span>
               <span class="gallery-skeleton-line"></span>
@@ -499,8 +501,8 @@ onActivated(() => {
           </div>
           <div v-else-if="!isLoading && allContents.length === 0" class="gallery-state">
             <div class="gallery-state-mark"><SiteIcon name="image" /></div>
-            <p>{{ homeStore.searchKeyword || searchFilter.selectedTags.value.length ? '没有找到符合条件的作品' : '还没有作品出现在这里' }}</p>
-            <button type="button" @click="goToUpload">发布第一件作品 <SiteIcon name="arrow-right" /></button>
+            <p>{{ homeStore.searchKeyword || searchFilter.selectedTags.value.length ? siteStore.text('home.emptyFiltered') : siteStore.text('home.empty') }}</p>
+            <button type="button" @click="goToUpload">{{ siteStore.text('home.publishFirst') }} <SiteIcon name="arrow-right" /></button>
           </div>
           <div v-else ref="masonryRef" class="gallery-masonry" :style="{ position: 'relative', height: waterfall.containerHeight.value + 'px' }">
             <WaterfallCard
@@ -514,9 +516,9 @@ onActivated(() => {
               @liked="onCardLiked"
             />
           </div>
-          <div v-if="isLoadingMore" class="gallery-loadmore"><div class="gallery-state-spinner"></div><span>加载更多作品</span></div>
+          <div v-if="isLoadingMore" class="gallery-loadmore"><div class="gallery-state-spinner"></div><span>{{ siteStore.text('home.loadMore') }}</span></div>
           <div ref="sentinelRef" class="gallery-sentinel"></div>
-          <div v-if="!hasMore && allContents.length > 0" class="gallery-end">已经看到这里了</div>
+          <div v-if="!hasMore && allContents.length > 0" class="gallery-end">{{ siteStore.text('home.end') }}</div>
         </section>
       </div>
     <button class="gallery-mobile-publish" type="button" aria-label="发布作品" @click="goToUpload"><SiteIcon name="plus" /></button>

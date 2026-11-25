@@ -5,6 +5,7 @@ import { aiApi, creativeApi } from '@/api/creative'
 import type { GenerationInput } from '@/api/creative'
 import type { AIIdeaView, CreativeResource } from '@/types/schemas'
 import { useUserStore } from '@/stores/user'
+import { useSiteStore } from '@/stores/site'
 import { useConfirm } from '@/composables/useToast'
 import CreativeImage from '@/components/CreativeImage.vue'
 import { ideaPromptPreview } from '@/utils/creativeIdeas'
@@ -12,6 +13,7 @@ import '@/assets/creative-pages.css'
 const route = useRoute(),
   router = useRouter(),
   user = useUserStore(),
+  siteStore = useSiteStore(),
   { confirm } = useConfirm()
 const rows = ref<AIIdeaView[]>([]),
   detail = ref<AIIdeaView | null>(null),
@@ -141,7 +143,7 @@ onBeforeUnmount(() => {
   <div class="creative-page ideas-gallery-page creative-theme">
     <header class="creative-page-head" :class="{ 'discovery-heading': !detail }">
       <div>
-        <h1>{{ detail?.idea.title || '创意广场' }}</h1>
+        <h1>{{ detail?.idea.title || siteStore.text('ideas.title') }}</h1>
         <p v-if="detail?.idea.description">{{ detail.idea.description }}</p>
       </div>
       <div class="creative-actions">

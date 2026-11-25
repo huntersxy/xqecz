@@ -98,6 +98,23 @@ async function main() {
   const health = await api('/api/health')
   record('健康检查', health.status === 200 && health.body && health.body.data && health.body.data.ok === true)
 
+  const siteConfig = await api('/api/site/config')
+  record(
+    '站点配置',
+    siteConfig.body && siteConfig.body.code === 200 &&
+      typeof siteConfig.body.data.name === 'string' &&
+      siteConfig.body.data.texts && typeof siteConfig.body.data.texts['nav.gallery'] === 'string',
+    'name=' + (siteConfig.body && siteConfig.body.data ? siteConfig.body.data.name : '?'),
+  )
+
+  const manifestResponse = await fetch(BASE + '/api/site/manifest')
+  const manifest = await manifestResponse.json().catch(() => null)
+  record(
+    '站点清单',
+    manifestResponse.ok && manifest && typeof manifest.name === 'string' && Array.isArray(manifest.icons) && manifest.icons.length > 0,
+    manifest ? 'name=' + manifest.name : '无响应',
+  )
+
   const list = await api('/api/content/list?page=1&page_size=5')
   record('内容列表', list.body && list.body.code === 200 && Array.isArray(list.body.data.list) && typeof list.body.data.total === 'number', 'total=' + (list.body ? list.body.data.total : '?'))
 

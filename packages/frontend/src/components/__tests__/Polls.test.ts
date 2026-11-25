@@ -6,6 +6,14 @@ import type { Poll, PollDetail } from '@/types/schemas'
 
 const api = vi.hoisted(() => ({ list: vi.fn(), detail: vi.fn(), vote: vi.fn() }))
 vi.mock('@/api', () => ({ pollApi: api }))
+vi.mock('@/stores/site', () => ({
+  useSiteStore: () => ({
+    text: (key: string) => ({ 'polls.title': '投票广场' } as Record<string, string>)[key] ?? key,
+    lines: () => [],
+    format: () => '',
+    baseTitle: '',
+  }),
+}))
 const wrappers: ReturnType<typeof mount>[] = []
 const poll = (id = 1): Poll => ({
   id,

@@ -13,6 +13,14 @@ const mocks = vi.hoisted(() => ({
 }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: mocks.push }), useRoute: () => mocks.route }))
 vi.mock('@/stores/user', () => ({ useUserStore: () => ({ ...mocks.user, login: mocks.login }) }))
+vi.mock('@/stores/site', () => ({
+  useSiteStore: () => ({
+    text: (key: string) => key,
+    lines: () => ['在测试站，', '写下你的', '第一颗星球'],
+    format: (key: string) => key,
+    baseTitle: '测试站',
+  }),
+}))
 vi.mock('@/api', () => ({ authApi: { register: mocks.register } }))
 vi.mock('@arco-design/web-vue', async importOriginal => ({ ...await importOriginal<typeof import('@arco-design/web-vue')>(), Message: mocks }))
 const wrappers: ReturnType<typeof mount>[] = []

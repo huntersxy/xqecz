@@ -32,6 +32,42 @@ export interface RegisterResponse {
   user_id: number
 }
 
+export interface SiteFriendLink {
+  name: string
+  url: string
+  icon_url: string
+}
+
+export interface SiteConfig {
+  name: string
+  short_name: string
+  tagline: string
+  browser_title: string
+  description: string
+  logo_url: string
+  favicon_url: string
+  friend_links: SiteFriendLink[]
+  texts: Record<string, string>
+}
+
+export interface SiteTextElement {
+  key: string
+  label: string
+  group: string
+  default: string
+  multiline: boolean
+  max_length: number
+}
+
+export interface SiteSettings extends SiteConfig {
+  elements: SiteTextElement[]
+}
+
+export interface SiteAsset {
+  kind: 'logo' | 'favicon'
+  url: string
+}
+
 
 export interface AuditRequest {
   status: 'approved' | 'rejected'

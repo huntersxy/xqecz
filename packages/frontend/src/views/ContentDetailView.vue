@@ -3,6 +3,7 @@ import { onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { contentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
+import { useSiteStore } from '@/stores/site'
 import { useContentBrowse } from '@/composables/useContentBrowse'
 import { toast } from '@/composables/useToast'
 import { cachedImageSource } from '@/utils/imageSource'
@@ -18,6 +19,7 @@ import type { Content, Comment } from '@/types'
 
 const route = useRoute()
 const userStore = useUserStore()
+const siteStore = useSiteStore()
 const browse = useContentBrowse()
 const {
   cachedList, currentId, currentIndex, hasPrev, hasNext, previewItems, previewRef,
@@ -102,13 +104,13 @@ onMounted(() => {
 
       <div v-if="loadState === 'loading'" class="cd-loading" role="status">
         <SketchPlanet class="cd-loading-planet" loading />
-        <p>正在穿越小泉宇宙…</p>
+        <p>{{ siteStore.text('detail.loading') }}</p>
       </div>
 
       <div v-else-if="loadState === 'error'" class="cd-loading" role="alert">
         <SiteIcon name="image-broken" class="cd-error-icon" />
-        <h2 class="cd-error-title">信号暂时离开了轨道</h2>
-        <p>内容不存在或网络异常，请稍后再试</p>
+        <h2 class="cd-error-title">{{ siteStore.text('detail.errorTitle') }}</h2>
+        <p>{{ siteStore.text('detail.errorHint') }}</p>
         <button type="button" class="cd-retry-btn" @click="loadContent()">
           <SiteIcon name="refresh" />重试
         </button>

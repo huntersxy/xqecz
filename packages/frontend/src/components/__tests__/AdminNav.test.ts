@@ -58,6 +58,7 @@ const AdminViewStubs = {
   AdminReportList: stubPage('AdminReportList', 'reports'),
   AdminVisionSettings: stubPage('AdminVisionSettings', 'vision'),
   AdminAI: stubPage('AdminAI', 'ai'),
+  AdminSiteSettings: stubPage('AdminSiteSettings', 'site'),
   AdminLogsTerminal: stubPage('AdminLogsTerminal', 'logs'),
   AdminApiKeys: stubPage('AdminApiKeys', 'api-keys'),
   AdminApiDocs: stubPage('AdminApiDocs', 'api-docs'),
@@ -274,6 +275,7 @@ describe('AdminNav 后台导航', () => {
         'ai',
         'api-keys',
         'api-docs',
+        'site',
         'logs',
       ])
     })

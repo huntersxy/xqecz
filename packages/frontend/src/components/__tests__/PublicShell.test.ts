@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
+import { nextTick } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import PublicShell from '@/components/PublicShell.vue'
+import { useSiteStore } from '@/stores/site'
+import { DEFAULT_SITE_CONFIG } from '@/utils/siteText'
 
 async function render(path: string, slot = '') {
   const router = createRouter({
@@ -66,5 +69,41 @@ describe('public shell sidebar', () => {
           Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy()
     }
+  })
+
+  it('renders the configured logo, labels, friend links and footer', async () => {
+    const pinia = createPinia()
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/:pathMatch(.*)*', component: { template: '<div />' } }],
+    })
+    await router.push('/')
+    await router.isReady()
+    const wrapper = mount(PublicShell, { global: { plugins: [pinia, router] } })
+
+    useSiteStore(pinia).applyConfig({
+      ...DEFAULT_SITE_CONFIG,
+      name: '星河画廊',
+      short_name: '星河',
+      tagline: '自定义画廊',
+      logo_url: '/images/site/logo.webp',
+      favicon_url: '/images/site/favicon.png',
+      friend_links: [{ name: '友站', url: 'https://example.com/', icon_url: '/friend-links/a.webp' }],
+      texts: {
+        ...DEFAULT_SITE_CONFIG.texts,
+        'nav.gallery': '作品集',
+        'footer.copyright': '© 星河',
+      },
+    })
+    await nextTick()
+
+    expect(wrapper.get('.public-shell-brand-logo').attributes('src')).toBe('/images/site/logo.webp')
+    expect(wrapper.get('.public-shell-brand-text').text()).toContain('星河画廊')
+    expect(wrapper.get('.public-shell-brand-text').text()).toContain('自定义画廊')
+    expect(wrapper.get('.public-shell-tabs').text()).toContain('作品集')
+    expect(wrapper.findAll('.public-shell-friends a')).toHaveLength(1)
+    expect(wrapper.get('.public-shell-friends a').attributes('href')).toBe('https://example.com/')
+    expect(wrapper.get('.public-shell-footer').text()).toBe('© 星河')
+    wrapper.unmount()
   })
 })

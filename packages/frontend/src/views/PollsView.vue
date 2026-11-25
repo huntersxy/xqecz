@@ -5,10 +5,12 @@ import { IconArrowLeft, IconCheck } from '@arco-design/web-vue/es/icon'
 import { usePollBallot } from '@/composables/usePollBallot'
 import { usePollList } from '@/composables/usePollList'
 import PollPreview from '@/components/PollPreview.vue'
+import { useSiteStore } from '@/stores/site'
 import '@/assets/creative-pages.css'
 
 const route = useRoute()
 const router = useRouter()
+const siteStore = useSiteStore()
 const {
   rows,
   total,
@@ -58,7 +60,7 @@ function goPage(value: number) {
   <div class="creative-page poll-page poll-gallery-page creative-theme">
     <header class="poll-index-heading">
       <div>
-        <h1>投票广场</h1>
+        <h1>{{ siteStore.text('polls.title') }}</h1>
       </div>
       <span v-if="!isDetail && total" class="poll-index-count">{{ total }}</span>
     </header>

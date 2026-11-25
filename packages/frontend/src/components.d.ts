@@ -33,6 +33,7 @@ declare module 'vue' {
     AdminReferenceLibrary: typeof import('./components/admin/AdminReferenceLibrary.vue')['default']
     AdminReportList: typeof import('./components/admin/AdminReportList.vue')['default']
     AdminReviewPanel: typeof import('./components/admin/AdminReviewPanel.vue')['default']
+    AdminSiteSettings: typeof import('./components/admin/AdminSiteSettings.vue')['default']
     AdminSkeleton: typeof import('./components/admin/AdminSkeleton.vue')['default']
     AdminStatus: typeof import('./components/admin/AdminStatus.vue')['default']
     AdminUploadPanel: typeof import('./components/admin/AdminUploadPanel.vue')['default']

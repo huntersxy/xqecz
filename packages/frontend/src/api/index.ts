@@ -33,6 +33,7 @@ import type {
   DashboardStats,
   MetadataOptions, VisionSettings, VisionJob, VisionResult, VisionReference,
   AdminLogLevel, AdminLogsResponse,
+  SiteConfig, SiteSettings, SiteAsset,
 } from '@/types'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -135,6 +136,11 @@ export async function request<T>(
 }
 
 export const fetchApiBlob = (path: string, signal?: AbortSignal) => api<Blob, 'blob'>(path, { responseType: 'blob', signal, retry: 0, timeout: 30000 })
+
+export const siteApi = {
+  config: (signal?: AbortSignal) =>
+    api<ApiResponse<SiteConfig>>('/site/config', { signal, retry: 0, timeout: 10000 }),
+}
 
 export const authApi = {
   register: (username: string, email: string, password: string) =>
@@ -371,6 +377,14 @@ export const pollApi = {
 }
 
 export const adminApi = {
+  siteSettings: (signal?: AbortSignal) => request<SiteSettings>('/admin/site/settings', { signal }),
+  saveSiteSettings: (data: SiteConfig, signal?: AbortSignal) =>
+    request<SiteSettings>('/admin/site/settings', { method: 'PUT', body: data, signal }),
+  uploadSiteAsset: (kind: 'logo' | 'favicon', file: File, signal?: AbortSignal) => {
+    const body = new FormData()
+    body.append('file', file)
+    return request<SiteAsset>(`/admin/site/assets/${kind}`, { method: 'POST', body, signal, retry: 0, timeout: 60000 })
+  },
   logs: (params?: { limit?: number; level?: AdminLogLevel; after?: number }, signal?: AbortSignal) =>
     request<AdminLogsResponse>('/admin/logs', { query: params, signal }),
   visionSettings: (signal?: AbortSignal) => request<VisionSettings>('/admin/vision/settings', { signal }),

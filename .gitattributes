@@ -2,3 +2,6 @@
 # 直接报 bad interpreter 而起不来。这两个部署机上的 hook 是 cron 调的，
 # 出事时没有任何人盯着，所以在仓库层面钉死。
 *.sh text eol=lf
+
+# 内嵌迁移编译进二进制，用 LF 保证各平台切分一致。
+*.sql text eol=lf

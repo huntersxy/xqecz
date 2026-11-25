@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useThemeStore } from '@/stores/theme'
 import { useUserStore } from '@/stores/user'
+import { useSiteStore } from '@/stores/site'
 import { useGlobalSearch } from '@/composables/useGlobalSearch'
 import { revealOriginFrom, withRevealTransition } from '@/utils/viewTransition'
 import { SHELL_SIDEBAR_CLOSE_EVENT } from '@/utils/shellSidebar'
@@ -33,6 +34,7 @@ function onNavigationIntent(event: Event) {
 }
 const themeStore = useThemeStore()
 const userStore = useUserStore()
+const siteStore = useSiteStore()
 const mobileOpen = ref(false)
 const searchDraft = ref('')
 const searchInput = ref<HTMLInputElement | null>(null)
@@ -123,55 +125,78 @@ onBeforeUnmount(() => {
       </button>
       <div class="public-shell-brand-row">
         <RouterLink to="/" class="public-shell-brand" @click="closeMobile">
-          <strong>小泉宇宙</strong>
-          <span>二创画廊</span>
+          <img
+            v-if="siteStore.config.logo_url"
+            class="public-shell-brand-logo"
+            :src="siteStore.config.logo_url"
+            alt=""
+            width="40"
+            height="40"
+          />
+          <span class="public-shell-brand-text">
+            <strong>{{ siteStore.config.name }}</strong>
+            <span v-if="siteStore.config.tagline">{{ siteStore.config.tagline }}</span>
+          </span>
         </RouterLink>
       </div>
 
-      <nav class="public-shell-nav" aria-label="发现">
-        <p>发现</p>
+      <nav class="public-shell-nav" :aria-label="siteStore.text('nav.discover')">
+        <p>{{ siteStore.text('nav.discover') }}</p>
         <RouterLink to="/ideas" active-class="is-active" @click="closeMobile">
           <SiteIcon name="bulb" />
-          <span>创意广场</span>
+          <span>{{ siteStore.text('nav.ideas') }}</span>
         </RouterLink>
         <RouterLink to="/characters" active-class="is-active" @click="closeMobile">
           <SiteIcon name="users" />
-          <span>角色设定</span>
+          <span>{{ siteStore.text('nav.characters') }}</span>
         </RouterLink>
         <RouterLink to="/polls" active-class="is-active" @click="closeMobile">
           <SiteIcon name="chart" />
-          <span>投票广场</span>
+          <span>{{ siteStore.text('nav.polls') }}</span>
         </RouterLink>
       </nav>
 
       <div id="public-shell-workspace" class="public-shell-workspace"></div>
 
       <div class="public-shell-bottom">
-        <nav class="public-shell-friends" aria-label="友情链接">
-          <p>友情链接</p>
+        <nav
+          v-if="siteStore.config.friend_links.length"
+          class="public-shell-friends"
+          :aria-label="siteStore.text('nav.friends')"
+        >
+          <p>{{ siteStore.text('nav.friends') }}</p>
           <a
-            href="https://xn--pssy23gqgbz2d718b.com/"
+            v-for="link in siteStore.config.friend_links"
+            :key="`${link.name}-${link.url}`"
+            :href="link.url"
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="蓝色大肥鱼（在新标签页打开）"
+            :aria-label="`${link.name}（在新标签页打开）`"
             @click="closeMobile"
           >
-            <img class="public-shell-friend-icon" src="/friend-links/blue-fat-fish.webp" alt="" width="24" height="24" />
-            <span>蓝色大肥鱼</span>
+            <img
+              v-if="link.icon_url"
+              class="public-shell-friend-icon"
+              :src="link.icon_url"
+              alt=""
+              width="24"
+              height="24"
+            />
+            <span>{{ link.name }}</span>
             <SiteIcon name="arrow-right" />
           </a>
         </nav>
         <button class="public-shell-publish" type="button" data-preload-route="/quick-upload" @click="handlePublish">
           <SiteIcon name="upload" />
-          <span>发布作品</span>
+          <span>{{ siteStore.text('nav.publish') }}</span>
         </button>
         <RouterLink v-if="!userStore.isLoggedIn" to="/login" class="public-shell-user" @click="closeMobile">
           <span class="public-shell-user-mark"><SiteIcon name="user" /></span>
-          <span><strong>登录 / 注册</strong><small>保存你的创作</small></span>
+          <span><strong>{{ siteStore.text('nav.login') }}</strong><small>{{ siteStore.text('nav.loginHint') }}</small></span>
         </RouterLink>
         <RouterLink v-else to="/admin" class="public-shell-user" @click="closeMobile">
           <UserAvatar :size="32" :email="userStore.user?.email" :username="userStore.user?.username" />
-          <span><strong>{{ userStore.user?.username }}</strong><small>创作者空间</small></span>
+          <span><strong>{{ userStore.user?.username }}</strong><small>{{ siteStore.text('nav.memberHint') }}</small></span>
         </RouterLink>
       </div>
     </aside>
@@ -184,8 +209,8 @@ onBeforeUnmount(() => {
           <SiteIcon :name="mobileOpen ? 'close' : 'menu'" />
         </button>
         <nav class="public-shell-tabs" aria-label="主要入口">
-          <RouterLink to="/studio" :class="{ 'is-active': pageTab === 'studio' }">工作台</RouterLink>
-          <RouterLink to="/" :class="{ 'is-active': pageTab === 'browse' }">作品广场</RouterLink>
+          <RouterLink to="/studio" :class="{ 'is-active': pageTab === 'studio' }">{{ siteStore.text('nav.workspace') }}</RouterLink>
+          <RouterLink to="/" :class="{ 'is-active': pageTab === 'browse' }">{{ siteStore.text('nav.gallery') }}</RouterLink>
         </nav>
         <label class="public-shell-search">
           <SiteIcon name="search" aria-hidden="true" />
@@ -193,8 +218,8 @@ onBeforeUnmount(() => {
             ref="searchInput"
             v-model="searchDraft"
             type="search"
-            aria-label="搜索作品、提示词、标签或用户"
-            placeholder="搜索作品、提示词、标签或用户"
+            :aria-label="siteStore.text('nav.searchPlaceholder')"
+            :placeholder="siteStore.text('nav.searchPlaceholder')"
             @keydown.enter.prevent="submitSearch"
             @keydown.esc.prevent="searchInput?.blur()"
           />
@@ -213,6 +238,9 @@ onBeforeUnmount(() => {
       <div class="public-shell-content">
         <slot />
       </div>
+      <footer v-if="siteStore.text('footer.copyright')" class="public-shell-footer">
+        {{ siteStore.text('footer.copyright') }}
+      </footer>
     </div>
   </div>
 </template>
@@ -273,9 +301,11 @@ body[arco-theme='dark'] .public-shell {
 }
 .public-shell-theme:hover { background: var(--shell-soft); transform: rotate(-12deg); }
 .public-shell-theme:active { transform: rotate(-12deg) scale(.93); }
-.public-shell-brand { display: flex; flex-direction: column; color: var(--shell-ink); text-decoration: none; }
-.public-shell-brand strong { font: 600 20px/1.1 var(--creative-title-font); letter-spacing: .04em; }
-.public-shell-brand span { margin-top: 4px; color: var(--shell-muted); font-size: 10px; letter-spacing: .14em; }
+.public-shell-brand { display: flex; align-items: center; gap: 11px; min-width: 0; color: var(--shell-ink); text-decoration: none; }
+.public-shell-brand-logo { flex: 0 0 auto; width: 40px; height: 40px; object-fit: contain; border-radius: 10px; }
+.public-shell-brand-text { display: flex; flex-direction: column; min-width: 0; }
+.public-shell-brand-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 20px/1.1 var(--creative-title-font); letter-spacing: .04em; }
+.public-shell-brand-text > span { margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--shell-muted); font-size: 10px; letter-spacing: .14em; }
 .public-shell-nav a,
 .public-shell-user,
 .public-shell-publish { text-decoration: none; }
@@ -350,7 +380,7 @@ body[arco-theme='dark'] .public-shell {
 .public-shell-user > span:last-child { display: flex; flex-direction: column; min-width: 0; }
 .public-shell-user strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 .public-shell-user small { margin-top: 3px; color: var(--shell-muted); font-size: 10px; }
-.public-shell-main { flex: 1; min-width: 0; background: var(--shell-canvas); }
+.public-shell-main { display: flex; flex: 1; flex-direction: column; min-width: 0; background: var(--shell-canvas); }
 .public-shell-topbar { display: flex; align-items: center; gap: 24px; min-height: 76px; padding: 0 44px; border-bottom: 1px solid var(--shell-line); background: color-mix(in srgb, var(--shell-canvas) 94%, transparent); }
 @media (min-width: 821px) {
   .public-shell:not(.is-workspace) .public-shell-topbar {
@@ -400,7 +430,18 @@ body[arco-theme='dark'] .public-shell {
 .public-shell-login { display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border: 1px solid var(--shell-line); border-radius: 999px; color: var(--shell-accent); font-size: 11px; text-decoration: none; }
 .public-shell-avatar { display: inline-flex; align-items: center; border-radius: 50%; transition: transform .18s ease; }
 .public-shell-avatar:hover { transform: translateY(-2px); }
-.public-shell-content { max-width: 1480px; min-height: calc(100dvh - 76px); margin: 0 auto; padding: 28px 44px 64px; }
+.public-shell-content { flex: 1; width: 100%; max-width: 1480px; min-height: calc(100dvh - 76px); margin: 0 auto; padding: 28px 44px 64px; }
+.public-shell-footer {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 18px 44px 30px;
+  border-top: 1px solid var(--shell-line);
+  color: var(--shell-muted);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-align: center;
+}
 .public-shell-menu,
 .public-shell-scrim,
 .public-shell-drawer-close { display: none; }
@@ -449,6 +490,7 @@ body[arco-theme='dark'] .public-shell {
   .public-shell-search input { font-size: 10px; }
   .public-shell-search kbd { display: none; }
   .public-shell-content { min-height: calc(100dvh - 104px); padding: 22px 18px 48px; }
+  .public-shell-footer { padding: 16px 20px 28px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .public-shell *, .public-shell *::before, .public-shell *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }

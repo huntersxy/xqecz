@@ -13,6 +13,7 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/modules/content"
 	creativehttp "github.com/huntersxy/xqecz/server/internal/modules/creative"
 	"github.com/huntersxy/xqecz/server/internal/modules/poll"
+	sitehttp "github.com/huntersxy/xqecz/server/internal/modules/site"
 	"github.com/huntersxy/xqecz/server/internal/web"
 )
 
@@ -33,6 +34,7 @@ func New(deps app.Deps, opts ...content.Options) *gin.Engine {
 			admin.Register(api, deps, contentHandler)
 			aigenhttp.Register(api, deps, contentHandler)
 			creativehttp.Register(api, deps)
+			sitehttp.Register(api, deps)
 		})
 }
 

@@ -6,6 +6,7 @@ import { useAutoMetadata } from '@/composables/useAutoMetadata'
 import AutoMetadataOption from '@/components/AutoMetadataOption.vue'
 import { contentApi } from '@/api'
 import { useUserStore } from '@/stores/user'
+import { useSiteStore } from '@/stores/site'
 import { CC_LICENSE_TEXT } from '@/utils/constants'
 import { IconUpload, IconArrowRight, IconClose } from '@arco-design/web-vue/es/icon'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
@@ -13,6 +14,7 @@ import TagCloud from '@/components/admin/TagCloud.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
+const siteStore = useSiteStore()
 const isLoggedIn = computed(() => userStore.isLoggedIn)
 
 const GUEST_STORAGE_KEY = 'xqecz_guest_identity'
@@ -120,8 +122,8 @@ onMounted(async () => {
   <div class="qu-page creative-theme">
     <div class="qu-layout">
       <header class="qu-heading">
-        <div><span class="qu-kicker">PUBLISH A PIECE <span aria-hidden="true">/</span></span><h1>发布一份作品<span>。</span></h1><p>把你的画面、文字和灵感，留在小泉作品广场。</p></div>
-        <RouterLink to="/" class="qu-back">返回作品广场 <span aria-hidden="true">↗</span></RouterLink>
+        <div><span class="qu-kicker">{{ siteStore.text('upload.kicker') }} <span aria-hidden="true">/</span></span><h1>{{ siteStore.text('upload.title') }}<span>。</span></h1><p>{{ siteStore.text('upload.subtitle') }}</p></div>
+        <RouterLink to="/" class="qu-back">{{ siteStore.text('upload.back') }} <span aria-hidden="true">↗</span></RouterLink>
       </header>
       <a-form class="qu-card" layout="vertical" :model="form" @submit="handleSubmit">
         <div class="qu-body">
@@ -139,7 +141,7 @@ onMounted(async () => {
             </div>
             </Transition>
             <p class="qu-media-note"><span aria-hidden="true">/</span> 没有图片也没关系，一段文字同样可以发布。</p>
-            <div class="qu-tip-card"><span class="qu-tip-kicker">A SMALL REMINDER</span><p>先把想法留下，<br>细节之后再慢慢完善<span>。</span></p><span class="qu-tip-spark" aria-hidden="true">+</span></div>
+            <div class="qu-tip-card"><span class="qu-tip-kicker">{{ siteStore.text('upload.tipKicker') }}</span><p class="qu-tip-text">{{ siteStore.text('upload.tip') }}<span>。</span></p><span class="qu-tip-spark" aria-hidden="true">+</span></div>
           </section>
 
           <section class="qu-fields" aria-labelledby="qu-story-title">
@@ -155,8 +157,8 @@ onMounted(async () => {
           </section>
         </div>
         <footer class="qu-footer">
-          <div class="qu-footer-copy"><div class="qu-license" v-html="CC_LICENSE_TEXT"></div><div v-if="uploading" class="qu-progress" aria-live="polite"><span>正在上传 {{ progress }}%</span><a-progress :percent="progress" :show-text="false" :stroke-width="4" /></div><p v-else><span aria-hidden="true">/</span> 发布后，作品会出现在作品广场。</p></div>
-          <a-button type="primary" size="large" html-type="submit" class="qu-submit" :loading="uploading">{{ uploading ? '正在发布…' : '发布作品' }}<IconArrowRight v-if="!uploading" /></a-button>
+          <div class="qu-footer-copy"><div class="qu-license" v-html="CC_LICENSE_TEXT"></div><div v-if="uploading" class="qu-progress" aria-live="polite"><span>正在上传 {{ progress }}%</span><a-progress :percent="progress" :show-text="false" :stroke-width="4" /></div><p v-else><span aria-hidden="true">/</span> {{ siteStore.text('upload.notice') }}</p></div>
+          <a-button type="primary" size="large" html-type="submit" class="qu-submit" :loading="uploading">{{ uploading ? '正在发布…' : siteStore.text('nav.publish') }}<IconArrowRight v-if="!uploading" /></a-button>
         </footer>
       </a-form>
     </div>
@@ -199,7 +201,7 @@ onMounted(async () => {
 .qu-media-note > span { color: var(--creative-accent); }
 .qu-tip-card { position: relative; margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--creative-line); }
 .qu-tip-kicker { color: var(--creative-muted); font-size: 8px; letter-spacing: .13em; }
-.qu-tip-card p { margin: 11px 0 0; color: var(--creative-ink); font: 18px/1.7 var(--creative-title-font); }
+.qu-tip-card p { margin: 11px 0 0; color: var(--creative-ink); font: 18px/1.7 var(--creative-title-font); white-space: pre-line; }
 .qu-tip-card p > span { color: var(--creative-accent); }
 .qu-tip-spark { position: absolute; right: 4px; bottom: 4px; color: var(--creative-accent); font: 30px/1 var(--creative-title-font); }
 .qu-fields { min-width: 0; }

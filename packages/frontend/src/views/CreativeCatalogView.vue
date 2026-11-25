@@ -6,8 +6,10 @@ import type { CreativeResource, AIAsset } from '@/types/schemas'
 import CreativeImage from '@/components/CreativeImage.vue'
 import '@/assets/creative-pages.css'
 import { resolveCreativeResource } from '@/utils/creativeResources'
-const route = useRoute(),
-  rows = ref<CreativeResource[]>([]),
+import { useSiteStore } from '@/stores/site'
+const route = useRoute()
+const siteStore = useSiteStore()
+const rows = ref<CreativeResource[]>([]),
   assets = ref<AIAsset[]>([]),
   detail = ref<CreativeResource | null>(null),
   search = ref(''),
@@ -16,7 +18,6 @@ const route = useRoute(),
   loading = ref(false),
   preview = ref<AIAsset | null>(null)
 let controller: AbortController | undefined
-const originalTitle = document.title
 const descriptionMeta = document.createElement('meta')
 descriptionMeta.name = 'description'
 document.head.append(descriptionMeta)
@@ -73,10 +74,7 @@ watch(
         assets.value = nextAssets
       }
       if (signal.aborted) return
-      document.title = detail.value
-        ? `${detail.value.title} · 角色设定 · 小泉二创站`
-        : '角色设定库 · 小泉二创站'
-      descriptionMeta.content = detail.value?.summary || '浏览官方角色设定、外观特征与授权参考图。'
+      applyPageMeta()
     } catch (e) {
       if (!signal.aborted) error.value = (e as Error).message
     } finally {
@@ -85,6 +83,13 @@ watch(
   },
   { immediate: true },
 )
+function applyPageMeta() {
+  document.title = detail.value
+    ? siteStore.format('characters.detailMeta', { title: detail.value.title })
+    : siteStore.text('characters.indexMeta')
+  descriptionMeta.content = detail.value?.summary || siteStore.text('characters.description')
+}
+watch(() => [siteStore.config.name, siteStore.config.browser_title], applyPageMeta)
 async function download(asset: AIAsset) {
   try {
     const blob = await aiApi.publicBlob(asset.id)
@@ -100,7 +105,7 @@ async function download(asset: AIAsset) {
 }
 onBeforeUnmount(() => {
   controller?.abort()
-  document.title = originalTitle
+  document.title = siteStore.baseTitle
   descriptionMeta.remove()
 })
 </script>
@@ -117,12 +122,12 @@ onBeforeUnmount(() => {
       </div>
     </header>
     <header v-else class="character-toolbar">
-      <h1>角色设定库</h1>
+      <h1>{{ siteStore.text('characters.title') }}</h1>
       <a-input
         v-model="search"
         allow-clear
-        placeholder="搜索角色名称与简介"
-        aria-label="搜索角色名称与简介"
+        :placeholder="siteStore.text('characters.search')"
+        :aria-label="siteStore.text('characters.search')"
         class="catalog-search"
       >
         <template #prefix>

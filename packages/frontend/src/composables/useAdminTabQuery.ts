@@ -15,6 +15,7 @@ export const ADMIN_TAB_KEYS = [
   'reports',
   'vision',
   'ai',
+  'site',
   'api-keys',
   'api-docs',
   'logs',

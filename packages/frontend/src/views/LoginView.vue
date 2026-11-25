@@ -2,11 +2,14 @@
 import { useRoute, useRouter } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import { useUserStore } from '@/stores/user'
+import { useSiteStore } from '@/stores/site'
 import { authApi } from '@/api'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const siteStore = useSiteStore()
+const storyLines = computed(() => siteStore.lines('login.storyTitle'))
 
 function nextPath() {
   const redirect = route.query.redirect
@@ -107,26 +110,24 @@ function switchMode() {
   <div class="auth-page auth-gallery-page creative-theme">
     <div class="auth-layout">
       <section class="auth-story" aria-labelledby="auth-story-title">
-        <span class="auth-kicker">A LITTLE UNIVERSE OF OUR OWN <span aria-hidden="true">✦</span></span>
+        <span class="auth-kicker">{{ siteStore.text('login.storyKicker') }} <span aria-hidden="true">✦</span></span>
         <h1 id="auth-story-title">
-          <span>在小泉宇宙，</span>
-          <span>写下你的</span>
-          <span>第一颗星球<i>。</i></span>
+          <span v-for="(line, index) in storyLines" :key="index">{{ line }}<i v-if="index === storyLines.length - 1">。</i></span>
         </h1>
-        <p>上传你的作品，点亮你的星球。<br>和第一批造物主，在这里相遇。</p>
+        <p>{{ siteStore.text('login.storyText') }}</p>
         <div class="auth-art" aria-hidden="true">
           <div class="auth-orbit"></div>
-          <div class="auth-art-card auth-art-back"><span>EVERY LITTLE IDEA</span><svg viewBox="0 0 120 100" fill="none"><path d="M18 68C40 2 76 2 103 68M24 62C54 96 76 80 100 38" stroke="currentColor" stroke-width="1.5"/><circle cx="60" cy="45" r="22" stroke="currentColor" stroke-width="1.5"/></svg><b>starts with you.</b></div>
-          <div class="auth-art-card auth-art-front"><span>CREATE / COLLECT / CONNECT</span><strong>Make<br>your own<span>✧</span></strong><span class="auth-art-caption">每一颗星球，都会被点亮</span></div>
+          <div class="auth-art-card auth-art-back"><span>{{ siteStore.text('login.artKickerFirst') }}</span><svg viewBox="0 0 120 100" fill="none"><path d="M18 68C40 2 76 2 103 68M24 62C54 96 76 80 100 38" stroke="currentColor" stroke-width="1.5"/><circle cx="60" cy="45" r="22" stroke="currentColor" stroke-width="1.5"/></svg><b>{{ siteStore.text('login.artLine1') }}</b></div>
+          <div class="auth-art-card auth-art-front"><span>{{ siteStore.text('login.artKickerSecond') }}</span><strong>{{ siteStore.text('login.artTitle') }}<span>✧</span></strong><span class="auth-art-caption">{{ siteStore.text('login.artCaption') }}</span></div>
           <span class="auth-spark auth-spark-one">✦</span><span class="auth-spark auth-spark-two">✧</span>
         </div>
-        <RouterLink to="/" class="auth-home-link">← 返回创作首页</RouterLink>
+        <RouterLink to="/" class="auth-home-link">← {{ siteStore.text('login.homeLink') }}</RouterLink>
       </section>
 
       <section class="auth-card" aria-labelledby="auth-title">
-        <span class="auth-card-kicker">YOUR CREATIVE CORNER <span aria-hidden="true">✦</span></span>
-        <h2 id="auth-title"><Transition name="auth-copy" mode="out-in"><span :key="isLoginMode ? 'login' : 'register'">{{ isLoginMode ? '欢迎回来' : '欢迎来到小泉宇宙' }}<i>。</i></span></Transition></h2>
-        <p class="auth-card-desc"><Transition name="auth-copy" mode="out-in"><span :key="isLoginMode ? 'login' : 'register'">{{ isLoginMode ? '登录，继续点亮你的星球。' : '创建你的造物主身份，点亮属于你的那颗星球。' }}</span></Transition></p>
+        <span class="auth-card-kicker">{{ siteStore.text('login.cardKicker') }} <span aria-hidden="true">✦</span></span>
+        <h2 id="auth-title"><Transition name="auth-copy" mode="out-in"><span :key="isLoginMode ? 'login' : 'register'">{{ isLoginMode ? siteStore.text('login.titleLogin') : siteStore.text('login.titleRegister') }}<i>。</i></span></Transition></h2>
+        <p class="auth-card-desc"><Transition name="auth-copy" mode="out-in"><span :key="isLoginMode ? 'login' : 'register'">{{ isLoginMode ? siteStore.text('login.descLogin') : siteStore.text('login.descRegister') }}</span></Transition></p>
         <div class="auth-mode" :class="{ 'is-register': !isLoginMode }" role="group" aria-label="账号操作">
           <button type="button" :class="{ 'is-active': isLoginMode }" :aria-pressed="isLoginMode" :disabled="isLoading" @click="!isLoginMode && switchMode()">登录</button>
           <button type="button" :class="{ 'is-active': !isLoginMode }" :aria-pressed="!isLoginMode" :disabled="isLoading" @click="isLoginMode && switchMode()">注册</button>
@@ -135,17 +136,17 @@ function switchMode() {
           <div class="auth-field"><label for="auth-username">用户名</label><input id="auth-username" v-model="username" type="text" placeholder="怎么称呼你？" autocomplete="username" required minlength="2" maxlength="32" :disabled="isLoading" /></div>
           <div class="auth-email-slot" :class="{ 'is-open': !isLoginMode }" :aria-hidden="isLoginMode" :inert="isLoginMode"><div class="auth-field"><label for="auth-email">邮箱</label><input id="auth-email" v-model="email" type="email" placeholder="用于账号联系，不会公开" autocomplete="email" :required="!isLoginMode" maxlength="254" :disabled="isLoading || isLoginMode" /></div></div>
           <div class="auth-field"><label for="auth-password">密码<span>至少 6 位</span></label><input id="auth-password" v-model="password" type="password" placeholder="请输入密码" :autocomplete="isLoginMode ? 'current-password' : 'new-password'" required minlength="6" :disabled="isLoading" /></div>
-          <button type="submit" :disabled="isLoading" class="auth-submit"><span v-if="isLoading" class="auth-spinner"></span>{{ isLoading ? '处理中…' : (isLoginMode ? '登录，回到小泉宇宙' : '注册，成为造物主') }}<span v-if="!isLoading" aria-hidden="true">↗</span></button>
+          <button type="submit" :disabled="isLoading" class="auth-submit"><span v-if="isLoading" class="auth-spinner"></span>{{ isLoading ? '处理中…' : (isLoginMode ? siteStore.text('login.submitLogin') : siteStore.text('login.submitRegister')) }}<span v-if="!isLoading" aria-hidden="true">↗</span></button>
         </form>
-        <p class="auth-switch">{{ isLoginMode ? '还没有账号？' : '已有账号？' }}<button type="button" :disabled="isLoading" @click="switchMode">{{ isLoginMode ? '现在就加入宇宙' : '欢迎回来，去登录' }} <span aria-hidden="true">→</span></button></p>
-        <div class="auth-card-note"><span aria-hidden="true">✧</span> 每一颗星球，都值得被看见。</div>
+        <p class="auth-switch">{{ isLoginMode ? '还没有账号？' : '已有账号？' }}<button type="button" :disabled="isLoading" @click="switchMode">{{ isLoginMode ? siteStore.text('login.switchToRegister') : siteStore.text('login.switchToLogin') }} <span aria-hidden="true">→</span></button></p>
+        <div class="auth-card-note"><span aria-hidden="true">✧</span> {{ siteStore.text('login.note') }}</div>
       </section>
     </div>
-    <a-modal v-model:visible="showEmailModal" title="为账号添一份联系" modal-class="auth-email-modal creative-theme" :mask-closable="false" :closable="false" :esc-to-close="false">
-      <a-typography-text type="secondary" class="email-modal-desc">你的账号尚未绑定邮箱。设置邮箱后，就可以继续点亮你的星球。</a-typography-text>
+    <a-modal v-model:visible="showEmailModal" :title="siteStore.text('login.emailTitle')" modal-class="auth-email-modal creative-theme" :mask-closable="false" :closable="false" :esc-to-close="false">
+      <a-typography-text type="secondary" class="email-modal-desc">{{ siteStore.text('login.emailDesc') }}</a-typography-text>
       <a-typography-text v-if="emailModalError" type="danger" class="email-modal-error">{{ emailModalError }}</a-typography-text>
       <a-input v-model="newEmail" placeholder="请输入邮箱地址" :maxlength="254" class="email-modal-input" :disabled="emailModalLoading" @keyup.enter="submitEmail" />
-      <template #footer><a-button type="primary" :loading="emailModalLoading" @click="submitEmail">保存邮箱</a-button></template>
+      <template #footer><a-button type="primary" :loading="emailModalLoading" @click="submitEmail">{{ siteStore.text('login.emailSubmit') }}</a-button></template>
     </a-modal>
   </div>
 </template>
@@ -158,7 +159,7 @@ function switchMode() {
 .auth-story h1 { margin: 22px 0 18px; font-size: clamp(28px, 3.2vw, 39px); line-height: 1.6; letter-spacing: .025em; font-family: var(--creative-title-font); font-weight: 600; color: var(--creative-ink); }
 .auth-story h1 i, .auth-card h2 i { color: var(--creative-accent); font-style: normal; }
 .auth-story h1 > span { display: block; white-space: nowrap; }
-.auth-story > p { font-size: 13px; color: var(--creative-muted); line-height: 2; }
+.auth-story > p { font-size: 13px; color: var(--creative-muted); line-height: 2; white-space: pre-line; }
 .auth-art { position: relative; height: 240px; margin: 30px 0 22px; max-width: 360px; }
 .auth-art::before { content: ''; position: absolute; inset: 8px 0 0; border-radius: 50%; pointer-events: none; background: radial-gradient(ellipse at center, color-mix(in srgb, var(--creative-warm) 12%, transparent), transparent 68%); }
 .auth-orbit { position: absolute; width: 260px; height: 180px; top: 32px; left: 28px; border: 1px solid var(--creative-line); border-radius: 50%; transform: rotate(-24deg); }
@@ -168,7 +169,7 @@ function switchMode() {
 .auth-art-back svg { display: block; width: 100%; height: 105px; margin-top: 8px; }
 .auth-art-back b { font-family: Georgia, serif; font-size: 18px; font-style: italic; font-weight: 400; }
 .auth-art-front { top: 36px; left: 148px; background: var(--creative-paper); color: var(--creative-muted); transform: rotate(8deg); }
-.auth-art-front strong { display: block; margin: 28px 0 20px; font-family: Georgia, serif; font-size: 30px; line-height: 1.05; font-weight: 400; color: var(--creative-ink); }
+.auth-art-front strong { display: block; margin: 28px 0 20px; font-family: Georgia, serif; font-size: 30px; line-height: 1.05; font-weight: 400; color: var(--creative-ink); white-space: pre-line; }
 .auth-art-front strong > span { position: absolute; right: 20px; top: 82px; font-size: 34px; color: var(--creative-accent); }
 .auth-art-caption { color: var(--creative-accent); }
 .auth-spark { position: absolute; color: var(--creative-accent); }

@@ -18,10 +18,12 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/config"
 	"github.com/huntersxy/xqecz/server/internal/creative"
 	"github.com/huntersxy/xqecz/server/internal/logx"
+	"github.com/huntersxy/xqecz/server/internal/migrate"
 	"github.com/huntersxy/xqecz/server/internal/mirror"
 	"github.com/huntersxy/xqecz/server/internal/modules/content"
 	"github.com/huntersxy/xqecz/server/internal/project"
 	"github.com/huntersxy/xqecz/server/internal/recommend"
+	"github.com/huntersxy/xqecz/server/internal/site"
 	"github.com/huntersxy/xqecz/server/internal/store"
 	"github.com/huntersxy/xqecz/server/internal/vision"
 	"github.com/huntersxy/xqecz/server/internal/web"
@@ -39,12 +41,22 @@ func main() {
 		cli.RunAdmin(cfg, os.Args[2:])
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		cli.RunMigrate(cfg, os.Args[2:])
+		return
+	}
 	logs := logx.NewBuffer(500)
 	slog.SetDefault(slog.New(logx.NewWithBuffer(os.Stdout, logs)))
 
 	db, err := store.Open(cfg)
 	if err != nil {
 		slog.Error("mysql init failed", "err", err)
+		os.Exit(1)
+	}
+	migrateCtx, cancelMigrate := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancelMigrate()
+	if err := migrate.Run(migrateCtx, db); err != nil {
+		slog.Error("database migration failed", "err", err)
 		os.Exit(1)
 	}
 	mediaMirror := mirror.NewChain(
@@ -56,6 +68,12 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	siteConfig := site.New(db, cfg)
+	if err := siteConfig.Init(ctx); err != nil {
+		slog.Warn("站点配置初始化失败，将使用默认站点文案", "err", err)
+	} else {
+		deps.Site = siteConfig
+	}
 	images := aigen.New(db, cfg)
 	if err := creative.Init(ctx, db); err != nil {
 		slog.Error("creative tables init failed", "err", err)

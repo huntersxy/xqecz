@@ -67,6 +67,20 @@ jobs:
             packages/server/xqecz-server "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/xqecz-server.new"
           echo "后端二进制已上传为 $DEPLOY_DIR/xqecz-server.new"
 
+      # 迁移已内嵌在新二进制里；用新二进制执行，失败则保留旧进程继续服务。
+      - name: Apply database migrations
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" '
+            set -e
+            cd /opt/xqecz
+            chmod +x xqecz-server.new
+            doas ./xqecz-server.new migrate -status
+            doas ./xqecz-server.new migrate
+            doas ./xqecz-server.new migrate -status
+          '
+          echo "数据库迁移已完成"
+
       - name: Activate & restart backend
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.restart }}
         run: |

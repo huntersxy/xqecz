@@ -6,12 +6,17 @@ import { createPinia } from 'pinia'
 
 import App from './App.vue'
 import router from './router'
+import { useSiteStore } from './stores/site'
 import { initWebVitals } from './utils/webVitals'
 
 const app = createApp(App)
+const pinia = createPinia()
 
-app.use(createPinia())
+app.use(pinia)
 app.use(router)
+
+const siteStore = useSiteStore(pinia)
+void siteStore.load()
 
 app.mount('#app')
 

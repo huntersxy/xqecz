@@ -6,6 +6,7 @@ import (
 	"github.com/huntersxy/xqecz/server/internal/cache"
 	"github.com/huntersxy/xqecz/server/internal/config"
 	"github.com/huntersxy/xqecz/server/internal/logx"
+	"github.com/huntersxy/xqecz/server/internal/site"
 	"github.com/huntersxy/xqecz/server/internal/vision"
 	"gorm.io/gorm"
 )
@@ -25,5 +26,6 @@ type Deps struct {
 	Mirror  MediaMirror
 	Vision  *vision.Service
 	AI      *aigen.Service
+	Site    *site.Service
 	Logs    *logx.Buffer
 }

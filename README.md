@@ -4,7 +4,9 @@
 
 前端是 Vue 3 单页应用，后端是**单一 Go 进程**（HTTP + MySQL + Redis + 进程内媒体处理）。前端依赖由 pnpm workspace 管理，后端由 go module 管理，两端任务由 moon 统一编排。
 
-新增 AI 工作台、角色与提示词资源、站点额度/BYOK、私人生成历史和社区赞助。配置、私有目录备份、任务恢复与验收说明见 [AI 创作与社区赞助](docs/ai-creation.md)。
+新增 AI 工作台、角色与提示词资源、站点额度/BYOK、私人生成历史和社区赞助。配置、私有目录备份、任务恢复与验收说明见 [AI 创作与社区赞助](docs/ai-creation.md)。站点名称、Logo、图标、友链与前台文案可在后台「系统 → 站点外观」配置，机制见 [站点外观与文案配置](docs/site-customization.md)。
+
+结构变更以内嵌 SQL 迁移表达（`packages/server/internal/migrate/sql/`），随推送部署自动应用，详见 [数据库迁移](docs/database-migrations.md)。
 
 ## 架构
 
@@ -28,12 +30,13 @@ packages/
 │   ├── cmd/server/             # 入口：读 .env → 连 MySQL/Redis → 启动 HTTP + 推荐刷新
 │   ├── cmd/{dbsync,dbinfo,dbsql,rediskeys}/   # 排查与对拍用的小工具
 │   ├── internal/modules/       # 业务模块：auth / content / comment / poll / admin / apikey
-│   ├── internal/{api,config,mysqldsn,store,cache,web,media,objstore,r2,openlist,mirror,compress,recommend,logx,cli,project}/
+│   ├── internal/{api,config,mysqldsn,store,cache,web,media,objstore,r2,openlist,mirror,compress,recommend,logx,cli,project,site,migrate}/
+│   ├── internal/migrate/sql/   # 内嵌数据库迁移（编译进二进制，随部署应用）
 │   └── internal/app/           # Deps：各层共享依赖集
 └── frontend/                   # Vue 3 前端
     └── src/{api,components,composables,stores,views,router,types,utils}/
 
-scripts/                        # 开发编排、构建包装、启动器、一次性 SQL 迁移
+scripts/                        # 开发编排、构建包装、启动器、一次性数据脚本
 data/                           # 运行期媒体目录（uploads / thumbs / images 历史兼容 / bin），不入库
 docs/deploy.md                  # 部署与 CI 说明
 AGENTS.md                       # 面向贡献者与 AI 的工程约定（改代码前先读）
