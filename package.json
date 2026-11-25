@@ -23,6 +23,6 @@
   },
   "devDependencies": {
     "@moonrepo/cli": "^2.5.4",
-    "concurrently": "^10.0.5"
+    "concurrently": "^10.0.6"
   }
 }
